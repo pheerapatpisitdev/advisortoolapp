@@ -21,3 +21,8 @@ npm-debug.log*
 /.vercel
 key.json
 *-key.json
+
+# Cloudflare Worker build (OpenNext)
+.open-next/
+.wrangler/
+.dev.vars

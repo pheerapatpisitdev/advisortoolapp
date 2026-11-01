@@ -1,4 +1,14 @@
+import path from "node:path";
 import type { NextConfig } from "next";
+
+/**
+ * The build for Cloudflare Workers (npm run cf:build, OpenNext; Cloudflare move step 3). A Worker
+ * loads neither native modules nor Chrome, so the drawing, the crop and the PDF are only ever asked
+ * of the draw service there: their local fallbacks are swapped for src/lib/cloudflare/here-off.ts.
+ */
+const CLOUDFLARE = process.env.CF_BUILD === "1";
+const HERE_ONLY = /^@\/lib\/(draw\/core|content\/crop-here|quote-pdf\/print)$/;
+const NATIVE = ["satori", "@resvg/resvg-js", "puppeteer-core", "@sparticuz/chromium"];
 
 /**
  * what drawing a content poster reads off disk at run time: the Thai faces and satori's hb.wasm
@@ -18,7 +28,7 @@ const nextConfig: NextConfig = {
   // time; bundled, its path is rewritten and the deployed function fails with ENOENT on hb.wasm
   // (the owner's Maryjane project hit exactly this); resvg's native build is a .node binary the
   // bundler must leave alone, and so is Chrome for the quote PDF
-  serverExternalPackages: ["satori", "@resvg/resvg-js", "puppeteer-core", "@sparticuz/chromium"],
+  serverExternalPackages: CLOUDFLARE ? [] : NATIVE,
   // the quote cards draw Thai text, and the drawing library needs the font files themselves —
   // the health card reads the same two faces from where the other one keeps them
   outputFileTracingIncludes: {
@@ -49,8 +59,17 @@ const nextConfig: NextConfig = {
   // Sentry reports the Node server only (src/instrumentation.ts), but the edge build bundles
   // whatever the instrumentation file can import, and it put 140 kB of an SDK that never runs
   // there in front of every page request: in the edge build it resolves to nothing
-  webpack(config, { nextRuntime }) {
+  webpack(config, { nextRuntime, webpack }) {
     if (nextRuntime === "edge") {
+      config.resolve.alias = { ...config.resolve.alias, "@sentry/nextjs": false };
+    }
+    if (CLOUDFLARE) {
+      config.plugins.push(new webpack.NormalModuleReplacementPlugin(HERE_ONLY, (r: { request: string }) => {
+        r.request = path.join(__dirname, "src/lib/cloudflare/here-off.ts");
+      }));
+      config.plugins.push(new webpack.NormalModuleReplacementPlugin(/^\.\/sentry\.server$/, (r: { request: string }) => {
+        r.request = path.join(__dirname, "src/lib/cloudflare/sentry-off.ts");
+      }));
       config.resolve.alias = { ...config.resolve.alias, "@sentry/nextjs": false };
     }
     return config;

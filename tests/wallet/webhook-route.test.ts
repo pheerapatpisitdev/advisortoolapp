@@ -14,7 +14,7 @@ const req = (body = "{}", sig: string | null = "t=1,v1=x") =>
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
-  client.stripe.mockReturnValue({ webhooks: { constructEvent: construct } });
+  client.stripe.mockReturnValue({ webhooks: { constructEventAsync: construct } });
   construct.mockReturnValue({ id: "evt_1", type: "checkout.session.completed", data: { object: {} } });
 });
 

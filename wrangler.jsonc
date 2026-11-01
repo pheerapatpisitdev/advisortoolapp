@@ -1,0 +1,33 @@
+// The app as a Cloudflare Worker (Cloudflare move step 3, owner chose ข 2026-11-02: Cloudflare main, Vercel standby).
+// Built by OpenNext (npm run cf:build) from the same code Vercel builds; vercel.json stays for the standby.
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// OpenNext's app (.open-next/worker.js) and the consumer of runLater's queue
+	"main": "worker.ts",
+	"name": "advisortool",
+	"compatibility_date": "2026-10-15",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		// OpenNext calls itself for revalidation (https://opennext.js.org/cloudflare/caching)
+		{ "binding": "WORKER_SELF_REFERENCE", "service": "advisortool" }
+	],
+	"r2_buckets": [
+		// the pages Next keeps between requests (revalidate), as Vercel's own cache did
+		{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "advisortool-opennext-cache" }
+	],
+	// runLater's work (src/lib/later.ts): sent by the app, taken here one message at a time per call of
+	// worker.ts's queue(), side by side up to ten; never retried (an answer sent twice is worse than one lost)
+	"queues": {
+		"producers": [{ "binding": "LATER_QUEUE", "queue": "advisortool-later" }],
+		"consumers": [{ "queue": "advisortool-later", "max_batch_size": 10, "max_batch_timeout": 1, "max_retries": 0 }]
+	},
+	// next to Supabase in Singapore rather than next to the visitor in Bangkok: a page makes many queries
+	"placement": { "mode": "smart" },
+	// the bots wait on AI for minutes; CPU itself is what counts here, up to 5 minutes
+	"limits": { "cpu_ms": 300000 },
+	"observability": { "enabled": true }
+}

@@ -42,7 +42,8 @@ export async function POST(req: Request) {
   if (!signature) return new NextResponse("no signature", { status: 400 });
   let event;
   try {
-    event = client.webhooks.constructEvent(raw, signature, secret);
+    // async: Stripe's Workers build checks with Web Crypto, which has no synchronous form
+    event = await client.webhooks.constructEventAsync(raw, signature, secret);
   } catch {
     return new NextResponse("bad signature", { status: 400 });
   }

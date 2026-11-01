@@ -37,6 +37,10 @@
   ],
   "exclude": [
     "node_modules",
-    "remotion"
+    "remotion",
+    ".open-next",
+    ".wrangler",
+    "worker.ts",
+    "open-next.config.ts"
   ]
 }

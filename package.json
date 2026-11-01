@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "cf:build": "CF_BUILD=1 NODE_OPTIONS=--max-old-space-size=8192 opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare preview",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -15,11 +17,12 @@
   },
   "dependencies": {
     "@aws-sdk/client-lambda": "^3.1145.0",
+    "@opennextjs/cloudflare": "1.20.15",
     "@resvg/resvg-js": "2.6.2",
     "@sentry/nextjs": "10.75.3",
     "@sparticuz/chromium": "^153.0.0",
     "@supabase/supabase-js": "^2.114.0",
-    "next": "15.5.25",
+    "next": "15.5.28",
     "puppeteer-core": "^25.12.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -36,9 +39,10 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.5.25",
+    "eslint-config-next": "15.5.28",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "wrangler": "4.156.0"
   }
 }

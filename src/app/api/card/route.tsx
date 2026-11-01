@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { pngResponse } from "@/lib/draw-png";
+import { publicFile } from "@/lib/cloudflare/env";
 import { cardFont } from "@/lib/draw/fonts";
 import { insuredWho, whoRowHeight, type WhoStyle } from "./insured-who";
 import { highlighterUri } from "@/lib/highlighter";
@@ -348,14 +347,15 @@ async function loadCustomerPhoto(token: string | null): Promise<string | undefin
 /**
  * The family beside the premium, as the data URI the drawing library takes.
  *
- * Read from disk for the same reason as the faces; next.config.ts lists it. Its ground is white,
+ * Read as a file for the same reason as the faces (off disk on Vercel, where next.config.ts lists
+ * it; from the Worker's own assets on Cloudflare). Its ground is white,
  * which is the card's own, so it needs no cut-out. A card that cannot find it is drawn without
  * rather than not at all — a missing picture must never cost a customer their quote.
  */
 const PHOTO_SIZE = H.head;
 async function loadPhoto(): Promise<string | undefined> {
   try {
-    const file = await readFile(path.join(process.cwd(), "public/card/family.jpg"));
+    const file = await publicFile("card/family.jpg");
     return `data:image/jpeg;base64,${file.toString("base64")}`;
   } catch {
     return undefined;
