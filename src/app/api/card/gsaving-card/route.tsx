@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import type { ReactNode } from "react";
 import type { NextRequest } from "next/server";
 import { pngResponse } from "@/lib/draw-png";
+import { cardFont } from "@/lib/draw/fonts";
 import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
 import { BLUE_PEN } from "@/lib/card-theme";
 import { googleFontSubset } from "@/lib/google-font";
@@ -56,8 +55,7 @@ const pct2 = (n: number) => n.toFixed(2);
 /** a figure's width in 14px Plex, near enough to aim a pen at */
 const textW = (s: string, size = 14) => [...s].reduce((w, c) => w + (c === "," || c === "." ? 0.27 : /[0-9]/.test(c) ? 0.6 : 0.58), 0) * size;
 
-const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
-const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
+const loadFont = cardFont;
 
 type Style = Record<string, string | number>;
 const row = (s: Style = {}): Style => ({ display: "flex", flexDirection: "row", ...s });

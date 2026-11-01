@@ -1,7 +1,6 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import type { NextRequest } from "next/server";
 import { pngResponse } from "@/lib/draw-png";
+import { cardFont } from "@/lib/draw/fonts";
 import { insuredWho, whoRowHeight, type WhoStyle } from "../insured-who";
 import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
 import { cardPaletteFor, BLUE_PEN } from "@/lib/card-theme";
@@ -70,8 +69,7 @@ const CHART_H = CHART.caption + CHART.above + CHART.tall + CHART.under + CHART.a
 /** the pen notes' handwriting, as on the value table */
 const PEN_FACE = "Sriracha";
 
-const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
-const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
+const loadFont = cardFont;
 
 const band = (height: number) => ({ display: "flex", height, flexShrink: 0 }) as const;
 

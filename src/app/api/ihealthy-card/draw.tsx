@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import type { CardCell, CardColumn, CardTableRow } from "@/lib/ihealthy-card";
 import type { FullTableRow } from "@/lib/ihealthy-full-card";
 import { CARD_PALETTE } from "@/lib/card-theme";
@@ -8,6 +6,7 @@ import { googleFontSubset } from "@/lib/google-font";
 import type { Lang } from "@/lib/ihealthy-lang";
 import { WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
 import { laidOutHeight, type DrawFont } from "@/lib/draw-png";
+import { cardFont } from "@/lib/draw/fonts";
 
 /**
  * The ink both health pictures are drawn with: the palette, the bands, and the three
@@ -263,12 +262,11 @@ function PairRow(
 /**
  * Where the font files are, and why they are listed in next.config.ts.
  *
- * The same two faces the other card draws with, read from where that route keeps them rather
- * than copied: Thai needs a font that has Thai in it — with none, every letter would be a
+ * The same two faces the other card draws with, named by their files where that route keeps
+ * them (src/lib/draw/fonts.ts) rather than copied: Thai needs a font that has Thai in it — with none, every letter would be a
  * box. Both are under the SIL Open Font License (see LICENSE.md beside them).
  */
-const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
-const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
+const loadFont = cardFont;
 
 /**
  * How wide a canvas with this many plan columns has to be.

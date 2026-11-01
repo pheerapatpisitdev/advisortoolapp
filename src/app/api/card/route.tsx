@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pngResponse } from "@/lib/draw-png";
+import { cardFont } from "@/lib/draw/fonts";
 import { insuredWho, whoRowHeight, type WhoStyle } from "./insured-who";
 import { highlighterUri } from "@/lib/highlighter";
 import { NextResponse, type NextRequest } from "next/server";
@@ -292,7 +293,8 @@ function Notes({ notes, color, size }: { notes: string[]; color: string; size: n
 }
 
 /**
- * The Plex faces, read off disk beside this file.
+ * The Plex faces, the files beside this one, named rather than read: whoever draws reads them
+ * (src/lib/draw/fonts.ts) — the draw service off its own copy, or this server off disk.
  *
  * They cannot be imported the way a component imports an image: what the bundler hands back
  * is a public asset path, which the drawing library cannot take and which the development
@@ -302,8 +304,7 @@ function Notes({ notes, color, size }: { notes: string[]; color: string; size: n
  * Thai needs a font that has Thai in it — with none, every letter on the card would be a box.
  * Both faces are under the SIL Open Font License (see LICENSE.md beside them).
  */
-const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
-const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
+const loadFont = cardFont;
 
 /** the customer's face beside who the card is for: inside the two bands it sits across */
 const AVATAR = H.plan + H.insured - 12;

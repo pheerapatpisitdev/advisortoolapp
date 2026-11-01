@@ -149,6 +149,38 @@ export function googleToken(k: GcpKey, deps: { fetch?: typeof fetch; now?: () =>
   return accessToken(k, deps.fetch ?? fetch, deps.now ?? Date.now);
 }
 
+/** identity tokens by key and audience, as the access tokens above */
+const idTokens = new Map<string, { token: string; expiresAt: number }>();
+
+/**
+ * An identity token from the same key for a Cloud Run service that lets in only the accounts it
+ * names: the draw service (src/lib/draw/remote.ts), `audience` its URL. Google's answer carries
+ * no lifetime; its tokens last an hour, so one is kept for 55 minutes.
+ */
+export async function googleIdToken(k: GcpKey, audience: string, deps: { fetch?: typeof fetch; now?: () => number } = {}): Promise<string> {
+  const f = deps.fetch ?? fetch;
+  const now = deps.now ?? Date.now;
+  const id = `${tokenKey(k)}:${audience}`;
+  const cached = idTokens.get(id);
+  if (cached && cached.expiresAt - now() > TOKEN_MARGIN_MS) return cached.token;
+
+  const iat = Math.floor(now() / 1000) - 30;
+  const input = `${b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }))}.${b64url(JSON.stringify({
+    iss: k.clientEmail, sub: k.clientEmail, aud: GOOGLE_TOKEN_URL, target_audience: audience, iat, exp: iat + 3600,
+  }))}`;
+  const assertion = `${input}.${b64url(createSign("RSA-SHA256").update(input).sign(k.privateKey))}`;
+  const res = await f(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }).toString(),
+    signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+  });
+  const body = await res.json().catch(() => ({})) as { id_token?: unknown };
+  if (!res.ok || typeof body.id_token !== "string" || !body.id_token) throw new Error(`Google identity token refused (${res.status})`);
+  idTokens.set(id, { token: body.id_token, expiresAt: now() + 55 * 60_000 });
+  return body.id_token;
+}
+
 export function cloudRunEngine(key: string, deps: Deps = {}): RenderEngine {
   const f = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;

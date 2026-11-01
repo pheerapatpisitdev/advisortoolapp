@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { pngResponse } from "@/lib/draw-png";
+import { cardFont } from "@/lib/draw/fonts";
 import { insuredWho, whoRowHeight, type WhoStyle } from "../insured-who";
 import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
 import type { NextRequest } from "next/server";
@@ -295,11 +294,10 @@ function heightOf(
 }
 
 /**
- * The Plex faces, read off disk beside the quote card's own route — see the note there for
- * why they cannot simply be imported.
+ * The Plex faces beside the quote card's own route, named for whoever draws — see the note
+ * there for why they cannot simply be imported.
  */
-const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
-const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
+const loadFont = cardFont;
 
 /**
  * The contract year by year, drawn as an image.

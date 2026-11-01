@@ -28,3 +28,8 @@ if ! remotion/cloudrun/ship.sh; then
   echo "pre-push: the Remotion job for this drawing is not ready — nothing pushed." >&2
   exit 1
 fi
+# the draw service for the drawing code this push carries (draw/ship.sh); without it the app draws for itself
+if ! draw/ship.sh; then
+  echo "pre-push: the draw service for this code is not ready — nothing pushed." >&2
+  exit 1
+fi

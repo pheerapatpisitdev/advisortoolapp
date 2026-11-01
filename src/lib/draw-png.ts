@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import satori, { type SatoriOptions } from "satori";
-import { Resvg } from "@resvg/resvg-js";
-import { googleFontSubset } from "@/lib/google-font";
+import type { DrawFont } from "@/lib/draw/fonts";
+import { drawPngThere, drawServiceSet, laidOutHeightThere } from "@/lib/draw/remote";
 
 /**
  * Every picture the app draws, drawn with satori 0.33 and resvg — not with next/og.
@@ -20,38 +19,25 @@ import { googleFontSubset } from "@/lib/google-font";
  *   and traces hb.wasm, or the deployed function fails with ENOENT while working on a laptop;
  * - the machine's own fonts are never loaded: satori has turned every letter into a path, and
  *   scanning them made each picture four times slower (218 ms) than the wasm build.
+ *
+ * Since 2026-11-02 the drawing itself happens on the draw service (src/lib/draw/remote.ts) when
+ * it is set, the same satori and resvg on the same faces (src/lib/draw/core.ts); this server
+ * draws only when the service is not set or did not answer.
  */
 
-export type DrawFont = SatoriOptions["fonts"][number];
+export type { DrawFont } from "@/lib/draw/fonts";
 
-/**
- * The faces next/og would have fetched for letters the card's own fonts lack — a ✦, a word of
- * Chinese — so moving off it does not turn them into empty boxes. The same Noto families it
- * asks Google for, cut to the letters needed.
- */
-const FALLBACK: Record<string, string> = {
-  "ja-JP": "Noto Sans JP", "ko-KR": "Noto Sans KR", "zh-CN": "Noto Sans SC", "zh-TW": "Noto Sans TC",
-  "zh-HK": "Noto Sans HK", "th-TH": "Noto Sans Thai", "my-MM": "Noto Sans Myanmar",
-  symbol: "Noto Sans Symbols 2", math: "Noto Sans Math", unknown: "Noto Sans",
-};
-
-/** An emoji as Twemoji draws it, the set next/og uses. */
-async function emoji(segment: string): Promise<string | undefined> {
-  const code = [...segment].map((c) => c.codePointAt(0)!.toString(16)).filter((c) => c !== "fe0f").join("-");
-  try {
-    const svg = await fetch(`https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/${code}.svg`, { signal: AbortSignal.timeout(4000) })
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));
-    return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
-  } catch {
-    return undefined;
+/** the draw service first; this server when it is not set or failed */
+async function tryThere<T>(what: string, there: () => Promise<T>, here: () => Promise<T>): Promise<T> {
+  if (drawServiceSet()) {
+    try {
+      return await there();
+    } catch (e) {
+      console.warn(`draw: ${what} drawn here, the service failed:`, e instanceof Error ? e.message : e);
+    }
   }
+  return here();
 }
-
-const loadAdditionalAsset: SatoriOptions["loadAdditionalAsset"] = async (code, segment) => {
-  if (code === "emoji") return (await emoji(segment)) ?? segment;
-  const family = FALLBACK[code] ?? FALLBACK.unknown;
-  return (await googleFontSubset(family, segment, "400")) ?? [];
-};
 
 /**
  * The element as a PNG, `width` × `height`, in `fonts`; `scale` draws it that many times larger,
@@ -60,9 +46,11 @@ const loadAdditionalAsset: SatoriOptions["loadAdditionalAsset"] = async (code, s
 export async function drawPng(
   element: ReactNode, size: { width: number; height: number; scale?: number }, fonts: DrawFont[],
 ): Promise<Buffer> {
-  const svg = await satori(element, { width: size.width, height: size.height, fonts, loadAdditionalAsset });
-  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size.width * (size.scale ?? 1) }, font: { loadSystemFonts: false } });
-  return resvg.render().asPng();
+  return tryThere(
+    "png",
+    () => drawPngThere(element, size, fonts),
+    async () => (await import("@/lib/draw/core")).drawPngHere(element as never, size, fonts),
+  );
 }
 
 /**
@@ -71,8 +59,11 @@ export async function drawPng(
  * are summed band by band, so the band has to be told its height before it is drawn.
  */
 export async function laidOutHeight(element: ReactNode, width: number, fonts: DrawFont[]): Promise<number> {
-  const svg = await satori(element, { width, fonts, loadAdditionalAsset });
-  return Number(/height="([\d.]+)"/.exec(svg)?.[1] ?? 0);
+  return tryThere(
+    "height",
+    () => laidOutHeightThere(element, width, fonts),
+    async () => (await import("@/lib/draw/core")).laidOutHeightHere(element as never, width, fonts),
+  );
 }
 
 /**

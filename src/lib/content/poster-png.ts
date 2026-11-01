@@ -1,7 +1,6 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { ReactNode } from "react";
 import { drawPng, type DrawFont } from "@/lib/draw-png";
+import { cardFont } from "@/lib/draw/fonts";
 import { googleFontSubset } from "@/lib/google-font";
 import { PEN_TEXT } from "@/lib/quote-video/pen";
 
@@ -10,19 +9,11 @@ import { PEN_TEXT } from "@/lib/quote-video/pen";
  * resvg rather than next/og, and why — is src/lib/draw-png.ts, which every picture now shares.
  */
 
-const FONT_DIR = join(process.cwd(), "src/app/api/card");
-
-let fonts: Promise<{ regular: Buffer; semibold: Buffer }> | null = null;
-function loadFonts() {
-  fonts ??= Promise.all([
-    readFile(join(FONT_DIR, "IBMPlexSansThai-Regular.ttf")),
-    readFile(join(FONT_DIR, "IBMPlexSansThai-SemiBold.ttf")),
-  ]).then(([regular, semibold]) => ({ regular, semibold })).catch((e) => {
-    fonts = null;
-    throw e;
-  });
-  return fonts;
-}
+/** the card's Plex faces, named by file for whoever draws (src/lib/draw/fonts.ts) */
+const PLEX: DrawFont[] = [
+  { name: "Plex", data: cardFont("IBMPlexSansThai-Regular.ttf"), weight: 400, style: "normal" },
+  { name: "Plex", data: cardFont("IBMPlexSansThai-SemiBold.ttf"), weight: 600, style: "normal" },
+];
 
 /**
  * The handwriting face of the clip's pen notes (quote-video/pen.ts), the card's own: fetched once
@@ -77,8 +68,7 @@ export async function renderPng(
   size: { width: number; height: number },
   opts: { pen?: boolean; script?: { family: string; text: string }; hand?: string } = {},
 ): Promise<Buffer> {
-  const [f, pen, script, hand] = await Promise.all([
-    loadFonts(),
+  const [pen, script, hand] = await Promise.all([
     opts.pen ? loadPenFont() : undefined,
     opts.script ? loadScriptFont(opts.script.family, opts.script.text) : undefined,
     opts.hand ? loadHandFont(opts.hand) : undefined,
@@ -86,8 +76,7 @@ export async function renderPng(
   // a clip in a script without its face would be boxes where the words go: no picture rather than that
   if (opts.script && !script) throw new Error(`font ${opts.script.family} not loaded`);
   return drawPng(element, size, [
-    { name: "Plex", data: f.regular, weight: 400, style: "normal" },
-    { name: "Plex", data: f.semibold, weight: 600, style: "normal" },
+    ...PLEX,
     ...(pen ?? []),
     ...(script ?? []),
     ...(hand ?? []),

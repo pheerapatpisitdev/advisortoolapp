@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { pngResponse } from "@/lib/draw-png";
+import { cardFont } from "@/lib/draw/fonts";
 import type { NextRequest } from "next/server";
 import { diseaseListFor } from "@/lib/copilot/knowledge";
 import { CARD_PALETTE } from "@/lib/card-theme";
@@ -29,8 +28,7 @@ export const revalidate = 86400;
 const WIDTH = 1700;
 const PAD = 52;
 
-const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
-const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
+const loadFont = cardFont;
 
 export async function GET(req: NextRequest) {
   // one address per picture, so the CDN's copy is the one served (src/app/api/card/canonical.ts)

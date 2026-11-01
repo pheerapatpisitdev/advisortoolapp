@@ -1,0 +1,7 @@
+# gcloud builds submit draw --config draw/cloudbuild.yaml --substitutions _TAG=core-<DRAW_CORE> (draw/ship.sh does it)
+substitutions:
+  _TAG: latest
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "asia-southeast1-docker.pkg.dev/advisortool-video/clip/draw:${_TAG}", "."]
+images: ["asia-southeast1-docker.pkg.dev/advisortool-video/clip/draw:${_TAG}"]

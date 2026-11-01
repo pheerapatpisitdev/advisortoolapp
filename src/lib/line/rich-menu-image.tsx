@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { pngResponse } from "@/lib/draw-png";
+import { cardFont } from "@/lib/draw/fonts";
 import { CARD_PALETTE as P } from "@/lib/card-theme";
 import { menuAreas, type MenuSpec } from "@/lib/line/rich-menu";
 
@@ -12,8 +11,7 @@ import { menuAreas, type MenuSpec } from "@/lib/line/rich-menu";
  * plain type. The last button of the first menu, and of the second, is the way in, so it is
  * the one drawn in navy; the rest are sand.
  */
-const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
-const font = (file: string) => readFile(path.join(FONT_DIR, file));
+const font = cardFont;
 /** the gap between two buttons, drawn as the white ground showing through */
 const GUTTER = 14;
 
