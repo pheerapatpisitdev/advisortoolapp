@@ -2,7 +2,7 @@ import { chat } from "@/lib/ai/client";
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
 import { allowedFor, checkScene, checkScript } from "./check";
-import { SCREEN_MAX, TITLE_MAX, type PromptScene } from "./types";
+import { SCREEN_MAX, TITLE_MAX, type PromptScene, type SceneCount } from "./types";
 
 /**
  * The script of a คลิปตามโจทย์: one small-tier model call (never Claude) turns the agent's brief
@@ -22,8 +22,11 @@ export type Written =
 
 export type Ask = (system: string, user: string) => Promise<string>;
 
-const defaultAsk: Ask = async (system, user) =>
-  (await chat({ tier: "small", task: WRITER_TASK, json: true, maxTokens: 1800, timeoutMs: TIMEOUT_MS, messages: [{ role: "user", content: `${system}\n\n${user}` }] })).text;
+/** room for the reply: Thai runs about 300 tokens a scene, so 12 scenes need more than 8 did; and the time to write it */
+const replyTokens = (count: number) => Math.max(1800, 600 + 300 * count);
+const replyMs = (count: number) => TIMEOUT_MS + 2_500 * Math.max(0, count - 8);
+const defaultAsk = (count: number): Ask => async (system, user) =>
+  (await chat({ tier: "small", task: WRITER_TASK, json: true, maxTokens: replyTokens(count), timeoutMs: replyMs(count), messages: [{ role: "user", content: `${system}\n\n${user}` }] })).text;
 
 const PLAIN: PromptScene[] = [
   { voice: "ทุกครอบครัวมีคนที่เรารักและอยากดูแลให้ดีที่สุด", screen: "ดูแลคนที่เรารัก", picture: "ครอบครัวนั่งยิ้มด้วยกันในบ้าน" },
@@ -76,10 +79,10 @@ const empty = (s: PromptScene | undefined) => !s || !s.voice || !s.screen || !s.
 
 export const WRITE_FAILED = "AI เขียนบทไม่สำเร็จ ลองกดเขียนใหม่ ไม่เสียเงิน";
 
-export async function writeStory(input: { brief: string; scenes: 3 | 5 | 8; figure?: StoryFigure; ask?: Ask }): Promise<Written> {
+export async function writeStory(input: { brief: string; scenes: SceneCount; figure?: StoryFigure; ask?: Ask }): Promise<Written> {
   const { brief, figure } = input;
   const count = input.scenes;
-  const ask = input.ask ?? defaultAsk;
+  const ask = input.ask ?? defaultAsk(count);
   const sys = system(brief, count, figure);
   const user = `เขียนบทคลิป ${count} ฉากตามโจทย์ในบล็อกข้อมูล`;
 

@@ -9,7 +9,8 @@ import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { geminiVoice } from "@/lib/voice/gemini";
 import { mayPromptStory, PROMPT_STORY_CLOSED } from "@/lib/prompt-story/access";
-import { BRIEF_MAX, checkedPromptStory, HOURLY_LIMIT } from "@/lib/prompt-story/checked";
+import { BRIEF_MAX, checkedPromptStory, HOURLY_LIMIT, SCENE_COUNTS } from "@/lib/prompt-story/checked";
+import { isSceneCount, type SceneCount } from "@/lib/prompt-story/types";
 import { draftsUpTo, dropDraft, saveDraft, writeDraft } from "@/lib/prompt-story/drafts";
 import { writeStory } from "@/lib/prompt-story/writer";
 import type { PromptScene } from "@/lib/prompt-story/types";
@@ -26,7 +27,7 @@ export type WrittenPromptStory =
   | { ok: true; id: string; title: string; caption: string; scenes: PromptScene[]; notes: number[] }
   | { ok: false; error: string };
 
-export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; figure?: unknown }): Promise<WrittenPromptStory> {
+export async function writePromptStory(v: { brief: string; scenes: SceneCount; figure?: unknown }): Promise<WrittenPromptStory> {
   const viewer = await requireMember();
   // the owner's alone since 2026-10-17 (prompt-story/access.ts)
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
@@ -35,7 +36,7 @@ export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; fi
   const brief = typeof v?.brief === "string" ? v.brief.trim() : "";
   if (!brief) return { ok: false, error: "พิมพ์โจทย์ก่อนนะครับ" };
   if (brief.length > BRIEF_MAX) return { ok: false, error: `โจทย์ยาวเกินไป ใส่ได้ไม่เกิน ${BRIEF_MAX} ตัวอักษร` };
-  if (v.scenes !== 3 && v.scenes !== 5 && v.scenes !== 8) return { ok: false, error: "เลือกจำนวนฉาก 3, 5 หรือ 8" };
+  if (!isSceneCount(v.scenes)) return { ok: false, error: `เลือกจำนวนฉาก ${SCENE_COUNTS.join(", ")}` };
 
   let figure: StoryFigure | undefined;
   if (v.figure) {

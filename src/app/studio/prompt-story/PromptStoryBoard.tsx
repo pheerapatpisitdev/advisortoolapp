@@ -4,7 +4,7 @@ import { useFreshLinks } from "../quote-video/fresh-links";
 import { useEffect, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import { totalLine } from "@/lib/prompt-story/total";
-import { BRIEF_MAX, type PictureStyle, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { BRIEF_MAX, SCENE_COUNTS, type PictureStyle, type PromptStoryInput, type SceneCount } from "@/lib/prompt-story/types";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
@@ -31,7 +31,7 @@ const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
 const STYLES: { id: PictureStyle; name: string }[] = [{ id: "cartoon", name: "ลายเส้นการ์ตูน" }, { id: "real", name: "ภาพสมจริง" }, { id: "flat", name: "มินิมอลแบน" }];
 const PAINTERS: { id: PromptStoryInput["painter"]; name: string }[] = [{ id: "standard", name: "มาตรฐาน" }, { id: "sharp", name: "คมชัด" }, { id: "gemini", name: "Gemini" }];
-const SCENES = [3, 5, 8] as const;
+const SCENES = SCENE_COUNTS;
 const LOOK_KEY = "prompt-story-look";
 const FACE_KEY = "story-narrator-face";
 const DEFAULT_LOOK: Look = { size: "portrait", narrator: "F", voice: "", gemini: "", design: "" };
@@ -50,7 +50,7 @@ function readLook(): Look {
 }
 
 /** what the script was written from: the clip is made from these, not from a form edited since */
-interface Written { brief: string; scenes: 3 | 5 | 8; figure: FigureChoice | null }
+interface Written { brief: string; scenes: SceneCount; figure: FigureChoice | null }
 
 export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
   initial: VideoItem[] | null;
@@ -61,7 +61,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   eleven: ElevenChoice[];
 }) {
   const [brief, setBrief] = useState("");
-  const [scenes, setScenes] = useState<3 | 5 | 8>(5);
+  const [scenes, setScenes] = useState<SceneCount>(5);
   const [style, setStyle] = useState<PictureStyle>("cartoon");
   const [painter, setPainter] = useState<PromptStoryInput["painter"]>("standard");
   const [withFigure, setWithFigure] = useState(false);
@@ -180,13 +180,13 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           <h2 className="font-semibold">เครื่องมือ</h2>
           <p className="mt-0.5 text-xs text-[var(--ct-mute)]">พิมพ์โจทย์ → เขียนบท (ฟรี) → แก้บท → สร้างคลิป</p>
         </div>
-        <Step n={1} title="โจทย์" summary={`${brief.length}/${BRIEF_MAX}`} first>
+        <Step n={1} title="โจทย์" summary={`${brief.length.toLocaleString("en-US")}/${BRIEF_MAX.toLocaleString("en-US")}`} first>
           <textarea
-            aria-label="โจทย์" value={brief} maxLength={BRIEF_MAX} rows={5} onChange={(e) => setBrief(e.target.value)}
+            aria-label="โจทย์" value={brief} maxLength={BRIEF_MAX} rows={10} onChange={(e) => setBrief(e.target.value)}
             placeholder="เช่น ลูกค้าเป็นพ่อค้าออนไลน์ อายุ 40 ไม่มีประกันกลุ่ม กลัวป่วยแล้วร้านต้องหยุด อยากเล่าให้เห็นว่าเงินก้อนช่วยร้านได้ยังไง"
-            className="min-h-[110px] w-full resize-y rounded-lg border border-[var(--ct-line)] bg-[var(--ct-ground)] px-3 py-2 text-sm"
+            className="min-h-[220px] w-full resize-y rounded-lg border border-[var(--ct-line)] bg-[var(--ct-ground)] px-3 py-2 text-sm"
           />
-          <p className="text-xs text-[var(--ct-mute)]">เรื่องประกันและการเงินครอบครัวเท่านั้น · {brief.length}/{BRIEF_MAX} ตัวอักษร</p>
+          <p className="text-xs text-[var(--ct-mute)]">เรื่องประกันและการเงินครอบครัวเท่านั้น · {brief.length.toLocaleString("en-US")}/{BRIEF_MAX.toLocaleString("en-US")} ตัวอักษร</p>
         </Step>
         <Step n={2} title="จำนวนฉาก และสไตล์รูป" summary={`${scenes} ฉาก`}>
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="จำนวนฉาก">

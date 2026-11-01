@@ -2,7 +2,7 @@ import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
 import { isDesignLook } from "@/lib/shotstack/looks";
-import { BRIEF_MAX, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
+import { BRIEF_MAX, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
  * คลิปตามโจทย์'s form, checked on the server before anything is held: the brief and the script as
@@ -12,8 +12,7 @@ import { BRIEF_MAX, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, 
 
 /** scripts per agent per rolling hour, to cap the owner's model spend (spec, Money) */
 export const HOURLY_LIMIT = 20;
-export { BRIEF_MAX };
-export const SCENE_COUNTS = [3, 5, 8] as const;
+export { BRIEF_MAX, SCENE_COUNTS };
 const STYLES: PictureStyle[] = ["cartoon", "real", "flat"];
 const PAINTER_IDS: PromptStoryInput["painter"][] = ["standard", "sharp", "gemini"];
 const VOICE_MAX = 400;
@@ -33,7 +32,7 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
   if (!title || len(title) > TITLE_MAX) return `ใส่ชื่อคลิป ไม่เกิน ${TITLE_MAX} ตัวอักษร`;
   const caption = text(v.caption);
   if (len(caption) > CAPTION_MAX) return `ข้อความโพสต์ยาวเกินไป ใส่ได้ไม่เกิน ${CAPTION_MAX} ตัวอักษร`;
-  if (!Array.isArray(v.scenes) || !(SCENE_COUNTS as readonly number[]).includes(v.scenes.length)) return "เลือกจำนวนฉาก 3, 5 หรือ 8";
+  if (!Array.isArray(v.scenes) || !(SCENE_COUNTS as readonly number[]).includes(v.scenes.length)) return `เลือกจำนวนฉาก ${SCENE_COUNTS.join(", ")}`;
   if (!STYLES.includes(v.style as PictureStyle)) return "เลือกแบบภาพ";
   if (!PAINTER_IDS.includes(v.painter as PromptStoryInput["painter"])) return "เลือกคุณภาพภาพ";
 

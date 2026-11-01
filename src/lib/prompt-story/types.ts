@@ -6,8 +6,12 @@ import { pictureSatang, type Prices } from "@/lib/wallet/prices";
 /** a clip's title and one scene's words on the screen, in characters */
 export const TITLE_MAX = 28;
 export const SCREEN_MAX = 40;
-/** a brief, in characters */
-export const BRIEF_MAX = 600;
+/** a brief, in characters (owner, 2026-11-02: 600 → 10,000, a whole script may be pasted; mockup https://claude.ai/artifact/7kzsuHRkjEdnEVTXS9N5hs) */
+export const BRIEF_MAX = 10_000;
+/** how many scenes a script may be written in (owner, 2026-11-02: 10 and 12 added beside 3, 5, 8) */
+export const SCENE_COUNTS = [3, 5, 8, 10, 12] as const;
+export type SceneCount = (typeof SCENE_COUNTS)[number];
+export const isSceneCount = (v: unknown): v is SceneCount => (SCENE_COUNTS as readonly unknown[]).includes(v);
 
 export type PictureStyle = "cartoon" | "real" | "flat";
 

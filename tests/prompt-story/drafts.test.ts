@@ -37,11 +37,16 @@ describe("writePromptStory", () => {
     hourCount = 19;
     expect((await writePromptStory({ brief: "ชวนวางแผน", scenes: 3 })).ok).toBe(true);
   });
-  it("refuses 601 characters and an empty brief", async () => {
-    expect((await writePromptStory({ brief: "ก".repeat(601), scenes: 3 })).ok).toBe(false);
+  it("refuses 10,001 characters and an empty brief", async () => {
+    expect((await writePromptStory({ brief: "ก".repeat(10_001), scenes: 3 })).ok).toBe(false);
     expect((await writePromptStory({ brief: "   ", scenes: 3 })).ok).toBe(false);
-    expect((await writePromptStory({ brief: "ก".repeat(600), scenes: 3 })).ok).toBe(true);
+    expect((await writePromptStory({ brief: "ก".repeat(10_000), scenes: 3 })).ok).toBe(true);
     expect(written).toHaveBeenCalledTimes(1);
+  });
+  it("writes in 10 and 12 scenes, and in no count the form does not offer", async () => {
+    expect((await writePromptStory({ brief: "ชวนวางแผน", scenes: 12 })).ok).toBe(true);
+    expect((await writePromptStory({ brief: "ชวนวางแผน", scenes: 10 })).ok).toBe(true);
+    expect((await writePromptStory({ brief: "ชวนวางแผน", scenes: 13 as never })).ok).toBe(false);
   });
   it("refuses a bad figure", async () => {
     const r = await writePromptStory({ brief: "x", scenes: 3, figure: { plan: "nope" } });

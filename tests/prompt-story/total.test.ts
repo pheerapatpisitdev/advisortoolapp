@@ -34,7 +34,7 @@ describe("totalLine", () => {
 
   it("agrees with promptStoryPrice", () => {
     for (const painter of ["standard", "sharp", "gemini"] as const) {
-      for (const scenes of [3, 5, 8] as const) {
+      for (const scenes of [3, 5, 8, 10, 12] as const) {
         const want = promptStoryPrice({ scenes: Array.from({ length: scenes }, () => ({ voice: "", screen: "", picture: "" })), painter } as never, prices);
         expect(totalLine({ scenes, painter, prices, kind: "wallet" }).baht).toBe(String(want / 100));
       }

@@ -27,7 +27,7 @@ describe("checkedPromptStory", () => {
     expect(typeof checkedPromptStory(form({ scenes: form().scenes.slice(0, 2) }), "F")).toBe("string");
     expect(typeof checkedPromptStory(form({ style: "oil" }), "F")).toBe("string");
     expect(typeof checkedPromptStory(form({ painter: "none" }), "F")).toBe("string");
-    expect(typeof checkedPromptStory(form({ brief: "ก".repeat(601) }), "F")).toBe("string");
+    expect(typeof checkedPromptStory(form({ brief: "ก".repeat(10_001) }), "F")).toBe("string");
   });
   it("names the scene with an empty line", () => {
     const scenes = form().scenes;
