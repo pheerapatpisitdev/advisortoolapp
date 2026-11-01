@@ -150,8 +150,8 @@ describe("คลิปเล่าเรื่อง's price", () => {
 describe("ความรู้ประกัน 1 นาที (story-knowledge.ts)", () => {
   const episodes = STORY_TOPICS.filter((t) => t.shelf === "knowledge");
 
-  it("is five episodes of six scenes, the agent's card last", () => {
-    expect(episodes.map((t) => t.key)).toEqual(["sumvspremium", "declare", "mythclaim", "mythyoung", "mythjinx"]);
+  it("is six episodes of six scenes, the agent's card last", () => {
+    expect(episodes.map((t) => t.key)).toEqual(["sumvspremium", "declare", "mythclaim", "mythyoung", "mythjinx", "fiverisks"]);
     for (const t of episodes) {
       expect(storyScript(story({ topic: t.key }), "นิด").map((l) => l.key)).toEqual(["knowAsk", "knowOne", "knowTwo", "knowThree", "knowRecap", "storyContact"]);
     }
@@ -362,13 +362,27 @@ describe("หลังการขาย (story-after.ts)", () => {
   });
 });
 
+describe("5 เรื่องใหญ่ ที่ชีวิตต้องเตรียม", () => {
+  it("names the five in order, two scenes of lists, and no premium of anyone's", () => {
+    const lines = storyScript(story({ topic: "fiverisks" }), "นิด").map((l) => l.voice);
+    expect(lines[2]).toMatch(/หนึ่ง จากไปเร็ว.*สอง อยู่นานเกินไป.*สาม ป่วยเป็นโรคร้ายแรง/);
+    expect(lines[3]).toMatch(/สี่ อุบัติเหตุ และห้า ทุพพลภาพ/);
+    expect(lines.join(" ")).not.toMatch(/\d{2},\d{3}|ล้านบาท/);
+    expect(lines[5]).toContain("อยากรู้ว่าเรื่องไหนต้องเตรียมก่อน");
+    for (const size of ["portrait", "square", "landscape"] as const) {
+      const input = story({ topic: "fiverisks", size });
+      for (const s of storyScript(input)) expect(clipWindows(s.key, input, size).length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("ตอบข้อโต้แย้ง (story-objection.ts)", () => {
   const episodes = STORY_TOPICS.filter((t) => t.shelf === "objection");
   const LIFE30 = { plan: "LIFEPROTECT", variant: "WLF99H", sex: "M", age: 30, sumAssured: 1_000_000 };
   const SHIELD25 = { plan: "ISHIELD", variant: "WLCI20", sex: "F", age: 25, sumAssured: 500_000 };
 
-  it("is five episodes of six scenes, the agent's card last", () => {
-    expect(episodes.map((t) => t.key)).toEqual(["thinkfirst", "groupins", "welfare", "bank", "pricey"]);
+  it("is six episodes of six scenes, the agent's card last", () => {
+    expect(episodes.map((t) => t.key)).toEqual(["thinkfirst", "groupins", "welfare", "bank", "pricey", "orphan"]);
     for (const t of episodes) {
       expect(storyScript(story({ topic: t.key }), "นิด").map((l) => l.key)).toEqual(["knowAsk", "knowOne", "knowTwo", "knowThree", "knowRecap", "storyContact"]);
     }
@@ -406,6 +420,14 @@ describe("ตอบข้อโต้แย้ง (story-objection.ts)", () => {
       }
     }
     expect(clipHandText(story({ topic: "groupins" }), "")).toContain("ลาออก");
+  });
+
+  it("“ซื้อไปแล้ว เดี๋ยวก็ไม่มีใครดูแล” says what a licence asks, never MDRT, and closes on its own line", () => {
+    const lines = storyScript(story({ topic: "orphan" }), "นิด").map((l) => l.voice);
+    expect(lines[1]).toContain("กรมธรรม์กำพร้า");
+    expect(lines[2]).toContain("ตรวจสอบได้");
+    expect(lines.join(" ")).not.toMatch(/MDRT/);
+    expect(lines[5]).toContain("อยากมีคนดูแลกรมธรรม์ไปนาน ๆ");
   });
 
   it("goes up on a Page with its own caption and no one's name", () => {

@@ -147,6 +147,19 @@ const mythJinx = (): KnowScene[] => [
   { key: "knowRecap", show: { layout: "recap", lines: [big("ประกัน"), big("= ความห่วงใย"), small("ไม่ใช่คำแช่ง")] }, voice: "จำง่าย ๆ ค่ะ ประกันคือความห่วงใย ไม่ใช่คำแช่ง" },
 ];
 
+/** 5 เรื่องใหญ่ (owner, 2026-11-01, mockup https://claude.ai/artifact/L1DeUXA9zRBg2L2awwuY5B): a word explained, with no premium */
+const fiveRisks = (): KnowScene[] => [
+  { key: "knowAsk", show: { layout: "ask", title: ["ประกันชีวิต", "คืออะไรกันแน่?"] }, voice: "ประกันชีวิตคืออะไรกันแน่คะ พูดง่าย ๆ คือเงินก้อนหนึ่ง ที่วันหนึ่งต้องมีคนได้รับแน่นอนค่ะ" },
+  { key: "knowOne", show: { layout: "note", title: ["เงินก้อนนี้", "ไปถึงใคร"], note: [small("อยู่จนแก่"), big("ตัวเราได้ใช้"), small("จากไปก่อน"), big("คนที่รักได้รับ", "green")] },
+    voice: "เงินก้อนนี้ไปถึงคนแค่สองคนค่ะ ถ้าเราอยู่จนผมเปลี่ยนสี ก็คือตัวเราเอง ถ้าจากไปก่อน ก็คือคนที่เรารัก คู่ชีวิต ลูก หรือพ่อแม่พี่น้อง" },
+  { key: "knowTwo", show: { layout: "list", title: ["5 เรื่องใหญ่", "ที่ชีวิตต้องเตรียม"], mark: "warn", items: ["1 จากไปเร็ว ครอบครัวขาดรายได้", "2 อยู่นานเกิน เงินเกษียณไม่พอ", "3 ป่วยโรคร้ายแรง ค่ารักษาสูง"] },
+    voice: "มีห้าเรื่องใหญ่ที่ชีวิตต้องเตรียมค่ะ หนึ่ง จากไปเร็ว ครอบครัวขาดรายได้ สอง อยู่นานเกินไป เงินเกษียณไม่พอใช้ สาม ป่วยเป็นโรคร้ายแรง อย่างมะเร็ง หลอดเลือดสมอง หรือหัวใจ ค่ารักษาอาจสูงถึงหลักล้าน" },
+  { key: "knowThree", show: { layout: "list", title: ["อีกสองเรื่อง", "ที่ไม่มีใครอยากเจอ"], mark: "warn", items: ["4 อุบัติเหตุ", "5 ทุพพลภาพ ทำงานไม่ได้"] },
+    voice: "สี่ อุบัติเหตุ และห้า ทุพพลภาพจนทำงานไม่ได้ สองเรื่องนี้ไม่มีใครอยากเจอ แต่ไม่มีใครเลือกได้ค่ะ" },
+  { key: "knowRecap", show: { layout: "recap", lines: [big("ประกัน = เงินก้อน"), big("ที่ต้องมีคนได้แน่"), small("แถมลดหย่อนภาษีได้"), small("ตามเงื่อนไข")] },
+    voice: "จำง่าย ๆ ค่ะ ประกันคือเงินก้อนที่ต้องมีคนได้แน่ เราเอง หรือคนที่เรารัก และเบี้ยยังลดหย่อนภาษีได้ตามเงื่อนไขด้วย" },
+];
+
 /** each episode's closing: what the card's button says, and the voice under it */
 const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | AfterTopic | ObjectionTopic | LifeTopic>, string> = {
   sumvspremium: "อยากรู้ว่าทุนเท่าไรถึงพอ ทักมาได้เลย",
@@ -154,6 +167,7 @@ const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | A
   mythclaim: "อยากให้ช่วยดูเงื่อนไข ทักมาได้เลย",
   mythyoung: "อยากรู้ว่าอายุคุณจ่ายเท่าไร ทักมาได้เลย",
   mythjinx: "อยากเตรียมไว้ให้คนที่รัก ทักมาได้เลย",
+  fiverisks: "อยากรู้ว่าเรื่องไหนต้องเตรียมก่อน ทักมาได้เลย",
 };
 
 /** An episode of any shelf but กองกลาง 48 คน: its scenes and its close, in the narrator's endings. */
@@ -170,6 +184,7 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
     mythclaim: mythClaim,
     mythyoung: () => mythYoung(input),
     mythjinx: mythJinx,
+    fiverisks: fiveRisks,
     pillar: family,
     mompillar: family,
     tuition: family,
@@ -185,6 +200,7 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
     welfare: objection,
     bank: objection,
     pricey: objection,
+    orphan: objection,
     firstjob: life,
     wedding: life,
     mortgage: life,

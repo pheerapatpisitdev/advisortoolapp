@@ -14,7 +14,7 @@ import { big, n, small, withBaht, type KnowScene, type KnowShow, type NoteLine }
  * household's whole cost.
  */
 
-export type ObjectionTopic = "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey";
+export type ObjectionTopic = "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey" | "orphan";
 
 export const OBJECTION_CLOSE: Record<ObjectionTopic, string> = {
   thinkfirst: "อยากได้ข้อมูลไปคิดต่อ ทักมาได้เลย",
@@ -22,6 +22,7 @@ export const OBJECTION_CLOSE: Record<ObjectionTopic, string> = {
   welfare: "อยากรู้ว่าควรมีเงินก้อนเท่าไร ทักมาได้เลย",
   bank: "อยากวางแผนทั้งออมทั้งคุ้มครอง ทักมาได้เลย",
   pricey: "บอกงบมาได้ เดี๋ยวช่วยจัดให้ ทักมาได้เลย",
+  orphan: "อยากมีคนดูแลกรมธรรม์ไปนาน ๆ ทักมาได้เลย",
 };
 
 const scene = (key: KnowScene["key"], show: KnowShow, voice: string): KnowScene => ({ key, show, voice });
@@ -120,7 +121,24 @@ function pricey(input: StoryVideoInput): KnowScene[] {
   ];
 }
 
+/**
+ * “ซื้อไปแล้ว เดี๋ยวก็ไม่มีใครดูแล” (owner, 2026-11-01, mockup https://claude.ai/artifact/L1DeUXA9zRBg2L2awwuY5B):
+ * where the worry comes from, what a licence asks of an agent today, and what to ask one. No
+ * MDRT (owner took it out), no claim beyond what the licence itself requires.
+ */
+const orphan = (): KnowScene[] => [
+  scene("knowAsk", { layout: "myth", quote: ["“ซื้อไปแล้ว", "ไม่มีใครดูแล”"] }, "ซื้อประกันไปแล้ว เดี๋ยวตัวแทนก็หายไป ไม่มีใครดูแล หลายคนกังวลแบบนี้ค่ะ"),
+  scene("knowOne", { layout: "note", title: ["กรมธรรม์", "กำพร้า"], dim: true, note: [small("ตัวแทนเลิกทำไปแล้ว"), big("วันที่ต้องการความช่วยเหลือ"), big("ไม่มีใครอยู่", "red")] },
+    "ความกังวลนี้มีที่มาค่ะ เคยมีกรมธรรม์ไม่น้อยที่ตัวแทนเลิกทำไป เรียกกันว่ากรมธรรม์กำพร้า วันที่ลูกค้าต้องการความช่วยเหลือ กลับไม่มีใครอยู่"),
+  scene("knowTwo", { layout: "list", title: ["ตัวแทนวันนี้", "เป็นวิชาชีพ"], mark: "check", items: ["สอบใบอนุญาตก่อนขาย", "อบรมทุกครั้งที่ต่อใบอนุญาต", "มีเลขใบอนุญาต ตรวจสอบได้"] },
+    "วันนี้ตัวแทนประกันชีวิตเป็นวิชาชีพค่ะ ต้องสอบใบอนุญาต ต้องอบรมทุกครั้งที่ต่อใบอนุญาต และมีเลขใบอนุญาตที่ลูกค้าตรวจสอบได้"),
+  scene("knowThree", { layout: "list", title: ["ก่อนซื้อ", "ถามตัวแทน 3 ข้อ"], mark: "box", items: ["ทำงานนี้มากี่ปีแล้ว", "ถ้าต้องเคลม ช่วยอะไรได้บ้าง", "ติดต่อได้ทางไหน"] },
+    "ก่อนซื้อ ลองถามตัวแทนสามข้อค่ะ ทำงานนี้มากี่ปี ถ้าวันหนึ่งต้องเคลมจะช่วยอะไรได้บ้าง และติดต่อได้ทางไหน ถ้าเป็นมือใหม่แต่ตั้งใจจริง ก็ให้โอกาสได้ค่ะ"),
+  scene("knowRecap", { layout: "recap", lines: [big("ซื้อประกัน"), big("เลือกคนดูแลด้วย", "green"), small("ให้อยู่กับเราไปนาน ๆ")] },
+    "จำง่าย ๆ ค่ะ ซื้อประกัน ไม่ได้ซื้อแค่กรมธรรม์ แต่เลือกคนที่จะดูแลเราไปนาน ๆ ด้วย"),
+];
+
 /** an episode of ตอบข้อโต้แย้ง: its five scenes */
 export function objectionScenes(topic: ObjectionTopic, input: StoryVideoInput): KnowScene[] {
-  return { thinkfirst: thinkFirst, groupins: groupIns, welfare, bank, pricey }[topic](input);
+  return { thinkfirst: thinkFirst, groupins: groupIns, welfare, bank, pricey, orphan }[topic](input);
 }

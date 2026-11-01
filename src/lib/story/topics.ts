@@ -19,15 +19,19 @@
  * five answers to what customers say, and five turns of a life. ผ่อนบ้าน takes the home loan
  * ("loan": what is still owed and the years left), ใกล้เกษียณ a month's spending once retired
  * ("retire") and บำนาญ 95's premium ("pension"). `figureAt`: the scene the figure shows in.
+ *
+ * From a talk on why people need cover and how to pick an agent (owner, 2026-11-01, mockup
+ * https://claude.ai/artifact/L1DeUXA9zRBg2L2awwuY5B, option ก): 5 เรื่องใหญ่ on ความรู้ประกัน, and
+ * “ซื้อไปแล้ว เดี๋ยวก็ไม่มีใครดูแล” on ตอบข้อโต้แย้ง. Neither names the talk, its speaker, or MDRT.
  */
 
 import type { StoryPlan } from "./plans";
 
 export type StoryTopic =
-  | "pool48" | "sumvspremium" | "declare" | "mythclaim" | "mythyoung" | "mythjinx"
+  | "pool48" | "sumvspremium" | "declare" | "mythclaim" | "mythyoung" | "mythjinx" | "fiverisks"
   | "pillar" | "mompillar" | "tuition" | "prebaby" | "eldercare"
   | "deliver" | "claimish" | "remind" | "birthday" | "festival"
-  | "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey"
+  | "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey" | "orphan"
   | "firstjob" | "wedding" | "mortgage" | "selfemployed" | "preretire";
 export type StoryShelf = "story" | "knowledge" | "objection" | "family" | "life" | "after";
 
@@ -57,6 +61,7 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "mythclaim", name: "“ประกันเคลมยาก”", shelf: "knowledge", blurb: "เคลมได้ตามเงื่อนไข ที่เคลมไม่ได้เพราะอะไร", figure: null },
   { key: "mythyoung", name: "“ยังหนุ่ม ไม่ต้องมี”", shelf: "knowledge", blurb: "อายุ 25 กับ 45 เบี้ยต่างกันเท่าตัว", figure: "ladder" },
   { key: "mythjinx", name: "“ซื้อประกันเหมือนแช่งตัวเอง”", shelf: "knowledge", blurb: "ประกันคือความห่วงใย ไม่ใช่คำแช่ง", figure: null },
+  { key: "fiverisks", name: "5 เรื่องใหญ่ ที่ชีวิตต้องเตรียม", shelf: "knowledge", blurb: "เงินก้อนนี้ต้องมีคนได้แน่ ตัวเราเอง หรือคนที่เรารัก", figure: null },
   { key: "pillar", name: "เสาหลักหายไป", shelf: "family", blurb: "รายได้ของบ้านหายไปในวันเดียว ค่าใช้จ่ายไม่หายตาม", figure: "plan", plans: ["LIFEPROTECT"], home: "spend" },
   { key: "mompillar", name: "แม่คือเสาหลักอีกต้น", shelf: "family", blurb: "สิ่งที่หายไปเมื่อแม่ไม่อยู่ ทั้งรายได้และการดูแล", figure: "plan", plans: ["LIFEPROTECT"], heroSex: "F" },
   { key: "tuition", name: "ค่าเรียนลูก", shelf: "family", blurb: "ถ้าวันหนึ่งพ่อแม่ไม่อยู่ ลูกยังต้องเรียนอีกกี่ปี ใครจ่าย", figure: "plan", plans: ["LIFEPROTECT"], home: "school" },
@@ -67,6 +72,7 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "welfare", name: "“มีบัตรทอง ประกันสังคมแล้ว”", shelf: "objection", blurb: "สิทธิรักษามีจริง แต่รายได้ระหว่างป่วยใครจ่าย", figure: "plan", plans: ["ISHIELD"] },
   { key: "bank", name: "“เอาเงินไปฝากธนาคารดีกว่า”", shelf: "objection", blurb: "ออมไว้ใช้ ประกันไว้กันเรื่องใหญ่ ควรมีทั้งสอง", figure: "plan", plans: ["LIFEPROTECT"], figureAt: 2 },
   { key: "pricey", name: "“เบี้ยแพง ไม่มีงบ”", shelf: "objection", blurb: "เริ่มเท่าที่ไหว ดีกว่าไม่เริ่ม", figure: "plan", plans: ["LIFEPROTECT"], figureAt: 2 },
+  { key: "orphan", name: "“ซื้อไปแล้ว เดี๋ยวก็ไม่มีใครดูแล”", shelf: "objection", blurb: "กรมธรรม์กำพร้า กับการเลือกตัวแทนที่อยู่ดูแลยาว", figure: null },
   { key: "firstjob", name: "เงินเดือนแรก", shelf: "life", blurb: "เพิ่งเริ่มทำงาน แบ่งเงินให้ตัวเองในอนาคตด้วย", figure: "plan", plans: ["ISHIELD"], figureAt: 4 },
   { key: "wedding", name: "แต่งงานแล้ว", shelf: "life", blurb: "จากหนึ่งเป็นสอง ภาระก็เป็นของสองคน", figure: "plan", plans: ["LIFEPROTECT"], figureAt: 3 },
   { key: "mortgage", name: "ผ่อนบ้าน", shelf: "life", blurb: "บ้านยังผ่อนไม่หมด ถ้าคนผ่อนไม่อยู่ บ้านจะเป็นของใคร", figure: "plan", plans: ["LIFEPROTECT"], home: "loan", figureAt: 4 },
