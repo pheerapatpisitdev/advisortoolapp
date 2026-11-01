@@ -29,5 +29,7 @@
 	"placement": { "mode": "smart" },
 	// the bots wait on AI for minutes; CPU itself is what counts here, up to 5 minutes
 	"limits": { "cpu_ms": 300000 },
-	"observability": { "enabled": true }
+	"observability": { "enabled": true },
+	// settings that are not secret; the secrets are set with wrangler (scripts/cloudflare-setup.sh)
+	"vars": { "DRAW_URL": "https://advisortool-draw-33p5kshztq-as.a.run.app" }
 }
