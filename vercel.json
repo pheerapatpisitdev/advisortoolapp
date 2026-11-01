@@ -7,27 +7,5 @@
       "memory": 2048,
       "maxDuration": 60
     }
-  },
-  "crons": [
-    {
-      "path": "/api/facebook/ads/sync",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/chat-review",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/content-video/sweep",
-      "schedule": "0 4 * * *"
-    },
-    {
-      "path": "/api/quote-video/sweep",
-      "schedule": "30 4 * * *"
-    },
-    {
-      "path": "/api/index-levels/sync",
-      "schedule": "0 0 * * *"
-    }
-  ]
+  }
 }

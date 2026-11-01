@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { after } from "next/server";
+import { finishAfter } from "@/lib/later";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
@@ -142,7 +142,7 @@ export function rehearse<T>(turn: () => Promise<T>): Promise<T> {
 export function noteAfterAnswer(entry: Unanswered): void {
   if (rehearsal.getStore()) return;
   try {
-    after(() => recordUnanswered(entry));
+    finishAfter(() => recordUnanswered(entry));
   } catch {
     // no request in scope: a test, not a customer
   }

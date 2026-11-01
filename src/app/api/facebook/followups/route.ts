@@ -1,4 +1,4 @@
-import { after } from "next/server";
+import { finishAfter } from "@/lib/later";
 import type { NextRequest } from "next/server";
 import { claimDueFollowups, followupMessage, sweepFollowups } from "@/lib/chat/followup";
 import { sendMessage } from "@/lib/facebook/client";
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   const due = await claimDueFollowups("facebook");
-  after(async () => {
+  finishAfter(async () => {
     for (const { userHash, psid, pageId, stage } of due) {
       // a stage whose message is switched off is still claimed and still counted; it simply
       // says nothing

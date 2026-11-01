@@ -12,7 +12,7 @@ export const maxDuration = 60;
  * Savings page drawn again with the newest level (owner chose ก, 2026-10-20).
  */
 export async function GET(req: Request) {
-  const refused = refuseUnlessCron(req);
+  const refused = await refuseUnlessCron(req);
   if (refused) return refused;
   const result = await syncIndexLevels();
   if (result.ok) revalidatePath("/global-saving");

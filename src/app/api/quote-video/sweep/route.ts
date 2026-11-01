@@ -10,7 +10,7 @@ export const maxDuration = 300;
  * is failed and its hold given back, behind the sweep any board load runs (owner chose 2ก, 2026-10-18).
  */
 export async function GET(req: Request) {
-  const refused = refuseUnlessCron(req);
+  const refused = await refuseUnlessCron(req);
   if (refused) return refused;
   try {
     return NextResponse.json({ failed: await sweepStuckVideos(Date.now(), true) });

@@ -16,7 +16,7 @@ export const maxDuration = 60;
  * account's failure is written onto its own card on the ADS page by the sync itself.
  */
 export async function GET(req: Request) {
-  const refused = refuseUnlessCron(req);
+  const refused = await refuseUnlessCron(req);
   if (refused) return refused;
   const result = await syncAds();
   for (const e of result.errors) console.error(`ดึงตัวเลขโฆษณา ${e.name} (${e.actId}) ไม่สำเร็จ: ${e.message}`);

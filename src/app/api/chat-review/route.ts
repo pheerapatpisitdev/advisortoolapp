@@ -12,7 +12,7 @@ export const maxDuration = 300;
  * owner reads the result on /admin/knowledge.
  */
 export async function GET(req: Request) {
-  const refused = refuseUnlessCron(req);
+  const refused = await refuseUnlessCron(req);
   if (refused) return refused;
   await pruneTranscripts();
   try {

@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The route is reachable from the internet and runs the sync, so it is the one place a
- * stranger could make this app spend its Meta rate limit. The bearer Vercel sends its cron
- * requests with is the whole gate.
+ * stranger could make this app spend its Meta rate limit. A scheduler's bearer is the whole
+ * gate: the database's token (its cron calls since 2026-11-02) or Vercel's CRON_SECRET.
  */
+
+const dbToken = vi.hoisted(() => ({ ok: false }));
+vi.mock("@/lib/chat/cron-token", () => ({ cronCallerIsOurs: async (h: string | null) => dbToken.ok && h === "Bearer db-token" }));
 
 const calls: unknown[] = [];
 let next: { accounts: number; rows: number; errors: { actId: string; name: string; message: string }[] } =
@@ -19,14 +22,21 @@ const req = (auth?: string) => new Request("https://x.test/api/facebook/ads/sync
 afterEach(() => {
   calls.length = 0;
   delete process.env.CRON_SECRET;
+  dbToken.ok = false;
   next = { accounts: 1, rows: 2, errors: [] };
 });
 
 describe("the sync route", () => {
-  it("refuses everyone when no secret is set", async () => {
+  it("refuses everyone when neither scheduler's token matches", async () => {
     const res = await GET(req("Bearer anything"));
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(401);
     expect(calls).toHaveLength(0);
+  });
+
+  it("lets in the database's scheduler with its token", async () => {
+    dbToken.ok = true;
+    expect((await GET(req("Bearer db-token"))).status).toBe(200);
+    expect(calls).toHaveLength(1);
   });
 
   it("refuses the wrong bearer", async () => {

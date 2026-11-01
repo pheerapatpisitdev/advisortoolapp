@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
+import { cronCallerIsOurs } from "@/lib/chat/cron-token";
 
 /**
  * Whether the request carries the cron secret, compared in constant time.
@@ -16,15 +17,16 @@ export function bearerMatches(header: string | null, secret: string): boolean {
 }
 
 /**
- * The refusal for a request Vercel's cron did not make, or null when it did. Without the
- * secret set the route answers nobody at all, which is the safer failure on a deployment that
- * forgot it.
+ * The refusal for a request no scheduler of ours made, or null when one did: the database's own
+ * (pg_cron, with the token it keeps in ins_cron_secret, src/lib/chat/cron-token.ts), which calls
+ * the daily jobs since the Cloudflare move's step 2 (owner chose ก 2026-11-02) so that whichever
+ * host advisortool.app points at is the one that runs them; or CRON_SECRET, Vercel's, still
+ * taken for a call by hand.
  */
-export function refuseUnlessCron(req: Request): NextResponse | null {
+export async function refuseUnlessCron(req: Request): Promise<NextResponse | null> {
+  const header = req.headers.get("authorization");
   const secret = process.env.CRON_SECRET;
-  if (!secret) return NextResponse.json({ error: "ยังไม่ได้ตั้งค่า CRON_SECRET" }, { status: 503 });
-  if (!bearerMatches(req.headers.get("authorization"), secret)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  return null;
+  if (secret && bearerMatches(header, secret)) return null;
+  if (await cronCallerIsOurs(header).catch(() => false)) return null;
+  return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 }

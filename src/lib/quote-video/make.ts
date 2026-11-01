@@ -903,11 +903,12 @@ const BUSY = "คลิปนี้กำลังทำอยู่ รอใ�
  * drawn again for one picture's price (the owner free), and the clip cut again from the voice kept
  * with it — the voice is never asked again. The picture's price is held until the new cut is done
  * (finishVideo takes it); a picture that cannot be drawn, or a cut that fails, gives it back and
- * leaves the clip as it was. The answer comes once the clip is taken; the drawing and the cut are
- * handed to `run` (the action passes Next's after), or awaited here when none is given.
+ * leaves the clip as it was. The answer comes once the clip is taken; the drawing and the cut
+ * (redrawScene) are handed to `run` as data (the action runs them later, src/lib/later.ts), or
+ * awaited here when none is given.
  */
 export async function redrawPicture(
-  viewer: Viewer, id: string, scene: number, run: (work: () => Promise<void>) => unknown = (work) => work(),
+  viewer: Viewer, id: string, scene: number, run: (job: RedrawJob) => unknown = redrawScene,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const row = await videoOf(viewer.agentId, id);
   if (!row || !isPromptStory(row.input)) return { ok: false, error: "ไม่พบวิดีโอนี้" };
@@ -944,45 +945,67 @@ export async function redrawPicture(
     return { ok: false, error: BUSY };
   }
 
-  const agentName = viewer.name.trim();
-  await run(async () => {
-    const t0 = Date.now();
-    const lap = lapper(id, t0);
-    const bar = progressBar(id);
-    let held = hold;
-    const giveBack = async () => {
-      if (!held) return;
-      const h = held;
-      held = null;
-      await releaseWallet(h).catch((e) => console.error("redraw hold not released:", e));
-    };
-    try {
-      bar.note({ step: "pictures", done: 0, of: 1 });
-      const png = await drawScenePicture(input.scenes[scene], input.style, input.painter, clipSize(input));
-      if (!png) {
-        await giveBack();
-        await bar.flush();
-        await rows().update({ status: "done", error: `วาดภาพฉากที่ ${scene + 1} ไม่สำเร็จ ไม่ได้หักเงิน ลองใหม่อีกครั้ง`, updated_at: new Date().toISOString() })
-          .eq("id", id).eq("status", "drawing");
-        return;
-      }
-      await upload(id, picName(scene), png, "image/png");
-      const pictures = input.scenes.map((_, s) => input.pictures?.[s] ?? null);
-      pictures[scene] = `${id}/${picName(scene)}`;
-      // the hold rides with the clip: taken when the new cut is done (finishVideo), given back if it fails (fail)
-      const next: PromptStoryInput = { ...input, pictures, ...(held ? { redraw: { hold: held, satang: price, thb: pictureThb(input.painter) } } : {}) };
-      const cost_parts: CostParts = { ...(row.cost_parts ?? {}), pictures: (row.cost_parts?.pictures ?? 0) + pictureThb(input.painter) };
-      await setRow(id, { input: next, cost_thb: Number(row.cost_thb ?? 0) + pictureThb(input.painter), cost_parts });
-      held = null;
-      bar.note({ step: "pictures", done: 1, of: 1 });
-      lap(`scene ${scene} picture drawn again`);
-      await cutClip({ ...row, input: next, cost_parts, status: "drawing" }, agentName, pcms, gcpKey, bar, t0, lap);
-    } catch (e) {
-      await giveBack();
-      await fail(id, e);
-    }
-  });
+  await run({ id, scene, agentName: viewer.name.trim(), hold, price });
   return { ok: true };
+}
+
+/** what a redraw's drawing and cut need, as data: the rest is read again by the clip's id */
+export interface RedrawJob {
+  id: string;
+  scene: number;
+  agentName: string;
+  /** the wallet hold for the picture's price, null when it is free */
+  hold: string | null;
+  price: number;
+}
+
+/**
+ * The drawing and the cut of a redraw, once redrawPicture has taken the clip. The clip, its
+ * render key and its kept voice are read again here, so the work can wait in a queue.
+ */
+export async function redrawScene({ id, scene, agentName, hold, price }: RedrawJob): Promise<void> {
+  const t0 = Date.now();
+  const lap = lapper(id, t0);
+  const bar = progressBar(id);
+  let held = hold;
+  const giveBack = async () => {
+    if (!held) return;
+    const h = held;
+    held = null;
+    await releaseWallet(h).catch((e) => console.error("redraw hold not released:", e));
+  };
+  try {
+    const { data: row, error } = await rows().select("*").eq("id", id).single<VideoRow>();
+    if (error || !row || !isPromptStory(row.input)) throw new Error("row not read");
+    const input = row.input;
+    const gcpKey = await renderKeyOf(input);
+    if (!gcpKey) throw new Error("no render key");
+    const pcms = await keptVoice(id, input.scenes.length + 1);
+    if (!pcms) throw new Error("no kept voice");
+    bar.note({ step: "pictures", done: 0, of: 1 });
+    const png = await drawScenePicture(input.scenes[scene], input.style, input.painter, clipSize(input));
+    if (!png) {
+      await giveBack();
+      await bar.flush();
+      await rows().update({ status: "done", error: `วาดภาพฉากที่ ${scene + 1} ไม่สำเร็จ ไม่ได้หักเงิน ลองใหม่อีกครั้ง`, updated_at: new Date().toISOString() })
+        .eq("id", id).eq("status", "drawing");
+      return;
+    }
+    await upload(id, picName(scene), png, "image/png");
+    const pictures = input.scenes.map((_, s) => input.pictures?.[s] ?? null);
+    pictures[scene] = `${id}/${picName(scene)}`;
+    // the hold rides with the clip: taken when the new cut is done (finishVideo), given back if it fails (fail)
+    const next: PromptStoryInput = { ...input, pictures, ...(held ? { redraw: { hold: held, satang: price, thb: pictureThb(input.painter) } } : {}) };
+    const cost_parts: CostParts = { ...(row.cost_parts ?? {}), pictures: (row.cost_parts?.pictures ?? 0) + pictureThb(input.painter) };
+    await setRow(id, { input: next, cost_thb: Number(row.cost_thb ?? 0) + pictureThb(input.painter), cost_parts });
+    held = null;
+    bar.note({ step: "pictures", done: 1, of: 1 });
+    lap(`scene ${scene} picture drawn again`);
+    await cutClip({ ...row, input: next, cost_parts, status: "drawing" }, agentName, pcms, gcpKey, bar, t0, lap);
+  } catch (e) {
+    await giveBack();
+    await fail(id, e);
+  }
 }
 
 /**

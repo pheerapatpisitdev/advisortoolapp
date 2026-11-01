@@ -1,9 +1,9 @@
 "use server";
-import { after } from "next/server";
-import { asWho } from "@/lib/ai/who";
+import { runLater } from "@/lib/later";
+import { clipProduce, clipRedraw } from "@/lib/quote-video/jobs";
 import { requireMember } from "@/lib/auth/viewer";
 import { getContact } from "@/lib/quote-video/contact";
-import { createPromptStory, produce, redrawPicture } from "@/lib/quote-video/make";
+import { createPromptStory, redrawPicture } from "@/lib/quote-video/make";
 import { cleanCustomerName } from "@/lib/quote-video/script";
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
@@ -89,7 +89,7 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
     const made = await createPromptStory(viewer, input, cleanCustomerName(typeof customer === "string" ? customer : ""));
     if ("refusal" in made) return { ok: false, error: made.refusal };
     const { id } = made;
-    after(() => asWho(viewer.agentId, () => produce(id, viewer.name.trim())));
+    runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
     return { ok: true, id };
   } catch (e) {
     console.error("prompt story not started:", e instanceof Error ? e.message : "unknown error");
@@ -105,7 +105,7 @@ export async function redrawPromptPicture(id: string, scene: number): Promise<{ 
   if (closed) return { ok: false, error: closed };
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id) || typeof scene !== "number") return { ok: false, error: "ไม่พบวิดีโอนี้" };
   try {
-    return await redrawPicture(viewer, id, scene, (work) => after(() => asWho(viewer.agentId, work)));
+    return await redrawPicture(viewer, id, scene, (job) => runLater(clipRedraw, job, { agentId: viewer.agentId }));
   } catch (e) {
     console.error("prompt story redraw not started:", e instanceof Error ? e.message : "unknown error");
     return { ok: false, error: "วาดภาพใหม่ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };

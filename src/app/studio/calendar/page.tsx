@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { after } from "next/server";
+import { finishAfter } from "@/lib/later";
 import {
   boardDay, dayStart, monthGridDays, nextDayKey, parseMonth, shiftMonth, thaiMonthYear, timeOfDay, todayKey,
   DROP_TIME, type BoardItem,
@@ -92,7 +92,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   // Held posts whose time came are asked about first, so the board says what Facebook did —
   // but the board waits for it two seconds at most. It waited eight, on every month, filter
-  // and drop. A check still going is finished after the page is sent (after()), and what it
+  // and drop. A check still going is finished after the page is sent (finishAfter()), and what it
   // finds is on the next look; a Graph or database error never keeps the page from drawing.
   // The timer is cleared the moment the check ends, so a quick check costs no wait.
   const checking = verifyDue().catch((e) => console.error("calendar verify failed:", e));
@@ -101,7 +101,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     checking.then(() => true),
     new Promise<false>((resolve) => { timer = setTimeout(() => resolve(false), 2_000); }),
   ]).finally(() => clearTimeout(timer));
-  if (!done) after(() => checking);
+  if (!done) finishAfter(() => checking);
   const [setup, placed] = await Promise.all([
     publishSetup(),
     // through forClient, as every piece the browser is handed: a clip's job keeps its round on the row

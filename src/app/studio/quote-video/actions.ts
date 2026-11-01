@@ -1,8 +1,9 @@
 "use server";
-import { after } from "next/server";
 import { limiter } from "@/lib/assistant/rate-limit";
 import { mayPromptStory } from "@/lib/prompt-story/access";
 import { asWho } from "@/lib/ai/who";
+import { runLater } from "@/lib/later";
+import { clipProduce } from "@/lib/quote-video/jobs";
 import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
@@ -24,7 +25,7 @@ import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
 import { paidLine } from "@/lib/quote-video/paid-line";
 import { clipStates } from "@/lib/quote-video/rows";
-import { clipEstimates, clipSize, langOfInput, costView, createVideo, videoPrice, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { clipEstimates, clipSize, langOfInput, costView, createVideo, videoPrice, deleteVideo, listVideos, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, googleInPlace, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
@@ -390,7 +391,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
     const made = await createVideo(viewer, input, withName === true ? cleanCustomerName(c.name) : "");
     if ("refusal" in made) return { ok: false, error: made.refusal };
     const { id } = made;
-    after(() => asWho(viewer.agentId, () => produce(id, viewer.name.trim())));
+    runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
     return { ok: true, id };
   } catch (e) {
     console.error("fhc video not started:", e instanceof Error ? e.message : "unknown error");
@@ -435,7 +436,7 @@ export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" 
     const made = await createVideo(viewer, input, cleanCustomerName(customer));
     if ("refusal" in made) return { ok: false, error: made.refusal };
     const { id } = made;
-    after(() => asWho(viewer.agentId, () => produce(id, viewer.name.trim())));
+    runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
     return { ok: true, id };
   } catch (e) {
     console.error("story video not started:", e instanceof Error ? e.message : "unknown error");
@@ -503,7 +504,7 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
     if ("refusal" in made) return { ok: false, error: made.refusal };
     const { id } = made;
     // the making outlives this answer: the board polls the row
-    after(() => asWho(viewer.agentId, () => produce(id, viewer.name.trim())));
+    runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
     return { ok: true, id };
   } catch (e) {
     console.error("quote video not started:", e instanceof Error ? e.message : "unknown error");

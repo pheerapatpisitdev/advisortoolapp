@@ -13,7 +13,7 @@ export const maxDuration = 60;
  * Run by hand, not by cron: a menu is changed when somebody decides it should be.
  */
 export async function POST(req: Request) {
-  const refused = refuseUnlessCron(req);
+  const refused = await refuseUnlessCron(req);
   if (refused) return refused;
   try {
     return NextResponse.json({ ok: true, ...(await rebuildMenus()) });

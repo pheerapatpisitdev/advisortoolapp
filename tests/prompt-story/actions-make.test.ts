@@ -53,6 +53,7 @@ vi.mock("@/lib/quote-video/make", () => ({
   createPromptStory: (...a: unknown[]) => made.create(...a),
   produce: (...a: unknown[]) => made.produce(...a),
   redrawPicture: (...a: unknown[]) => made.redraw(...a),
+  redrawScene: async () => undefined,
 }));
 vi.mock("@/lib/prompt-story/drafts", () => ({ draftsUpTo: async () => 1, saveDraft: async () => "d", writeDraft: async () => undefined, dropDraft: async () => undefined }));
 vi.mock("@/lib/prompt-story/writer", () => ({ writeStory: vi.fn(), SCREEN_MAX: 40, TITLE_MAX: 28 }));

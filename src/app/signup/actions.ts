@@ -1,5 +1,5 @@
 "use server";
-import { after } from "next/server";
+import { finishAfter } from "@/lib/later";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cleanName, cleanOffice } from "@/lib/auth/member";
@@ -31,7 +31,7 @@ export async function saveSignup(name: string, office: string, next: string): Pr
     const before = await memberProfile(viewer.agentId);
     await setProfile(viewer.agentId, { name: n, office: o });
     if (before && before.office === null && Date.now() - Date.parse(before.createdAt) < DAY_MS) {
-      after(() => alertNewMember(viewer.agentId));
+      finishAfter(() => alertNewMember(viewer.agentId));
     }
   } catch (e) {
     console.error("signup profile not saved:", e);

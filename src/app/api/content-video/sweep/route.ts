@@ -7,7 +7,7 @@ export const maxDuration = 300;
 
 /** Vercel calls this once a day (vercel.json) with the cron secret; see clip-sweep.ts. */
 export async function GET(req: Request) {
-  const refused = refuseUnlessCron(req);
+  const refused = await refuseUnlessCron(req);
   if (refused) return refused;
   try {
     return NextResponse.json(await sweepClips());

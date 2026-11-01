@@ -1,7 +1,7 @@
 "use server";
 import { headers } from "next/headers";
 import { capReached, tooDear } from "@/lib/content/budget-words";
-import { after } from "next/server";
+import { finishAfter } from "@/lib/later";
 import { revalidatePath } from "next/cache";
 import { BudgetExceeded, chat, drawImage } from "@/lib/ai/client";
 import { MAX_DIRECTION, backgroundPrompt, posterPrompt, stripThai } from "@/lib/content/background";
@@ -691,7 +691,7 @@ export async function setContentStatus(id: string, status: ContentStatus): Promi
     const isAd = item.format === "ad" || Boolean(item.campaignId);
     // the library is everyone's menu, so only the team's ✓ใช้จริง adds to it (owner, 2026-10-11:
     // any member's hook went in unreviewed, and could not be taken out)
-    if (status === "used" && item.status !== "used" && !isAd && viewer.staff) after(() => learnFormula(item));
+    if (status === "used" && item.status !== "used" && !isAd && viewer.staff) finishAfter(() => learnFormula(item));
     return { ok: true };
   } catch (e) {
     console.error("content status failed:", e);
