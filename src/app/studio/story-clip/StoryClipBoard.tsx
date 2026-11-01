@@ -6,7 +6,7 @@ import { availablePensionAges, PENSION_LIMITS, type PensionPay } from "@/calc/pe
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { CostView } from "@/lib/quote-video/make";
 import { STORY_DEFAULT_TERM, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { FESTIVALS, figureShown, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { FESTIVALS, figureShown, GRADUATE_AGE, INFO_SHELVES, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
@@ -65,7 +65,7 @@ const CAST_KEY = "story-cast";
  * `gemini`: one of Gemini's 30 voices by name, or "" for the narrator's own (owner, 2026-10-17);
  * `art`: the hand-drawn faces, or มินิมอล's whole people on one of three grounds (owner, 2026-10-20)
  */
-interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string; gemini: string; art: "faces" | "minimal"; ground: FigureGround }
+interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string; gemini: string; art: "faces" | "minimal" | "info"; ground: FigureGround }
 const DEFAULT_LOOK: Look = { size: "portrait", palette: "reveal", narrator: "F", voice: "", gemini: "", art: "faces", ground: "lav" };
 /** มินิมอล's two the agent dresses: the hero as a woman and as a man (the step-2 choice picks one), and the agent */
 interface Cast { hero: Record<"M" | "F", FigureLook>; narrator: FigureLook }
@@ -91,7 +91,7 @@ function readLook(): Look {
       narrator: raw.narrator === "M" ? "M" : "F",
       voice: typeof raw.voice === "string" ? raw.voice : "",
       gemini: geminiVoice(raw.gemini)?.name ?? "",
-      art: raw.art === "minimal" ? "minimal" : "faces",
+      art: raw.art === "minimal" || raw.art === "info" ? raw.art : "faces",
       ground: isGround(raw.ground) ? raw.ground : "lav",
     };
   } catch {
@@ -305,6 +305,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [cast, setCast] = useState<Cast>(DEFAULT_FORM_CAST);
   const [dressing, setDressing] = useState<"hero" | "narrator">("hero");
   const mini = look.art === "minimal";
+  // อินโฟกราฟิก draws only the shelves told in points; on any other the faces stand in for it
+  const infoLook = look.art === "info" && INFO_SHELVES.includes(info.shelf);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
   const [items, setItems] = useState<VideoItem[] | null>(initial);
@@ -459,6 +461,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
         topic, size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         faces: { narrator: narratorFace, hero: heroFace, ...(withPartner && partner && !mini ? { partner } : {}) },
         ...(mini ? { art: "minimal" as const, ground: look.ground, cast: { hero: cast.hero[heroSex], narrator: cast.narrator } } : {}),
+        ...(infoLook ? { art: "info" as const } : {}),
         ...(showsFigure && info.figure === "plan" ? { figure: { plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht } } : {}),
         ...(showsFigure && info.figure === "ladder" ? { ladder: true } : {}),
         ...(showsFigure && info.figure === "pension" ? { pension: { sex: heroSex, age: Number(age), annuityAge: Number(annuityAge), pay, monthly: pensionBaht } } : {}),
@@ -743,13 +746,15 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             )}
           </Step>
 
-          <Step n={4} title="หน้าตาคลิป" summary={[mini ? `มินิมอล · ${GROUNDS[look.ground].name}` : "", episode ? "" : look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].filter(Boolean).join(" · ")}>
+          <Step n={4} title="หน้าตาคลิป" summary={[mini ? `มินิมอล · ${GROUNDS[look.ground].name}` : infoLook ? "อินโฟกราฟิก" : "", episode ? "" : look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].filter(Boolean).join(" · ")}>
             <div>
               <span className={label}>สไตล์ภาพ</span>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={chip(!mini)} onClick={() => pickLook({ art: "faces" })}>การ์ตูนหน้าคน</button>
+                <button type="button" className={chip(!mini && !infoLook)} onClick={() => pickLook({ art: "faces" })}>การ์ตูนหน้าคน</button>
                 <button type="button" className={chip(mini)} onClick={() => pickLook({ art: "minimal" })}>มินิมอล</button>
+                {INFO_SHELVES.includes(info.shelf) && <button type="button" className={chip(infoLook)} onClick={() => pickLook({ art: "info" })}>อินโฟกราฟิก</button>}
               </div>
+              {infoLook && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">พื้นกรมท่า ไอคอนสีทอง ทีละข้อตามเสียงพูด ไม่มีตัวละครในฉาก ราคาเท่าเดิม</p>}
             </div>
             {mini && <>
               <div>

@@ -93,6 +93,9 @@ export const FESTIVALS: { key: Festival; name: string }[] = [
 ];
 export const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
+/** the shelves อินโฟกราฟิก draws (owner chose ข, 2026-11-01): the ones told in points, not through a family */
+export const INFO_SHELVES: StoryShelf[] = ["knowledge", "objection"];
+
 export const topicOf = (key: string): StoryTopicInfo | undefined => STORY_TOPICS.find((t) => t.key === key);
 
 /**

@@ -178,7 +178,10 @@ export const Img = ({ src, r, opacity = 1 }: { src?: string; r: Rect; opacity?: 
 export const minimal = (input: StoryVideoInput) => input.art === "minimal";
 export const groundOf = (input: StoryVideoInput) => GROUNDS[input.ground ?? "lav"];
 /** the colour of words written straight on the ground: light on the dark one */
-export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(input).ink : INK);
+export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(input).ink : info(input) ? C.white : INK);
+/** อินโฟกราฟิก (story-info-motion.tsx): tiles and icons on วิดีโอนำเสนอ Motion's navy, no faces */
+export const info = (input: StoryVideoInput) => input.art === "info";
+export const INFO_GROUND = QUOTE_VIDEO_COLORS.motionNavy;
 
 /** how someone is drawn: the hero and the agent as the agent dressed them, anyone else from their id */
 export function lookFor(id: string, input: StoryVideoInput): Drawn {
@@ -384,7 +387,7 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
   const wide = c.size === "landscape";
   const big = g.px(88, 62, 84);
   // on the dark ground the card's navy words would be lost: they take the ground's own ink
-  const onDark = minimal(c.input) && c.input.ground === "dark";
+  const onDark = (minimal(c.input) && c.input.ground === "dark") || info(c.input);
   const head = (
     <El an={s.head} t={t} style={{ flexDirection: "column", ...(wide ? { width: 820, flexShrink: 0 } : {}) }}>
       {kicker ? <div style={box({ fontSize: g.px(44, 34, 44), fontWeight: 600, color: onDark ? paperInk(c.input) : P.accent })}>{kicker}</div> : null}
@@ -474,5 +477,5 @@ export function storyFrame(key: PoolSceneKey, c: StoryContext, t: number) {
 /** the paper every scene is drawn on: the faces' own colour, so they sit on it with no edge; มินิมอล's ground its own */
 export function storyBackground(size: VideoSize, input?: StoryVideoInput) {
   const { w, h } = SIZES[size];
-  return <div style={{ display: "flex", width: w, height: h, background: input && minimal(input) ? groundOf(input).bg : FACE_PAPER }} />;
+  return <div style={{ display: "flex", width: w, height: h, background: input && minimal(input) ? groundOf(input).bg : input && info(input) ? INFO_GROUND : FACE_PAPER }} />;
 }

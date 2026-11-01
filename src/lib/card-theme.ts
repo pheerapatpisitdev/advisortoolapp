@@ -304,6 +304,9 @@ export const STORY_CLIP_COLORS = {
   /* ความรู้ประกัน 1 นาที: the fact's stamp and a promise kept, and a belief's struck-out words */
   green: "#2f7d4f",
   struck: "#8b8c90",
+  /* อินโฟกราฟิก (story-info-motion.tsx): a tick on the navy, and a recap card's small line */
+  infoTick: "#5fe39a",
+  infoMute: "#4a5265",
   /* the phone around the form's preview */
   bezel: "#111317",
   /* หลังการขาย: the birthday cake's icing, and a Songkran bowl of water */

@@ -106,8 +106,8 @@ const GEO: Record<VideoSize, Geo> = {
   },
 };
 
-/** the few things a scene shows, in the order they come in */
-function kspec(show: KnowShow): Record<string, Anim> {
+/** the few things a scene shows, in the order they come in (อินโฟกราฟิก moves on the same beats) */
+export function kspec(show: KnowShow): Record<string, Anim> {
   const s: Record<string, Anim> = {};
   switch (show.layout) {
     case "ask": return { title: a(0.2, "up"), face: a(0.5, "pop"), marks: a(1.0, "pop") };

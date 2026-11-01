@@ -5,7 +5,7 @@ import { lifeProtectModes, termAt as lifeProtectTerm } from "@/lib/lifeprotect-q
 import { DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, faceOf, FACES } from "@/lib/story/faces";
 import { checkedLook, isGround, type FigureGround, type FigureLook } from "@/lib/story/figure";
 import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { FESTIVALS, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { FESTIVALS, GRADUATE_AGE, INFO_SHELVES, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { PensionPay } from "@/calc/pension/engine";
 import { pensionPremium, PENSION_NAME } from "./pension";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
@@ -79,8 +79,10 @@ export interface StoryVideoInput {
   /**
    * มินิมอล (owner, 2026-10-20, lib/story/figure.tsx): whole people drawn flat in place of the faces, on one of
    * three grounds, the hero and the agent as the agent dressed them. None = the hand-drawn faces.
+   * อินโฟกราฟิก ("info", owner chose ข 2026-11-01, story-info-motion.tsx): tiles and icons on navy, no
+   * people; only ความรู้ประกัน 1 นาที and ตอบข้อโต้แย้ง are drawn in it.
    */
-  art?: "minimal";
+  art?: "minimal" | "info";
   ground?: FigureGround;
   cast?: { hero: FigureLook; narrator: FigureLook };
 }
@@ -270,6 +272,8 @@ export function checkedStory(
     // the hero is drawn as dressed, and told as the face's sex says: the two must agree
     if (heroLook.sex !== faceOf(hero)?.sex) return "เพศของตัวละครหลักไม่ตรงกับที่เลือกไว้ เลือกใหม่อีกครั้ง";
     minimal = { art: "minimal", ground: isGround(v.ground) ? v.ground : "lav", cast: { hero: heroLook, narrator: narratorLook } };
+  } else if (v.art === "info" && INFO_SHELVES.includes(topic.shelf)) {
+    minimal = { art: "info" };
   }
   let ladder: StoryLadder | undefined;
   if (v.ladder === true && topic.figure === "ladder") {
