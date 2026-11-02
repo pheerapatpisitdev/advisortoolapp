@@ -119,7 +119,8 @@ export function mergeRiders(before: RidersWanted | undefined, now: RidersWanted 
 }
 
 export type Resolved =
-  | { kind: "ok"; riders: CardRiders }
+  /** `note` tells a customer who asked for พีบี that they were quoted ดับบลิวพี instead */
+  | { kind: "ok"; riders: CardRiders; note?: string }
   /** a child's พีบี is priced off a parent the chat has not been given, or was given out of range */
   | { kind: "payer"; payerMin: number; payerMax: number }
   /** this age cannot have what was asked for; `text` says why, `replies` are what it may have */
@@ -138,23 +139,29 @@ export function resolveRiders(
   table: LifeProtectTable, who: { age: number; sex: "M" | "F" }, wanted: RidersWanted,
 ): Resolved {
   const riders: CardRiders = {};
+  let note: string | undefined;
 
   if (wanted.waiver) {
+    const wp = table.riders.find((r) => r.code === "WP");
+    const pb = table.riders.find((r) => r.code === "PB");
+    // พีบี is off Life Protect (owner, 2026-11-02): asking for it is answered with ดับบลิวพี
+    const retired = wanted.waiver.code === "PB" && !pb;
     // an adult pays their own premium, so the waiver is theirs; a child's is the parent's
-    const code = wanted.waiver.code ?? (who.age < (table.riders.find((r) => r.code === "WP")?.ageMin ?? 16) ? "PB" : "WP");
+    const code = retired ? "WP" : wanted.waiver.code ?? (pb && who.age < (wp?.ageMin ?? 16) ? "PB" : "WP");
     const option = wanted.waiver.option ?? "FIT";
     const picked = pickedRider(table, { code, option });
     if (!picked || !riderSoldAt(picked.rider, who.age)) {
-      const wp = table.riders.find((r) => r.code === "WP");
-      const pb = table.riders.find((r) => r.code === "PB");
       return {
         kind: "unsold",
         text: code === "WP" && wp
-          ? `ดับบลิวพีขายตั้งแต่อายุ ${wp.ageMin} ปีครับ สำหรับเด็กใช้พีบีที่ผู้ปกครองเป็นผู้ชำระเบี้ย`
+          ? pb
+            ? `ดับบลิวพีขายตั้งแต่อายุ ${wp.ageMin} ปีครับ สำหรับเด็กใช้พีบีที่ผู้ปกครองเป็นผู้ชำระเบี้ย`
+            : `แบบนี้มีสัญญายกเว้นเบี้ยเป็นดับบลิวพี รับอายุ ${wp.ageMin}-${wp.ageMax} ปีครับ ที่อายุ ${who.age} ปีจึงยังไม่มีสัญญายกเว้นเบี้ยให้เลือก`
           : `${picked ? riderWords(picked.rider.name).short : "สัญญานี้"}ไม่ขายที่อายุ ${who.age} ปีครับ`
             + (pb && wp ? ` (พีบีอายุ ${pb.ageMin}-${pb.ageMax} ปี หรือเด็กที่ผู้ปกครองจ่ายเบี้ย · ดับบลิวพีอายุ ${wp.ageMin}-${wp.ageMax} ปี)` : ""),
       };
     }
+    if (retired) note = "แบบนี้ไม่มีพีบีแล้วครับ สัญญายกเว้นเบี้ยที่มีคือดับบลิวพี ผมคิดเบี้ยดับบลิวพีให้แทนในใบนี้";
     if (needsParent(picked.rider, who.age)) {
       const child = picked.rider.child!;
       const payer = wanted.payer;
@@ -188,5 +195,5 @@ export function resolveRiders(
       };
     }
   }
-  return { kind: "ok", riders };
+  return { kind: "ok", riders, ...(note ? { note } : {}) };
 }

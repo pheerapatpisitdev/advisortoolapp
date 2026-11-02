@@ -19,9 +19,11 @@ const WHILE_CURRENT = new Date("2026-09-05");
 const MAN35: PlanCardInput = {
   kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 1_000_000,
 };
-const WITH_PB: PlanCardInput = { ...MAN35, riders: { waiver: { code: "PB", option: "FIT" } } };
+const WITH_WP: PlanCardInput = { ...MAN35, riders: { waiver: { code: "WP", option: "FIT" } } };
 const WITH_MEB: PlanCardInput = { ...MAN35, riders: { medical: 1000 } };
-const CHILD10: PlanCardInput = {
+/** Links the page wrote while it still offered พีบี (until 2026-11-02). */
+const OLD_PB: PlanCardInput = { ...MAN35, riders: { waiver: { code: "PB", option: "FIT" }, medical: 1000 } };
+const OLD_CHILD_PB: PlanCardInput = {
   ...MAN35, age: 10, riders: { waiver: { code: "PB", option: "FIT" }, payer: { sex: "F", age: 38 } },
 };
 
@@ -43,12 +45,12 @@ function pagePaid(input: PlanCardInput) {
 
 describe("a Life Protect card link", () => {
   it("carries the riders the page priced, and reads them back", () => {
-    for (const input of [WITH_PB, WITH_MEB, CHILD10]) {
+    for (const input of [WITH_WP, WITH_MEB, OLD_CHILD_PB]) {
       const path = cardPath(input);
       expect(cardInputFrom(query(path))).toEqual(input);
       expect(cardInputFrom(query(valueTablePath(input)))).toEqual(input);
     }
-    expect(cardPath(CHILD10)).toContain("sum=1000000&rider=PB.FIT&payer=F38&v=");
+    expect(cardPath(WITH_WP)).toContain("sum=1000000&rider=WP.FIT&v=");
   });
 
   it("refuses riders on any other plan, and riders in a shape no link of ours has", () => {
@@ -61,15 +63,27 @@ describe("a Life Protect card link", () => {
   });
 
   it("draws nothing for riders the page could not have priced", () => {
-    // a child's พีบี is priced off a parent, and a parent is named only for a child's
-    expect(quoteCard({ ...CHILD10, riders: { waiver: { code: "PB", option: "FIT" } } }, WHILE_CURRENT)).toBeUndefined();
-    expect(quoteCard({ ...WITH_PB, riders: { ...WITH_PB.riders, payer: { sex: "M", age: 40 } } }, WHILE_CURRENT))
+    // a parent is named only for a child's waiver, and ดับบลิวพี has none
+    expect(quoteCard({ ...WITH_WP, riders: { ...WITH_WP.riders, payer: { sex: "M", age: 40 } } }, WHILE_CURRENT))
       .toBeUndefined();
-    expect(quoteCard({ ...MAN35, riders: { waiver: { code: "PB", option: "NOPE" } } }, WHILE_CURRENT)).toBeUndefined();
-    // พีบี is sold to an adult paying for themself from 20, and MEB up to 65
-    expect(quoteCard({ ...WITH_PB, age: 17 }, WHILE_CURRENT)).toBeUndefined();
+    expect(quoteCard({ ...MAN35, riders: { waiver: { code: "WP", option: "NOPE" } } }, WHILE_CURRENT)).toBeUndefined();
+    // ดับบลิวพี is sold from 16, and MEB up to 65
+    expect(quoteCard({ ...WITH_WP, age: 15 }, WHILE_CURRENT)).toBeUndefined();
     expect(quoteCard({ ...WITH_MEB, age: 70 }, WHILE_CURRENT)).toBeUndefined();
     expect(quoteCard({ ...MAN35, riders: { medical: 1234 } }, WHILE_CURRENT)).toBeUndefined();
+  });
+
+  /** พีบี came off Life Protect (owner, 2026-11-02); a card sent before still opens, without it. */
+  it("opens a link written with พีบี on the plan and its other riders alone", () => {
+    const old = quoteCard(OLD_PB, WHILE_CURRENT)!;
+    const now = quoteCard(WITH_MEB, WHILE_CURRENT)!;
+    expect(old.premium).toEqual(now.premium);
+    expect(old.summary).toEqual(now.summary);
+    expect(old.priceNote).toBeUndefined();
+    const child = quoteCard(OLD_CHILD_PB, WHILE_CURRENT)!;
+    expect(child.premium).toEqual(quoteCard({ ...MAN35, age: 10 }, WHILE_CURRENT)!.premium);
+    expect(child.summary!.split).toBeUndefined();
+    expect(child.footNotes![0]).toBe("✦ เบี้ยล็อกที่อายุ 10 ตลอดระยะเวลาชำระ ยิ่งเริ่มเร็วยิ่งถูก");
   });
 });
 
@@ -90,9 +104,9 @@ describe("a Life Protect card", () => {
   });
 
   it("headlines plan and waiver together, and splits them at the foot of the box", () => {
-    const { base, rider, paid } = pagePaid(WITH_PB);
+    const { base, rider, paid } = pagePaid(WITH_WP);
     const monthly = (m: typeof paid | undefined) => m!.find((x) => x.mode === "monthly")!.total;
-    const card = quoteCard(WITH_PB, WHILE_CURRENT)!;
+    const card = quoteCard(WITH_WP, WHILE_CURRENT)!;
     expect(card.premium).toEqual({ amount: formatBaht(monthly(paid)), per: "ต่อเดือน" });
     expect(card.summary!.rows.map((r) => r.amount)).toEqual(
       [...paid].sort((a, b) => b.total - a.total).map((m) => formatBaht(m.total)),
@@ -101,16 +115,10 @@ describe("a Life Protect card", () => {
       title: "แยกตามสัญญา · รายเดือน",
       rows: [
         { label: "สัญญาหลัก", amount: formatSatang(monthly(base)) },
-        { label: "สัญญาเพิ่มเติมพีบี ฟิต", amount: `+${formatSatang(monthly(rider))}` },
+        { label: "สัญญาเพิ่มเติมดับบลิวพี ฟิต", amount: `+${formatSatang(monthly(rider))}` },
       ],
     });
-    expect(card.priceNote).toBe("พีบีช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ");
-  });
-
-  it("names the parent a child's พีบี is priced off, and says why to start early", () => {
-    const card = quoteCard(CHILD10, WHILE_CURRENT)!;
-    expect(card.summary!.split!.rows[1].label).toBe("สัญญาเพิ่มเติมพีบี ฟิต (ผู้ชำระเบี้ยหญิง 38 ปี)");
-    expect(card.footNotes![0]).toBe("✦ เบี้ยล็อกที่อายุ 10 ตลอดระยะเวลาชำระ ยิ่งเริ่มเร็วยิ่งถูก");
+    expect(card.priceNote).toBe("ดับบลิวพีช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ");
   });
 
   it("adds the medical plan, and says its premium is not level", () => {
@@ -125,8 +133,8 @@ describe("a Life Protect card", () => {
   });
 
   it("gives the value table the riders' column the page's table has", () => {
-    const { rider } = pagePaid(WITH_PB);
-    const table = valueTableCard(WITH_PB, WHILE_CURRENT)!;
+    const { rider } = pagePaid(WITH_WP);
+    const table = valueTableCard(WITH_WP, WHILE_CURRENT)!;
     expect(table.columns).toEqual(["ปีที่", "อายุ", "เบี้ย/ปี", "สัญญาเพิ่มเติม", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"]);
     const riderAnnual = formatBaht(rider!.find((m) => m.mode === "annual")!.total);
     expect(table.rows[0].rider).toBe(riderAnnual);
@@ -136,7 +144,7 @@ describe("a Life Protect card", () => {
   });
 
   it("shows no price once the rate table has lapsed, riders or not", () => {
-    const card = quoteCard(WITH_PB, new Date("2027-04-01"))!;
+    const card = quoteCard(WITH_WP, new Date("2027-04-01"))!;
     expect(card.premium).toBeNull();
     expect(card.summary).toBeNull();
     expect(card.priceNote).toBeUndefined();

@@ -4,6 +4,7 @@ import { videoStartFrom, videoStartHref } from "@/lib/quote-video/link";
 import { tableNotes } from "@/lib/quote-video/table-pen";
 import { colsOf, TABLE, valueHeads } from "@/lib/quote-video/table-geo";
 import { factLines } from "@/lib/quote-video/writer";
+import { currentRiders } from "@/lib/lifeprotect-card";
 
 const TODAY = new Date("2026-10-17T12:00:00+07:00");
 const base = { product: "LIFEPROTECT" as const, variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000 };
@@ -55,11 +56,9 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
       "ยังมีสัญญาเพิ่มเติมอีก 2 ตัว ดับบลิวพี ฟิต ถ้าทุพพลภาพสิ้นเชิงถาวร ไม่ต้องจ่ายเบี้ยที่เหลือ แต่ความคุ้มครองยังอยู่ครบ และค่าชดเชยรายวัน นอนโรงพยาบาลรับเงินวันละ 1,000 บาทค่ะ",
     );
     expect(cover({ ...base, riders: { waiver: { code: "WP", option: "BEYOND" } } })).toContain("ยังมีสัญญาเพิ่มเติม ดับบลิวพี บียอนด์ ถ้าทุพพลภาพสิ้นเชิงถาวร หรือเป็นโรคร้ายแรง");
-    // a child's พีบี is named without the payer the screen adds, and never with "เสียชีวิต"
-    const pb = { ...base, age: 5, riders: { waiver: { code: "PB", option: "FIT" }, payer: { sex: "F" as const, age: 35 } } };
-    expect(voiceOf(pb)).toContain("และพีบี ฟิต 20 บาท");
-    expect(cover(pb)).toContain("พีบี ฟิต ถ้าผู้ชำระเบี้ยเป็นอะไรไป");
-    expect(cover(pb)).not.toContain("เสียชีวิต");
+    // พีบี came off Life Protect (2026-11-02): a clip started from an older link loses it at intake
+    expect(currentRiders({ waiver: { code: "PB", option: "FIT" }, payer: { sex: "F", age: 35 } })).toBeUndefined();
+    expect(currentRiders({ waiver: { code: "PB", option: "FIT" }, medical: 1000 })).toEqual({ medical: 1000 });
     expect(cover(base)).not.toContain("สัญญาเพิ่มเติม");
     expect(factLines(facts({ ...base, riders: WP_MEB })).join("\n")).toContain("แยกตามสัญญา: สัญญาหลัก 2,583 บาท · ดับบลิวพี ฟิต 13 บาท · ค่าชดเชยรายวัน 117 บาท");
   });

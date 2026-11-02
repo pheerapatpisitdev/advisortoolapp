@@ -1,7 +1,7 @@
 import type { ModePremium } from "@/calc/mode-premiums";
 import { formatSatang } from "@/calc/money";
 import { PAY_MODE_LABEL } from "@/calc/types";
-import type { PlanCardInput } from "@/lib/card-link";
+import type { CardRiders, PlanCardInput } from "@/lib/card-link";
 import { displayPremium } from "@/lib/legacy-cta";
 import { childPriceNote, illnessDeathLine, illnessLabel, lifeProtectFootnote, payerWords, waiverNote } from "@/lib/lifeprotect-cta";
 import { lifeProtectTable, type LifeProtectIllness } from "@/lib/lifeprotect-table";
@@ -38,6 +38,20 @@ export interface LifeProtectPriced {
 }
 
 /**
+ * The riders as Life Protect still sells them. A waiver the table no longer carries (พีบี, off
+ * every quote since 2026-11-02) is dropped with the parent it was priced off, so a card link or
+ * clip made before then opens on the plan and its other riders. Undefined when none are left.
+ */
+export function currentRiders(riders: CardRiders | undefined, today: Date = new Date()): CardRiders | undefined {
+  const code = riders?.waiver?.code;
+  if (!riders || !code || lifeProtectTable(today).riders.some((r) => r.code === code)) return riders;
+  const rest: CardRiders = { ...riders };
+  delete rest.waiver;
+  delete rest.payer;
+  return Object.keys(rest).length ? rest : undefined;
+}
+
+/**
  * Undefined when the riders named cannot be priced on this insured — a waiver not sold at the
  * age, a child's พีบี without a parent in range, a medical plan the age may not buy. The page
  * never writes such a link, so one that arrives was edited by hand and gets no picture.
@@ -51,7 +65,7 @@ export function lifeProtectPriced(input: PlanCardInput, today: Date): LifeProtec
   const modes = lifeProtectModes(table, term, who);
   const annual = modes?.find((m) => m.mode === "annual");
   const priced = Boolean(annual) && !table.expired;
-  const asked = input.riders;
+  const asked = currentRiders(input.riders, today);
 
   const picked = asked?.waiver ? pickedRider(table, asked.waiver) : undefined;
   if (asked?.waiver && (!picked || !riderSoldAt(picked.rider, input.age))) return undefined;

@@ -557,8 +557,10 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   
           {table.riders.length > 0 && (
             <div>
-              <span className="block text-sm text-[var(--lg-mute)]">สัญญาเพิ่มเติม · เลือกได้อย่างใดอย่างหนึ่ง</span>
-              <div className="mt-1.5 grid grid-cols-3 gap-2">
+              <span className="block text-sm text-[var(--lg-mute)]">
+                สัญญาเพิ่มเติม · {table.riders.length > 1 ? "เลือกได้อย่างใดอย่างหนึ่ง" : "ยกเว้นเบี้ย"}
+              </span>
+              <div className={`mt-1.5 grid gap-2 ${table.riders.length > 1 ? "grid-cols-3" : "grid-cols-2"}`}>
                 <button
                   type="button" onClick={() => setPick(null)} aria-pressed={pick === null}
                   className={`rounded-sm border px-2 py-2.5 text-center transition-colors ${

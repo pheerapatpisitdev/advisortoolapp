@@ -29,17 +29,15 @@ const SUMS = Array.from({ length: 20 }, (_, i) => 500_000 * (i + 1));
 const MODES: PayMode[] = ["annual", "semi", "monthly"];
 
 describe("the riders the page offers", () => {
-  it("is the two that waive premiums, named as the company names them", () => {
+  /** พีบี came off every Life Protect quote (owner, 2026-11-02); ดับบลิวพี is the waiver left. */
+  it("is ดับบลิวพี alone, named as the company names it", () => {
     expect(table.riders.map((r) => [r.code, r.name, r.ageMin, r.ageMax])).toEqual([
-      // an adult pays their own premium, so the payer's own window is the adult's; a child's
-      // พีบี is quoted with a parent paying (riders' `child`, tested below)
-      ["PB", "สัญญาเพิ่มเติมพีบี (ผู้ชำระเบี้ย)", 20, 70],
       ["WP", "สัญญาเพิ่มเติมดับบลิวพี (ยกเว้นเบี้ย)", 16, 70],
     ]);
     expect(table.riders.map((r) => r.options.map((o) => o.name))).toEqual([
-      ["สัญญาเพิ่มเติมพีบี ฟิต", "สัญญาเพิ่มเติมพีบี บียอนด์"],
       ["สัญญาเพิ่มเติมดับบลิวพี ฟิต", "สัญญาเพิ่มเติมดับบลิวพี บียอนด์"],
     ]);
+    expect(pickedRider(table, { code: "PB", option: "FIT" })).toBeUndefined();
   });
 
   /**
@@ -132,53 +130,18 @@ describe("riderModes", () => {
       .toBe(q.items.find((it) => it.code === "WP")!.annual);
   });
 
-  /**
-   * A child cannot pay their own premium, so พีบี on one is read off the parent's row — the
-   * parent's age and sex, and a waive period cut short at the child's 25th birthday.
-   */
-  it("prices a child's พีบี off the parent paying, as the engine does", () => {
-    const pb = table.riders.find((r) => r.code === "PB")!;
-    expect(pb.child).toEqual({ ageMax: 15, payerMin: 20, payerMax: 70 });
-    const next = rng(20261006);
-    const pick = <T,>(xs: readonly T[]) => xs[Math.floor(next() * xs.length)];
-    for (let i = 0; i < 200; i++) {
-      const term = pick(table.terms);
-      const sex = pick(["M", "F"] as const);
-      const option = pick(pb.options);
-      const age = Math.floor(next() * 16);
-      const payer = { sex: pick(["M", "F"] as const), age: 20 + Math.floor(next() * 51) };
-      const sumAssured = pick(SUMS);
-      const who = { sex, age, sumAssured };
-      const base = lifeProtectModes(table, term, who)!;
-      const picked = pickedRider(table, { code: "PB", option: option.code })!;
-      const own = riderModes(table, term, who, picked, base.find((m) => m.mode === "annual")!.total, payer);
-      const label = `PB ${option.code} ${term.variant} ${sex} ${age} payer ${payer.sex} ${payer.age}`;
-      expect(own, label).toBeDefined();
-      for (const mode of MODES) {
-        const q = quote({
-          planCode: "LIFEPROTECT", variant: term.variant, age, sex, mode, sumAssured, payer,
-          riders: [{ code: "PB", option: option.code }],
-        }, WHILE_CURRENT);
-        const row = q.items.find((it) => it.code === "PB")!;
-        expect(row.eligible, `${label} ${mode} — ${row.message}`).toBe(true);
-        expect(row.modal, `${label} ${mode}`).toBe(own!.find((m) => m.mode === mode)!.total);
-      }
-    }
-  });
-
-  it("will not quote a child's พีบี without a parent in the payer's ages", () => {
+  /** With พีบี gone, a child under ดับบลิวพี's lowest age has no waiver to be quoted. */
+  it("has no waiver for a child under 16", () => {
+    const wp = table.riders.find((r) => r.code === "WP")!;
+    expect(wp.child).toBeUndefined();
     const who = { sex: "M" as Sex, age: 14, sumAssured: 1_000_000 };
     const term = termAt(table, "WLF19H");
     const baseAnnual = lifeProtectModes(table, term, who)!.find((m) => m.mode === "annual")!.total;
-    const picked = pickedRider(table, { code: "PB", option: "FIT" })!;
-    expect(riderModes(table, term, who, picked, baseAnnual)).toBeUndefined();
-    expect(riderModes(table, term, who, picked, baseAnnual, { sex: "F", age: 19 })).toBeUndefined();
-    expect(riderModes(table, term, who, picked, baseAnnual, { sex: "F", age: 71 })).toBeUndefined();
-    expect(riderModes(table, term, who, picked, baseAnnual, { sex: "F", age: 40 })).toBeDefined();
+    expect(riderModes(table, term, who, pickedRider(table, { code: "WP", option: "FIT" })!, baseAnnual)).toBeUndefined();
   });
 
   it("refuses a flavour the table does not carry", () => {
-    expect(pickedRider(table, { code: "PB", option: "NOPE" })).toBeUndefined();
+    expect(pickedRider(table, { code: "WP", option: "NOPE" })).toBeUndefined();
     expect(pickedRider(table, { code: "AP", option: "FIT" })).toBeUndefined();
     expect(pickedRider(table, undefined)).toBeUndefined();
   });
@@ -236,17 +199,17 @@ describe("the medical rider", () => {
 
 describe("riderDueByYear", () => {
   const term = termAt(table, "WLF19H");
-  const pb = table.riders.find((r) => r.code === "PB")!;
+  const wp = table.riders.find((r) => r.code === "WP")!;
 
-  /** A child's พีบี waives until 25, so at 14 it runs eleven of the plan's nineteen years. */
-  it("runs a child's waiver to 25 and the medical rider to the end of its rate table", () => {
-    const due = riderDueByYear(table, term, 14, 85, { rider: pb, annual: 50_000 }, { plan: 1000 });
+  /** ดับบลิวพี waives the plan's own paying years, so at 35 on จ่าย 19 ปี it runs nineteen. */
+  it("runs the waiver over the paying years and the medical rider to the end of its rate table", () => {
+    const due = riderDueByYear(table, term, 35, 50, { rider: wp, annual: 50_000 }, { plan: 1000 });
     const meb = (age: number) => fixedPlanRiderPremium(plan.rates, "MEB", { age, plan: 1000, mode: "annual" })!.annual;
-    expect(due[0]).toBe(50_000 + meb(14));
-    expect(due[10]).toBe(50_000 + meb(24));
-    expect(due[11]).toBe(meb(25));
-    expect(due[60]).toBe(meb(74));
-    expect(due[61]).toBe(0);
+    expect(due[0]).toBe(50_000 + meb(35));
+    expect(due[18]).toBe(50_000 + meb(53));
+    expect(due[19]).toBe(meb(54));
+    expect(due[39]).toBe(meb(74));
+    expect(due[40]).toBe(0);
   });
 
   it("is nothing a year without riders", () => {

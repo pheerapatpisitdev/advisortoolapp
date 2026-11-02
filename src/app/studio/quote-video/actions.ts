@@ -31,7 +31,7 @@ import { bangkokClock, googleInPlace, VOICE_FULL } from "@/lib/quote-video/voice
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { cleanCustomerName, pageCaption, planInput, productOf, quoteVideoFacts, riderShort, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
-import { lifeProtectPriced } from "@/lib/lifeprotect-card";
+import { currentRiders, lifeProtectPriced } from "@/lib/lifeprotect-card";
 import { quoteCard } from "@/lib/quote-card";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
 import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
@@ -278,7 +278,8 @@ function checkedQuote(v: VideoInput): VideoInput | string {
   if (!Number.isInteger(v.sumAssured) || v.sumAssured < min || v.sumAssured > max || v.sumAssured % SUM_STEP) {
     return `ทุนประกัน ${min.toLocaleString("en-US")} – ${max.toLocaleString("en-US")} บาท ทีละ 50,000`;
   }
-  const riders = product === "LIFEPROTECT" && "riders" in v ? cleanRiders(v.riders) : undefined;
+  // a waiver no longer sold (พีบี, 2026-11-02) comes off rather than refusing the clip
+  const riders = product === "LIFEPROTECT" && "riders" in v ? currentRiders(cleanRiders(v.riders)) : undefined;
   if (riders) {
     const plan = { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured };
     // the page's riders on an age or sum they are not sold at: said, rather than a clip without them

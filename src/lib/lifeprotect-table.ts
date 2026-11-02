@@ -207,11 +207,12 @@ const TERMS: { variant: string; label: string; short: string }[] = [
 ];
 
 /**
- * The riders the page offers, in the order it offers them. Both waive premiums and both are
- * priced off the base premium, so neither adds a question the page does not already ask —
- * and the company sells them one or the other, which is why the page offers a choice of one.
+ * The premium waiver the page offers, priced off the base premium. พีบี was offered beside it
+ * until the owner took it off every Life Protect quote (2026-11-02): it is meant for someone
+ * else paying, its rate climbs steeply with the years waived, and on the long term it made
+ * paying to 99 dearer than paying 19 years. A child under ดับบลิวพี's lowest age gets no waiver.
  */
-const RIDERS = ["PB", "WP"];
+const RIDERS = ["WP"];
 
 /** The medical-expense rider the page offers beside the premium waivers. */
 const MEDICAL = "MEB";

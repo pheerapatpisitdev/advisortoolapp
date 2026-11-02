@@ -277,11 +277,12 @@ function quoteFor(
   // function, or the reason there is none — a rider is never priced by guesswork
   let riders: CardRiders | undefined;
   let refused: string | undefined;
+  let note: string | undefined;
   if (wanted) {
     const resolved = resolveRiders(table, who, wanted);
     if (resolved.kind === "payer") return { text: askForParent(resolved) };
     if (resolved.kind === "unsold") refused = resolved.text;
-    else riders = resolved.riders;
+    else ({ riders, note } = resolved);
   }
   const input: PlanCardInput = {
     kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured, ...(headline ? { mode: headline } : {}),
@@ -319,7 +320,7 @@ function quoteFor(
   });
   const card = withRiders ? input : { ...input, riders: undefined };
   return {
-    text: refused ? `${text}\n\n${refused}` : text,
+    text: [text, note, refused].filter(Boolean).join("\n\n"),
     card: cardPath(card),
     table: valueTablePath(card, { characters: true }),
     // the quote PDF carries no riders yet: one that disagrees with the card is worse than none

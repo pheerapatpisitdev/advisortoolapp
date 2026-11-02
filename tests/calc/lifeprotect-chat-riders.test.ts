@@ -101,18 +101,23 @@ describe("which rider is priced on whom", () => {
     });
   });
 
-  it("asks for the parent before pricing a child's พีบี", () => {
-    expect(resolveRiders(table, { age: 8, sex: "M" }, { waiver: {} }).kind).toBe("payer");
-    expect(resolveRiders(table, { age: 8, sex: "M" }, { waiver: {}, payer: { sex: "F", age: 35 } })).toEqual({
-      kind: "ok", riders: { waiver: { code: "PB", option: "FIT" }, payer: { sex: "F", age: 35 } },
+  /** พีบี came off Life Protect (owner, 2026-11-02): asking for it is answered with ดับบลิวพี. */
+  it("quotes ดับบลิวพี to an adult who asks for พีบี, and says so", () => {
+    expect(resolveRiders(table, { age: 38, sex: "M" }, { waiver: { code: "PB", option: "BEYOND" } })).toEqual({
+      kind: "ok", riders: { waiver: { code: "WP", option: "BEYOND" } },
+      note: "แบบนี้ไม่มีพีบีแล้วครับ สัญญายกเว้นเบี้ยที่มีคือดับบลิวพี ผมคิดเบี้ยดับบลิวพีให้แทนในใบนี้",
     });
   });
 
-  it("will not price a parent outside the rider's window, or a waiver the age may not buy", () => {
-    expect(resolveRiders(table, { age: 8, sex: "M" }, { waiver: {}, payer: { sex: "F", age: 99 } }).kind).toBe("payer");
+  it("will not price a waiver the age may not buy, a child's included", () => {
     expect(resolveRiders(table, { age: 75, sex: "M" }, { waiver: {} }).kind).toBe("unsold");
-    // WP starts at sixteen; a child asking for it is not priced a contract nobody sells
-    expect(resolveRiders(table, { age: 8, sex: "M" }, { waiver: { code: "WP" } }).kind).toBe("unsold");
+    // ดับบลิวพี starts at sixteen and พีบี is gone, so a child has no waiver at all
+    for (const waiver of [{}, { code: "WP" as const }, { code: "PB" as const }]) {
+      expect(resolveRiders(table, { age: 8, sex: "M" }, { waiver })).toEqual({
+        kind: "unsold",
+        text: "แบบนี้มีสัญญายกเว้นเบี้ยเป็นดับบลิวพี รับอายุ 16-70 ปีครับ ที่อายุ 8 ปีจึงยังไม่มีสัญญายกเว้นเบี้ยให้เลือก",
+      });
+    }
   });
 
   it("takes the daily money at a thousand, or the most the age may have below that", () => {
@@ -210,19 +215,17 @@ describe("the card a rider question is answered with", () => {
     expect(then.messages[0].pdfPath).toBeDefined();
   });
 
-  it("asks for the parent before pricing a child's rider, and prices it when they answer", async () => {
-    const ask = await answerQuestion(said("ขอพีบีด้วยค่ะ"), CHILD);
-    expect(ask.messages[0].card).toBeUndefined();
-    expect(ask.messages[0].text).toContain("ผู้ปกครอง");
-    expect(ask.priced).toBeFalsy();
+  it("tells a child's parent there is no waiver at that age, and still sends the plan's price", async () => {
+    const answer = await answerQuestion(said("ขอพีบีด้วยค่ะ"), CHILD);
+    const q = queryOf(answer.messages[0].card!);
+    expect([q.get("rider"), q.get("payer"), q.get("age")]).toEqual([null, null, "8"]);
+    expect(answer.messages[0].text).toContain("ที่อายุ 8 ปีจึงยังไม่มีสัญญายกเว้นเบี้ยให้เลือก");
+  });
 
-    // the answer is a parent, not a new insured: the child's age must stand
-    routed = { intent: "other", age: 35, sex: "F" };
-    const then = await answerQuestion(said("แม่ 35"), ask.slots);
-    const q = queryOf(then.messages[0].card!);
-    expect([q.get("rider"), q.get("payer")]).toEqual(["PB.FIT", "F35"]);
-    expect(q.get("age")).toBe("8");
-    expect(then.slots.age).toBe(8);
+  it("sends an adult who asks for พีบี the card with ดับบลิวพี on it", async () => {
+    const answer = await answerQuestion(said("ขอพีบีด้วยครับ"), QUOTED);
+    expect(queryOf(answer.messages[0].card!).get("rider")).toBe("WP.FIT");
+    expect(answer.messages[0].text).toContain("แบบนี้ไม่มีพีบีแล้วครับ");
   });
 
   it("says plainly that an age cannot have the rider, and still sends the price it can", async () => {
