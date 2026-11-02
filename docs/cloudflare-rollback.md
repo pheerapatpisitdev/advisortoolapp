@@ -31,7 +31,8 @@ Vercel รันโค้ดชุดเดียวกันจาก main อ�
 
 - นาฬิกาตั้งเวลา, Facebook, LINE และ Stripe เรียก www.advisortool.app จึงตามไปที่ Vercel เอง ไม่ต้องแก้อะไร
 - Vercel เป็นแบบฟรี (Hobby) ซึ่งมีเพดานการใช้งานต่อเดือน ถ้าต้องอยู่บน Vercel นานเกิน 1–2 วัน ให้คิดเรื่องอัปเป็น Pro
-- push main ยัง deploy ขึ้น Cloudflare ด้วยตามเดิม (scripts/cloudflare-ship.sh) ไม่เสียหาย เพราะไม่มีใครเข้าเว็บที่นั่น
+- push main แล้ว Cloudflare ยัง build จาก GitHub และขึ้น Worker ตามเดิม (Workers Builds) ไม่เสียหาย เพราะไม่มีใครเข้าเว็บที่นั่น
+  ถ้า build ของ Cloudflare ใช้ไม่ได้ ขึ้นจากเครื่องได้ด้วย `scripts/cloudflare-ship.sh`
 
 ## สลับกลับมา Cloudflare อีกครั้ง
 

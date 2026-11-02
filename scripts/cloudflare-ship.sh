@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# The Cloudflare Worker (the live site since the Cloudflare move, step 4, owner chose ก 2026-11-02) built from the
-# commit about to reach main, and deployed before main moves. Vercel builds the same commit from GitHub on its own
-# and stays the standby. Run by .githooks/pre-push with the commit being pushed; by hand: scripts/cloudflare-ship.sh
+# The Cloudflare Worker (the live site since the Cloudflare move, step 4, 2026-11-02) built and deployed from this
+# machine. Cloudflare Workers Builds deploys every push to main from GitHub on its own (owner, 2026-11-02), as Vercel
+# does for the standby; this is the way by hand, when those builds are down: scripts/cloudflare-ship.sh
 #
 # When the Worker's last code upload already carries this commit (its version tag) it ends at once. Otherwise
 # (about 10 minutes): npm run cf:build for www.advisortool.app, then opennextjs-cloudflare deploy --tag <commit>.
