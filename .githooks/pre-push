@@ -6,8 +6,9 @@
 # An emergency push past it:  git push --no-verify
 
 to_main=no
-while read -r _local_ref _local_sha remote_ref _remote_sha; do
-  [ "$remote_ref" = "refs/heads/main" ] && to_main=yes
+main_sha=
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  [ "$remote_ref" = "refs/heads/main" ] && to_main=yes && main_sha=$local_sha
 done
 [ "$to_main" = yes ] || exit 0
 
@@ -31,5 +32,11 @@ fi
 # the draw service for the drawing code this push carries (draw/ship.sh); without it the app draws for itself
 if ! draw/ship.sh; then
   echo "pre-push: the draw service for this code is not ready — nothing pushed." >&2
+  exit 1
+fi
+# the live site, the Cloudflare Worker, on this commit before main moves (scripts/cloudflare-ship.sh);
+# Vercel, the standby, builds the same commit from GitHub once it lands
+if ! scripts/cloudflare-ship.sh "$main_sha"; then
+  echo "pre-push: the Cloudflare Worker is not on this commit — nothing pushed." >&2
   exit 1
 fi

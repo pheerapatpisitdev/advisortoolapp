@@ -30,6 +30,12 @@
 	// the bots wait on AI for minutes; CPU itself is what counts here, up to 5 minutes
 	"limits": { "cpu_ms": 300000 },
 	"observability": { "enabled": true },
+	// the live site (Cloudflare move step 4, owner chose ก 2026-11-02). advisortool.app itself is a redirect rule to
+	// www in the zone, as Vercel did it; test.advisortool.app was closed at the switch, and no workers.dev address
+	// leads around the site. Back to Vercel: docs/cloudflare-rollback.md
+	"routes": [{ "pattern": "www.advisortool.app", "custom_domain": true }],
+	"workers_dev": false,
+	"preview_urls": false,
 	// settings that are not secret; the secrets are set with wrangler (scripts/cloudflare-setup.sh)
 	"vars": { "DRAW_URL": "https://advisortool-draw-33p5kshztq-as.a.run.app" }
 }
