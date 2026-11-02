@@ -12,6 +12,12 @@ let client: Stripe | null = null;
 export function stripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
-  client ??= new Stripe(key, { apiVersion: STRIPE_API_VERSION as Stripe.LatestApiVersion });
+  // fetch, not Node's https with its kept-alive sockets: on a Cloudflare Worker (the live site since
+  // 2026-11-02) a socket one request opened cannot serve the next, and the top-up hung until the
+  // runtime killed it. fetch works the same on Vercel.
+  client ??= new Stripe(key, {
+    apiVersion: STRIPE_API_VERSION as Stripe.LatestApiVersion,
+    httpClient: Stripe.createFetchHttpClient(),
+  });
   return client;
 }
