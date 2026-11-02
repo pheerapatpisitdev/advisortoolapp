@@ -36,7 +36,8 @@ NEXT_PUBLIC_SITE_URL="$SITE" npm run cf:build >/tmp/advisortool-cf-build.log 2>&
   echo "cloudflare ship: the build failed (full log: /tmp/advisortool-cf-build.log)" >&2
   exit 1
 }
-npx opennextjs-cloudflare deploy --tag "$SHA" --message "$(git log -1 --format=%s "$SHA" | cut -c1-100)" >/tmp/advisortool-cf-deploy.log 2>&1 || {
+# only the tag: OpenNext hands its arguments to wrangler through a shell, so a --message with spaces breaks apart
+npx opennextjs-cloudflare deploy --tag "$SHA" >/tmp/advisortool-cf-deploy.log 2>&1 || {
   tail -30 /tmp/advisortool-cf-deploy.log >&2
   echo "cloudflare ship: the deploy failed (full log: /tmp/advisortool-cf-deploy.log)" >&2
   exit 1
