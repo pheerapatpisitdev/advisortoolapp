@@ -24,6 +24,8 @@ export interface OwnerLine {
   notifyAiDown: boolean;
   /** a message for every clip that fails, the owner's own too (owner chose ก ก, 2026-10-19) */
   notifyClipFailed: boolean;
+  /** a message when a way in stops working and when it is back (owner chose ก, 2026-11-03) */
+  notifySigninDown: boolean;
   /** the code waiting to be typed, while it is still good */
   pendingCode: string | null;
   pendingUntil: string | null;
@@ -37,11 +39,12 @@ interface Row {
   notify_new_member: boolean | null;
   notify_ai_down: boolean | null;
   notify_clip_failed: boolean | null;
+  notify_signin_down: boolean | null;
 }
 
 async function row(): Promise<Row | null> {
   const { data, error } = await supabaseAdmin().from("ins_ai_settings")
-    .select("owner_line_user_id, owner_line_linked_at, owner_line_link_code, owner_line_link_expires, notify_new_member, notify_ai_down, notify_clip_failed")
+    .select("owner_line_user_id, owner_line_linked_at, owner_line_link_code, owner_line_link_expires, notify_new_member, notify_ai_down, notify_clip_failed, notify_signin_down")
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data as Row | null;
@@ -62,6 +65,7 @@ export async function ownerLine(now = Date.now()): Promise<OwnerLine> {
     notifyNewMember: r?.notify_new_member !== false,
     notifyAiDown: r?.notify_ai_down !== false,
     notifyClipFailed: r?.notify_clip_failed !== false,
+    notifySigninDown: r?.notify_signin_down !== false,
     pendingCode: live ? r!.owner_line_link_code : null,
     pendingUntil: live ? r!.owner_line_link_expires : null,
   };
@@ -89,6 +93,10 @@ export async function setNotifyAiDown(on: boolean): Promise<void> {
 
 export async function setNotifyClipFailed(on: boolean): Promise<void> {
   await save({ notify_clip_failed: on });
+}
+
+export async function setNotifySigninDown(on: boolean): Promise<void> {
+  await save({ notify_signin_down: on });
 }
 
 /** The code's words with the invisible characters a phone keyboard slips in taken out. */
@@ -183,6 +191,22 @@ export async function alertAiDown(text: string): Promise<boolean> {
     return true;
   } catch (e) {
     console.error("[line] AI-down alert not sent:", e);
+    return false;
+  }
+}
+
+/**
+ * Tells the owner a way in (UnitOS code, UnitOS menu, Bluewealth, Google) stopped working or
+ * came back (src/lib/signin-health). Never throws, as alertAiDown. False when nothing was sent.
+ */
+export async function alertSigninDown(text: string): Promise<boolean> {
+  try {
+    const r = await row();
+    if (!r?.owner_line_user_id || r.notify_signin_down === false) return false;
+    await push(r.owner_line_user_id, [{ type: "text", text }]);
+    return true;
+  } catch (e) {
+    console.error("[line] sign-in-down alert not sent:", e);
     return false;
   }
 }

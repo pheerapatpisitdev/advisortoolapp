@@ -87,6 +87,23 @@ async function lookup(by: { p_id: string } | { p_code: string }): Promise<AgentR
   return rows.map((r) => asGateRow(r, open));
 }
 
+/**
+ * Asks Bluewealth for a code nobody holds, as การเชื่อมต่อ does every 30 minutes
+ * (src/lib/signin-health): an empty answer means the keys and the function all work. Throws
+ * Bluewealth's own words otherwise ("Invalid API key", "not allowed"), and "ไม่ได้ตั้งค่า"
+ * when the keys are not set. The Super Admin's switch is not read: closed is not broken.
+ */
+export async function bluewealthPing(timeoutMs: number): Promise<void> {
+  const env = lookupEnv();
+  if (!env) throw new Error("ยังไม่ได้ตั้งค่าการเชื่อมกับ Bluewealth");
+  const client = createClient(env.url, env.anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) }) },
+  });
+  const { error } = await client.rpc("advisortool_agents", { p_key: env.key, p_code: "000000" });
+  if (error) throw new Error(error.message);
+}
+
 /** A Bluewealth agent with their room, or null. */
 export async function bluewealthAgentById(id: string): Promise<AgentRow | null> {
   return (await lookup({ p_id: id }))[0] ?? null;

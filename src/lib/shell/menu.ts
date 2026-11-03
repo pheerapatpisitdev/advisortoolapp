@@ -233,6 +233,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     pages: [
       // a tool switched off while something it needs is down (owner chose ก ก ก, 2026-10-17)
       { href: "/admin/switches", label: "เปิด-ปิดฟังก์ชัน", icon: "power", hue: "#2b7470" },
+      // whether each way in still works, checked every 30 minutes (owner chose ก ก ก, 2026-11-03)
+      { href: "/admin/connections", label: "การเชื่อมต่อ", icon: "pulse", hue: "#2b7272" },
       { href: "/admin/ai", label: "คีย์และโมเดล", icon: "gear", hue: "#2b6f74" },
       { href: "/admin/prices", label: "ราคาและโปรโมชัน", icon: "tag", hue: "#2b6a7a" },
       // with ประวัติเติมเงิน, who put money in day by day, as its second tab (owner chose ก, 2026-10-23;
