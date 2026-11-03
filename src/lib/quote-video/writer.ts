@@ -10,7 +10,7 @@ import type { QuoteVideoFacts, VideoLength } from "./script";
  * The lines a วิดีโอนำเสนอ clip is told to its brief with (owner, 2026-10-13, choice ค): a small
  * model writes the opening hook, its on-screen headline, the closing (or the loop's hanging line)
  * and, for the longer clips, the customer's story. Never Claude (owner, 2026-10-11: no Claude at
- * runtime) — the small tier, Gemini Flash or Typhoon.
+ * runtime) — the small tier, Gemini Flash or another small model.
  *
  * Each field is checked against the quote (brief.ts writtenProblems). What fails is asked for once
  * more with the reasons; what fails again is the fixed line. So a clip is always told, the model

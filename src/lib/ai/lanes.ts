@@ -47,8 +47,7 @@ export const VOICE_SERVICES = ["gemini-api", "gemini-cloud", "elevenlabs"] as co
 export type VoiceService = (typeof VOICE_SERVICES)[number];
 
 const SMALL = [
-  "gemini-3.1-flash-lite", "gpt-5-mini", "glm-5.3-flash", "claude-haiku-4-5-20251001",
-  "typhoon-v2.5-30b-a3b-instruct", "google/gemini-3.1-flash-lite",
+  "gemini-3.1-flash-lite", "gpt-5-mini", "glm-5.3-flash", "claude-haiku-4-5-20251001", "google/gemini-3.1-flash-lite",
 ];
 
 export const LANES: LaneDef[] = [
