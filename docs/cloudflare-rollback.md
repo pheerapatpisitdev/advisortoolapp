@@ -38,3 +38,13 @@ Vercel รันโค้ดชุดเดียวกันจาก main อ�
 
 ทำกลับกันกับขั้น "สลับ": ลบแถว `www` และแถว `A` 2 แถวของ Vercel → เพิ่ม `A @ 192.0.2.1` แบบเมฆสีส้ม และเปิดกฎ redirect →
 รัน `npx wrangler deploy` ในโฟลเดอร์โปรเจกต์ (wrangler.jsonc ผูก www กับ Worker ให้เอง) แล้วเช็ก health
+
+## บอท LINE อยู่บน Vercel (ตั้งแต่ 3 พ.ย. 2569)
+
+webhook ของ LINE ชี้ไปที่ `https://standby.advisortool.app/api/line/webhook` (Vercel สิงคโปร์) ไม่ใช่ www
+เพราะบน Cloudflare บอทต้องรอคิวและอยู่ไกลฐานข้อมูล ตอบช้าเกือบเท่าตัว (เลือกทาง ก, mockup https://claude.ai/artifact/ECbmRRpaxZbfkqLP5i64se)
+เว็บ หน้าอื่น การ์ด และ Messenger ยังอยู่บน Cloudflare
+
+- ถ้า Vercel ล่มแต่ Cloudflare ปกติ บอท LINE จะเงียบ ให้ชี้ webhook กลับไป www:
+  LINE Developers → channel ของ OA → Messaging API → Webhook URL → `https://www.advisortool.app/api/line/webhook` → Update → Verify
+- ถ้าสลับทั้งเว็บกลับไป Vercel ตามขั้นด้านบน ไม่ต้องแตะ webhook ของ LINE
