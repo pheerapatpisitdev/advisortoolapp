@@ -32,8 +32,9 @@ export type { PersonUse } from "./people";
  * chain; it is listed so its key can be set and tested here (owner, 2026-10-11).
  */
 // Kimi (Moonshot) removed 2026-10-15: never funded, owner asked for it to go
-// OpenRouter last on the page, below ElevenLabs (owner, 2026-10-14); DeepSeek after Typhoon (2026-10-21)
-const PROVIDERS = ["anthropic", "openai", "google", "zai", "typhoon", "deepseek", "typesafe", "elevenlabs", "openrouter"] as const;
+// DeepSeek removed 2026-11-03: never funded (402 Insufficient Balance), owner asked for it to go
+// OpenRouter last on the page, below ElevenLabs (owner, 2026-10-14)
+const PROVIDERS = ["anthropic", "openai", "google", "zai", "typhoon", "typesafe", "elevenlabs", "openrouter"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 /**

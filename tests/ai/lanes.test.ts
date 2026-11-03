@@ -11,7 +11,7 @@ const MODELS = [
   row("gemini-3.1-flash-lite", "google", 0.25),
   row("gemini-3.7-flash", "google", 0.75),
   row("claude-sonnet-5", "anthropic", 2),
-  row("deepseek-flash", "deepseek", 0.3),
+  row("typhoon-v2.5-30b-a3b-instruct", "typhoon", 0.3),
   row("google/gemma-4-31b-it:free", "openrouter", 0),
 ];
 
@@ -19,7 +19,7 @@ let lanesRow: unknown = {};
 let lanesError: unknown = null;
 vi.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: () => ({
-    rpc: async () => ({ data: [{ provider: "google", api_key: "g" }, { provider: "anthropic", api_key: "a" }, { provider: "deepseek", api_key: "d" }], error: null }),
+    rpc: async () => ({ data: [{ provider: "google", api_key: "g" }, { provider: "anthropic", api_key: "a" }, { provider: "typhoon", api_key: "t" }], error: null }),
     from: (table: string) => ({
       select: (cols: string) => {
         if (table === "model_configs") return Promise.resolve({ data: MODELS });
@@ -34,7 +34,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/wallet/round", () => ({ meterCost: () => {}, inWalletRound: () => false }));
 const asked: string[] = [];
 const answer = async ({ model }: { model: string }) => { asked.push(model); return { text: "ok", inputTokens: 1, outputTokens: 1 }; };
-vi.mock("@/lib/ai/providers", () => ({ CALLERS: { google: answer, anthropic: answer, deepseek: answer }, EMBEDDERS: [] }));
+vi.mock("@/lib/ai/providers", () => ({ CALLERS: { google: answer, anthropic: answer, typhoon: answer }, EMBEDDERS: [] }));
 
 const { chat, clearAiConfigCache, laneChain, voiceLane } = await import("@/lib/ai/client");
 
@@ -64,10 +64,10 @@ describe("which lane a call belongs to", () => {
 });
 
 describe("a lane's defaults", () => {
-  it("are the order used before lanes, with DeepSeek just ahead of OpenRouter", () => {
+  it("are the order used before lanes", () => {
     expect(laneIds({}, "bot-small")).toEqual([
       "gemini-3.1-flash-lite", "gpt-5-mini", "glm-5.3-flash", "claude-haiku-4-5-20251001",
-      "typhoon-v2.5-30b-a3b-instruct", "deepseek-flash", "google/gemini-3.1-flash-lite",
+      "typhoon-v2.5-30b-a3b-instruct", "google/gemini-3.1-flash-lite",
     ]);
     expect(laneIds({}, "write-post")).toEqual(["claude-sonnet-5", "gpt-5", "gemini-3.7-flash"]);
     expect(laneIds({}, "image-plain")).toEqual(["gpt-image-medium", "gemini-image-lite"]);
@@ -98,9 +98,9 @@ describe("the วิดีโอ lanes (owner, 2026-10-27, ก)", () => {
 
 describe("what was saved", () => {
   it("is kept in its order, and a switched-off choice is not tried", () => {
-    const saved = parseLanes({ "bot-small": [{ id: "deepseek-flash", on: true }, { id: "gemini-3.1-flash-lite", on: false }] });
+    const saved = parseLanes({ "bot-small": [{ id: "typhoon-v2.5-30b-a3b-instruct", on: true }, { id: "gemini-3.1-flash-lite", on: false }] });
     expect(laneEntries(saved, "bot-small")).toHaveLength(2);
-    expect(laneIds(saved, "bot-small")).toEqual(["deepseek-flash"]);
+    expect(laneIds(saved, "bot-small")).toEqual(["typhoon-v2.5-30b-a3b-instruct"]);
   });
 
   it("drops what is not a lane or not an entry, as if never saved", () => {
@@ -111,7 +111,7 @@ describe("what was saved", () => {
 });
 
 describe("laneChain", () => {
-  const keys = { google: "g", anthropic: "a", deepseek: "d" };
+  const keys = { google: "g", anthropic: "a", typhoon: "t" };
 
   it("tries exactly the lane, in its order, skipping what is off or has no key", () => {
     const names = laneChain([...MODELS, row("gpt-5", "openai", 1.25)], ["claude-sonnet-5", "gpt-5", "gemini-3.7-flash"], keys).map((m) => m.model_name);
@@ -137,14 +137,14 @@ describe("chat follows the saved lane", () => {
   const ask = (task: string, prefer?: string) => chat({ tier: "small", task, prefer, messages: [{ role: "user", content: "hi" }] });
 
   it("answers with the lane's top choice", async () => {
-    lanesRow = { "bot-small": [{ id: "deepseek-flash", on: true }, { id: "gemini-3.1-flash-lite", on: true }] };
-    expect((await ask("route")).model).toBe("deepseek-flash");
+    lanesRow = { "bot-small": [{ id: "typhoon-v2.5-30b-a3b-instruct", on: true }, { id: "gemini-3.1-flash-lite", on: true }] };
+    expect((await ask("route")).model).toBe("typhoon-v2.5-30b-a3b-instruct");
     // another lane is not touched by it
     expect((await ask("content-plan")).model).toBe("gemini-3.1-flash-lite");
   });
 
   it("keeps a caller's pick ahead of the lane", async () => {
-    lanesRow = { "write-help": [{ id: "deepseek-flash", on: true }] };
+    lanesRow = { "write-help": [{ id: "typhoon-v2.5-30b-a3b-instruct", on: true }] };
     expect((await ask("content-plan", "gemini-3.7-flash")).model).toBe("gemini-3.7-flash");
   });
 

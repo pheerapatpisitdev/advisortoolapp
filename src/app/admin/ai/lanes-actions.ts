@@ -43,9 +43,9 @@ export interface LaneView {
 const USD_TO_THB = 36;
 const DAYS = 30;
 
-/** the companies whose chat models read pictures; of DeepSeek's, only Flash (api-docs.deepseek.com, 2026-10-21) */
+/** the companies whose chat models read pictures */
 const READS_PICTURES = new Set(["anthropic", "openai", "google", "openrouter"]);
-const readsPictures = (m: { provider: string; model_name: string }) => READS_PICTURES.has(m.provider) || m.model_name === "deepseek-flash";
+const readsPictures = (m: { provider: string }) => READS_PICTURES.has(m.provider);
 
 /** what the voice services cost, as measured (cloud-tts-move, 2026-10-20) */
 const VOICE: Record<VoiceService, { name: string; company: string; price: string; model: string }> = {

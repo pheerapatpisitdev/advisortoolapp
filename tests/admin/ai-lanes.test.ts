@@ -13,13 +13,12 @@ const MODELS = [
   { id: "claude-large", provider: "anthropic", kind: "text", model_name: "claude-sonnet-5", enabled: true, price: { inputPerMTokUsd: 2, outputPerMTokUsd: 10 } },
   { id: "gpt-small", provider: "openai", kind: "text", model_name: "gpt-5-mini", enabled: true, price: { inputPerMTokUsd: 0.25, outputPerMTokUsd: 2 } },
   { id: "zai-small", provider: "zai", kind: "text", model_name: "glm-5.3-flash", enabled: true, price: { inputPerMTokUsd: 0.15, outputPerMTokUsd: 0.5 } },
-  { id: "deepseek-small", provider: "deepseek", kind: "text", model_name: "deepseek-flash", enabled: true, price: { inputPerMTokUsd: 0.3, outputPerMTokUsd: 1.2 } },
-  { id: "deepseek-large", provider: "deepseek", kind: "text", model_name: "deepseek-v4-pro", enabled: true, price: { inputPerMTokUsd: 1.32, outputPerMTokUsd: 3.96 } },
+  { id: "typhoon-small", provider: "typhoon", kind: "text", model_name: "typhoon-v2.5-30b-a3b-instruct", enabled: true, price: { inputPerMTokUsd: 0.1, outputPerMTokUsd: 0.4 } },
   { id: "openrouter-gemma-free", provider: "openrouter", kind: "text", model_name: "google/gemma-4-31b-it:free", enabled: true, price: { inputPerMTokUsd: 0, outputPerMTokUsd: 0 } },
   { id: "gpt-image-medium", provider: "openai", kind: "image", model_name: "gpt-image-2", enabled: true, price: { perImageUsd: 0.012 } },
   { id: "gemini-image", provider: "google", kind: "image", model_name: "gemini-3.1-flash-image", enabled: true, price: { perImageUsd: 0.067 } },
 ];
-/** keys held: OpenAI's switched off, as it is in prod on 2026-10-21; DeepSeek's not yet pasted */
+/** keys held: OpenAI's switched off, as it is in prod on 2026-10-21; Typhoon's not pasted here */
 const KEYS = [{ provider: "google", enabled: true }, { provider: "anthropic", enabled: true }, { provider: "openai", enabled: false }, { provider: "zai", enabled: true }, { provider: "gcp", enabled: true }];
 
 vi.mock("@/lib/auth/viewer", async () => (await import("../helpers/signed-in")).asOwner);
@@ -87,7 +86,7 @@ describe("loadLanes", () => {
     const status = (id: string) => small.options.find((o) => o.id === id)?.status;
     expect(status("gemini-3.1-flash-lite")).toBe("ready");
     expect(status("gpt-5-mini")).toBe("off-provider");
-    expect(status("deepseek-flash")).toBe("no-key");
+    expect(status("typhoon-v2.5-30b-a3b-instruct")).toBe("no-key");
     // the bot's own work only: Studio's planning is not counted here
     expect(small.used["gemini-3.1-flash-lite"]).toBe(796 + 182);
     expect(lanes.find((l) => l.key === "write-help")!.used["gemini-3.1-flash-lite"]).toBe(174);
@@ -101,8 +100,8 @@ describe("loadLanes", () => {
     const { lanes } = await loadLanes();
     for (const l of lanes) expect(l.options.map((o) => o.id)).not.toContain("google/gemma-4-31b-it:free");
     const read = lanes.find((l) => l.key === "write-read")!.options.map((o) => o.id);
-    expect(read).toContain("deepseek-flash");
-    expect(read).not.toContain("deepseek-v4-pro");
+    expect(read).toContain("gemini-3.7-flash");
+    expect(read).not.toContain("typhoon-v2.5-30b-a3b-instruct");
     expect(read).not.toContain("glm-5.3-flash");
   });
 
@@ -126,11 +125,11 @@ describe("loadLanes", () => {
 describe("saveLanes", () => {
   it("saves a group's lanes, keeping the other groups as they were", async () => {
     saved = { voice: [{ id: "gemini-cloud", on: true }] };
-    const r = await saveLanes([{ key: "bot-small", entries: [{ id: "deepseek-flash", on: true }, { id: "gemini-3.1-flash-lite", on: true }] }]);
+    const r = await saveLanes([{ key: "bot-small", entries: [{ id: "typhoon-v2.5-30b-a3b-instruct", on: true }, { id: "gemini-3.1-flash-lite", on: true }] }]);
     expect(r).toEqual({ ok: true });
     expect(upserted?.lanes).toEqual({
       voice: [{ id: "gemini-cloud", on: true }],
-      "bot-small": [{ id: "deepseek-flash", on: true }, { id: "gemini-3.1-flash-lite", on: true }],
+      "bot-small": [{ id: "typhoon-v2.5-30b-a3b-instruct", on: true }, { id: "gemini-3.1-flash-lite", on: true }],
     });
   });
 

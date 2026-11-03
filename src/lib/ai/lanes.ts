@@ -31,7 +31,7 @@ export interface LaneDef {
   title: string;
   /** the line under the title */
   sub: string;
-  /** the order the system used before lanes could be set, plus DeepSeek ahead of OpenRouter */
+  /** the order the system used before lanes could be set */
   defaults: string[];
   /** a text lane whose work sends pictures: only models that read them may be added */
   readsPictures?: boolean;
@@ -48,7 +48,7 @@ export type VoiceService = (typeof VOICE_SERVICES)[number];
 
 const SMALL = [
   "gemini-3.1-flash-lite", "gpt-5-mini", "glm-5.3-flash", "claude-haiku-4-5-20251001",
-  "typhoon-v2.5-30b-a3b-instruct", "deepseek-flash", "google/gemini-3.1-flash-lite",
+  "typhoon-v2.5-30b-a3b-instruct", "google/gemini-3.1-flash-lite",
 ];
 
 export const LANES: LaneDef[] = [
@@ -59,7 +59,7 @@ export const LANES: LaneDef[] = [
   {
     // the chat review's own list (gemini-3.7-flash first) and the large tier behind it
     key: "bot-large", group: "bot", kind: "text",
-    defaults: ["gemini-3.7-flash", "claude-sonnet-5", "gpt-5", "glm-5.3", "deepseek-v4-pro", "anthropic/claude-sonnet-5"],
+    defaults: ["gemini-3.7-flash", "claude-sonnet-5", "gpt-5", "glm-5.3", "anthropic/claude-sonnet-5"],
     title: "ตอบจากเอกสาร · ทบทวนแชท", sub: "ราคาต่อ 1,000 คำตอบ",
   },
   {
