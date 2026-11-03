@@ -36,7 +36,7 @@ export async function answerExpat(
 }
 
 /** Only the person survives from a conversation about something else. */
-function personOf(stored: AnySlots | null): HealthSlots | null {
+export function personOf(stored: AnySlots | null): HealthSlots | null {
   if (!stored) return null;
   const { age, sex } = stored as { age?: number; sex?: "M" | "F" };
   if (age === undefined && sex === undefined) return null;
@@ -46,7 +46,7 @@ function personOf(stored: AnySlots | null): HealthSlots | null {
   };
 }
 
-function withoutLang(slots: HealthSlots): HealthSlots {
+export function withoutLang(slots: HealthSlots): HealthSlots {
   const rest = { ...slots };
   delete rest.lang;
   return rest;

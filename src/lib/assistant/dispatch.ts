@@ -23,8 +23,9 @@ import type { GuideItem } from "@/lib/copilot/guide";
 import { writtenFor, type Channel } from "./channel";
 import { answerFromLibrary } from "@/lib/copilot/library";
 import { recruitReply } from "./recruit";
-import { isExpatPage } from "./expat";
+import { asksForEnglish, isExpatPage } from "./expat";
 import { answerExpat, expatLanguage } from "./ihealthy-en/door";
+import { answerInEnglish, inEnglish, toEnglish } from "./ihealthy-en/switch";
 import type { PageWelcome } from "./page-welcome";
 import { matchLesson, type Lesson } from "./lessons";
 
@@ -179,7 +180,7 @@ async function answerTurn(
    * rebuilds its slots from scratch cannot drop it, and none has to know it exists.
    */
   const memory = cleanPdfMemory((stored as WithPdf<AnySlots> | null)?.pdf);
-  const slots = stored && "pdf" in stored ? withoutPdf(stored as WithPdf<AnySlots>) : stored;
+  let slots = stored && "pdf" in stored ? withoutPdf(stored as WithPdf<AnySlots>) : stored;
 
   /**
    * A request for the file, or a no to the offer of one, answered before anything else — once
@@ -203,6 +204,18 @@ async function answerTurn(
       return { ...asks.reply, slots: { ...(slots ?? { product: "ihealthy", intent: "other" }), pdf: asks.memory } as WithPdf<AnySlots> };
     }
     return withPdfOffer(await answerExpat(history, slots), memory, lang);
+  }
+
+  /**
+   * English everywhere else, when the customer asks for it (./ihealthy-en/switch, owner chose
+   * ก). A Thai sentence ends it, and the doors below answer that sentence in Thai.
+   */
+  if (inEnglish(slots)) {
+    const english = await answerInEnglish(history, slots, lastSaid, memory, channel);
+    if (!("thai" in english)) return english;
+    slots = english.thai;
+  } else if (asksForEnglish(asked)) {
+    return toEnglish(slots, memory);
   }
 
   const turn = pdfTurn(asked, lastSaid, memory, channel);
