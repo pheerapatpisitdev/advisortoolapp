@@ -112,6 +112,8 @@ export interface BudgetOutcomeProps {
   least: { sum: number; total: number } | undefined;
   /** the smallest monthly instalment the company takes, in baht */
   minMonthly: number;
+  /** how the sum was chosen, said after the money left; the plan's own steps unless the page says otherwise */
+  stepNote?: string;
 }
 
 /**
@@ -119,7 +121,7 @@ export interface BudgetOutcomeProps {
  * left of the money — or, when the money does not reach the plan's smallest sum, that, with the
  * figure it would take. A budget is never lifted to the minimum without being told.
  */
-export function BudgetOutcome({ budget, fit, least, minMonthly }: BudgetOutcomeProps) {
+export function BudgetOutcome({ budget, fit, least, minMonthly, stepNote = "ทุนเลือกได้ตามขั้นที่แผนนี้ขาย" }: BudgetOutcomeProps) {
   const per = budget.per === "month" ? "เดือน" : "ปี";
   // the same formatting the quotation uses, so one instalment never shows as two figures
   const baht = formatBaht;
@@ -143,7 +145,7 @@ export function BudgetOutcome({ budget, fit, least, minMonthly }: BudgetOutcomeP
         เบี้ยจริง {baht(fit.total)} บาท/{per}
         {fit.over
           ? ` · เกินงบเล็กน้อย เพราะรายเดือนต้องไม่ต่ำกว่า ${minMonthly.toLocaleString("en-US")} บาท`
-          : ` · เหลืองบ ${baht(budget.baht * 100 - fit.total)} บาท · ทุนเลือกได้ตามขั้นที่แผนนี้ขาย`}
+          : ` · เหลืองบ ${baht(budget.baht * 100 - fit.total)} บาท · ${stepNote}`}
       </p>
     </div>
   );

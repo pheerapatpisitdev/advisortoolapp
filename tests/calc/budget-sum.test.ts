@@ -95,3 +95,49 @@ describe("what a budget buys on the iShield page", () => {
     expect(budgetFit(sums, priceAt("WLCI10", "M", 35), { baht: 500, per: "month" })).toBeUndefined();
   });
 });
+
+/**
+ * The Life Protect page lands a budget on a sum to the thousand (owner, 2026-11-04, ข): a man of
+ * 34 with a million a year was offered 18,600,000 at 998,820 on the fifty-thousand steps, with
+ * 1,180 left over, when 18,621,000 at 999,947.70 fits. The chat keeps its fifty-thousand steps.
+ */
+describe("the Life Protect page walks the budget up to the thousand", () => {
+  const table = lifeProtectTable(new Date("2026-11-04"));
+  const priceAt = (variant: string, sex: "M" | "F", age: number) => (sumAssured: number) =>
+    lifeProtectModes(table, termAt(table, variant), { sex, age, sumAssured });
+
+  it("M34 pay 9, 1,000,000 a year: 18,621,000 at 999,947.70, and the next thousand is over", () => {
+    const fit = budgetFit(LIFEPROTECT_BUDGET_SUMS, priceAt("WLF09H", "M", 34), { baht: 1_000_000, per: "year" }, 1_000);
+    expect(fit).toEqual({ sum: 18_621_000, total: 99_994_770, over: false });
+    const next = priceAt("WLF09H", "M", 34)(18_622_000)!.find((m) => m.mode === "annual")!;
+    expect(next.total).toBeGreaterThan(100_000_000);
+  });
+
+  it("M34 pay 9, 10,000 a month: 2,069,000 at 9,999.47", () => {
+    const fit = budgetFit(LIFEPROTECT_BUDGET_SUMS, priceAt("WLF09H", "M", 34), { baht: 10_000, per: "month" }, 1_000);
+    expect(fit).toEqual({ sum: 2_069_000, total: 999_947, over: false });
+  });
+
+  it("without the fine step the fifty-thousand answer stands", () => {
+    const fit = budgetFit(LIFEPROTECT_BUDGET_SUMS, priceAt("WLF09H", "M", 34), { baht: 1_000_000, per: "year" });
+    expect(fit).toEqual({ sum: 18_600_000, total: 99_882_000, over: false });
+  });
+
+  it("never walks past the list's last sum", () => {
+    const fit = budgetFit(LIFEPROTECT_BUDGET_SUMS, priceAt("WLF09H", "M", 34), { baht: 9_000_000, per: "year" }, 1_000);
+    expect(fit?.sum).toBe(50_000_000);
+  });
+
+  it("the fine steps fit between the coarse ones: every thousand up to the next coarse step is tried", () => {
+    // a plan priced at one satang per baht of sum, with a monthly floor of 150 baht
+    const price = (sum: number) => [
+      { mode: "annual" as const, total: sum, belowMinimum: false },
+      { mode: "monthly" as const, total: sum, belowMinimum: sum < 15_000 },
+    ];
+    const sums = [10_000, 20_000, 30_000];
+    // 125 a month buys 12,500 on the thousand... which is under the floor, so the smallest sellable thousand, 15,000, is sold as over
+    expect(budgetFit(sums, price, { baht: 125, per: "month" }, 1_000)).toEqual({ sum: 15_000, total: 15_000, over: true });
+    // 125 a year buys 12,000, no floor on a year's instalment
+    expect(budgetFit(sums, price, { baht: 125, per: "year" }, 1_000)).toEqual({ sum: 12_000, total: 12_000, over: false });
+  });
+});

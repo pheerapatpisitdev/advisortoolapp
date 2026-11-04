@@ -21,7 +21,7 @@ import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
-import { LIFEPROTECT_BUDGET_SUMS, LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_BUDGET_SUMS, LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, LIFEPROTECT_TYPED_STEP, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
@@ -185,13 +185,18 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const ageNum = typeof age === "number" ? age : undefined;
   const inRange = ageNum !== undefined;
   /**
-   * What the budget buys on a term: the biggest sum on the chat's fifty-thousand steps that
-   * fits, priced forwards by the page's own function. Undefined is a budget under the plan's
-   * smallest sum, which is said in words and never lifted to it.
+   * What the budget buys on a term: the biggest sum that fits, walked up from the chat's
+   * fifty-thousand steps to the thousand (owner, 2026-11-04 — a million a year bought
+   * 18,600,000 at 998,820 when 18,621,000 at 999,947.70 fits), priced forwards by the page's
+   * own function. Undefined is a budget under the plan's smallest sum, which is said in words
+   * and never lifted to it.
    */
   const budgetOn = (variantCode: string) =>
     byBudget && ageNum !== undefined && !table.expired
-      ? budgetFit(LIFEPROTECT_BUDGET_SUMS, (s) => lifeProtectModes(table, termAt(table, variantCode), { sex, age: ageNum, sumAssured: s }), budget)
+      ? budgetFit(
+          LIFEPROTECT_BUDGET_SUMS, (s) => lifeProtectModes(table, termAt(table, variantCode), { sex, age: ageNum, sumAssured: s }),
+          budget, LIFEPROTECT_TYPED_STEP,
+        )
       : undefined;
   const fit = budgetOn(variant);
   const budgetShort = byBudget && ageNum !== undefined && !table.expired && !fit;
@@ -440,7 +445,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
               <BudgetBox id="lp-budget" budget={budget} onChange={setBudget} />
               {ageNum !== undefined && (
                 <BudgetOutcome
-                  budget={budget} fit={fit} minMonthly={table.minMonthly}
+                  budget={budget} fit={fit} minMonthly={table.minMonthly} stepNote="ทุนปัดลงถึงหลักพัน"
                   least={(() => {
                     const floor = LIFEPROTECT_BUDGET_SUMS[0];
                     const m = lifeProtectModes(table, term, { sex, age: ageNum, sumAssured: floor })

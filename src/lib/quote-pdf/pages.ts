@@ -25,8 +25,9 @@ export const LIFEPROTECT_SUMS = Array.from({ length: 331 }, (_, i) => LIFEPROTEC
 
 /** The largest sum the page sells. */
 const PAGE_MAX_SUM = 50_000_000;
-/** A typed sum is kept to the thousand: the plan is priced per thousand of sum. */
-const TYPED_STEP = 1_000;
+/** A typed sum is kept to the thousand: the plan is priced per thousand of sum. A budget lands to it too. */
+export const LIFEPROTECT_TYPED_STEP = 1_000;
+const TYPED_STEP = LIFEPROTECT_TYPED_STEP;
 
 /**
  * The sums a link or PDF may name: every thousand from the plan's smallest sum (150,000) to fifty

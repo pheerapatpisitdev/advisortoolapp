@@ -27,10 +27,15 @@ export interface BudgetFit {
  * budget is the company's monthly floor: when the best fit is an instalment the company will
  * not take, the next sum up is the smallest that can be sold, and `over` says so.
  *
+ * With a `fine` step the fit walks on from the list's best sum in steps of it, up to the
+ * list's next sum, so the sum lands to the thousand rather than the list's own coarse steps
+ * (the Life Protect page; the chat keeps the list's steps). The company's monthly floor is then
+ * met by the smallest fine step that reaches it.
+ *
  * `sums` must be ascending, and an instalment never falls as the sum rises.
  */
 export function budgetFit(
-  sums: readonly number[], priceAt: (sum: number) => ModePremium[] | undefined, budget: PageBudget,
+  sums: readonly number[], priceAt: (sum: number) => ModePremium[] | undefined, budget: PageBudget, fine?: number,
 ): BudgetFit | undefined {
   const mode = budget.per === "month" ? "monthly" : "annual";
   const limit = Math.round(budget.baht * 100);
@@ -45,8 +50,25 @@ export function budgetFit(
   }
   if (best < 0) return undefined;
 
-  const fits = at(sums[best])!;
-  if (!fits.belowMinimum) return { sum: sums[best], total: fits.total, over: false };
+  let sum = sums[best];
+  let fits = at(sum)!;
+  // the fine steps between this sum and the list's next; none past the list's last
+  const ceiling = sums[best + 1] ?? sum;
+  if (fine) {
+    for (let s = sum + fine; s < ceiling; s += fine) {
+      const p = at(s);
+      if (!p || p.total > limit) break;
+      sum = s;
+      fits = p;
+    }
+  }
+  if (!fits.belowMinimum) return { sum, total: fits.total, over: false };
+  if (fine) {
+    for (let s = sum + fine; s < ceiling; s += fine) {
+      const p = at(s);
+      if (p && !p.belowMinimum) return { sum: s, total: p.total, over: true };
+    }
+  }
   const up = sums[best + 1] === undefined ? undefined : at(sums[best + 1]);
   return up && !up.belowMinimum ? { sum: sums[best + 1], total: up.total, over: true } : undefined;
 }
