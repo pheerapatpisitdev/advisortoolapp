@@ -40,7 +40,7 @@ const GROUP = /my (?:company|employees|staff|team)|for (?:my )?(?:employees|staf
 const GREETS = /^\s*(?:hi|hello|hey|good (?:morning|afternoon|evening))\b|more information|more info|learn more|get (?:a )?quote|interested|tell me more/i;
 const OTHER_PLANS = /other plans?|what else|more plans|another plan/i;
 const CHEAPER = /expensive|cheaper|lower (?:price|premium)|discount|too much|over (?:my )?budget|can'?t afford/i;
-const FULL_TABLE = /full (?:benefit )?table|all (?:the )?benefits|full details|complete table/i;
+const FULL_TABLE = /full (?:benefit )?table|benefits? table|all (?:the )?benefits|full details|complete table/i;
 
 function lastAsked(history: ChatMessage[]): string {
   return [...history].reverse().find((m) => m.role === "user")?.content ?? "";

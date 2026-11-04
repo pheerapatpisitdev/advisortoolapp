@@ -39,6 +39,9 @@ const IN_ENGLISH_WORDS = String.raw`^\s*(?:(?:can|could|would) (?:you|we|i)\s+)?
  * "English please", "Can you speak English?". Only a request — the owner chose ก (2026-11-03):
  * a question written in English is still a question, and a Thai customer's "OPD กี่บาท" is
  * Thai. "มีเอกสารภาษาอังกฤษไหม" asks for a document, not a language, and is not this.
+ *
+ * It may sit inside a longer message, beside what is wanted in English: "Quote ภาษาอังกฤษ
+ * ihealthy ultra เพศชาย อายุ 62" (LINE, 2026-11-04). อังกฤษ after ไป, ที่ or ใน is the country.
  */
 const ASKS_ENGLISH = [
   new RegExp(`${IN_THAI_WORDS}อังกฤษ${POLITE}`),
@@ -51,8 +54,13 @@ const ASKS_THAI = [
   new RegExp(`${IN_ENGLISH_WORDS}thai${POLITE}`, "i"),
 ];
 
+const NAMES_ENGLISH = /(?<!ไป|ที่|ใน|ประเทศ|เมือง)(?:ภาษา)?อังกฤษ|\benglish\b/i;
+const WANTS_A_QUOTE = /quote|ราคา|เบี้ย|ใบเสนอ|ตาราง|benefit|ผลประโยชน์|i?\s*-?health|ไอเฮลท์|แผน|ชาย|หญิง|\bmale\b|\bfemale\b|\d+\s*ปี/i;
+const ABOUT_THE_PAPERS = /เอกสาร|กรมธรรม์|\bpolicy\b|สอน|เรียน/i;
+
 export function asksForEnglish(text: string): boolean {
-  return ASKS_ENGLISH.some((re) => re.test(text));
+  if (ASKS_ENGLISH.some((re) => re.test(text))) return true;
+  return NAMES_ENGLISH.test(text) && WANTS_A_QUOTE.test(text) && !ABOUT_THE_PAPERS.test(text);
 }
 
 export function asksForThai(text: string): boolean {

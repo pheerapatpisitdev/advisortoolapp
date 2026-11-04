@@ -108,7 +108,7 @@ export function asksShareOfBill(text: string): boolean {
 }
 
 /** Asking for the whole benefit sheet, which is a web page and not a picture. */
-const FULL_TABLE = /ตาราง(?:ผลประโยชน์)?(?:เต็ม|ทั้งหมด|ครบ)|เต็มๆ|ทุกหมวด|ครบทุกหมวด|ผลประโยชน์ทั้งหมด|ดูรายละเอียดทั้งหมด/;
+const FULL_TABLE = /ตาราง(?:ผลประโยชน์)?(?:เต็ม|ทั้งหมด|ครบ)|ตาราง\s*(?:ผลประโยชน์|benefits?)|benefits?\s*table|full\s+(?:benefits?\s+)?table|เต็มๆ|ทุกหมวด|ครบทุกหมวด|ผลประโยชน์ทั้งหมด|ดูรายละเอียดทั้งหมด/i;
 export function asksFullTable(text: string): boolean {
   return FULL_TABLE.test(text);
 }

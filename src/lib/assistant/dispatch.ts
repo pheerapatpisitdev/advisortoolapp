@@ -180,7 +180,7 @@ async function answerTurn(
    * rebuilds its slots from scratch cannot drop it, and none has to know it exists.
    */
   const memory = cleanPdfMemory((stored as WithPdf<AnySlots> | null)?.pdf);
-  let slots = stored && "pdf" in stored ? withoutPdf(stored as WithPdf<AnySlots>) : stored;
+  const slots = stored && "pdf" in stored ? withoutPdf(stored as WithPdf<AnySlots>) : stored;
 
   /**
    * A request for the file, or a no to the offer of one, answered before anything else — once
@@ -206,17 +206,9 @@ async function answerTurn(
     return withPdfOffer(await answerExpat(history, slots), memory, lang);
   }
 
-  /**
-   * English everywhere else, when the customer asks for it (./ihealthy-en/switch, owner chose
-   * ก). A Thai sentence ends it, and the doors below answer that sentence in Thai.
-   */
-  if (inEnglish(slots)) {
-    const english = await answerInEnglish(history, slots, lastSaid, memory, channel);
-    if (!("thai" in english)) return english;
-    slots = english.thai;
-  } else if (asksForEnglish(asked)) {
-    return toEnglish(slots, memory);
-  }
+  /** English everywhere else, once the customer asks for it, until they ask for Thai (./ihealthy-en/switch). */
+  if (inEnglish(slots)) return answerInEnglish(history, slots, lastSaid, memory, channel);
+  if (asksForEnglish(asked)) return toEnglish(asked, slots, memory);
 
   const turn = pdfTurn(asked, lastSaid, memory, channel);
   if (turn) {

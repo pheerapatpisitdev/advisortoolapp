@@ -8,8 +8,8 @@ import { plansFor, territoriesFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
 import {
-  WANTS_IN, aboutCompany, affirms, asksAboutCompany, asksCheaper, handOverForm, keepGivenFigures, one,
-  recentTurns, saysFormDone, spoken, stallReply, stalls, wantsToBuy, type Reply,
+  WANTS_IN, aboutCompany, affirms, ageIn, asksAboutCompany, asksCheaper, handOverForm, keepGivenFigures, one,
+  peopleIn, recentTurns, saysFormDone, sexIn, spoken, stallReply, stalls, wantsToBuy, type Reply,
 } from "../common";
 import { CHOOSE_HEALTH } from "../choose";
 import { healthFaqAnswer } from "./faq";
@@ -109,6 +109,16 @@ export async function answerHealth(
       : { ...one(askForMissing(known)), slots: known };
   }
 
+  // the sheet for whoever this message names, which may not be the person quoted last
+  if (asksFullTable(asked)) {
+    const pair = peopleIn(asked)[0];
+    const age = ageIn(asked) ?? pair?.age ?? known.age;
+    const sex = sexIn(asked) ?? pair?.sex ?? known.sex;
+    if (age !== undefined && sex !== undefined) {
+      return { ...fullTable({ ...known, age, sex }), slots: { ...known, age, sex } };
+    }
+  }
+
   if (known.age !== undefined && known.sex !== undefined) {
     const who = { ...known, age: known.age, sex: known.sex };
     /**
@@ -124,7 +134,6 @@ export async function answerHealth(
         ? { ...healthQuote({ ...who, plan: known.plan }), slots: known }
         : { ...healthMenu(who.age, who.sex), slots: known };
     }
-    if (asksFullTable(asked)) return { ...fullTable(who), slots: known };
     if (asksOtherPlans(asked) || asked === SEE_OTHER_PLANS) {
       return { ...otherPlansReply(who.age, who.sex), slots: known };
     }
@@ -149,11 +158,13 @@ export async function answerHealth(
    * Not merely because a plan is in the slots. The model is handed the conversation and hands
    * the plan back with it, so "OPD ได้ไหม" three messages after a quotation came back as the
    * whole quotation again, card and all — the same thing the life brain did when asked how
-   * long the premium ran.
+   * long the premium ran. A different person is a new quotation, though: age 62 changed to 35
+   * with Gold still in the slots went to the model, which promised an admin (LINE, 2026-11-04).
    */
   if (slots.plan) {
     const asking = planNamedIn(asked) !== undefined
       || slots.plan !== known.plan
+      || slots.age !== known.age || slots.sex !== known.sex
       || !hasHealthQuote(known);
     if (asking) {
       return { ...healthQuote({ ...slots, age: slots.age, sex: slots.sex, plan: slots.plan }), slots };
