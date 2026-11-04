@@ -1,6 +1,6 @@
 import type { PensionYear } from "@/calc/pension/engine";
 import {
-  arrow, brace, figureWidth, head, penTextWidth, type PenGeometry, type PenLabel, type PenNotes,
+  arrow, brace, figureWidth, head, penTextWidth, type PenBubble, type PenGeometry, type PenLabel, type PenNotes,
 } from "@/app/api/card/table/pen-notes";
 
 /**
@@ -14,6 +14,12 @@ import {
  *   - the first pension ringed, an arrow from "เริ่มรับบำนาญ อายุ N"
  *   - in blue, a brace down the fifteen guaranteed pensions, "รับประกันจ่าย 15 ปีแรก …"
  *   - each step up in the pension ringed, "บำนาญเพิ่มเป็น N% ของทุน"
+ *
+ * On the chat picture and the page, which ask for `bubbles`, the guarantee's words and the step-up
+ * words give way to the green notes the owner sent as a picture (2026-11-04, ก on mockup
+ * https://claude.ai/artifact/X5YQTueUQAnCvRS67JqUnm): one for each age band, saying what it pays a
+ * year and in all, with the band's own arrow, and a lighter one for taking the surrender value as a
+ * lump sum the year before the pension starts. The clip's table does not ask, and stays as it was.
  *
  * No จุดคุ้มทุน: the owner took it off this plan (2026-10-11). `breakEven` is still worked out,
  * for nothing to draw.
@@ -103,6 +109,33 @@ export function pensionRings(rows: PensionYear[], stopColumn: "ปีที่" 
   ];
 }
 
+/** the fewest rows a table must have before its pension for the lump-sum note to fit */
+const LUMP_ROWS = 4;
+
+/**
+ * The surrender value the lump-sum note points at: the last year before the pension starts, the
+ * last the contract has one. None where the rows above it are too few to hold the note.
+ */
+export function pensionLumpRing(rows: PensionYear[]): { row: number; column: "มูลค่าเวนคืน" } | undefined {
+  const { start } = pensionMarks(rows);
+  if (start < LUMP_ROWS || !rows[start - 1].cashValue) return undefined;
+  return { row: start - 1, column: "มูลค่าเวนคืน" };
+}
+
+/** the green notes at full size, in picture units: three lines in a box this big */
+const BAND_NOTE = { width: 440, height: 168, size: 32, step: 46, round: 22 };
+const LUMP_NOTE = { width: 300, height: 160, size: 32, step: 46, round: 22 };
+/** the gap a band's note leaves above the year it opens, and between it and the next band's */
+const NOTE_ABOVE = 4;
+const NOTE_AIR = 12;
+/** the lump-sum note's gap above its row, and how far along the free cells it sits */
+const LUMP_ABOVE = 18;
+const LUMP_ALONG = 0.63;
+/** a band's note stays clear of the pension column by this much */
+const NOTE_CLEAR = 20;
+/** the shortest gap worth an arrow: a little more than an arrowhead */
+const NOTE_ARROW_MIN = 28;
+
 /** the hand's size for every word, in picture units; its line is half as much again */
 const PEN_SIZE = 24;
 const BRACE_WORDS = ["เบี้ย", "คงที่"];
@@ -132,7 +165,7 @@ export const pensionBraceRoom = (rows: PensionYear[]) => pensionMarks(rows).stea
  */
 export function pensionPenNotes(
   rows: PensionYear[], sumAssured: number,
-  g: PenGeometry & { penSize?: number; leftColumns?: number; ringOver?: number },
+  g: PenGeometry & { penSize?: number; leftColumns?: number; ringOver?: number; bubbles?: boolean },
   ring = RING_PX / PENSION_PEN_SCALE,
 ): PenNotes {
   const notes: PenNotes = { rings: [], strokes: [], blueStrokes: [], labels: [] };
@@ -164,6 +197,22 @@ export function pensionPenNotes(
     : end(col(c)) - g.cellPad + over;
   const stopColumn = g.widths[col("ปีที่")] > 0 ? "ปีที่" : "อายุ";
   notes.rings = pensionRings(rows, stopColumn);
+  const bubbles: PenBubble[] = [];
+  if (g.bubbles) {
+    notes.bubbles = bubbles;
+    notes.darkStrokes = [];
+  }
+  /** a note of `base`'s shape shrunk by `by`, placed, with its lines */
+  const bubble = (
+    tone: PenBubble["tone"], base: typeof BAND_NOTE, by: number, left: number, top: number, lines: PenBubble["lines"],
+  ): PenBubble => {
+    const b: PenBubble = {
+      tone, left, top, width: base.width * by, height: base.height * by,
+      size: base.size * by, step: base.step * by, round: base.round * by, lines,
+    };
+    bubbles.push(b);
+    return b;
+  };
 
   /**
    * The empty cells a pension year leaves — premium, running total, surrender value — taken a
@@ -251,6 +300,18 @@ export function pensionPenNotes(
     ];
   };
 
+  /**
+   * The arrow out of a green note. A phone's table leaves little room beside the note: there a
+   * curve only hooks, so a short gap gets a straight line, and one too short for an arrowhead
+   * gets nothing, the note already sitting against what it points at.
+   */
+  const fromNote = (fx: number, fy: number, tx: number, ty: number, laneY: number, target: number): string[] => {
+    const gap = tx - fx;
+    if (gap < NOTE_ARROW_MIN) return [];
+    if (gap < g.row * 2) return [`M${fx.toFixed(1)} ${fy.toFixed(1)} L${tx.toFixed(1)} ${ty.toFixed(1)}`, head(tx, ty, fx, fy)];
+    return reach(fx, fy, tx, ty, laneY, target);
+  };
+
   /** a word written left of its row's ringed pension figure, with an arrow over to the ring */
   const pointAt = (lines: string[], target: number, c: PensionColumn, want: number[]) => {
     const n = take(want, lines.length, false);
@@ -271,8 +332,28 @@ export function pensionPenNotes(
     pointAt([`เริ่มรับบำนาญ อายุ ${rows[m.start].age}`], m.start, "บำนาญ", [m.start, m.start + 1, m.start + 2]);
   }
 
-  // ── บำนาญเพิ่มขึ้น: each step up to a bigger share of the sum
-  for (const n of m.steps) {
+  // ── what each band pays: the band's first year, its last, and the room left of the pension
+  const bandRows = g.bubbles && m.start >= 0
+    ? [m.start, ...m.steps].map((from, i, all) => ({ from, to: (all[i + 1] ?? rows.length) - 1 }))
+    : [];
+  const bandLines = (from: number, to: number, first: boolean): PenBubble["lines"] => [
+    { text: `${first ? "รับบำนาญอายุ" : "รับบำนาญตั้งแต่อายุ"} ${rows[from].age}-${rows[to].age} ปี` },
+    { text: `ปีละ ${pensionFigure(rows[from].pension)} บาท` },
+    { text: "รวม ", under: pensionFigure(rows.slice(from, to + 1).reduce((s, r) => s + r.pension, 0)), tail: " บาท" },
+  ];
+  const noteLeft = x(col("เบี้ย"));
+  const noteRoom = x(col("บำนาญ")) - NOTE_CLEAR - noteLeft;
+  const byWidth = Math.min(1, noteRoom / BAND_NOTE.width);
+
+  // ── บำนาญเพิ่มขึ้น: each step up to a bigger share of the sum; on a table with the green notes,
+  // the band's note opens at the year it steps up, with the same arrow out of it
+  for (const band of bandRows.slice(1)) {
+    const n = band.from;
+    const by = Math.min(byWidth, ((band.to - n + 1) * g.row - NOTE_AIR) / BAND_NOTE.height);
+    const b = bubble("green", BAND_NOTE, by, noteLeft, top(n) - NOTE_ABOVE, bandLines(n, band.to, false));
+    notes.strokes.push(...fromNote(b.left + b.width + 4, mid(n), figureLeft(n, "บำนาญ", true) - 2, mid(n), top(n), col("บำนาญ")));
+  }
+  for (const n of g.bubbles ? [] : m.steps) {
     pointAt([`บำนาญเพิ่มเป็น ${percentOf(rows[n].pension, sumAssured)} ของทุน`], n, "บำนาญ", [n, n + 1, n - 1]);
   }
 
@@ -308,18 +389,66 @@ export function pensionPenNotes(
     const want = Array.from({ length: to - from + 1 }, (_, i) => from + i)
       .filter((n) => n + span - 1 <= to)
       .sort((a, b) => Math.abs(a - centre) - Math.abs(b - centre));
-    const n = take(want, words.length, true);
+    const tipY = y + h / 2;
+    // to the brace's point; across any figures on the line between two rows
+    const laneY = top(Math.round((tipY - top(0)) / g.row));
+
+    // the first band's note stands where these words would, and carries the brace's arrow; its
+    // band may be short (a pension from 70), and the pen's notes may have taken a row or two of it
+    const band = bandRows[0];
+    if (band) {
+      const open = (n: number) => free(n) && n >= band.from && n <= band.to;
+      const fits = (n: number, count: number) => Array.from({ length: count }, (_, i) => n + i).every(open);
+      const full = Math.ceil(BAND_NOTE.height * byWidth / g.row);
+      for (let count = full; count > 0; count--) {
+        const middle = Math.round((from + to) / 2 - count / 2);
+        const n = Array.from({ length: band.to - band.from + 1 }, (_, i) => band.from + i)
+          .filter((r) => fits(r, count))
+          .sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle))[0];
+        if (n === undefined) continue;
+        const by = Math.min(byWidth, (count * g.row - NOTE_AIR) / BAND_NOTE.height);
+        const b = bubble("green", BAND_NOTE, by, noteLeft, top(n) + (count * g.row - BAND_NOTE.height * by) / 2, bandLines(band.from, band.to, true));
+        notes.blueStrokes.push(...fromNote(b.left + b.width + 4, b.top + b.height / 2, left - 3, tipY, laneY, col("บำนาญ")));
+        break;
+      }
+    }
+
+    const n = band ? undefined : take(want, words.length, true);
     if (n !== undefined) {
       const labelTop = blockTop(n, words.length);
       const w = write(words, writeFrom, labelTop, "blue");
       const fromX = writeFrom + w + 8;
       const fromY = labelTop + (words.length * LINE) / 2;
-      const tipY = y + h / 2;
-      // to the brace's point; across any figures on the line between two rows
-      const laneY = top(Math.round((tipY - top(0)) / g.row));
       notes.blueStrokes.push(...reach(fromX, fromY, left - 3, tipY, laneY, col("บำนาญ")));
     }
   }
 
+  // ── เลือกรับเป็นเงินก้อน: the surrender value ringed in the figures' ink, the note in the
+  // empty pension cells above it to the right, an arrow down to the ring
+  const lump = g.bubbles ? pensionLumpRing(rows) : undefined;
+  if (lump) {
+    notes.rings.push({ ...lump, dark: true });
+    const T = lump.row;
+    const roomLeft = x(col("บำนาญ"));
+    const roomWide = end(col("บำนาญสะสม")) - roomLeft;
+    // never higher than the table's first row, nor lower than the end of the last free one
+    const roomTall = (T + 1) * g.row - NOTE_AIR;
+    const by = Math.min(1, roomWide / LUMP_NOTE.width, roomTall / LUMP_NOTE.height);
+    const tall = LUMP_NOTE.height * by;
+    const wide = LUMP_NOTE.width * by;
+    const noteTop = Math.max(top(0) + NOTE_AIR / 2, top(T) - LUMP_ABOVE - tall);
+    const b = bubble("lime", LUMP_NOTE, by, roomLeft + (roomWide - wide) * LUMP_ALONG, noteTop, [
+      { text: "เลือกรับเป็นเงินก้อน" },
+      { text: `ตอนอายุ ${rows[T].age}` },
+      { text: `${pensionFigure(rows[T].cashValue)} บาท`, big: true },
+    ]);
+    const fromX = b.left + 2;
+    const fromY = Math.min(b.top + tall - 6, mid(T) - g.row * 0.1);
+    const toX = ringRight(T, lump.column) + 8;
+    const toY = mid(T) - 2;
+    notes.darkStrokes!.push(`M${fromX.toFixed(1)} ${fromY.toFixed(1)} L${toX.toFixed(1)} ${toY.toFixed(1)}`, head(toX, toY, fromX, fromY));
+  }
+
+  bubbles.sort((a, b) => a.top - b.top);
   return notes;
 }

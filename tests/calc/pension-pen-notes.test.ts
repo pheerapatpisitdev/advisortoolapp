@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest";
 import { quotePension, type PensionAge, type PensionPay } from "@/calc/pension/engine";
 import type { PenGeometry } from "@/app/api/card/table/pen-notes";
 import {
-  PENSION_COLUMNS, pensionBraceRoom, pensionCells, pensionMarks, pensionPenNotes, pensionRings,
+  PENSION_COLUMNS, pensionBraceRoom, pensionCells, pensionLumpRing, pensionMarks, pensionPenNotes, pensionRings,
 } from "@/lib/pension-pen-notes";
+import { PENSION_AGES, availablePensionAges } from "@/calc/pension/engine";
 
 /** The page's example, or another, priced as the calculator prices it. */
 function quote(age = 40, annuityAge: PensionAge = 60, pay: PensionPay = "untilAnnuity") {
@@ -106,5 +107,113 @@ describe("the pen notes on the บำนาญ 95 yearly table", () => {
     expect(c["คุ้มครองชีวิต"]).toBe("");
     expect(c["บำนาญ"]).toBe("236,221");
     expect(Object.keys(c)).toEqual([...PENSION_COLUMNS]);
+  });
+});
+
+describe("the green notes on the บำนาญ 95 yearly table (owner chose ก, 2026-11-04)", () => {
+  /** the picture's own table: the example the owner sent, a man of 44 paying 200,000 for six years */
+  const WIDE: PenGeometry & { bubbles: true } = {
+    widths: [90, 90, 230, 200, 200, 210, 230, 246], caption: 40, head: 50, row: 36, cellPad: 11, bubbles: true,
+  };
+  const sent = quotePension({ age: 44, sex: "M", annuityAge: 60, pay: "6", mode: "annual", basis: "premium", amount: 200_000 });
+  if (!sent.ok) throw new Error(sent.error);
+  const q = sent.quote;
+  const text = (b: NonNullable<ReturnType<typeof pensionPenNotes>["bubbles"]>[number]) =>
+    b.lines.map((l) => `${l.text}${l.under ?? ""}${l.tail ?? ""}`);
+
+  it("says what each age band pays, to the baht of the owner's picture", () => {
+    const green = pensionPenNotes(q.illustration, q.sumAssured, WIDE).bubbles!.filter((b) => b.tone === "green");
+    expect(green.map(text)).toEqual([
+      ["รับบำนาญอายุ 60-75 ปี", "ปีละ 48,884 บาท", "รวม 782,144 บาท"],
+      ["รับบำนาญตั้งแต่อายุ 76-80 ปี", "ปีละ 65,179 บาท", "รวม 325,895 บาท"],
+      ["รับบำนาญตั้งแต่อายุ 81-85 ปี", "ปีละ 81,473 บาท", "รวม 407,365 บาท"],
+      ["รับบำนาญตั้งแต่อายุ 86-95 ปี", "ปีละ 97,768 บาท", "รวม 977,680 บาท"],
+    ]);
+  });
+
+  it("points the lump sum at the surrender value of the year before the pension", () => {
+    const n = pensionPenNotes(q.illustration, q.sumAssured, WIDE);
+    expect(n.bubbles!.filter((b) => b.tone === "lime").map(text)).toEqual([
+      ["เลือกรับเป็นเงินก้อน", "ตอนอายุ 59", "1,262,184 บาท"],
+    ]);
+    const ring = pensionLumpRing(q.illustration);
+    expect(ring).toEqual({ row: at(q.illustration, 59), column: "มูลค่าเวนคืน" });
+    expect(n.rings).toContainEqual({ ...ring, dark: true });
+    expect(n.darkStrokes!.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("takes the place of the guarantee's words and the step-up words, and keeps every arrow and ring", () => {
+    const plain = pensionPenNotes(q.illustration, q.sumAssured, { ...WIDE, bubbles: false });
+    const n = pensionPenNotes(q.illustration, q.sumAssured, WIDE);
+    expect(words(n).some((w) => /รับประกันจ่าย|บำนาญเพิ่มเป็น/.test(w))).toBe(false);
+    expect(words(n)).toContain("เริ่มรับบำนาญ อายุ 60");
+    expect(n.strokes.length).toBe(plain.strokes.length);
+    expect(n.blueStrokes.length).toBe(plain.blueStrokes.length);
+    expect(n.rings.filter((r) => !r.dark)).toEqual(plain.rings);
+  });
+
+  it("leaves the clip's table alone: a table that does not ask for them gets none", () => {
+    const n = pensionPenNotes(q.illustration, q.sumAssured, GEO);
+    expect(n.bubbles).toBeUndefined();
+    expect(n.rings.some((r) => r.dark)).toBe(false);
+    expect(words(n)).toContain("บำนาญเพิ่มเป็น 20% ของทุน");
+  });
+
+  it("never lets a note run into a figure or another note, for any age, pension age or way of paying", () => {
+    for (const pay of ["6", "untilAnnuity"] as const) {
+      for (let age = 20; age <= 65; age++) {
+        for (const start of availablePensionAges(age, pay)) {
+          expect(PENSION_AGES).toContain(start);
+          const r = quotePension({ age, sex: "F", annuityAge: start, pay, mode: "annual", basis: "sumAssured", amount: 1_000_000 });
+          if (!r.ok) continue;
+          const rows = r.quote.illustration;
+          for (const geo of [WIDE, { ...GEO, bubbles: true as const }]) {
+            const notes = pensionPenNotes(rows, r.quote.sumAssured, geo);
+            const all = notes.bubbles!;
+            const edge = (i: number) => geo.widths.slice(0, i).reduce((s, w) => s + w, 0);
+            const rowOf = (y: number) => Math.floor((y - geo.caption - geo.head) / geo.row);
+            // four green ones, and the size stays readable
+            expect(all.filter((b) => b.tone === "green")).toHaveLength(4);
+            for (const b of all) {
+              expect(b.size, `${age}/${start}/${pay}`).toBeGreaterThanOrEqual(20);
+              for (const o of all) {
+                if (o === b) continue;
+                const apart = b.left + b.width <= o.left || o.left + o.width <= b.left
+                  || b.top + b.height <= o.top || o.top + o.height <= b.top;
+                expect(apart, `${age}/${start}/${pay}`).toBe(true);
+              }
+              if (b.tone === "green") {
+                expect(b.left + b.width).toBeLessThanOrEqual(edge(PENSION_COLUMNS.indexOf("บำนาญ")));
+                expect(rows[rowOf(b.top + 6)].pension).toBeGreaterThan(0);
+              } else {
+                expect(b.left).toBeGreaterThanOrEqual(edge(PENSION_COLUMNS.indexOf("บำนาญ")));
+                expect(rows[rowOf(b.top + b.height - 1)].pension).toBe(0);
+              }
+            }
+            // no green note over a pen word
+            for (const l of notes.labels) {
+              if (l.left === undefined) continue;
+              for (const b of all) {
+                const over = l.top < b.top + b.height && l.top + 24 * 1.5 > b.top && l.left < b.left + b.width && b.left < l.left + 200;
+                expect(over, `${age}/${start}/${pay}: ${l.text}`).toBe(false);
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("leaves the lump sum off a table with fewer than four rows before the pension", () => {
+    for (const pay of ["6", "untilAnnuity"] as const) {
+      for (let age = 20; age <= 65; age++) {
+        for (const start of availablePensionAges(age, pay)) {
+          const r = quotePension({ age, sex: "M", annuityAge: start, pay, mode: "annual", basis: "sumAssured", amount: 1_000_000 });
+          if (!r.ok) continue;
+          const lime = pensionPenNotes(r.quote.illustration, r.quote.sumAssured, WIDE).bubbles!.filter((b) => b.tone === "lime");
+          expect(lime.length, `${age}/${start}/${pay}`).toBe(start - age >= 4 ? 1 : 0);
+        }
+      }
+    }
   });
 });

@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Sriracha } from "next/font/google";
 import { BLUE_PEN, figureWidth, penSvgUri, type PenGeometry, type PenNotes } from "@/app/api/card/table/pen-notes";
 import { Highlighted } from "@/components/Highlighted";
-import { CARD_PALETTE } from "@/lib/card-theme";
+import { CARD_PALETTE, NOTE_BIG, NOTE_BUBBLE } from "@/lib/card-theme";
 
 /** the red pen's handwriting, as on the value-table picture (src/app/api/card/table) */
 const pen = Sriracha({ weight: "400", subsets: ["thai"], display: "swap" });
@@ -88,7 +88,7 @@ export function PenLayer({ table, figures, notes, scale, caption, cellPad }: Pen
   const height = caption + box.height;
   return (
     <div aria-hidden className="pointer-events-none absolute left-0 top-0 z-[1]" style={{ width, height }}>
-      {([[drawn.strokes, CARD_PALETTE.pen], [drawn.blueStrokes, BLUE_PEN]] as const).map(([strokes, ink]) => strokes.length > 0 && (
+      {([[drawn.strokes, CARD_PALETTE.pen], [drawn.blueStrokes, BLUE_PEN], [drawn.darkStrokes ?? [], CARD_PALETTE.ink]] as const).map(([strokes, ink]) => strokes.length > 0 && (
         <div
           key={ink}
           className="absolute inset-0"
@@ -111,6 +111,22 @@ export function PenLayer({ table, figures, notes, scale, caption, cellPad }: Pen
         >
           {l.mark ? <Highlighted>{l.text}</Highlighted> : l.text}
         </span>
+      ))}
+      {drawn.bubbles?.map((b) => (
+        <div
+          key={b.top}
+          className="absolute flex flex-col items-center justify-center whitespace-nowrap font-semibold [print-color-adjust:exact]"
+          style={{
+            left: b.left * scale, top: b.top * scale, width: b.width * scale, height: b.height * scale,
+            borderRadius: b.round * scale, background: NOTE_BUBBLE[b.tone].fill, color: NOTE_BUBBLE[b.tone].ink,
+          }}
+        >
+          {b.lines.map((l) => (
+            <span key={l.text} style={{ fontSize: (l.big ? b.size * NOTE_BIG : b.size) * scale, lineHeight: `${b.step * scale}px` }}>
+              {l.text}{l.under && <span className="underline">{l.under}</span>}{l.tail}
+            </span>
+          ))}
+        </div>
       ))}
     </div>
   );

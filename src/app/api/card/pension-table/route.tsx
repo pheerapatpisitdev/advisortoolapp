@@ -3,7 +3,7 @@ import { pngResponse } from "@/lib/draw-png";
 import { cardFont } from "@/lib/draw/fonts";
 import { insuredWho, whoRowHeight, type WhoStyle } from "../insured-who";
 import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
-import { cardPaletteFor, BLUE_PEN } from "@/lib/card-theme";
+import { cardPaletteFor, BLUE_PEN, NOTE_BIG, NOTE_BUBBLE } from "@/lib/card-theme";
 import { highlighterUri, loopUri } from "@/lib/highlighter";
 import { PENSION_TABLE_KEYS, toCanonical } from "../canonical";
 import { RING_PAD, figureWidth, penSvgUri } from "../table/pen-notes";
@@ -117,9 +117,9 @@ export async function GET(req: NextRequest) {
     // Plex's figures at 22px run a little wider than the value table's estimate
     measure: (f) => figureWidth(f) * 1.07,
     // อายุ and ปีที่ are set left here (below)
-    leftColumns: 2, ringOver: RING_PAD,
+    leftColumns: 2, ringOver: RING_PAD, bubbles: true,
   }, RING_PAD / 2);
-  const ringed = (n: number, c: string) => notes.rings.some((g) => g.row === n && g.column === c);
+  const ringAt = (n: number, c: string) => notes.rings.find((g) => g.row === n && g.column === c);
   const tableHeight = H.caption + H.head + rows.length * H.row;
 
   const start = q.plan.annuityStartAge;
@@ -188,13 +188,13 @@ export async function GET(req: NextRequest) {
                       color: p.ink,
                     }}
                   >
-                    {ringed(n, c) ? (
+                    {ringAt(n, c) ? (
                       // pulled back by its own padding, so the ringed figure stays in line with the column
                       <div style={{ display: "flex", position: "relative", padding: `5px ${RING_PAD}px`, ...(i < 2 ? { marginLeft: -RING_PAD } : { marginRight: -RING_PAD }) }}>
                         <div
                           style={{
                             position: "absolute", top: -4, bottom: -4, left: 0, right: 0,
-                            backgroundImage: loopUri(p.pen), backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
+                            backgroundImage: loopUri(ringAt(n, c)?.dark ? p.ink : p.pen), backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
                           }}
                         />
                         {cells[c]}
@@ -207,7 +207,7 @@ export async function GET(req: NextRequest) {
           })}
 
           {/* over the table, as a pen would be */}
-          {([[notes.strokes, p.pen], [notes.blueStrokes, BLUE_PEN]] as const).map(([strokes, ink]) => strokes.length > 0 && (
+          {([[notes.strokes, p.pen], [notes.blueStrokes, BLUE_PEN], [notes.darkStrokes ?? [], p.ink]] as const).map(([strokes, ink]) => strokes.length > 0 && (
             <div
               key={ink}
               style={{
@@ -234,6 +234,24 @@ export async function GET(req: NextRequest) {
               }}
             >
               {l.text}
+            </div>
+          ))}
+          {notes.bubbles?.map((b) => (
+            <div
+              key={b.top}
+              style={{
+                position: "absolute", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                left: b.left, top: b.top, width: b.width, height: b.height, borderRadius: b.round,
+                background: NOTE_BUBBLE[b.tone].fill, color: NOTE_BUBBLE[b.tone].ink, fontWeight: 600,
+              }}
+            >
+              {b.lines.map((l) => (
+                <div key={l.text} style={{ display: "flex", height: b.step, alignItems: "center", fontSize: l.big ? b.size * NOTE_BIG : b.size, whiteSpace: "pre" }}>
+                  <span>{l.text}</span>
+                  {l.under && <span style={{ textDecoration: "underline" }}>{l.under}</span>}
+                  {l.tail && <span>{l.tail}</span>}
+                </div>
+              ))}
             </div>
           ))}
         </div>

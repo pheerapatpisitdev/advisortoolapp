@@ -48,14 +48,37 @@ export interface PenLabel {
   mark?: true;
 }
 
+/**
+ * A filled note over a table's empty cells (บำนาญ 95's green ones): set in Plex, not the pen's
+ * hand, because it carries figures to be read. Each line is `text`, then `under` underlined, then
+ * `tail`; `big` sets that line a little larger.
+ */
+export interface PenBubble {
+  tone: "green" | "lime";
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  /** the words' size; a line's height is `step` */
+  size: number;
+  step: number;
+  /** the corners' round */
+  round: number;
+  lines: { text: string; under?: string; tail?: string; big?: true }[];
+}
+
 export interface PenNotes {
-  /** cells to ring, by row index and column name */
-  rings: { row: number; column: string }[];
+  /** cells to ring, by row index and column name; `dark` in the ink of the figures, not the red pen */
+  rings: { row: number; column: string; dark?: true }[];
   /** every stroke, as SVG path data in the overlay's own pixels */
   strokes: string[];
   /** the same, in the blue pen */
   blueStrokes: string[];
+  /** the same, in the figures' ink, where a table has any */
+  darkStrokes?: string[];
   labels: PenLabel[];
+  /** drawn over the strokes; absent on a table that does not ask for them */
+  bubbles?: PenBubble[];
 }
 
 /** the owner's blue pen, beside the red one; its colour lives with the card palette */

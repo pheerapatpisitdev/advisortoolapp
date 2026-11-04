@@ -173,8 +173,16 @@ export function cardPaletteVersion(palette: CardPalette): string {
 /** the owner's blue pen on the value table, beside the palette's red one (2026-10-11) */
 export const BLUE_PEN = "#1f5fbf";
 
+/** บำนาญ 95's filled notes on its yearly table (owner's picture, 2026-11-04), with the words on them */
+export const NOTE_BUBBLE = {
+  green: { fill: "#0b9f4f", ink: "#ffffff" },
+  lime: { fill: "#bdf06c", ink: "#10210f" },
+} as const;
+/** a line's size against the note's, where a line is set larger */
+export const NOTE_BIG = 36 / 32;
+
 /** Bump when a card gains or removes visible content without changing its palette. */
-const DRAWING_REVISION = "27";
+const DRAWING_REVISION = "28";
 
 /** The fingerprint of the palette and layout this card will be drawn in. */
 export function cardVersionFor(): string {

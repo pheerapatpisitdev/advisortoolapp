@@ -6,13 +6,13 @@ import { loopUri } from "@/lib/highlighter";
  * round the break-even figure. The shape is masked so the colour stays a token in globals.css.
  * Meant to wrap a `Highlighted` figure: the yellow stroke sits inside the loop.
  */
-export function Circled({ children }: { children: ReactNode }) {
+export function Circled({ children, dark }: { children: ReactNode; /** in the figures' ink, not the red pen */ dark?: boolean }) {
   const mask = loopUri("black");
   return (
     <span className="relative isolate inline-block px-2.5 py-0.5">
       <span
         aria-hidden
-        className="absolute -inset-y-1 inset-x-0 -z-10 bg-[var(--lg-pen)]"
+        className={`absolute -inset-y-1 inset-x-0 -z-10 ${dark ? "bg-[var(--lg-white)]" : "bg-[var(--lg-pen)]"}`}
         style={{
           maskImage: mask, WebkitMaskImage: mask,
           maskSize: "100% 100%", WebkitMaskSize: "100% 100%",

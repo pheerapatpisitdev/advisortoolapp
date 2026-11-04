@@ -19,7 +19,7 @@ import { Watermark } from "@/components/sales/Watermark";
 import { PensionBandChart } from "./PensionBandChart";
 import {
   PENSION_CELL_PAD, PENSION_COLUMNS, PENSION_PEN_SCALE, pensionBraceRoom, pensionCells, pensionMarks,
-  pensionPenNotes, pensionRings, type PensionColumn,
+  pensionLumpRing, pensionPenNotes, pensionRings, type PensionColumn,
 } from "@/lib/pension-pen-notes";
 
 /**
@@ -113,6 +113,9 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
   const marks = pensionMarks(rows);
   const rings = pensionRings(rows);
   const ringed = (n: number, c: PensionColumn) => rings.some((g) => g.row === n && g.column === c);
+  // the surrender value the green lump-sum note points at, ringed in the figures' ink
+  const lump = pensionLumpRing(rows);
+  const lumpRinged = (n: number, c: PensionColumn) => lump?.row === n && lump.column === c;
   // room left of the figures for the braces, on the rows a ring has not already widened:
   // the premium brace and its word, and the guarantee's brace clear of the pension's rings
   const braceRoom = pensionBraceRoom(rows);
@@ -344,7 +347,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                                   ${!ringed(n, c) && c === "บำนาญ" && pensionRoom ? "!pl-[44px]" : ""}
                                   `}
                               >
-                                {ringed(n, c) ? <Circled>{cells[c]}</Circled> : cells[c]}
+                                {ringed(n, c) ? <Circled>{cells[c]}</Circled> : lumpRinged(n, c) ? <Circled dark>{cells[c]}</Circled> : cells[c]}
                               </td>
                             ))}
                           </tr>
@@ -356,7 +359,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                   <PenLayer
                     table={tableRef}
                     figures={q.illustration.flatMap((y) => Object.values(pensionCells(y)))}
-                    notes={(g) => pensionPenNotes(q.illustration, q.sumAssured, g)}
+                    notes={(g) => pensionPenNotes(q.illustration, q.sumAssured, { ...g, bubbles: true })}
                     scale={PENSION_PEN_SCALE} caption={0} cellPad={PENSION_CELL_PAD}
                   />
                 </div>
