@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { budgetFit, type PageBudget } from "@/lib/budget-sum";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
-import { lifeProtectModes, termAt } from "@/lib/lifeprotect-quote";
+import { lifeProtectModes, lifeProtectSumFor, termAt } from "@/lib/lifeprotect-quote";
 import { iShieldTable } from "@/lib/ishield-table";
 import { iShieldModes, termAt as iShieldTermAt } from "@/lib/ishield-quote";
 import { ISHIELD_SUMS, LIFEPROTECT_BUDGET_SUMS } from "@/lib/quote-pdf/pages";
@@ -128,6 +128,15 @@ describe("the Life Protect page walks the budget up to the thousand", () => {
     expect(fit?.sum).toBe(50_000_000);
   });
 
+  it("the fine step may be one baht, and the bisection lands on the same sum a walk would", () => {
+    const fit = budgetFit(LIFEPROTECT_BUDGET_SUMS, priceAt("WLF09H", "M", 34), { baht: 1_000_000, per: "year" }, 1);
+    // every baht under 18,621,000 + 999 fits or not by the same rule: the last one that fits
+    const annual = (s: number) => priceAt("WLF09H", "M", 34)(s)!.find((m) => m.mode === "annual")!.total;
+    expect(annual(fit!.sum)).toBeLessThanOrEqual(100_000_000);
+    expect(annual(fit!.sum + 1)).toBeGreaterThan(100_000_000);
+    expect(fit!.over).toBe(false);
+  });
+
   it("the fine steps fit between the coarse ones: every thousand up to the next coarse step is tried", () => {
     // a plan priced at one satang per baht of sum, with a monthly floor of 150 baht
     const price = (sum: number) => [
@@ -139,5 +148,76 @@ describe("the Life Protect page walks the budget up to the thousand", () => {
     expect(budgetFit(sums, price, { baht: 125, per: "month" }, 1_000)).toEqual({ sum: 15_000, total: 15_000, over: true });
     // 125 a year buys 12,000, no floor on a year's instalment
     expect(budgetFit(sums, price, { baht: 125, per: "year" }, 1_000)).toEqual({ sum: 12_000, total: 12_000, over: false });
+  });
+});
+
+/**
+ * The Life Protect page lands a budget on the sum to the nearest baht, as the company's own
+ * AdvisorZone app does (owner, 2026-11-05, ก): a man of 35 paying 19 years with a million a year
+ * is quoted 34,843,206 at 1,000,000.01 there — a satang over the budget, because the sum the
+ * money divides to (34,843,205.57) rounds up. Landing under (ข) would have given 34,843,205 at
+ * 999,999.98; landing to the thousand gave 34,843,000 at 999,994.10.
+ */
+describe("the Life Protect page lands the budget on the nearest baht, as AdvisorZone does", () => {
+  const table = lifeProtectTable(new Date("2026-11-05"));
+  const priceAt = (variant: string, sex: "M" | "F", age: number) => (sumAssured: number) =>
+    lifeProtectModes(table, termAt(table, variant), { sex, age, sumAssured });
+  const nearest = (variant: string, sex: "M" | "F", age: number, budget: PageBudget) =>
+    budgetFit(
+      LIFEPROTECT_BUDGET_SUMS, priceAt(variant, sex, age), budget, 1,
+      lifeProtectSumFor(table, termAt(table, variant), { sex, age }, budget.per === "month" ? "monthly" : "annual"),
+    );
+
+  it("M35 pay 19, 1,000,000 a year: 34,843,206 at 1,000,000.01, the AdvisorZone figures", () => {
+    expect(nearest("WLF19H", "M", 35, { baht: 1_000_000, per: "year" })).toEqual({ sum: 34_843_206, total: 100_000_001, over: false });
+  });
+
+  it("M35 pay 19, 5,000 a month: 1,935,734 at 5,000.00 exactly", () => {
+    expect(nearest("WLF19H", "M", 35, { baht: 5_000, per: "month" })).toEqual({ sum: 1_935_734, total: 500_000, over: false });
+  });
+
+  it("the sum is the budget divided by the rate, rounded to the baht — 5,000 a month divides to 1,935,733.64", () => {
+    const divide = lifeProtectSumFor(table, termAt(table, "WLF19H"), { sex: "M", age: 35 }, "monthly")!;
+    expect(divide(500_000)).toBeCloseTo(1_935_733.64, 2);
+    const yearly = lifeProtectSumFor(table, termAt(table, "WLF19H"), { sex: "M", age: 35 }, "annual")!;
+    expect(yearly(100_000_000)).toBeCloseTo(34_843_205.57, 2);
+  });
+
+  it("a budget under the plan's smallest sum buys nothing, as before", () => {
+    expect(nearest("WLF99H", "M", 35, { baht: 1_000, per: "year" })).toBeUndefined();
+  });
+
+  it("the instalment is never more than a step's worth over the budget", () => {
+    for (const variant of ["WLF09H", "WLF19H", "WLF99H"]) {
+      for (const [sex, age] of [["M", 35], ["F", 25], ["M", 55]] as const) {
+        for (const budget of [{ baht: 100_000, per: "year" }, { baht: 5_000, per: "month" }, { baht: 20_000, per: "month" }] as PageBudget[]) {
+          const fit = nearest(variant, sex, age, budget)!;
+          expect(fit.sum).toBeGreaterThanOrEqual(150_000);
+          // the whole premium of one baht of sum, in satang, is well under a baht: the overshoot is at most that
+          expect(fit.total - budget.baht * 100).toBeLessThanOrEqual(10);
+          expect(fit.over).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("never walks past the list's last sum", () => {
+    expect(nearest("WLF09H", "M", 34, { baht: 9_000_000, per: "year" })?.sum).toBe(50_000_000);
+  });
+
+  it("the chat's own call, with no fine step, is untouched even when told how to divide", () => {
+    const divide = lifeProtectSumFor(table, termAt(table, "WLF09H"), { sex: "M", age: 34 }, "annual");
+    const fit = budgetFit(LIFEPROTECT_BUDGET_SUMS, priceAt("WLF09H", "M", 34), { baht: 1_000_000, per: "year" }, undefined, divide);
+    expect(fit).toEqual({ sum: 18_600_000, total: 99_882_000, over: false });
+  });
+
+  it("a small monthly budget is lifted to the smallest sum the company takes, and says so", () => {
+    // the plan's smallest sum paid monthly is under the company's floor at some ages; the next baht that reaches it is sold as over
+    const fit = nearest("WLF99H", "M", 35, { baht: 300, per: "month" });
+    if (fit) {
+      const monthly = (s: number) => priceAt("WLF99H", "M", 35)(s)!.find((m) => m.mode === "monthly")!;
+      expect(monthly(fit.sum).belowMinimum).toBe(false);
+      if (fit.over) expect(monthly(fit.sum - 1).belowMinimum).toBe(true);
+    }
   });
 });

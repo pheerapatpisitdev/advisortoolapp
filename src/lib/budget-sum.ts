@@ -28,18 +28,51 @@ export interface BudgetFit {
  * not take, the next sum up is the smallest that can be sold, and `over` says so.
  *
  * With a `fine` step the fit walks on from the list's best sum in steps of it, up to the
- * list's next sum, so the sum lands to the thousand rather than the list's own coarse steps
- * (the Life Protect page; the chat keeps the list's steps). The company's monthly floor is then
- * met by the smallest fine step that reaches it.
+ * list's next sum, so the sum lands finer than the list's own coarse steps (the Life Protect
+ * page; the chat keeps the list's steps). The company's monthly floor is then met by the
+ * smallest fine step that reaches it.
+ *
+ * With `sumFor` as well — the sum a budget divides to, before any rounding — the fit is what
+ * the company's own AdvisorZone app answers (owner, 2026-11-05, ก): that sum rounded to the
+ * nearest fine step, held inside the list, so the instalment may sit a satang over the budget.
+ * A man of 35 paying 19 years with a million a year is quoted 34,843,206 at 1,000,000.01
+ * there, and so here. The plan's smallest sum stays a hard floor.
  *
  * `sums` must be ascending, and an instalment never falls as the sum rises.
  */
 export function budgetFit(
   sums: readonly number[], priceAt: (sum: number) => ModePremium[] | undefined, budget: PageBudget, fine?: number,
+  sumFor?: (limit: number) => number,
 ): BudgetFit | undefined {
   const mode = budget.per === "month" ? "monthly" : "annual";
   const limit = Math.round(budget.baht * 100);
   const at = (sum: number) => priceAt(sum)?.find((m) => m.mode === mode);
+  const last = sums[sums.length - 1];
+
+  /** The smallest fine step above `sum`, up to `ceiling`, the company will take; a bisection, since the floor is one line. */
+  const sellableAbove = (sum: number, ceiling: number, step: number): BudgetFit | undefined => {
+    let lo = 1;
+    let hi = Math.floor((ceiling - sum) / step);
+    if (hi < lo) return undefined;
+    while (lo < hi) {
+      const mid = lo + Math.floor((hi - lo) / 2);
+      const p = at(sum + mid * step);
+      if (p && !p.belowMinimum) hi = mid;
+      else lo = mid + 1;
+    }
+    const p = at(sum + lo * step);
+    return p && !p.belowMinimum ? { sum: sum + lo * step, total: p.total, over: true } : undefined;
+  };
+
+  if (fine && sumFor) {
+    if (sums.length === 0) return undefined;
+    const sum = Math.min(last, Math.round(sumFor(limit) / fine) * fine);
+    if (sum < sums[0]) return undefined;
+    const fits = at(sum);
+    if (!fits) return undefined;
+    if (!fits.belowMinimum) return { sum, total: fits.total, over: false };
+    return sellableAbove(sum, last, fine);
+  }
 
   let best = -1;
   for (let i = 0; i < sums.length; i++) {
@@ -55,19 +88,24 @@ export function budgetFit(
   // the fine steps between this sum and the list's next; none past the list's last
   const ceiling = sums[best + 1] ?? sum;
   if (fine) {
-    for (let s = sum + fine; s < ceiling; s += fine) {
-      const p = at(s);
-      if (!p || p.total > limit) break;
-      sum = s;
-      fits = p;
+    // the last fine step that still fits: a bisection, since the instalment only rises with the sum
+    let lo = 0;
+    let hi = Math.floor((ceiling - sum) / fine);
+    while (lo < hi) {
+      const mid = lo + Math.ceil((hi - lo) / 2);
+      const p = at(sum + mid * fine);
+      if (p && p.total <= limit) lo = mid;
+      else hi = mid - 1;
+    }
+    if (lo > 0) {
+      sum += lo * fine;
+      fits = at(sum)!;
     }
   }
   if (!fits.belowMinimum) return { sum, total: fits.total, over: false };
   if (fine) {
-    for (let s = sum + fine; s < ceiling; s += fine) {
-      const p = at(s);
-      if (p && !p.belowMinimum) return { sum: s, total: p.total, over: true };
-    }
+    const up = sellableAbove(sum, ceiling, fine);
+    if (up) return up;
   }
   const up = sums[best + 1] === undefined ? undefined : at(sums[best + 1]);
   return up && !up.belowMinimum ? { sum: sums[best + 1], total: up.total, over: true } : undefined;

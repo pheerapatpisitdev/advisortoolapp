@@ -145,7 +145,10 @@ export function BudgetOutcome({ budget, fit, least, minMonthly, stepNote = "ท�
         เบี้ยจริง {baht(fit.total)} บาท/{per}
         {fit.over
           ? ` · เกินงบเล็กน้อย เพราะรายเดือนต้องไม่ต่ำกว่า ${minMonthly.toLocaleString("en-US")} บาท`
-          : ` · เหลืองบ ${baht(budget.baht * 100 - fit.total)} บาท · ${stepNote}`}
+          : fit.total > budget.baht * 100
+            // a sum landed to the nearest baht may cost a satang over the money named
+            ? ` · เกินงบ ${baht(fit.total - budget.baht * 100)} บาท · ${stepNote}`
+            : ` · เหลืองบ ${baht(budget.baht * 100 - fit.total)} บาท · ${stepNote}`}
       </p>
     </div>
   );

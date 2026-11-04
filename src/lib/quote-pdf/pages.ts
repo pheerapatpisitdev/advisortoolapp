@@ -25,20 +25,21 @@ export const LIFEPROTECT_SUMS = Array.from({ length: 331 }, (_, i) => LIFEPROTEC
 
 /** The largest sum the page sells. */
 const PAGE_MAX_SUM = 50_000_000;
-/** A typed sum is kept to the thousand: the plan is priced per thousand of sum. A budget lands to it too. */
+/** A typed sum is kept to the thousand: the plan is priced per thousand of sum. */
 export const LIFEPROTECT_TYPED_STEP = 1_000;
 const TYPED_STEP = LIFEPROTECT_TYPED_STEP;
+/** A budget lands on the sum to the baht, as the company's AdvisorZone app does (owner, 2026-11-05, ก). */
+export const LIFEPROTECT_BUDGET_STEP = 1;
 
 /**
- * The sums a link or PDF may name: every thousand from the plan's smallest sum (150,000) to fifty
- * million, so whatever was typed on the page (owner, 2026-10-29 — any figure, not the slider's
- * steps) and whatever the chat quotes opens again; the page puts the linked sum in as one more stop
- * (see the calculator).
+ * Whether a link or PDF may name a sum: any whole baht from the plan's smallest sum (150,000) to
+ * fifty million, so whatever was typed on the page (owner, 2026-10-29 — any figure, not the
+ * slider's steps) and whatever a budget bought to the baht opens again; the page puts the linked
+ * sum in as one more stop (see the calculator).
  */
-export const LIFEPROTECT_LINK_SUMS = Array.from(
-  { length: (PAGE_MAX_SUM - PLAN_MIN_SUM) / TYPED_STEP + 1 },
-  (_, i) => PLAN_MIN_SUM + TYPED_STEP * i,
-);
+export function lifeProtectLinkSum(sum: number): boolean {
+  return Number.isInteger(sum) && sum >= PLAN_MIN_SUM && sum <= PAGE_MAX_SUM;
+}
 
 /**
  * The sums a budget is fitted to on the page: the same fifty-thousand steps from 150,000 the
@@ -99,8 +100,15 @@ export const PLB_SUMS = [
   ...Array.from({ length: 8 }, (_, i) => 1_500_000 + 500_000 * i),
 ];
 
-export const PLAN_PAGES: Record<PlanPage, { planCode: string; path: string; sums: readonly number[] }> = {
-  lifeprotect: { planCode: "LIFEPROTECT", path: "/lifeprotect", sums: LIFEPROTECT_LINK_SUMS },
+/** The sums a page opens a link on: a list of them, or a test of one. */
+export type OfferedSums = readonly number[] | ((sum: number) => boolean);
+
+export function sumOffered(sums: OfferedSums, sum: number): boolean {
+  return typeof sums === "function" ? sums(sum) : sums.includes(sum);
+}
+
+export const PLAN_PAGES: Record<PlanPage, { planCode: string; path: string; sums: OfferedSums }> = {
+  lifeprotect: { planCode: "LIFEPROTECT", path: "/lifeprotect", sums: lifeProtectLinkSum },
   easyprotect: { planCode: "EASYPROTECT", path: "/easyprotect", sums: EASYPROTECT_SUMS },
   ishield: { planCode: "ISHIELD", path: "/ishield", sums: ISHIELD_SUMS },
   lifetreasure: { planCode: "LIFETREASURE", path: "/lifetreasure", sums: LIFETREASURE_SUMS },
@@ -130,7 +138,7 @@ export interface PlanInitial {
  */
 export function planInitialFromTable(
   query: URLSearchParams,
-  offer: { sums: readonly number[]; variants: readonly string[]; ageMin: number; ageMax: number },
+  offer: { sums: OfferedSums; variants: readonly string[]; ageMin: number; ageMax: number },
 ): PlanInitial | undefined {
   const once = (key: string): string | undefined => {
     const all = query.getAll(key);
@@ -145,7 +153,7 @@ export function planInitialFromTable(
   if (!/^\d+$/.test(ageRaw) || !/^\d+$/.test(sumRaw)) return undefined;
   const age = Number(ageRaw);
   const sumAssured = Number(sumRaw);
-  if (!offer.sums.includes(sumAssured) || !offer.variants.includes(variant)) return undefined;
+  if (!sumOffered(offer.sums, sumAssured) || !offer.variants.includes(variant)) return undefined;
   if (age < offer.ageMin || age > offer.ageMax) return undefined;
   return { age, sex, sumAssured, variant };
 }

@@ -49,6 +49,22 @@ export function lifeProtectModes(
   });
 }
 
+/**
+ * The sum a budget divides to on the base plan, in baht and unrounded: the inverse of
+ * lifeProtectModes' arithmetic (rate per thousand times the mode's factor, in satang), which is
+ * how the company's AdvisorZone app turns a premium into a sum (owner, 2026-11-05, ก — a million
+ * a year for a man of 35 paying 19 years divides to 34,843,205.57, shown there as 34,843,206).
+ * Undefined when the workbook has no rate for the age.
+ */
+export function lifeProtectSumFor(
+  table: LifeProtectTable, term: LifeProtectTerm, who: Payer, mode: PayMode,
+): ((limitSatang: number) => number) | undefined {
+  const rate = term.rates[who.sex][who.age - table.ageMin];
+  if (rate === null || rate === undefined) return undefined;
+  const perBaht = toHundredths(rate) * toHundredths(table.modeFactors[mode]);
+  return (limitSatang) => (limitSatang * 100_000) / perBaht;
+}
+
 /** A rider and the flavour of it, as the page's buttons name them. */
 export interface RiderPick {
   code: string;

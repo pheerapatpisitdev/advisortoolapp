@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   planInitialFrom, planQueryFor, quotePdfPath, type PlanInitial,
 } from "@/lib/quote-pdf/link";
-import { PLAN_PAGES, pageForPlan, type PlanPage } from "@/lib/quote-pdf/pages";
+import { PLAN_PAGES, pageForPlan, sumOffered, type PlanPage } from "@/lib/quote-pdf/pages";
 
 /** The link from a quote to its PDF and to the sales page pre-filled with the same numbers. */
 
@@ -37,8 +37,14 @@ describe("the PDF path for a quote", () => {
       .toMatch(/^\/api\/quote-pdf\?page=lifeprotect&age=35&sex=M&sum=2325000&variant=WLF99H&v=.+$/);
   });
 
+  it("makes one for any baht of sum a budget may have bought on the Life Protect page", () => {
+    // a million a year for a man of 35 paying 19 years buys 34,843,206, as AdvisorZone says (owner, 2026-11-05, ก)
+    expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 34_843_206 }))
+      .toMatch(/sum=34843206/);
+  });
+
   it("makes none for a sum the page cannot show", () => {
-    expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 2_325_500 })).toBeUndefined();
+    expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 149_999 })).toBeUndefined();
     expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 60_000_000 })).toBeUndefined();
   });
 
@@ -85,11 +91,13 @@ describe("a page's initial values from its query", () => {
     expect(planInitialFrom("easyprotect", parse(planQueryFor({ ...ONE_PER_PAGE.easyprotect, variant: "WLF99H" })))).toBeUndefined();
   });
 
-  it("only accepts sums on that page's slider", () => {
+  it("only accepts sums the page offers: its slider's, or on Life Protect any baht the page sells", () => {
     for (const page of Object.keys(PLAN_PAGES) as PlanPage[]) {
       const x = ONE_PER_PAGE[page];
-      expect(PLAN_PAGES[page].sums).toContain(x.sumAssured);
-      expect(planInitialFrom(page, parse(planQueryFor({ ...x, sumAssured: x.sumAssured + 1 }))), page).toBeUndefined();
+      expect(sumOffered(PLAN_PAGES[page].sums, x.sumAssured)).toBe(true);
+      // one baht more is off every other page's slider; Life Protect sells it, but not a baht under its smallest sum
+      const off = page === "lifeprotect" ? 149_999 : x.sumAssured + 1;
+      expect(planInitialFrom(page, parse(planQueryFor({ ...x, sumAssured: off }))), page).toBeUndefined();
     }
   });
 });

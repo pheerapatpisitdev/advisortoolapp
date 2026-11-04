@@ -7,7 +7,7 @@ import { formatBaht, formatSatang } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import type { LifeProtectIllness, LifeProtectRider, LifeProtectTable } from "@/lib/lifeprotect-table";
 import {
-  addModes, cashAt, deathBenefitOf, illnessModes, illnessWhyNot, riderDueByYear, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
+  addModes, cashAt, deathBenefitOf, illnessModes, illnessWhyNot, riderDueByYear, lifeProtectModes, lifeProtectSumFor, medicalModes, medicalPlansAt, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
   riderWaiveYears, termAt, totalModes, type Payer, type RiderPick,
 } from "@/lib/lifeprotect-quote";
 import { cashProjection } from "@/lib/cash-projection";
@@ -21,7 +21,7 @@ import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
-import { LIFEPROTECT_BUDGET_SUMS, LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, LIFEPROTECT_TYPED_STEP, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_BUDGET_STEP, LIFEPROTECT_BUDGET_SUMS, LIFEPROTECT_SUMS, lifeProtectLinkSum, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
@@ -150,7 +150,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   // itself stays static; no query, or one this page cannot show, leaves the start values.
   useEffect(() => {
     const initial = planInitialFromTable(new URLSearchParams(window.location.search), {
-      sums: LIFEPROTECT_LINK_SUMS, variants: table.terms.map((t) => t.variant), ageMin: table.ageMin, ageMax: table.ageMax,
+      sums: lifeProtectLinkSum, variants: table.terms.map((t) => t.variant), ageMin: table.ageMin, ageMax: table.ageMax,
     });
     if (initial) {
       const stops = LIFEPROTECT_SUMS.includes(initial.sumAssured)
@@ -185,19 +185,22 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const ageNum = typeof age === "number" ? age : undefined;
   const inRange = ageNum !== undefined;
   /**
-   * What the budget buys on a term: the biggest sum that fits, walked up from the chat's
-   * fifty-thousand steps to the thousand (owner, 2026-11-04 — a million a year bought
-   * 18,600,000 at 998,820 when 18,621,000 at 999,947.70 fits), priced forwards by the page's
-   * own function. Undefined is a budget under the plan's smallest sum, which is said in words
+   * What the budget buys on a term: the sum the budget divides to, to the nearest baht, the way
+   * the company's AdvisorZone app answers the same budget (owner, 2026-11-05, ก — a man of 35
+   * paying 19 years with a million a year is quoted 34,843,206 at 1,000,000.01 there, and was
+   * 34,843,000 at 999,994.10 here on the thousand). Walked up from the chat's fifty-thousand
+   * steps and priced forwards by the page's own function, so the instalment may sit a satang
+   * over the budget. Undefined is a budget under the plan's smallest sum, which is said in words
    * and never lifted to it.
    */
-  const budgetOn = (variantCode: string) =>
-    byBudget && ageNum !== undefined && !table.expired
-      ? budgetFit(
-          LIFEPROTECT_BUDGET_SUMS, (s) => lifeProtectModes(table, termAt(table, variantCode), { sex, age: ageNum, sumAssured: s }),
-          budget, LIFEPROTECT_TYPED_STEP,
-        )
-      : undefined;
+  const budgetOn = (variantCode: string) => {
+    if (!byBudget || ageNum === undefined || table.expired) return undefined;
+    const on = termAt(table, variantCode);
+    return budgetFit(
+      LIFEPROTECT_BUDGET_SUMS, (s) => lifeProtectModes(table, on, { sex, age: ageNum, sumAssured: s }),
+      budget, LIFEPROTECT_BUDGET_STEP, lifeProtectSumFor(table, on, { sex, age: ageNum }, budget.per === "month" ? "monthly" : "annual"),
+    );
+  };
   const fit = budgetOn(variant);
   const budgetShort = byBudget && ageNum !== undefined && !table.expired && !fit;
   const sumAssured = fit ? fit.sum : sums[sumIndex];
@@ -445,7 +448,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
               <BudgetBox id="lp-budget" budget={budget} onChange={setBudget} />
               {ageNum !== undefined && (
                 <BudgetOutcome
-                  budget={budget} fit={fit} minMonthly={table.minMonthly} stepNote="ทุนปัดลงถึงหลักพัน"
+                  budget={budget} fit={fit} minMonthly={table.minMonthly} stepNote="ทุนปัดถึงหลักบาท เท่ากับ AdvisorZone"
                   least={(() => {
                     const floor = LIFEPROTECT_BUDGET_SUMS[0];
                     const m = lifeProtectModes(table, term, { sex, age: ageNum, sumAssured: floor })
