@@ -14,7 +14,6 @@ import { pensionQuoteText } from "@/lib/pension-cta";
 import { Highlighted } from "@/components/Highlighted";
 import { Circled } from "@/components/Circled";
 import { PenLayer } from "@/components/PenLayer";
-import { SiteCredit } from "@/components/sales/SiteCredit";
 import { Watermark } from "@/components/sales/Watermark";
 import { PensionBandChart } from "./PensionBandChart";
 import {
@@ -381,7 +380,6 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                 </div>
               </div>
               </Watermark>
-              <SiteCredit />
           </section>
         )}
 

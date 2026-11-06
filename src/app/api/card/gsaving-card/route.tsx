@@ -6,7 +6,6 @@ import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/cus
 import { BLUE_PEN } from "@/lib/card-theme";
 import { googleFontSubset } from "@/lib/google-font";
 import { GSAVING_CARD_KEYS, toCanonical } from "../canonical";
-import { SITE_ADDRESS } from "../site-footer";
 import {
   GS_AGE_MAX, GS_AGE_MIN, GS_CODE, GS_PREM_YEARS, GS_TAX_CAP, GS_TERM, quoteGlobalSaving, type GsQuote,
 } from "@/calc/global-saving/engine";
@@ -510,7 +509,6 @@ const LEGAL = [
   "“โกลบอล เซฟวิ่งส์ พลัส 15/8 (อินเด็กซ์ ลิงค์)” ของบริษัท กรุงไทย-แอกซา ประกันชีวิต จำกัด (มหาชน) ผู้ขอเอาประกันภัยควรศึกษาเงื่อนไขก่อนตัดสินใจทำประกันภัยทุกครั้ง",
 ];
 const LEGAL_H = LEGAL.length * 20 + 8;
-const FOOT_H = 52;
 const GAP = 36;
 
 /** every letter the pen notes write, for the handwriting face cut to them */
@@ -546,7 +544,7 @@ export async function GET(req: NextRequest) {
     [`เบี้ยต่อปี × ${GS_PREM_YEARS} ปี`, premiumText(q.premium), `ลดหย่อนภาษีได้ ${baht(Math.min(q.premium, GS_TAX_CAP))} บาท/ปี`, false],
     ["คุ้มครองชีวิต", baht(rows[0].death), `ปีแรก → สูงสุด ${baht(rows[GS_PREM_YEARS - 1].death)}`, false],
   ];
-  const height = PAD * 2 + HEAD_H + GAP + BARS_H + GAP + OVERVIEW_H + GAP + yearlyH(q) + GAP + INDEX_H + GAP + LEGAL_H + FOOT_H;
+  const height = PAD * 2 + HEAD_H + GAP + BARS_H + GAP + OVERVIEW_H + GAP + yearlyH(q) + GAP + INDEX_H + GAP + LEGAL_H;
 
   return pngResponse(
     (
@@ -588,9 +586,6 @@ export async function GET(req: NextRequest) {
 
         <div style={col({ marginTop: GAP, height: LEGAL_H, fontSize: 12, color: K.mute, lineHeight: 1.6 })}>
           {LEGAL.map((l) => <div key={l} style={{ display: "flex" }}>{`• ${l}`}</div>)}
-        </div>
-        <div style={row({ height: FOOT_H, justifyContent: "center", alignItems: "flex-end", fontSize: 15, color: K.mute, letterSpacing: 0.4 })}>
-          {`Application by ${SITE_ADDRESS}`}
         </div>
       </div>
     ),

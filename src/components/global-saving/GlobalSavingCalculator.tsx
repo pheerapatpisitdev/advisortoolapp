@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { readCalcStart } from "@/lib/calc-start";
 import { MoneyInput } from "@/components/MoneyInput";
 import { Highlighted } from "@/components/Highlighted";
-import { SiteCredit } from "@/components/sales/SiteCredit";
 import { Watermark } from "@/components/sales/Watermark";
 import { boxIn, GsPens, textIn } from "@/components/global-saving/GsPens";
 import { barPens, tablePens } from "@/lib/global-saving-pens";
@@ -317,7 +316,6 @@ export function GlobalSavingCalculator() {
             <p className="mt-1 text-xs leading-relaxed text-[var(--lg-mute)]">
               โบนัสดัชนีจ่ายจริง 2 ครั้ง คือสิ้นปีที่ 10 และตอนครบสัญญา ปีอื่นจึงเว้นว่าง
             </p>
-            <SiteCredit />
           </section>
         </>
       )}

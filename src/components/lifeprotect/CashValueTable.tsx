@@ -8,7 +8,6 @@ import type { Projection, ProjectionRow } from "@/lib/cash-projection";
 import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
 import { PdfPrepare } from "@/components/sales/PdfPrepare";
-import { SiteCredit } from "@/components/sales/SiteCredit";
 import { Watermark } from "@/components/sales/Watermark";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { INSURER } from "@/lib/assistant/common";
@@ -361,7 +360,6 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
         <p className="mt-1.5">รับประกันโดย {INSURER}</p>
         <p data-printed-at className="mt-1" />
       </div>
-      <SiteCredit />
       <PdfPrepare />
     </section>
   );

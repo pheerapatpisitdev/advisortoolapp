@@ -1,7 +1,6 @@
 import type { CoverRow } from "@/lib/cover-rows";
 import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
-import { SiteCredit } from "@/components/sales/SiteCredit";
 import { Watermark } from "@/components/sales/Watermark";
 import { PdfPrepare } from "@/components/sales/PdfPrepare";
 
@@ -121,7 +120,6 @@ export function CoverTable({ rows, caption, endsNote, cardPath, planName }: Cove
       <p className="mt-3 text-xs leading-[1.8] text-[var(--lg-mute)] opacity-80">
         {endsNote} · แบบนี้เป็นความคุ้มครองล้วน ไม่มีมูลค่าเวนคืนและไม่มีเงินคืนเมื่อครบสัญญา
       </p>
-      <SiteCredit />
       <PdfPrepare />
     </section>
   );
