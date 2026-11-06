@@ -183,6 +183,7 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     title: "ประกันสุขภาพ",
     links: [
       { href: "/ihealthy-ultra", label: "iHealthy Ultra", icon: "heart", hue: "#732b5b" },
+      { href: "/ihealthy-ultra/compare", label: "iHealthy Ultra เทียบแผน", icon: "heart", hue: "#8a3366" },
     ],
   },
   {
@@ -482,7 +483,7 @@ export function isCurrent(href: string, path: string): boolean {
   if (href === "/") return path === "/";
   // an overview with its pages beside it in the same menu: lit only on itself
   // the check beside the list of customers it filled
-  if (href === "/admin" || href === "/studio" || href === "/fhc") return path === href;
+  if (href === "/admin" || href === "/studio" || href === "/fhc" || href === "/ihealthy-ultra") return path === href;
   return path === href || path.startsWith(`${href}/`);
 }
 

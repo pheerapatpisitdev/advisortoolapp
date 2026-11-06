@@ -5,7 +5,7 @@
  * it without the session code: a customer is never sent a link to one of these.
  */
 export const CALC_PATHS = [
-  "/lifeprotect", "/ihealthy-ultra", "/ishield", "/bumnan95", "/global-saving", "/legacy", "/plb",
+  "/lifeprotect", "/ihealthy-ultra", "/ihealthy-ultra/compare", "/ishield", "/bumnan95", "/global-saving", "/legacy", "/plb",
   "/cancer", "/ci123", "/easyprotect", "/lifetreasure", "/group-insurance", "/fhc",
 ] as const;
 

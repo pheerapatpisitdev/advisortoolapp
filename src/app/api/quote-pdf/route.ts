@@ -52,7 +52,8 @@ export async function GET(req: Request): Promise<Response> {
 
   const params = new URL(req.url).searchParams;
   const page = params.get("page");
-  const isIHealthy = page === "ihealthy-ultra";
+  const isCompare = page === "ihealthy-ultra-compare";
+  const isIHealthy = page === "ihealthy-ultra" || isCompare;
   if (!isIHealthy && !(page !== null && Object.hasOwn(PLAN_PAGES, page))) return invalid();
 
   const allowed = isIHealthy ? IHEALTHY_KEYS : PLAN_KEYS;
@@ -80,8 +81,8 @@ export async function GET(req: Request): Promise<Response> {
     // would print a page other than the one it asked for
     const skip = ["page", "v", EXTERNAL_BROWSER, "l"];
     if (pairs(new URLSearchParams(written), skip).join("&") !== pairs(params, skip).join("&")) return invalid();
-    target = `${siteOrigin()}/ihealthy-ultra?${written}`;
-    name = `ihealthy-ultra-${lang ? `${lang}-` : ""}${initial.sex}${initial.age}`;
+    target = `${siteOrigin()}/ihealthy-ultra${isCompare ? "/compare" : ""}?${written}`;
+    name = `${page}-${lang ? `${lang}-` : ""}${initial.sex}${initial.age}`;
   } else {
     const plan = page as PlanPage;
     const initial = planInitialFrom(plan, Object.fromEntries(params));

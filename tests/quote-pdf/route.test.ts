@@ -96,6 +96,13 @@ describe("GET /api/quote-pdf", () => {
     expect(render.mock.calls[0][0]).toBe(`${siteOrigin()}/ihealthy-ultra?${query}`);
   });
 
+  it("prints the compare page from the same query", async () => {
+    const query = queryFrom(iHealthyTable(), { ...IHEALTHY_OPENING });
+    const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra-compare&${query}&v=${V}`));
+    expect(res.headers.get("content-disposition")).toBe('inline; filename="ihealthy-ultra-compare-F35.pdf"');
+    expect(render.mock.calls[0][0]).toBe(`${siteOrigin()}/ihealthy-ultra/compare?${query}`);
+  });
+
   it("prints the iHealthy proposal in English for l=en", async () => {
     const query = queryFrom(iHealthyTable(), IHEALTHY_OPENING);
     const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&l=en&v=${V}`));

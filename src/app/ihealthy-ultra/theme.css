@@ -347,3 +347,48 @@
   .ihu-disclaimer { padding: 6px 0 0; break-inside: avoid; }
   .ihu-disclaimer > p { padding-top: 4px; margin-top: 0; font-size: 7.5px; line-height: 1.55; }
 }
+
+/* ── the compare page's table (src/components/IHealthyCompare.tsx) ───────────────────────────
+ *
+ * Fixed columns, because a phone holds the name and four plans with nothing to scroll: the
+ * reader compares across, and a column that slid away would take the comparison with it.
+ */
+.ihc-who {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 12px;
+  background: var(--bot-navy); color: var(--bot-surface);
+  padding: 7px 10px; font-size: 0.875rem; font-weight: 600;
+}
+.ihc-who small { font-size: 0.75rem; font-weight: 400; opacity: 0.85; }
+.ihc-table {
+  width: 100%; table-layout: fixed; border-collapse: collapse;
+  font-size: 0.72rem; line-height: 1.35; font-variant-numeric: tabular-nums;
+}
+.ihc-col-name { width: 36%; }
+.ihc-two .ihc-col-name { width: 44%; }
+.ihc-table :is(th, td) {
+  border: 1px solid var(--ihu-hairline); padding: 4px 3px;
+  text-align: center; vertical-align: middle; overflow-wrap: anywhere;
+}
+.ihc-table .ihc-name { text-align: left; padding-left: 6px; font-weight: 400; }
+.ihc-table thead th { color: var(--bot-surface); font-weight: 600; }
+.ihc-table thead .ihc-name { background: var(--bot-navy); }
+.ihc-premium :is(th, td) { background: var(--bot-navy); color: var(--bot-surface); font-weight: 600 !important; border-color: var(--bot-navy-deep); }
+.ihc-ceiling :is(th, td) { background: var(--ihu-head); font-weight: 600 !important; }
+.ihc-group td { background: var(--bot-navy-soft); color: var(--bot-navy); font-weight: 600; text-align: left; padding-left: 6px; }
+.ihc-dash { color: var(--lg-mute); }
+.ihc-table small { display: block; font-size: 0.6rem; color: var(--lg-mute); }
+@media (min-width: 640px) {
+  .ihc-table { font-size: 0.8125rem; }
+  .ihc-table :is(th, td) { padding: 6px; }
+  .ihc-premium td { font-size: 0.95rem; }
+  .ihc-table small { font-size: 0.7rem; }
+}
+/* One A4 sheet, filled: the owner's first version of this page was tuned to the same. */
+@media print {
+  .ihc-printed-at { margin-bottom: 4px; font-size: 9px; color: var(--lg-mute); }
+  .ihc-who { font-size: 14px; padding: 8px 10px; }
+  .ihc-table { font-size: 12px; line-height: 1.3; }
+  .ihc-table :is(th, td) { padding: 6px 5px; }
+  .ihc-premium td { font-size: 14px; }
+  .ihc-table small { font-size: 9px; }
+}

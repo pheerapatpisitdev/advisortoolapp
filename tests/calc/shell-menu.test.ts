@@ -37,7 +37,7 @@ describe("every place the menu says you can go", () => {
     // find from inside their own tool
     const onDisk = [
       "lifeprotect", "legacy", "plb", "easyprotect", "lifetreasure", "ishield", "ihealthy-ultra",
-      "group-insurance", "bumnan95", "ci123", "cancer", "fhc", "global-saving", "survey",
+      "ihealthy-ultra/compare", "group-insurance", "bumnan95", "ci123", "cancer", "fhc", "global-saving", "survey",
     ];
     expect(SALES_PAGES.map((p) => p.href).sort()).toEqual(onDisk.map((s) => `/${s}`).sort());
   });
@@ -80,8 +80,8 @@ describe("every place the menu says you can go", () => {
    */
   it("names every sales page in English, under headings that stay Thai", () => {
     const THAI = /[\u0E00-\u0E7F]/;
-    // สำรวจความคุ้มครอง keeps the Thai name the owner gave it (2026-10-22)
-    for (const page of SALES_PAGES.filter((p) => p.href !== "/survey")) {
+    // สำรวจความคุ้มครอง (2026-10-22) and iHealthy Ultra เทียบแผน (2026-11-06) keep the Thai the owner gave them
+    for (const page of SALES_PAGES.filter((p) => p.href !== "/survey" && p.href !== "/ihealthy-ultra/compare")) {
       expect(page.label, page.href).not.toMatch(THAI);
     }
     for (const section of SALES_SECTIONS) {
@@ -115,6 +115,12 @@ describe("which link is lit", () => {
     expect(isCurrent("/admin/crm", "/admin/crm")).toBe(true);
     expect(isCurrent("/admin/crm", "/admin/crm/anything")).toBe(true);
     expect(isCurrent("/admin/ai", "/admin/crm")).toBe(false);
+  });
+
+  it("lights only the iHealthy page being read, of the two", () => {
+    expect(isCurrent("/ihealthy-ultra", "/ihealthy-ultra/compare")).toBe(false);
+    expect(isCurrent("/ihealthy-ultra/compare", "/ihealthy-ultra/compare")).toBe(true);
+    expect(isCurrent("/ihealthy-ultra", "/ihealthy-ultra")).toBe(true);
   });
 
   it("does not light the chat on every page in the site", () => {

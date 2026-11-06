@@ -215,8 +215,8 @@ export function Row(
   );
 }
 
-/** How high a row of the table is drawn: one band, or the taller one of a pair. */
-export const rowHeight = (r: { pair?: unknown }) => (r.pair ? H.pair : H.row);
+/** How high a row of the table is drawn: one band, or the taller one of a pair or a long figure. */
+export const rowHeight = (r: { pair?: unknown; tall?: boolean }) => (r.pair || r.tall ? H.pair : H.row);
 
 /** A figure, not a dash or "ตามที่จ่ายจริง": only an amount is a limit the note can be about. */
 const isAmount = (text: string) => /^\d[\d,]*$/.test(text);
@@ -331,7 +331,7 @@ export const CARD_HEADERS = {
 export function PlanTable(
   { card, selected, markLabel, w = WORDS.th, geo = geometryOf("th") }: {
     /** a row's `kind` is the whole table's (src/lib/ihealthy-full-card.ts); the card's rows have none */
-    card: { columns: CardColumn[]; rows: (CardTableRow & Pick<FullTableRow, "kind" | "pair">)[]; premiumRows: { label: string; cells: CardCell[] }[] };
+    card: { columns: CardColumn[]; rows: (CardTableRow & Pick<FullTableRow, "kind" | "pair" | "tall">)[]; premiumRows: { label: string; cells: CardCell[] }[] };
     selected: number;
     /** the row whose selected figure gets the highlighter; the quote card marks the yearly ceiling */
     markLabel?: string;
@@ -385,7 +385,7 @@ export function PlanTable(
         ) : r.pair ? (
           <PairRow key={r.label} label={r.label} pair={r.pair} cells={r.cells} selected={selected} geo={geo} />
         ) : r.span === undefined ? (
-          <Row key={r.label} label={r.label} cells={r.cells} selected={selected} mark={r.label === markLabel} indent={r.kind === "sub"} geo={geo} />
+          <Row key={r.label} label={r.label} cells={r.cells} selected={selected} mark={r.label === markLabel} indent={r.kind === "sub"} height={rowHeight(r)} geo={geo} />
         ) : (
           // One answer across every plan, because it is the same cover whichever is bought
           <div key={r.label} style={{ display: "flex", height: H.row, flexShrink: 0, borderTop: `1px solid ${GRID}` }}>

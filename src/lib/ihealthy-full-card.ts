@@ -16,6 +16,8 @@ export type FullTableRow = CardTableRow & {
   kind?: FullRowKind;
   /** two categories in one row (SHARED_OPD): both names, and the note under each figure */
   pair?: { lines: [string, string]; note: string };
+  /** a figure that takes two lines: a child's limit with its note mark (src/lib/ihealthy-compare-card.ts) */
+  tall?: boolean;
 };
 
 /**
