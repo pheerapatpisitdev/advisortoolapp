@@ -80,8 +80,8 @@ describe("every place the menu says you can go", () => {
    */
   it("names every sales page in English, under headings that stay Thai", () => {
     const THAI = /[\u0E00-\u0E7F]/;
-    // สำรวจความคุ้มครอง (2026-10-22) and iHealthy Ultra เทียบแผน (2026-11-06) keep the Thai the owner gave them
-    for (const page of SALES_PAGES.filter((p) => p.href !== "/survey" && p.href !== "/ihealthy-ultra/compare")) {
+    // สำรวจความคุ้มครอง (2026-10-22) keeps the Thai the owner gave it
+    for (const page of SALES_PAGES.filter((p) => p.href !== "/survey")) {
       expect(page.label, page.href).not.toMatch(THAI);
     }
     for (const section of SALES_SECTIONS) {

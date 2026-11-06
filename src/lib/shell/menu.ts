@@ -183,7 +183,7 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     title: "ประกันสุขภาพ",
     links: [
       { href: "/ihealthy-ultra", label: "iHealthy Ultra", icon: "heart", hue: "#732b5b" },
-      { href: "/ihealthy-ultra/compare", label: "iHealthy Ultra เทียบแผน", icon: "heart", hue: "#8a3366" },
+      { href: "/ihealthy-ultra/compare", label: "iHealthy Ultra Package", icon: "heart", hue: "#8a3366" },
     ],
   },
   {
