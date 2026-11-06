@@ -5,6 +5,7 @@ import {
 } from "@/calc/pension/engine";
 import mainOracle from "./pension/main-premiums.json";
 import illustrationOracle from "./pension/illustration.json";
+import advisorZoneMonthly from "./pension/advisorzone-monthly.json";
 import ridersJson from "../../data/pension/riders.json";
 import lifeprotectRates from "../../data/rates/lifeprotect.json";
 import { premiumBasedRiderPremium } from "@/calc/riders/premium-based";
@@ -82,6 +83,56 @@ describe("the yearly table, man of 40, pension at 70, sum assured 100,000", () =
       { fromAge: 86, toAge: 95, percent: 0.3, annual: 30_000 },
     ]);
     expect(r.quote.monthlyPension).toBe(1_270);
+  });
+});
+
+describe("paid by the month, against the company's AdvisorZone quotation (man of 40, pension at 55)", () => {
+  const r = quotePension({ age: 40, sex: "M", annuityAge: 55, pay: "untilAnnuity", mode: "monthly", basis: "premium", amount: 2_000 });
+  if (!r.ok) throw new Error(r.error);
+  const q = r.quote;
+  const byAge = new Map(q.illustration.map((y) => [y.age, y]));
+
+  it("lands on the same sum and instalment", () => {
+    expect(q.sumAssured).toBe(advisorZoneMonthly.sumAssured);
+    expect(q.modePremium).toBe(advisorZoneMonthly.modePremium);
+    expect(q.yearlyPaid).toBe(24_000.12);
+    expect(q.totalYearlyPaid).toBe(24_000.12);
+  });
+
+  it("gives the sheet's IRR, the year's premiums counted at the start of the year", () => {
+    expect(Number(((q.irr ?? 0) * 100).toFixed(2))).toBe(advisorZoneMonthly.irrPercent);
+  });
+
+  for (const o of advisorZoneMonthly.rows) {
+    it(`age ${o.age}`, () => {
+      const y = byAge.get(o.age)!;
+      expect(y.policyYear).toBe(o.year);
+      for (const [ours, theirs] of [
+        [y.premium, o.premium], [y.cumPremium, o.cumPremium], [y.cashValue, o.cashValue],
+        [y.pension, o.pension], [y.cumPension, o.cumPension], [y.deathBenefit, o.death],
+      ]) expect(Math.abs(ours - theirs)).toBeLessThanOrEqual(0.011);
+    });
+  }
+});
+
+describe("the other instalments, by the same arithmetic", () => {
+  const at = (mode: PensionInput["mode"]) => {
+    const r = quotePension({ age: 40, sex: "M", annuityAge: 55, pay: "untilAnnuity", mode, basis: "sumAssured", amount: 81_700 });
+    if (!r.ok) throw new Error(r.error);
+    return r.quote;
+  };
+
+  it("adds up the instalments of a year; paying yearly stays as it was", () => {
+    expect(at("annual").yearlyPaid).toBe(22_222.4);
+    expect(at("annual").totalPremium).toBeCloseTo(333_336, 2);
+    expect(at("semi").yearlyPaid).toBe(23_111.28);
+  });
+
+  it("leaves what the rate table prices alone", () => {
+    for (const mode of ["semi", "monthly"] as const) {
+      expect(at(mode).annualPremium).toBe(22_222.4);
+      expect(at(mode).illustration.map((y) => y.cashValue)).toEqual(at("annual").illustration.map((y) => y.cashValue));
+    }
   });
 });
 

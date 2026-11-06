@@ -1,3 +1,4 @@
+import { pensionTablePath } from "@/lib/card-link";
 import { describe, it, expect } from "vitest";
 import { quotePension } from "@/calc/pension/engine";
 import { pensionFacts } from "@/lib/pension-facts";
@@ -42,5 +43,21 @@ describe("the บำนาญ สมาร์ท 95 sales page", () => {
     expect(text).toContain(`💰 เบี้ยรวมปีละ ${Math.floor(r.quote.totalAnnualPremium).toLocaleString("en-US")} บาท`);
     expect(text).toContain("- DCI (โรคร้ายแรง) ปีละ 5,520 บาท");
     expect(text).not.toMatch(/\*\*/);
+  });
+
+  it("names the way of paying in the table picture's address only when it is not yearly", () => {
+    const at = { age: 40, sex: "M" as const, start: 55, pay: "untilAnnuity" as const, sumAssured: 81_700 };
+    expect(pensionTablePath({ ...at, mode: "monthly" })).toContain("&sum=81700&mode=monthly&v=");
+    expect(pensionTablePath({ ...at, mode: "annual" })).toBe(pensionTablePath(at));
+    expect(pensionTablePath(at)).not.toContain("mode=");
+  });
+
+  it("says what a customer paying by instalments really pays a year", () => {
+    const r = quotePension({ age: 40, sex: "M", annuityAge: 55, pay: "untilAnnuity", mode: "monthly", basis: "premium", amount: 2_000 });
+    if (!r.ok) throw new Error(r.error);
+    const text = pensionQuoteText({ age: 40, sex: "M" }, r.quote);
+    expect(text).toContain("💰 เบี้ยรายเดือน 2,000 บาท · 12 งวด รวมปีละ 24,000 บาท");
+    expect(text).toContain("เบี้ยสัญญาหลักรวม 360,001 บาท");
+    expect(pensionMessage({ age: 40, sex: "M" }, r.quote)).toContain("เบี้ยประมาณ 24,000 บาท/ปี");
   });
 });

@@ -25,11 +25,20 @@ describe("บำนาญ สมาร์ท 95 in the chat, from a premium", ()
     ["บำนาญ ชาย 40 เก็บเงินเดือนละ 3000", 3_000, "monthly"],
     ["บำนาญ ชาย 40 จ่ายงวดละ 3000 รายเดือน", 3_000, "monthly"],
     ["บำนาญ ชาย 40 จ่าย 6 เดือนละ 25,000", 25_000, "semi"],
-    ["บำนาญ ชาย 40 จ่ายทุก 3 เดือน 10,000", 10_000, "quarterly"],
   ] as const)("reads “%s” as a premium", (msg, amount, mode) => {
     const reply = pricePension(msg + TAIL);
     expect(reply.priced, reply.text).toBe(true);
     expect(reply.text).toContain(sumFor(amount, mode));
+  });
+
+  it.each([
+    "บำนาญ ชาย 40 จ่ายทุก 3 เดือน 10,000",
+    "บำนาญ ชาย 40 จ่าย 3 เดือนละ 10,000",
+    "บำนาญ ชาย 40 จ่ายรายไตรมาส 10,000",
+  ])("says the plan is not sold by the quarter: “%s”", (msg) => {
+    const reply = pricePension(msg + TAIL);
+    expect(reply.priced).toBe(false);
+    expect(reply.text).toContain("ชำระได้รายปี ราย 6 เดือน หรือรายเดือน");
   });
 
   it("still reads a bare เดือนละ as the pension the plan is sold on", () => {

@@ -21,7 +21,7 @@ export type PensionVideoInput = Extract<VideoInput, { product: "PENSION" }>;
 
 const PAYS: readonly PensionPay[] = ["6", "untilAnnuity"];
 /** the price box's instalments, largest first as the other plans list theirs */
-const MODES: PensionMode[] = ["annual", "semi", "quarterly", "monthly"];
+const MODES: PensionMode[] = ["annual", "semi", "monthly"];
 
 export const PENSION_NAME = "บำนาญ สมาร์ท 95";
 export const PENSION_PAGE = "/bumnan95";

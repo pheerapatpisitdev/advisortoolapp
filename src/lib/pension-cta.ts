@@ -1,4 +1,4 @@
-import { MODE_FACTOR, type PensionQuote } from "@/calc/pension/engine";
+import { MODE_FACTOR, MODE_INSTALMENTS, MODE_LABEL, type PensionQuote } from "@/calc/pension/engine";
 
 /**
  * The words that leave /bumnan95: what the customer's chat opens with, and the quotation an
@@ -25,7 +25,7 @@ export function pensionMessage(who: PensionWho, q: PensionQuote | null): string 
   if (!q) return `สนใจบำนาญ สมาร์ท 95 ${SEX_WORD[who.sex]} อายุ ${who.age} ขอคำแนะนำ`;
   return `สนใจบำนาญ สมาร์ท 95 ${SEX_WORD[who.sex]} อายุ ${who.age} รับบำนาญอายุ ${q.plan.annuityStartAge}`
     + ` เดือนละ ${q.monthlyPension.toLocaleString("en-US")} ${payWords(q)}`
-    + ` เบี้ยประมาณ ${baht(q.totalAnnualPremium)} บาท/ปี`;
+    + ` เบี้ยประมาณ ${baht(q.totalYearlyPaid)} บาท/ปี`;
 }
 
 /** The quotation as plain text: the pension first, because that is what is being bought. */
@@ -41,7 +41,9 @@ export function pensionQuoteText(who: PensionWho, q: PensionQuote): string {
     ...q.bands.map((b) => `- อายุ ${b.fromAge}–${b.toAge} ปีละ ${b.annual.toLocaleString("en-US")} บาท (${Math.round(b.percent * 100)}% ของทุน)`),
     `รับประกันจ่าย 15 ปีแรก · เพิ่มเป็น ${Math.round(last.percent * 100)}% ตั้งแต่อายุ ${last.fromAge}`,
     "",
-    `💰 เบี้ย${withRiders ? "รวม" : ""}ปีละ ${baht(q.totalAnnualPremium)} บาท`,
+    q.mode === "annual"
+      ? `💰 เบี้ย${withRiders ? "รวม" : ""}ปีละ ${baht(q.totalAnnualPremium)} บาท`
+      : `💰 เบี้ย${withRiders ? "รวม" : ""}${MODE_LABEL[q.mode]} ${baht(q.totalModePremium)} บาท · ${MODE_INSTALMENTS[q.mode]} งวด รวมปีละ ${baht(q.totalYearlyPaid)} บาท`,
     `ราย 6 เดือน ${baht(rdown2(q.annualPremium * MODE_FACTOR.semi))} · รายเดือน ${baht(rdown2(q.annualPremium * MODE_FACTOR.monthly))} บาท`
       + (withRiders ? " (สัญญาหลัก)" : ""),
     ...q.riders.filter((r) => !r.error).map((r) => `- ${r.label} ปีละ ${baht(r.annual)} บาท`),

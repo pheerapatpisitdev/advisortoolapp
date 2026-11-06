@@ -193,17 +193,20 @@ export interface PensionTableInput {
   start: number;
   pay: "6" | "untilAnnuity";
   sumAssured: number;
+  /** the way of paying, whose instalments are the table's premiums; left out, or annual, is paying yearly */
+  mode?: "annual" | "semi" | "monthly";
 }
 
 /**
  * The path the pension plan's yearly table is drawn at (src/app/api/card/pension-table). Priced
- * from the sum, which is what every other way in (a monthly pension, a premium) comes to, so one
- * contract is one address whichever figure the customer started from.
+ * from the sum and the way of paying, which is what every other way in (a monthly pension, a
+ * premium) comes to, so one contract is one address whichever figure the customer started from.
+ * Paying yearly names no mode, so those addresses stay the ones already out there.
  */
 export function pensionTablePath(input: PensionTableInput): string {
   const q = new URLSearchParams({
     age: String(input.age), sex: input.sex, start: String(input.start), pay: input.pay,
-    sum: String(input.sumAssured), v: cardVersionFor(),
+    sum: String(input.sumAssured), ...(input.mode && input.mode !== "annual" ? { mode: input.mode } : {}), v: cardVersionFor(),
   });
   return `/api/card/pension-table?${q.toString()}`;
 }

@@ -31,7 +31,7 @@ export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex
  */
 export const QUOTE_CARD_ONLY_KEYS = [...QUOTE_CARD_KEYS, "ph"] as const;
 /** the pension plan's yearly table: src/lib/card-link.ts pensionTablePath, in its order, then the name */
-export const PENSION_TABLE_KEYS = ["age", "sex", "start", "pay", "sum", "v", NAME_KEY] as const;
+export const PENSION_TABLE_KEYS = ["age", "sex", "start", "pay", "sum", "mode", "v", NAME_KEY] as const;
 /** Global Savings' whole-page card: src/lib/global-saving-card.ts gsavingCardPath, in its order, then the name */
 export const GSAVING_CARD_KEYS = ["age", "prem", "sum", "v", NAME_KEY] as const;
 /** one contract's illnesses: src/lib/card-link.ts diseaseCardPath */

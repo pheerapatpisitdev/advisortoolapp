@@ -19,7 +19,7 @@ describe("บำนาญ 95 in วิดีโอนำเสนอ", () => {
     expect(c.monthly).toBeUndefined();
     const f = pensionVideoFacts(c)!;
     expect(f.lead).toMatchObject({ label: "บำนาญเดือนละ", amount: "10,000" });
-    expect(f.prices.map((p) => p.label)).toEqual(["รายปี", "ราย 6 เดือน", "ราย 3 เดือน", "รายเดือน"]);
+    expect(f.prices.map((p) => p.label)).toEqual(["รายปี", "ราย 6 เดือน", "รายเดือน"]);
     expect(f.prices[0].amount).toBe(Math.floor(page.quote.annualPremium).toLocaleString("en-US"));
     expect(f.pension?.bands.map((b) => b.percent)).toEqual([15, 20, 25, 30]);
     expect(f.pension?.guaranteeTo).toBe(74);

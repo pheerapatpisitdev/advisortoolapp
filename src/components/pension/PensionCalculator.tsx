@@ -4,7 +4,7 @@ import { readCalcStart } from "@/lib/calc-start";
 import { MoneyInput } from "@/components/MoneyInput";
 import { InsuredFields } from "@/components/InsuredFields";
 import {
-  availablePensionAges, DCI_LIMITS, MODE_LABEL, PENSION_LIMITS, quotePension,
+  availablePensionAges, DCI_LIMITS, MODE_INSTALMENTS, MODE_LABEL, PENSION_LIMITS, quotePension,
   type PensionBasis, type PensionMode, type PensionPay, type PensionRiders, type WaiverOption,
 } from "@/calc/pension/engine";
 import { ContactButtons } from "@/components/sales/ContactButtons";
@@ -102,10 +102,15 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
     [age, sex, chosenAge, pay, mode, basis, amount, ridersKey],
   );
   const q = result?.ok ? result.quote : null;
+  // the sum is rounded up to the baht, so an instalment worked from a premium can sit a satang
+  // over what was typed, as it does in AdvisorZone; the box says so. What is typed is the main
+  // contract's, so riders on top have nothing to be compared with.
+  const overTyped = q && basis === "premium" && mode !== "annual" && !q.riders.length && amount !== ""
+    ? Math.round((q.modePremium - amount) * 100) / 100 : 0;
   const who = { age: age === "" ? PENSION_LIMITS.ageMin : age, sex };
   const copyText = q ? pensionQuoteText(who, q) : undefined;
-  // the yearly table as the chat sends it: the main contract only, priced from the sum
-  const tableCard = q && age !== "" ? pensionTablePath({ age, sex, start: chosenAge, pay, sumAssured: q.sumAssured }) : undefined;
+  // the yearly table as the chat sends it: the main contract only, priced from the sum and the way of paying
+  const tableCard = q && age !== "" ? pensionTablePath({ age, sex, start: chosenAge, pay, sumAssured: q.sumAssured, mode }) : undefined;
 
   // the yearly table's pen notes (pension-pen-notes.ts): what is ringed, and the room the braces need
   const tableRef = useRef<HTMLTableElement>(null);
@@ -260,8 +265,13 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                   <div className="text-2xl font-semibold tabular-nums text-[var(--op-figure)]">{baht2(q.totalModePremium)} บาท</div>
                   <div className="mt-1 text-xs text-[var(--op-accent)]">
                     {/* the yearly figure, marked as every quote card marks its price lines */}
-                    <Highlighted>ปีละ {baht2(q.totalAnnualPremium)} บาท</Highlighted> · ชำระ {q.payYears} ปี
+                    <Highlighted>
+                      {q.mode === "annual" ? "" : `${MODE_INSTALMENTS[q.mode]} งวด รวม`}ปีละ {baht2(q.totalYearlyPaid)} บาท
+                    </Highlighted> · ชำระ {q.payYears} ปี
                   </div>
+                  {overTyped > 0 && (
+                    <div className="mt-1 text-xs text-[var(--op-accent)]">เกินที่กรอก {baht2(overTyped)} บาท</div>
+                  )}
                   {q.riders.length > 0 && (
                     <table className="mt-3 w-full text-sm">
                       <tbody>
@@ -303,6 +313,12 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                 <p className="text-xs text-[var(--op-mute)]">
                   รับประกันจ่ายบำนาญ 15 ปีแรก · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน · ตารางรายปีและเบี้ยรวมตลอดสัญญาคิดเฉพาะสัญญาหลัก
                 </p>
+                {/* the company's own two notes on a monthly quotation (AdvisorZone, 2026-11-07) */}
+                {q.mode === "monthly" && (
+                  <p className="text-xs text-[var(--op-mute)]">
+                    ชำระรายเดือน: IRR คิดว่าบริษัทได้รับเบี้ยรวมของแต่ละปีตอนต้นปีกรมธรรม์ · การกำหนดเบี้ยรายเดือนมีอัตราดอกเบี้ย 18% ต่อปี
+                  </p>
+                )}
               </>
             )}
           </div>

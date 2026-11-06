@@ -27,15 +27,17 @@ const rup = (x: number, d: number) => { const f = 10 ** d; return Math.ceil(x * 
 export type PensionAge = 55 | 60 | 65 | 70;
 /** ชำระเบี้ย 6 ปี, or every year until the pension starts */
 export type PensionPay = "6" | "untilAnnuity";
-export type PensionMode = "annual" | "semi" | "quarterly" | "monthly";
+export type PensionMode = "annual" | "semi" | "monthly";
 /** what the amount the person gave is: a sum assured, a premium per instalment, or a monthly pension */
 export type PensionBasis = "sumAssured" | "premium" | "monthlyPension";
 
 export const PENSION_AGES: PensionAge[] = [55, 60, 65, 70];
 
-export const MODE_FACTOR: Record<PensionMode, number> = { annual: 1, semi: 0.52, quarterly: 0.27, monthly: 0.09 };
+export const MODE_FACTOR: Record<PensionMode, number> = { annual: 1, semi: 0.52, monthly: 0.09 };
+/** how many instalments a year each way of paying takes */
+export const MODE_INSTALMENTS: Record<PensionMode, number> = { annual: 1, semi: 2, monthly: 12 };
 export const MODE_LABEL: Record<PensionMode, string> = {
-  annual: "รายปี", semi: "ราย 6 เดือน", quarterly: "ราย 3 เดือน", monthly: "รายเดือน",
+  annual: "รายปี", semi: "ราย 6 เดือน", monthly: "รายเดือน",
 };
 
 /** The calculator's own limits (app.js): issue age 20–65, sum assured 75,000–20,000,000. */
@@ -149,6 +151,14 @@ export interface PensionQuote {
   modePremium: number;
   mode: PensionMode;
   payYears: number;
+  /**
+   * what the main contract costs a year in this way of paying: an instalment times the year's
+   * instalments, and the year's premium in the illustration, totalPremium and irr. AdvisorZone
+   * does the same (tests/golden/pension/advisorzone-monthly.json).
+   */
+  yearlyPaid: number;
+  /** the same with every rider that could be bought */
+  totalYearlyPaid: number;
   /** first-band pension paid monthly */
   monthlyPension: number;
   bands: PensionBand[];
@@ -180,7 +190,8 @@ function sumAssuredFor(input: PensionInput, rate: number): number {
   return rup(input.amount / MONTHLY_FACTOR_FIRST, 0);
 }
 
-export function illustrate(plan: PensionPlan, sex: "M" | "F", age: number, sumAssured: number, annualPremium: number): PensionYear[] {
+/** The year-by-year table; `yearlyPremium` is what comes in a year, in whichever instalments it is paid. */
+export function illustrate(plan: PensionPlan, sex: "M" | "F", age: number, sumAssured: number, yearlyPremium: number): PensionYear[] {
   const cv = CASH_VALUES[plan.planCode + sex + age] ?? [];
   const years = payYearsOf(plan, age);
   const start = plan.annuityStartAge;
@@ -189,7 +200,7 @@ export function illustrate(plan: PensionPlan, sex: "M" | "F", age: number, sumAs
   let cumPension = 0;
   for (let a = age; a <= 95; a++) {
     const policyYear = a - age + 1;
-    const premium = policyYear <= years && a < start ? annualPremium : 0;
+    const premium = policyYear <= years && a < start ? yearlyPremium : 0;
     cumPremium += premium;
     const cashValue = a < start ? Math.round(((cv[policyYear] ?? 0) * sumAssured) / 1000) : 0;
     const pension = a >= start ? Math.round(sumAssured * annuityPercent(a)) : 0;
@@ -345,15 +356,19 @@ export function quotePension(input: PensionInput): PensionResult {
 
   const annualPremium = rdown(rate * rdown(sumAssured / 1000, 3), 2);
   const modePremium = rdown(annualPremium * MODE_FACTOR[input.mode], 2);
-  const illustration = illustrate(plan, sex, age, sumAssured, annualPremium);
+  const yearlyPaid = cents(modePremium * MODE_INSTALMENTS[input.mode]);
+  const illustration = illustrate(plan, sex, age, sumAssured, yearlyPaid);
   const last = illustration[illustration.length - 1];
   const payYears = payYearsOf(plan, age);
   const riders = input.riders ? ridersFor(input.riders, age, sex, payYears, annualPremium, input.mode) : [];
+  const totalModePremium = cents(riders.reduce((s, r) => s + r.modePremium, modePremium));
   return {
     ok: true,
     quote: {
       plan, rate, sumAssured, annualPremium, modePremium, mode: input.mode,
       payYears,
+      yearlyPaid,
+      totalYearlyPaid: cents(totalModePremium * MODE_INSTALMENTS[input.mode]),
       monthlyPension: Math.round(sumAssured * MONTHLY_FACTOR_FIRST),
       bands: bandsOf(plan.annuityStartAge, sumAssured),
       totalPremium: last.cumPremium,
@@ -361,7 +376,7 @@ export function quotePension(input: PensionInput): PensionResult {
       illustration,
       irr: irrOf(illustration),
       riders,
-      totalModePremium: cents(riders.reduce((s, r) => s + r.modePremium, modePremium)),
+      totalModePremium,
       totalAnnualPremium: cents(riders.reduce((s, r) => s + r.annual, annualPremium)),
     },
   };

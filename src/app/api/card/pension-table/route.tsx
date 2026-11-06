@@ -8,7 +8,10 @@ import { highlighterUri, loopUri } from "@/lib/highlighter";
 import { PENSION_TABLE_KEYS, toCanonical } from "../canonical";
 import { RING_PAD, figureWidth, penSvgUri } from "../table/pen-notes";
 import { googleFontSubset } from "@/lib/google-font";
-import { PENSION_AGES, quotePension, type PensionAge, type PensionBand, type PensionPay } from "@/calc/pension/engine";
+import {
+  MODE_INSTALMENTS, MODE_LABEL, PENSION_AGES, quotePension,
+  type PensionAge, type PensionBand, type PensionMode, type PensionPay,
+} from "@/calc/pension/engine";
 import {
   PENSION_COLUMNS, PENSION_PEN_TEXT, pensionCells, pensionPenNotes, pensionFigure,
 } from "@/lib/pension-pen-notes";
@@ -80,10 +83,12 @@ function quoteFrom(params: URLSearchParams) {
   const start = Number(params.get("start"));
   const pay = params.get("pay");
   const sum = Number(params.get("sum"));
+  const mode = (params.get("mode") ?? "annual") as PensionMode;
+  if (!Object.hasOwn(MODE_INSTALMENTS, mode)) return undefined;
   if (!Number.isInteger(age) || !Number.isInteger(sum) || (sex !== "M" && sex !== "F")) return undefined;
   if (!PENSION_AGES.includes(start as PensionAge) || (pay !== "6" && pay !== "untilAnnuity")) return undefined;
   const r = quotePension({
-    age, sex, annuityAge: start, pay: pay as PensionPay, mode: "annual", basis: "sumAssured", amount: sum,
+    age, sex, annuityAge: start, pay: pay as PensionPay, mode, basis: "sumAssured", amount: sum,
   });
   return r.ok ? { age, sex, pay, quote: r.quote } : undefined;
 }
@@ -127,7 +132,9 @@ export async function GET(req: NextRequest) {
   const payLine = pay === "6" ? "ชำระเบี้ย 6 ปี" : `ชำระเบี้ยจนถึงอายุ ${start} (${q.payYears} ปี)`;
   const insuredLine = `ทุน ${pensionFigure(q.sumAssured)} บาท · ${payLine}`;
   const who = `${sex === "F" ? "หญิง" : "ชาย"} ${age} ปี`;
-  const premiumLine = `เบี้ยปีละ ${pensionFigure(q.annualPremium)} บาท · บำนาญเดือนละ ${pensionFigure(q.monthlyPension)} บาท`;
+  const premiumLine = q.mode === "annual"
+    ? `เบี้ยปีละ ${pensionFigure(q.annualPremium)} บาท · บำนาญเดือนละ ${pensionFigure(q.monthlyPension)} บาท`
+    : `เบี้ย${MODE_LABEL[q.mode]} รวมปีละ ${pensionFigure(q.yearlyPaid)} บาท · บำนาญเดือนละ ${pensionFigure(q.monthlyPension)} บาท`;
   const closing = `รวมรับบำนาญถึงอายุ 95 ประมาณ ${pensionFigure(q.totalPension)} บาท จากเบี้ยรวม ${pensionFigure(q.totalPremium)} บาท`;
 
   const height = PAD * 2 + top + H.premium + H.gap + H.hairline + H.afterHairline

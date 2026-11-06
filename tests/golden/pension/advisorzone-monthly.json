@@ -1,0 +1,568 @@
+{
+ "source": "AdvisorZone 6.32.0 quotation, 7 Nov 2569 (2026): Bumnan Smart 95/55 R9555M, man of 40, sum 81,700, paid monthly",
+ "sumAssured": 81700,
+ "modePremium": 2000.01,
+ "irrPercent": 2.17,
+ "rows": [
+  {
+   "age": 40,
+   "year": 1,
+   "premium": 24000.12,
+   "cumPremium": 24000.12,
+   "cashValue": 0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 24000.12
+  },
+  {
+   "age": 41,
+   "year": 2,
+   "premium": 24000.12,
+   "cumPremium": 48000.24,
+   "cashValue": 0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 48000.24
+  },
+  {
+   "age": 42,
+   "year": 3,
+   "premium": 24000.12,
+   "cumPremium": 72000.36,
+   "cashValue": 8742.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 79200.4
+  },
+  {
+   "age": 43,
+   "year": 4,
+   "premium": 24000.12,
+   "cumPremium": 96000.48,
+   "cashValue": 28840.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 105600.53
+  },
+  {
+   "age": 44,
+   "year": 5,
+   "premium": 24000.12,
+   "cumPremium": 120000.6,
+   "cashValue": 51226.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 132000.66
+  },
+  {
+   "age": 45,
+   "year": 6,
+   "premium": 24000.12,
+   "cumPremium": 144000.72,
+   "cashValue": 76553.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 158400.79
+  },
+  {
+   "age": 46,
+   "year": 7,
+   "premium": 24000.12,
+   "cumPremium": 168000.84,
+   "cashValue": 104903.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 184800.92
+  },
+  {
+   "age": 47,
+   "year": 8,
+   "premium": 24000.12,
+   "cumPremium": 192000.96,
+   "cashValue": 130066.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 211201.06
+  },
+  {
+   "age": 48,
+   "year": 9,
+   "premium": 24000.12,
+   "cumPremium": 216001.08,
+   "cashValue": 155884.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 237601.19
+  },
+  {
+   "age": 49,
+   "year": 10,
+   "premium": 24000.12,
+   "cumPremium": 240001.2,
+   "cashValue": 182518.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 264001.32
+  },
+  {
+   "age": 50,
+   "year": 11,
+   "premium": 24000.12,
+   "cumPremium": 264001.32,
+   "cashValue": 209887.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 290401.45
+  },
+  {
+   "age": 51,
+   "year": 12,
+   "premium": 24000.12,
+   "cumPremium": 288001.44,
+   "cashValue": 238156.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 316801.58
+  },
+  {
+   "age": 52,
+   "year": 13,
+   "premium": 24000.12,
+   "cumPremium": 312001.56,
+   "cashValue": 267241.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 343201.72
+  },
+  {
+   "age": 53,
+   "year": 14,
+   "premium": 24000.12,
+   "cumPremium": 336001.68,
+   "cashValue": 297143.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 369601.85
+  },
+  {
+   "age": 54,
+   "year": 15,
+   "premium": 24000.12,
+   "cumPremium": 360001.8,
+   "cashValue": 328026.0,
+   "pension": 0,
+   "cumPension": 0,
+   "death": 396001.98
+  },
+  {
+   "age": 55,
+   "year": 16,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 12255.0,
+   "death": 347746.8
+  },
+  {
+   "age": 56,
+   "year": 17,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 24510.0,
+   "death": 335491.8
+  },
+  {
+   "age": 57,
+   "year": 18,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 36765.0,
+   "death": 323236.8
+  },
+  {
+   "age": 58,
+   "year": 19,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 49020.0,
+   "death": 310981.8
+  },
+  {
+   "age": 59,
+   "year": 20,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 61275.0,
+   "death": 298726.8
+  },
+  {
+   "age": 60,
+   "year": 21,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 73530.0,
+   "death": 286471.8
+  },
+  {
+   "age": 61,
+   "year": 22,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 85785.0,
+   "death": 274216.8
+  },
+  {
+   "age": 62,
+   "year": 23,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 98040.0,
+   "death": 261961.8
+  },
+  {
+   "age": 63,
+   "year": 24,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 110295.0,
+   "death": 249706.8
+  },
+  {
+   "age": 64,
+   "year": 25,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 122550.0,
+   "death": 237451.8
+  },
+  {
+   "age": 65,
+   "year": 26,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 134805.0,
+   "death": 225196.8
+  },
+  {
+   "age": 66,
+   "year": 27,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 147060.0,
+   "death": 212941.8
+  },
+  {
+   "age": 67,
+   "year": 28,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 159315.0,
+   "death": 200686.8
+  },
+  {
+   "age": 68,
+   "year": 29,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 171570.0,
+   "death": 188431.8
+  },
+  {
+   "age": 69,
+   "year": 30,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 183825.0,
+   "death": 176176.8
+  },
+  {
+   "age": 70,
+   "year": 31,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 196080.0,
+   "death": 163921.8
+  },
+  {
+   "age": 71,
+   "year": 32,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 208335.0,
+   "death": 151666.8
+  },
+  {
+   "age": 72,
+   "year": 33,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 220590.0,
+   "death": 139411.8
+  },
+  {
+   "age": 73,
+   "year": 34,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 232845.0,
+   "death": 127156.8
+  },
+  {
+   "age": 74,
+   "year": 35,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 245100.0,
+   "death": 114901.8
+  },
+  {
+   "age": 75,
+   "year": 36,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 12255.0,
+   "cumPension": 257355.0,
+   "death": 102646.8
+  },
+  {
+   "age": 76,
+   "year": 37,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 16340.0,
+   "cumPension": 273695.0,
+   "death": 86306.8
+  },
+  {
+   "age": 77,
+   "year": 38,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 16340.0,
+   "cumPension": 290035.0,
+   "death": 69966.8
+  },
+  {
+   "age": 78,
+   "year": 39,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 16340.0,
+   "cumPension": 306375.0,
+   "death": 53626.8
+  },
+  {
+   "age": 79,
+   "year": 40,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 16340.0,
+   "cumPension": 322715.0,
+   "death": 37286.8
+  },
+  {
+   "age": 80,
+   "year": 41,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 16340.0,
+   "cumPension": 339055.0,
+   "death": 20946.8
+  },
+  {
+   "age": 81,
+   "year": 42,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 20425.0,
+   "cumPension": 359480.0,
+   "death": 521.8
+  },
+  {
+   "age": 82,
+   "year": 43,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 20425.0,
+   "cumPension": 379905.0,
+   "death": 0
+  },
+  {
+   "age": 83,
+   "year": 44,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 20425.0,
+   "cumPension": 400330.0,
+   "death": 0
+  },
+  {
+   "age": 84,
+   "year": 45,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 20425.0,
+   "cumPension": 420755.0,
+   "death": 0
+  },
+  {
+   "age": 85,
+   "year": 46,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 20425.0,
+   "cumPension": 441180.0,
+   "death": 0
+  },
+  {
+   "age": 86,
+   "year": 47,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 465690.0,
+   "death": 0
+  },
+  {
+   "age": 87,
+   "year": 48,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 490200.0,
+   "death": 0
+  },
+  {
+   "age": 88,
+   "year": 49,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 514710.0,
+   "death": 0
+  },
+  {
+   "age": 89,
+   "year": 50,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 539220.0,
+   "death": 0
+  },
+  {
+   "age": 90,
+   "year": 51,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 563730.0,
+   "death": 0
+  },
+  {
+   "age": 91,
+   "year": 52,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 588240.0,
+   "death": 0
+  },
+  {
+   "age": 92,
+   "year": 53,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 612750.0,
+   "death": 0
+  },
+  {
+   "age": 93,
+   "year": 54,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 637260.0,
+   "death": 0
+  },
+  {
+   "age": 94,
+   "year": 55,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 661770.0,
+   "death": 0
+  },
+  {
+   "age": 95,
+   "year": 56,
+   "premium": 0,
+   "cumPremium": 360001.8,
+   "cashValue": 0,
+   "pension": 24510.0,
+   "cumPension": 686280.0,
+   "death": 0
+  }
+ ]
+}
