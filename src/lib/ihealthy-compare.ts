@@ -9,8 +9,8 @@ import type { IHealthyWords } from "@/lib/ihealthy-words";
  * https://claude.ai/artifact/1mUgZLvfLHYGaC89ATjoTu).
  *
  * The owner's first iHealthy Ultra app worked this way: pick a person, read four prices across.
- * This is that page on the rates and the contract the rest of the system uses. The owner kept
- * its four plans, so a reader comparing them on a phone has columns wide enough to read;
+ * This is that page on the system's contract, with that app's own premiums
+ * (ihealthy-compare-premiums.ts). The owner kept its four plans, so a reader comparing them on a phone has columns wide enough to read;
  * ไดมอนด์ and แพลทินัม stay on /ihealthy-ultra.
  *
  * What a table of those plans holds, and nothing that reads the rate tables: the page's client

@@ -98,8 +98,8 @@ describe("GET /api/quote-pdf", () => {
 
   it("prints the compare page from the same query", async () => {
     const query = queryFrom(iHealthyTable(), { ...IHEALTHY_OPENING });
-    const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra-compare&${query}&v=${V}`));
-    expect(res.headers.get("content-disposition")).toBe('inline; filename="ihealthy-ultra-compare-F35.pdf"');
+    const res = await GET(req(`/api/quote-pdf?page=ihealthy-compare&${query}&v=${V}`));
+    expect(res.headers.get("content-disposition")).toBe('inline; filename="ihealthy-compare-F35.pdf"');
     expect(render.mock.calls[0][0]).toBe(`${siteOrigin()}/ihealthy-ultra/compare?${query}`);
   });
 

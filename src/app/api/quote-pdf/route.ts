@@ -52,7 +52,7 @@ export async function GET(req: Request): Promise<Response> {
 
   const params = new URL(req.url).searchParams;
   const page = params.get("page");
-  const isCompare = page === "ihealthy-ultra-compare";
+  const isCompare = page === "ihealthy-compare";
   const isIHealthy = page === "ihealthy-ultra" || isCompare;
   if (!isIHealthy && !(page !== null && Object.hasOwn(PLAN_PAGES, page))) return invalid();
 

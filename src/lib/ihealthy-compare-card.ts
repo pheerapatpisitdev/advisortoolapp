@@ -1,11 +1,12 @@
 import { fullRowKey, FULL_ROW_LABEL, SHARED_LIMIT_NOTE, SHARED_OPD } from "@/lib/ihealthy-full-rows";
 import { iHealthyFacts, isHeading } from "@/lib/ihealthy-facts";
 import { iHealthyFullCard, type FullTableRow } from "@/lib/ihealthy-full-card";
+import { compareDailyCash, comparePremium } from "@/lib/ihealthy-compare-premiums";
 import { compareCells, comparePlans, type CompareLine, visibleLines } from "@/lib/ihealthy-compare";
 import type { CardCell } from "@/lib/ihealthy-card";
 import { initialFrom } from "@/lib/ihealthy-link";
 import type { Lang } from "@/lib/ihealthy-lang";
-import { plansFor } from "@/lib/ihealthy-quote";
+import { MODES, plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { translateFacts } from "@/lib/ihealthy-translate";
 
@@ -54,12 +55,13 @@ export function compareLines(lang: Lang): CompareLine[] {
 
 /**
  * The compare table as a picture: the whole table's card, cut to the compared plans the age can
- * buy and to the rows those plans pay. Its ceiling, daily cash and premium rows are that card's.
+ * buy and to the rows those plans pay, and priced from the page's own table. Its ceiling and
+ * daily cash are that card's, the daily cash only where those premiums pay for it.
  */
 export function iHealthyCompareCard(query: URLSearchParams, today: Date = new Date()): ReturnType<typeof iHealthyFullCard> {
   const card = iHealthyFullCard(query, today);
   const table = iHealthyTable(today);
-  const { age } = initialFrom(table, Object.fromEntries(query));
+  const { age, sex } = initialFrom(table, Object.fromEntries(query));
   const plans = comparePlans(plansFor(table, age).map((p) => p.code));
   const every = iHealthyFacts().plans.map((p) => p.code);
   const kept = every.flatMap((code, i) => (plans.includes(code) ? [i] : []));
@@ -83,9 +85,16 @@ export function iHealthyCompareCard(query: URLSearchParams, today: Date = new Da
     rows: [
       { ...ceiling, cells: cut(ceiling.cells) },
       ...body,
-      ...card.rows.filter((r) => r.span !== undefined),
+      ...(compareDailyCash(table.standard.plan[age - table.ageMin], age, table.juvenileBelowAge) === null
+        ? []
+        : card.rows.filter((r) => r.span !== undefined)),
     ],
-    premiumRows: card.premiumRows.map((r) => ({ ...r, cells: cut(r.cells) })),
+    premiumRows: card.premiumRows.map((r, i) => ({
+      ...r,
+      cells: plans.map((code) => ({
+        text: comparePremium(code, sex, age, MODES[i])?.toLocaleString("en-US") ?? "-", dim: false,
+      })),
+    })),
   };
 }
 

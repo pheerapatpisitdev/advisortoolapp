@@ -4,7 +4,8 @@ import type { Lang } from "@/lib/ihealthy-lang";
 import { queryFrom } from "@/lib/ihealthy-link";
 import type { IHealthyTable } from "@/lib/ihealthy-table";
 
-const COMPARE_REVISION = 1;
+/** 2: the page's own premiums (owner, 2026-11-06). */
+const COMPARE_REVISION = 2;
 
 /**
  * The compare picture's address (src/app/api/ihealthy-card/compare): the whole table's, on its
@@ -18,5 +19,5 @@ export function compareCardPath(table: IHealthyTable, v: IHealthyInitial, lang: 
 
 /** The phone's PDF of the compare page. No `v`: the route sends any other to the current one. */
 export function comparePdfPath(table: IHealthyTable, v: IHealthyInitial, lang: Lang = "th"): string {
-  return `/api/quote-pdf?page=ihealthy-ultra-compare&${queryFrom(table, v)}${lang === "th" ? "" : `&l=${lang}`}`;
+  return `/api/quote-pdf?page=ihealthy-compare&${queryFrom(table, v)}${lang === "th" ? "" : `&l=${lang}`}`;
 }

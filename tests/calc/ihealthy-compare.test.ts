@@ -5,10 +5,12 @@ import {
 } from "@/lib/ihealthy-compare";
 import { compareLines, iHealthyCompareCard } from "@/lib/ihealthy-compare-card";
 import { compareCardPath, comparePdfPath } from "@/lib/ihealthy-compare-link";
+import { compareDailyCash, comparePremium } from "@/lib/ihealthy-compare-premiums";
 import { COMPARE_WORDS } from "@/lib/ihealthy-compare-words";
 import { iHealthyFacts, isHeading } from "@/lib/ihealthy-facts";
 import { FULL_ROW_LABEL } from "@/lib/ihealthy-full-rows";
 import { LANGS } from "@/lib/ihealthy-lang";
+import { plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { WORDS } from "@/lib/ihealthy-words";
 
@@ -85,12 +87,12 @@ describe("the lines of the table", () => {
 });
 
 describe("the picture", () => {
-  it("draws the four plans with the engine's premiums, no column lit", () => {
+  it("draws the four plans at the page's own premiums, no column lit", () => {
     const man = card(30, "M");
     expect(man.columns.map((c) => c.selected)).toEqual([false, false, false, false]);
     expect(man.premiumRows).toHaveLength(3);
-    expect(man.premiumRows[0].cells[0].text).toBe("16,720");
-    expect(card(35, "F").premiumRows[0].cells[3].text).toBe("45,810");
+    expect(man.premiumRows.map((r) => r.cells[0].text)).toEqual(["16,775", "8,723", "1,510"]);
+    expect(card(35, "F").premiumRows[0].cells[3].text).toBe("45,850");
     for (const r of man.rows) if (r.cells.length > 0) expect(r.cells).toHaveLength(4);
   });
 
@@ -98,10 +100,15 @@ describe("the picture", () => {
     const child = card(8, "M");
     expect(child.columns).toHaveLength(2);
     expect(child.premiumRows[0].cells).toHaveLength(2);
-    expect(child.rows.map((r) => r.span).filter(Boolean)).toHaveLength(1);
+    // that table's child premiums pay for no daily cash, so the picture does not promise it
+    expect(child.rows.filter((r) => r.span !== undefined)).toHaveLength(0);
     // the limit and "as charged" in one cell take two lines, so that row is drawn taller
     expect(child.rows.filter((r) => r.tall).map((r) => r.label)).toEqual([th["3"]]);
     expect(man35Tall()).toEqual([]);
+  });
+
+  it("has a daily-cash row from eleven", () => {
+    expect(card(11, "M").rows.filter((r) => r.span !== undefined)).toHaveLength(1);
   });
 
   it("has no daily-cash row above the age the company writes it", () => {
@@ -110,6 +117,34 @@ describe("the picture", () => {
 
   it("is drawn in every language", () => {
     for (const lang of LANGS) expect(card(35, "F", lang).lang).toBe(lang);
+  });
+});
+
+describe("the page's own premiums", () => {
+  it("reads the first app's table, whole baht a year", () => {
+    expect(comparePremium("SMART", "M", 6, "annual")).toBe(47_160);
+    expect(comparePremium("SMART", "F", 45, "annual")).toBe(23_450);
+    expect(comparePremium("GOLD", "F", 80, "annual")).toBe(294_033);
+  });
+
+  it("works the instalments out as that app did", () => {
+    expect(comparePremium("SMART", "M", 30, "semi")).toBe(8_723);
+    expect(comparePremium("SMART", "M", 30, "monthly")).toBe(1_510);
+  });
+
+  it("has every age the rate table sells each plan at", () => {
+    const table = iHealthyTable(WHILE_CURRENT);
+    for (let age = table.ageMin; age <= 80; age++) {
+      for (const code of comparePlans(plansFor(table, age).map((p) => p.code))) {
+        for (const sex of ["M", "F"] as const) expect(comparePremium(code, sex, age, "annual"), `${code} ${age}`).toBeDefined();
+      }
+    }
+  });
+
+  it("offers no daily cash below eleven, and leaves the plan alone from there", () => {
+    expect(compareDailyCash(500, 10, 11)).toBeNull();
+    expect(compareDailyCash(1000, 11, 11)).toBe(1000);
+    expect(compareDailyCash(null, 70, 11)).toBeNull();
   });
 });
 
@@ -143,10 +178,10 @@ describe("the addresses", () => {
   it("gives the picture its own revision, so the whole table's cache is not its", () => {
     const path = compareCardPath(table, IHEALTHY_OPENING, "en");
     expect(path.startsWith("/api/ihealthy-card/compare?")).toBe(true);
-    expect(path).toMatch(/&cv=[^&]*-c1/);
+    expect(path).toMatch(/&cv=[^&]*-c2/);
     expect(path).toContain("&l=en");
   });
   it("asks the PDF route for the compare page", () => {
-    expect(comparePdfPath(table, IHEALTHY_OPENING)).toContain("page=ihealthy-ultra-compare&");
+    expect(comparePdfPath(table, IHEALTHY_OPENING)).toContain("page=ihealthy-compare&");
   });
 });

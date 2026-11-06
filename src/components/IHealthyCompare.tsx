@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatBaht } from "@/calc/money";
 import type { PayMode, Sex } from "@/calc/types";
 import { cellRuns } from "@/components/ihealthy/BenefitTable";
 import { PdfButton } from "@/components/ihealthy/PdfButton";
@@ -11,11 +10,12 @@ import {
   compareCells, comparePlans, compareText, visibleLines, type CompareLine, type ComparePlanFacts,
 } from "@/lib/ihealthy-compare";
 import { compareCardPath, comparePdfPath } from "@/lib/ihealthy-compare-link";
+import { compareDailyCash, comparePremium } from "@/lib/ihealthy-compare-premiums";
 import { COMPARE_WORDS } from "@/lib/ihealthy-compare-words";
 import { planLabel, type IHealthyFacts } from "@/lib/ihealthy-facts";
 import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
 import { queryFrom } from "@/lib/ihealthy-link";
-import { iHealthyPricing, MODES, plansFor } from "@/lib/ihealthy-quote";
+import { MODES, plansFor } from "@/lib/ihealthy-quote";
 import { SEND_WORDS } from "@/lib/ihealthy-send-words";
 import type { IHealthyTable } from "@/lib/ihealthy-table";
 import { baseWords, WORDS } from "@/lib/ihealthy-words";
@@ -34,7 +34,7 @@ const planWash = (code: string) => `var(--ihu-${code.toLowerCase()}-wash)`;
 /**
  * The compare page's form and table. Only who is being quoted and how they pay are asked: the
  * arrangement under the prices is held at the page's opening one, the fifty-thousand package in
- * Thailand on full cover, which is what makes the columns comparable.
+ * Thailand on full cover, which is what the page's own premiums are for.
  */
 export function IHealthyCompare(
   { table, lines, plans: sheetPlans, participationNote, initial, lang }: {
@@ -59,16 +59,10 @@ export function IHealthyCompare(
   const { base: baseVariant, sumAssured, territory, coverage } = IHEALTHY_OPENING;
   const codes = comparePlans(plansFor(table, age).map((p) => p.code));
   const shownLines = visibleLines(lines, codes, age);
-  const priced = table.expired ? undefined : new Map(codes.map((code) => [code, iHealthyPricing(table, {
-    base: baseVariant, sex, age, sumAssured, plan: code, territory, coverage,
-  })]));
-  /** A dash where the company refuses the instalment, as on the page's own table. */
-  const amount = (code: string, m: PayMode) => {
-    const total = priced?.get(code)?.total.find((t) => t.mode === m);
-    return total === undefined || total.belowMinimum ? "-" : formatBaht(total.total);
-  };
+  const priced = !table.expired;
+  const amount = (code: string, m: PayMode) => comparePremium(code, sex, age, m)?.toLocaleString("en-US") ?? "-";
 
-  const standardPlan = table.standard.plan[age - table.ageMin];
+  const standardPlan = compareDailyCash(table.standard.plan[age - table.ageMin], age, table.juvenileBelowAge);
   const big = (baht: number) => {
     const b = w.big(baht);
     return `${b.num} ${b.unit}`;
