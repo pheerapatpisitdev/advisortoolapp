@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { QuoteSheet } from "@/lib/group-insurance/sheet";
+import { preparePrint } from "@/lib/quote-pdf/prepare";
 import { Icon } from "./Icon";
 import { useLang } from "./lang";
 import { QuoteSheetDoc } from "./QuoteSheetDoc";
@@ -84,42 +85,25 @@ export function QuoteDialog({
   }, []);
 
   /**
-   * Prints the sheet alone.
+   * Keeps the sheet alone on paper for as long as the dialog is open.
    *
-   * Walks up from the document marking every sibling on the way, which is the trick
-   * `PrintButton` arrived at after the usual one — hide everything, pull the target to the
-   * top — printed a blank page on the sales themes. It needs to know nothing about the page
-   * it is standing in, which is the property worth having: this dialog is `fixed` inside a
-   * themed wrapper inside the app shell.
+   * Marked here and not by the print button, because an iPhone makes its PDF after the button's
+   * code has finished: marks set and removed around `window.print()` were gone by then, and the
+   * whole page came out with the dialog's backdrop across the table (two PDFs from the owner,
+   * Safari and Chrome on iOS, 2026-11-06). The share sheet's own Print never passes through the
+   * button at all. The mark does nothing on screen; it is read only by the print rules.
    */
-  const print = () => {
+  useEffect(() => {
     const target = sheetRef.current;
-    if (!target) return;
-    const hidden: Element[] = [];
-    for (let node: Element | null = target; node && node !== document.body; node = node.parentElement) {
-      for (const sibling of Array.from(node.parentElement?.children ?? [])) {
-        if (sibling !== node) {
-          sibling.setAttribute("data-print-hide", "");
-          hidden.push(sibling);
-        }
-      }
-    }
-    const restore = () => {
-      for (const el of hidden) el.removeAttribute("data-print-hide");
-    };
-    // Chrome returns from print() when the dialog closes; Safari returns at once and leaves
-    // it to the event. Both restore, and removing an attribute twice costs nothing.
-    window.addEventListener("afterprint", restore, { once: true });
-    window.print();
-    restore();
-  };
+    return target ? preparePrint(target) : undefined;
+  }, []);
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="gi-quote-title"
-      className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+      className="gi-quote-root fixed inset-0 z-[300] flex items-center justify-center p-4"
     >
       <button
         type="button"
@@ -183,7 +167,7 @@ export function QuoteDialog({
           </button>
           <button
             type="button"
-            onClick={print}
+            onClick={() => window.print()}
             className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
             style={{ background: "var(--gi-navy)" }}
           >

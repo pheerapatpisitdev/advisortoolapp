@@ -114,7 +114,9 @@ body:has(.group-insurance) { background: var(--gi-ground); }
 }
 
 /* While the quotation owns the screen, the page behind it does not scroll under it. */
-html.gi-modal-open, html.gi-modal-open body { overflow: hidden; }
+@media screen {
+  html.gi-modal-open, html.gi-modal-open body { overflow: hidden; }
+}
 
 /* ── printing the quotation ──────────────────────────────────────────────────────────────
  *
@@ -152,15 +154,45 @@ html.gi-modal-open, html.gi-modal-open body { overflow: hidden; }
     transform: none !important;
     box-shadow: none !important;
   }
+  /* What the app's frame puts around the page: its grey ground, and the 64px its main column
+     leaves for the menu button, which together pushed the sheet's notes onto a second page. */
+  body:has(.group-insurance) { background: none !important; }
+  html.gi-modal-open .group-insurance {
+    background: none !important;
+    min-height: 0 !important;
+  }
+  html.gi-modal-open .group-insurance .shell-inset,
+  html.gi-modal-open .group-insurance main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  /* The dialog is pinned to the screen, and a phone's screen is narrower than its paper: left
+     alone it squeezes the sheet to the phone's width and clips it at the phone's height. */
+  .group-insurance .gi-quote-root {
+    position: static !important;
+    display: block !important;
+    padding: 0 !important;
+  }
   .group-insurance .gi-dialog {
     position: static !important;
     display: block !important;
+    width: auto !important;
+    max-width: none !important;
     max-height: none !important;
+    overflow: visible !important;
     box-shadow: none !important;
     border-radius: 0 !important;
   }
   /* A table cut through its middle is the one thing a printed quotation must not do. */
   .group-insurance .gi-sheet tr { break-inside: avoid; }
+  /* Health's ten benefit rows ran its notes onto a second page by themselves. The cell padding
+     is written inline on the sheet, hence the !important. */
+  .group-insurance .gi-sheet tbody :is(th, td) {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
   .group-insurance .gi-sheet thead { display: table-header-group; }
   /* Backgrounds are dropped by default, and the navy heading rows carry white text — without
      this they print as white on white. */
