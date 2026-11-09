@@ -3,7 +3,7 @@ import { PlanView } from "@/components/plan/PlanView";
 import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
 import { afterPlan } from "@/lib/fhc/after";
-import { getCustomer } from "@/lib/fhc/customers";
+import { agentNames, getCustomer } from "@/lib/fhc/customers";
 import { AREA_LABEL, GAP_WORD, offerPrice } from "@/lib/fhc/gaps";
 import { cleanFhc } from "@/lib/fhc/health";
 import { lineText } from "@/lib/fhc/share";
@@ -26,11 +26,16 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const viewer = await gatePage(`/fhc/customers/${id}`);
   const owner = can(viewer, "owner");
-  const c = await getCustomer(viewer, id, owner).catch((e) => {
+  // an office's admins and managers may look at their office's customers, not change them (owner, 2026-11-09)
+  const c = await getCustomer(viewer, id, owner, true).catch((e) => {
     console.error("fhc customer not read:", e);
     return null;
   });
   if (!c) notFound();
+  const agent = c.readOnly ? (await agentNames([c.agentId]).catch(() => new Map<string, string>())).get(c.agentId) ?? "ตัวแทนในสำนักงาน" : null;
+  const lookOnly = agent && (
+    <p className={`${BOX} text-sm text-[var(--lg-mute)]`}>ลูกค้าของ {agent} · ดูได้อย่างเดียว แก้ไขหรือลบได้เฉพาะตัวแทนเจ้าของรายชื่อ</p>
+  );
   const { snapshot } = c;
   const thaiDay = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
 
@@ -43,7 +48,7 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
     return (
       <main className="mx-auto max-w-lg space-y-4 px-4 pb-28 sm:max-w-3xl sm:pb-10">
         <CustomerHeader
-          id={c.id} name={c.name} contact={c.contact} note={c.note}
+          id={c.id} name={c.name} contact={c.contact} note={c.note} readOnly={c.readOnly}
           meta={<>{c.sex === "F" ? "หญิง" : "ชาย"} อายุ {c.age} · สำรวจความคุ้มครองเมื่อ {thaiDay(c.createdAt)}</>}
         />
         {a && s ? (
@@ -54,7 +59,7 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
         ) : (
           <p className={`${BOX} text-sm text-[var(--lg-mute)]`}>อ่านคำตอบของลูกค้าคนนี้ไม่ได้</p>
         )}
-        <CustomerActions id={c.id} name={c.name} message={a && s ? summaryText(a, s) : c.name} owner={owner} video={false} />
+        {lookOnly || <CustomerActions id={c.id} name={c.name} message={a && s ? summaryText(a, s) : c.name} owner={owner} video={false} />}
       </main>
     );
   }
@@ -68,7 +73,7 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
   return (
     <main className="mx-auto max-w-lg space-y-4 px-4 pb-28 sm:max-w-3xl sm:pb-10">
       <CustomerHeader
-        id={c.id} name={c.name} contact={c.contact} note={c.note}
+        id={c.id} name={c.name} contact={c.contact} note={c.note} readOnly={c.readOnly}
         meta={<>
           {c.sex === "F" ? "หญิง" : "ชาย"} อายุ {c.age} · ตรวจเมื่อ {date}
           {snapshot.updatedAt && <> · อัปเดตผลล่าสุด {thaiDay(snapshot.updatedAt)}</>}
@@ -129,7 +134,7 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
 
       <PlanView result={snapshot.plan} prose={null} />
 
-      <CustomerActions id={c.id} name={c.name} message={message} owner={owner} />
+      {lookOnly || <CustomerActions id={c.id} name={c.name} message={message} owner={owner} />}
     </main>
   );
 }

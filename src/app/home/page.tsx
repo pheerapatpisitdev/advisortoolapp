@@ -65,7 +65,7 @@ export default async function Home() {
     allowanceOf(viewer).catch(orNull("rounds")),
     myPages().catch(() => []),
     countByStatus().then((c) => c.draft).catch(orNull("drafts")),
-    listCustomers(viewer, false).catch(orNull("fhc customers")),
+    listCustomers(viewer, "mine").catch(orNull("fhc customers")),
     listVideos(viewer.agentId, 10).catch(orNull("clips")),
     // ประวัติการทำงาน's card: the latest few of the last 30 days; the rest are on /home/history
     readHistory(viewer, new Date(now.getTime() - HISTORY_DAYS * 24 * 60 * 60 * 1000), now, HISTORY_SHOWN)

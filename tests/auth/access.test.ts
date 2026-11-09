@@ -188,6 +188,13 @@ describe("Premium-only advisortool", () => {
     }
   });
 
+  it("marks a room's admins and managers as its leads, and nobody else (FHC office view, 2026-11-09)", () => {
+    for (const over of [{ role: "manager" }, { role: "admin" }, { is_admin: true }]) {
+      expect(admit(agent(over), null, NOW, NOW)?.roomLead).toBe(true);
+    }
+    expect(admit(agent({ role: "member", is_admin: false }), null, NOW, NOW)).not.toHaveProperty("roomLead");
+  });
+
   it("lets a basic agent in where the room does not lock advisortool", () => {
     expect(admit(agent({ member_tier: "basic" }), null, NOW, NOW)).not.toBeNull();   // no list: the default, without ad-studio
     expect(admit(basic({ tenant: room({ config: { premiumOnly: [] } }) }), null, NOW, NOW)).not.toBeNull();

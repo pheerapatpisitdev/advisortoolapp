@@ -72,6 +72,11 @@ export interface Viewer {
   staff: { owner: boolean; publish: boolean; connect: boolean; admin: boolean } | null;
   /** a member who has not filled in สมัครสมาชิก yet: every page sends them there first (owner, 2026-10-27) */
   profileDue?: true;
+  /**
+   * an admin or manager of their UnitOS room: sees the FHC customers of every agent in the room,
+   * view only (owner, 2026-11-09, mockup WjpC1vZN2AW9SB8KCHXhwk 1ก 2ก)
+   */
+  roomLead?: true;
 }
 
 /**
@@ -209,6 +214,7 @@ function admitRoom(agent: AgentRow | null, staff: StaffRow | null, issuedAt: num
     staff: staff
       ? { owner: staff.is_owner, publish: staff.can_publish, connect: staff.can_connect, admin: staff.can_admin }
       : null,
+    ...(agent.is_admin || agent.role === "admin" || agent.role === "manager" ? { roomLead: true as const } : {}),
   };
 }
 

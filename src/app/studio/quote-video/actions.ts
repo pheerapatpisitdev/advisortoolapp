@@ -344,7 +344,7 @@ export interface FhcChoice {
 export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
   const viewer = await requireMember();
   // a สำรวจความคุ้มครอง customer has no check to tell
-  const own = (await listCustomers(viewer, false)).filter((c) => c.kind === "fhc");
+  const own = (await listCustomers(viewer, "mine")).filter((c) => c.kind === "fhc");
   const rows: { id: string; name: string; sex: "M" | "F"; age: number; createdAt: string; gaps: { label?: string; key: string; state: "missing" | "short" | "ok" }[] }[] = [...own];
   if (also && !own.some((c) => c.id === also)) {
     const extra = await getCustomer(viewer, also, can(viewer, "owner")).catch(() => null);

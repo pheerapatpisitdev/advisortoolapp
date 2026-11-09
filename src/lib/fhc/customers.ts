@@ -8,8 +8,8 @@ import type { SurveyAnswers, WorryKey } from "@/lib/survey/answers";
 
 /**
  * Customers an agent saved from the Financial Health Check. Every call takes the signed-in
- * viewer from the server: an agent reads and changes their own rows only; the owner reads every
- * agent's. An id from a request only ever narrows within what the viewer may see.
+ * viewer from the server: an agent reads and changes their own rows only; a room lead also reads
+ * (never changes) their office's; the owner reads every agent's. An id from a request only ever narrows within what the viewer may see.
  */
 
 const TABLE = "ins_fhc_customers";
@@ -165,24 +165,83 @@ export async function updateCustomerDetails(viewer: Viewer, id: string, ownerMay
   return (data ?? []).length > 0;
 }
 
-/** Newest first. The owner may ask for everyone's. */
-export async function listCustomers(viewer: Viewer, all: boolean): Promise<CustomerRow[]> {
-  let q = supabaseAdmin().from(TABLE).select(LIGHT).order("created_at", { ascending: false }).limit(1000);
-  if (!all) q = q.eq("agent_id", viewer.agentId);
+/**
+ * Whose customers a list holds: the viewer's own, the viewer's office's (a room lead, owner
+ * 2026-11-09), or everyone's (the owner; the caller checks).
+ */
+export type Scope = "mine" | "office" | "all";
+
+/** An admin or manager of a UnitOS room, who may look at the room's customers. */
+export const isRoomLead = (viewer: Viewer): boolean => viewer.roomLead === true && !!viewer.tenantId;
+
+/** The office (UnitOS room) of each agent among these ids: UnitClub's agents and Bluewealth's as of their last sign-in. A member has none. */
+export async function agentRooms(ids: string[]): Promise<Map<string, { id: string; name: string }>> {
+  const uniq = [...new Set(ids)].filter((i) => UUID.test(i));
+  const rooms = new Map<string, { id: string; name: string }>();
+  if (!uniq.length) return rooms;
+  const db = supabaseAdmin();
+  const [agents, outside] = await Promise.all([
+    db.from("agents").select("id, tenant:tenants(id, slug, name)").in("id", uniq),
+    db.from("ins_bluewealth_agents").select("id, tenant_id, tenant_name").in("id", uniq),
+  ]);
+  if (agents.error) throw new Error(`อ่านสำนักงานไม่ได้: ${agents.error.message}`);
+  type Room = { id: string; slug: string; name: string | null };
+  for (const a of (agents.data ?? []) as unknown as { id: string; tenant: Room | Room[] | null }[]) {
+    const t = Array.isArray(a.tenant) ? a.tenant[0] : a.tenant;
+    if (t) rooms.set(a.id, { id: t.id, name: t.name?.trim() || t.slug });
+  }
+  for (const b of (outside.data ?? []) as { id: string; tenant_id: string | null; tenant_name: string | null }[]) {
+    if (b.tenant_id && !rooms.has(b.id)) rooms.set(b.id, { id: b.tenant_id, name: b.tenant_name ?? "" });
+  }
+  return rooms;
+}
+
+/** The agents among `ids` who sit in this room. */
+export function inRoom(rooms: Map<string, { id: string }>, ids: string[], roomId: string): string[] {
+  return [...new Set(ids)].filter((i) => rooms.get(i)?.id === roomId);
+}
+
+/** Newest first. A scope the viewer may not have falls back to their own: the caller checks the owner's, this checks the room lead's. */
+export async function listCustomers(viewer: Viewer, scope: Scope): Promise<CustomerRow[]> {
+  const db = supabaseAdmin();
+  let q = db.from(TABLE).select(LIGHT).order("created_at", { ascending: false }).limit(1000);
+  if (scope === "office" && isRoomLead(viewer)) {
+    // the agents who have saved anyone, then those of them in the viewer's room
+    const { data: who, error } = await db.from(TABLE).select("agent_id").limit(10000);
+    if (error) throw new Error(`อ่านรายชื่อไม่ได้: ${error.message}`);
+    const ids = ((who ?? []) as { agent_id: string }[]).map((r) => r.agent_id);
+    const team = inRoom(await agentRooms(ids), ids, viewer.tenantId as string);
+    if (!team.includes(viewer.agentId)) team.push(viewer.agentId);
+    q = q.in("agent_id", team);
+  } else if (scope !== "all") {
+    q = q.eq("agent_id", viewer.agentId);
+  }
   const { data, error } = await q;
   if (error) throw new Error(`อ่านรายชื่อไม่ได้: ${error.message}`);
   return ((data ?? []) as Raw[]).map(shape);
 }
 
-/** One customer with the check as it stood the day it was saved (and the form it came from), or null if the viewer may not see it. */
-export async function getCustomer(viewer: Viewer, id: string, ownerMay: boolean): Promise<(CustomerRow & { snapshot: Snapshot; input: unknown }) | null> {
+/**
+ * One customer with the check as it stood the day it was saved (and the form it came from), or
+ * null if the viewer may not see it. `officeMay`: a room lead may also look at a customer of an
+ * agent in their room, and gets it `readOnly` (only the customer page asks; owner, 2026-11-09).
+ */
+export async function getCustomer(
+  viewer: Viewer, id: string, ownerMay: boolean, officeMay = false,
+): Promise<(CustomerRow & { snapshot: Snapshot; input: unknown; readOnly: boolean }) | null> {
   if (!UUID.test(id)) return null;
   const { data, error } = await supabaseAdmin().from(TABLE).select(`${LIGHT}, snapshot, input`).eq("id", id).maybeSingle();
   if (error) throw new Error(`อ่านรายชื่อไม่ได้: ${error.message}`);
   if (!data) return null;
   const row = data as Raw & { snapshot: Snapshot; input: unknown };
-  if (!owns(viewer, row.agent_id) && !ownerMay) return null;
-  return { ...shape(row), snapshot: row.snapshot, input: row.input };
+  let readOnly = false;
+  if (!owns(viewer, row.agent_id) && !ownerMay) {
+    if (!officeMay || !isRoomLead(viewer)) return null;
+    const room = (await agentRooms([row.agent_id])).get(row.agent_id);
+    if (room?.id !== viewer.tenantId) return null;
+    readOnly = true;
+  }
+  return { ...shape(row), snapshot: row.snapshot, input: row.input, readOnly };
 }
 
 export async function deleteCustomer(viewer: Viewer, id: string, ownerMay: boolean): Promise<boolean> {

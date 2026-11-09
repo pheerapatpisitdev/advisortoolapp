@@ -13,7 +13,8 @@ import { editFhcCustomer } from "../actions";
 const INPUT = "rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2 text-base text-[var(--lg-white)]";
 const BTN = "rounded-sm border py-2.5 text-sm disabled:opacity-60";
 
-export function CustomerHeader({ id, name, contact, note, meta }: { id: string; name: string; contact: string; note: string; meta: React.ReactNode }) {
+/** `readOnly`: an office lead looking at another agent's customer (owner, 2026-11-09): no แก้ไข, and back to the office list */
+export function CustomerHeader({ id, name, contact, note, meta, readOnly = false }: { id: string; name: string; contact: string; note: string; meta: React.ReactNode; readOnly?: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name, contact, note });
@@ -41,7 +42,9 @@ export function CustomerHeader({ id, name, contact, note, meta }: { id: string; 
 
   return (
     <header className="pb-1 pt-8">
-      <Link href="/fhc/customers" className="text-sm text-[var(--lg-mute)]">‹ ลูกค้า FHC ของฉัน</Link>
+      <Link href={readOnly ? "/fhc/customers?office=1" : "/fhc/customers"} className="text-sm text-[var(--lg-mute)]">
+        {readOnly ? "‹ ลูกค้า FHC ของสำนักงาน" : "‹ ลูกค้า FHC ของฉัน"}
+      </Link>
       {saved && (
         <p role="status" className="mt-3 rounded-sm border border-[var(--lg-gold)] bg-[var(--lg-panel)] p-2.5 text-sm text-[var(--lg-white)] print:hidden">{saved}</p>
       )}
@@ -74,12 +77,12 @@ export function CustomerHeader({ id, name, contact, note, meta }: { id: string; 
         <>
           <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
             <h1 className="lg-figure text-3xl leading-tight text-[var(--lg-white)]">{name}</h1>
-            <button
+            {!readOnly && <button
               type="button" onClick={open}
               className="rounded-sm border border-[var(--lg-gold)] px-4 py-1.5 text-sm text-[var(--lg-gold)] print:hidden"
             >
               แก้ไข
-            </button>
+            </button>}
           </div>
           <p className="mt-2 text-sm tabular-nums text-[var(--lg-mute)]">{meta}</p>
           {contact && <p className="mt-1 text-sm text-[var(--lg-white)]">{contact}</p>}
