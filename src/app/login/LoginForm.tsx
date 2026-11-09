@@ -82,8 +82,8 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
       {premium && <div className="mt-4"><PremiumOnly /></div>}
       {notice && <p role="status" className="mt-4 rounded-lg bg-[var(--bot-band)] px-3 py-2 text-center text-sm text-[var(--bot-ink)]">{notice}</p>}
       <div role="tablist" className="mt-6 flex gap-1 rounded-lg bg-[var(--bot-band)] p-1">
-        <button type="button" role="tab" aria-selected={tab === "member"} className={tabClass("member")} onClick={() => pick("member")}>สมาชิกทั่วไป</button>
         <button type="button" role="tab" aria-selected={tab === "unitos"} className={tabClass("unitos")} onClick={() => pick("unitos")}>ตัวแทน UnitOS</button>
+        <button type="button" role="tab" aria-selected={tab === "member"} className={tabClass("member")} onClick={() => pick("member")}>สมาชิกทั่วไป</button>
       </div>
       <p className="mt-2 text-center text-xs text-[var(--bot-ink-mute)]">{FOR[tab]}</p>
 
