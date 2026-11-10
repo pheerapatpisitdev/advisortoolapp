@@ -25,11 +25,12 @@ function must<T>(r: { data: T | null; error: { message: string } | null }, what:
 
 export async function readConnectionsPage(now = Date.now()): Promise<ConnectionsPage> {
   const db = supabaseAdmin();
-  const [standing, logins, agents, outside, tenants, tries, outages, open] = await Promise.all([
+  const [standing, logins, agents, outside, kingclub, tenants, tries, outages, open] = await Promise.all([
     readStanding(),
     db.from("ins_logins").select("agent_id, how, at").gte("at", new Date(now - 30 * DAY).toISOString()).limit(5000),
     db.from("agents").select("id, tenant_id").limit(5000),
     db.from("ins_bluewealth_agents").select("id, tenant_name").limit(5000),
+    db.from("ins_kingclub_agents").select("id, tenant_name").limit(5000),
     db.from("tenants").select("id, name, slug, status, config").neq("status", "template"),
     // from Bangkok's midnight six days ago, so the first bar is a whole day
     db.from("ins_login_attempts").select("ok, created_at").gte("created_at", new Date(Date.parse(`${bangkokDay(now - 6 * DAY)}T00:00:00+07:00`)).toISOString()).limit(5000),
@@ -42,11 +43,15 @@ export async function readConnectionsPage(now = Date.now()): Promise<Connections
   const outsideRows = must(outside, "ins_bluewealth_agents") as { id: string; tenant_name: string | null }[];
   const unitos = new Set(agentRows.map((a) => a.id));
   const bluewealth = new Set(outsideRows.map((a) => a.id));
+  const kingclubRows = must(kingclub, "ins_kingclub_agents") as { id: string; tenant_name: string | null }[];
+  const kingclubIds = new Set(kingclubRows.map((a) => a.id));
 
   // each room's sign-ins of the week and its latest, by code or by UnitOS's menu
   const roomOf = new Map<string, string>([
     ...agentRows.filter((a) => a.tenant_id).map((a) => [a.id, `u:${a.tenant_id}`] as [string, string]),
     ...outsideRows.map((a) => [a.id, `b:${a.tenant_name?.trim() || "Bluewealth"}`] as [string, string]),
+    // after UnitClub's: KingClub's agents are still in UnitClub's rows, under their old, closed room
+    ...kingclubRows.map((a) => [a.id, `k:${a.tenant_name?.trim() || "KingClub"}`] as [string, string]),
   ]);
   const weekAgo = now - 7 * DAY;
   const roomUse = new Map<string, RouteUse>();
@@ -69,6 +74,14 @@ export async function readConnectionsPage(now = Date.now()): Promise<Connections
     bwRooms.set(name, (bwRooms.get(name) ?? 0) + 1);
   }
 
+  const kcStanding = standing.find((s) => s.route === "kingclub");
+  const kcState = kcStanding && !kcStanding.ok ? { label: "ต่อไม่ได้", tone: "bad" as const } : { label: "เปิดใช้", tone: "ok" as const };
+  const kcRooms = new Map<string, number>();
+  for (const a of kingclubRows) {
+    const name = a.tenant_name?.trim() || "KingClub";
+    kcRooms.set(name, (kcRooms.get(name) ?? 0) + 1);
+  }
+
   const rooms: RoomLine[] = [
     ...(must(tenants, "tenants") as TenantRow[]).map((t) => {
       const u = roomUse.get(`u:${t.id}`);
@@ -82,11 +95,15 @@ export async function readConnectionsPage(now = Date.now()): Promise<Connections
       const u = roomUse.get(`b:${name}`);
       return { name, system: "Bluewealth" as const, ...bwState, agents: seen, seenOnly: true, week: u?.week ?? 0, last: u?.last ?? null };
     }),
+    ...[...kcRooms].map(([name, seen]) => {
+      const u = roomUse.get(`k:${name}`);
+      return { name, system: "KingClub" as const, ...kcState, agents: seen, seenOnly: true, week: u?.week ?? 0, last: u?.last ?? null };
+    }),
   ];
 
   return {
     standing,
-    use: tallyByRoute(loginRows, unitos, bluewealth, now),
+    use: tallyByRoute(loginRows, unitos, bluewealth, now, kingclubIds),
     rooms: sortRooms(rooms),
     tries: triesByDay(must(tries, "ins_login_attempts") as { ok: boolean; created_at: string }[], now),
     outages: (must(outages, "ins_signin_outages") as { id: number; route: Route; started_at: string; ended_at: string | null; error: string | null }[])

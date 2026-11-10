@@ -1,6 +1,7 @@
-// The four asks behind การเชื่อมต่อ (./rules.ts). Each asks what a sign-in would ask, with
+// The asks behind การเชื่อมต่อ (./rules.ts), one per way in. Each asks what a sign-in would ask, with
 // nothing that signs anybody in or counts as a wrong code. Server only.
 import { bluewealthPing } from "@/lib/auth/bluewealth";
+import { kingclubPing } from "@/lib/auth/kingclub";
 import { googleIsConfigured, redirectUri } from "@/lib/auth/google";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/site-url";
@@ -66,6 +67,7 @@ export function checkAll(): Promise<CheckResult[]> {
     timed("unitos-code", unitosAgents),
     timed("unitos-sso", ssoTickets),
     timed("bluewealth", () => bluewealthPing(CHECK_TIMEOUT_MS)),
+    timed("kingclub", () => kingclubPing(CHECK_TIMEOUT_MS)),
     timed("google", googleClient),
   ]);
 }

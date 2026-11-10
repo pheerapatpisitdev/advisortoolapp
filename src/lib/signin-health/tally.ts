@@ -8,8 +8,10 @@ export interface LoginRow { agent_id: string; how: string; at: string }
 /**
  * Which way in a sign-in came by (src/lib/auth/login-log.ts writes `how`). A code is UnitOS's
  * or Bluewealth's by whose id it signed in; the Super Admin's Google sign-in is not a member's.
+ * A KingClub agent's, by menu or code, is KingClub's (2026-11-11).
  */
-export function routeOf(l: LoginRow, unitos: Set<string>, bluewealth: Set<string>): Route | null {
+export function routeOf(l: LoginRow, unitos: Set<string>, bluewealth: Set<string>, kingclub: Set<string> = new Set()): Route | null {
+  if ((l.how === "sso" || l.how === "code") && kingclub.has(l.agent_id)) return "kingclub";
   if (l.how === "sso") return "unitos-sso";
   if (l.how === "google") return "google";
   if (l.how === "code") return unitos.has(l.agent_id) ? "unitos-code" : bluewealth.has(l.agent_id) ? "bluewealth" : null;
@@ -19,14 +21,14 @@ export function routeOf(l: LoginRow, unitos: Set<string>, bluewealth: Set<string
 export interface RouteUse { week: number; last: string | null }
 
 /** Sign-ins of the last 7 days and the latest one, per way in. */
-export function tallyByRoute(logins: LoginRow[], unitos: Set<string>, bluewealth: Set<string>, now: number): Record<Route, RouteUse> {
+export function tallyByRoute(logins: LoginRow[], unitos: Set<string>, bluewealth: Set<string>, now: number, kingclub: Set<string> = new Set()): Record<Route, RouteUse> {
   const out: Record<Route, RouteUse> = {
     "unitos-code": { week: 0, last: null }, "unitos-sso": { week: 0, last: null },
-    bluewealth: { week: 0, last: null }, google: { week: 0, last: null },
+    bluewealth: { week: 0, last: null }, kingclub: { week: 0, last: null }, google: { week: 0, last: null },
   };
   const weekAgo = now - 7 * 86_400_000;
   for (const l of logins) {
-    const r = routeOf(l, unitos, bluewealth);
+    const r = routeOf(l, unitos, bluewealth, kingclub);
     if (!r) continue;
     if (Date.parse(l.at) >= weekAgo) out[r].week += 1;
     if (!out[r].last || l.at > out[r].last!) out[r].last = l.at;
@@ -52,10 +54,10 @@ export function roomState(t: TenantRow): { label: string; tone: Tone } {
 
 export interface RoomLine {
   name: string;
-  system: "UnitOS" | "Bluewealth";
+  system: "UnitOS" | "Bluewealth" | "KingClub";
   label: string;
   tone: Tone;
-  /** every agent of the room; for Bluewealth only those who have signed in here */
+  /** every agent of the room; for Bluewealth and KingClub only those who have signed in here */
   agents: number;
   seenOnly: boolean;
   week: number;

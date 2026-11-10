@@ -19,8 +19,11 @@ export interface AgentRow {
   created_at: string | null;
   /** หน่วย: read for Bluewealth's agents only, whose names the back office keeps (./bluewealth.ts) */
   unit?: string | null;
-  /** set on a row read from Bluewealth's copy of UnitOS rather than UnitClub (./bluewealth.ts) */
-  system?: "bluewealth";
+  /**
+   * set on a row read from Bluewealth's copy of UnitOS (./bluewealth.ts) or KingClub's own project
+   * (./kingclub.ts) rather than UnitClub
+   */
+  system?: "bluewealth" | "kingclub";
   tenant: {
     id: string;
     slug: string;

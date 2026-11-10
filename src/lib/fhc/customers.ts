@@ -174,15 +174,19 @@ export type Scope = "mine" | "office" | "all";
 /** An admin or manager of a UnitOS room, who may look at the room's customers. */
 export const isRoomLead = (viewer: Viewer): boolean => viewer.roomLead === true && !!viewer.tenantId;
 
-/** The office (UnitOS room) of each agent among these ids: UnitClub's agents and Bluewealth's as of their last sign-in. A member has none. */
+/**
+ * The office (UnitOS room) of each agent among these ids: UnitClub's agents, and Bluewealth's and
+ * KingClub's as of their last sign-in. A member has none.
+ */
 export async function agentRooms(ids: string[]): Promise<Map<string, { id: string; name: string }>> {
   const uniq = [...new Set(ids)].filter((i) => UUID.test(i));
   const rooms = new Map<string, { id: string; name: string }>();
   if (!uniq.length) return rooms;
   const db = supabaseAdmin();
-  const [agents, outside] = await Promise.all([
+  const [agents, outside, kingclub] = await Promise.all([
     db.from("agents").select("id, tenant:tenants(id, slug, name)").in("id", uniq),
     db.from("ins_bluewealth_agents").select("id, tenant_id, tenant_name").in("id", uniq),
+    db.from("ins_kingclub_agents").select("id, tenant_id, tenant_name").in("id", uniq),
   ]);
   if (agents.error) throw new Error(`อ่านสำนักงานไม่ได้: ${agents.error.message}`);
   type Room = { id: string; slug: string; name: string | null };
@@ -192,6 +196,10 @@ export async function agentRooms(ids: string[]): Promise<Map<string, { id: strin
   }
   for (const b of (outside.data ?? []) as { id: string; tenant_id: string | null; tenant_name: string | null }[]) {
     if (b.tenant_id && !rooms.has(b.id)) rooms.set(b.id, { id: b.tenant_id, name: b.tenant_name ?? "" });
+  }
+  // KingClub's word over the row UnitClub kept from before its move (src/lib/auth/kingclub.ts)
+  for (const k of (kingclub.data ?? []) as { id: string; tenant_id: string | null; tenant_name: string | null }[]) {
+    if (k.tenant_id) rooms.set(k.id, { id: k.tenant_id, name: k.tenant_name ?? rooms.get(k.id)?.name ?? "" });
   }
   return rooms;
 }

@@ -3,14 +3,14 @@
  * https://claude.ai/artifact/CM989D3EiZgrFKWHEwAksq), kept apart from the database, the network
  * and LINE so they can be tested on their own.
  *
- * Four ways in are asked every 30 minutes. A way in is called down after two checks in a row
+ * Each way in is asked every 30 minutes (four, then KingClub's from 2026-11-11). A way in is called down after two checks in a row
  * fail, as the AI check does (src/lib/ai/health-rules.ts, whose standing and step are reused),
  * and the owner hears twice per outage: when it goes down and when it comes back. Written after
  * Bluewealth's agents were locked out for 19 hours unseen, 2026-11-02/03.
  */
 import { FAILS_TO_ALERT, lasted, type Event } from "@/lib/ai/health-rules";
 
-export const ROUTES = ["unitos-code", "unitos-sso", "bluewealth", "google"] as const;
+export const ROUTES = ["unitos-code", "unitos-sso", "bluewealth", "kingclub", "google"] as const;
 export type Route = (typeof ROUTES)[number];
 
 export const isRoute = (s: string): s is Route => (ROUTES as readonly string[]).includes(s);
@@ -20,6 +20,7 @@ export const ROUTE_LABEL: Record<Route, string> = {
   "unitos-code": "ตัวแทน UnitOS · รหัส 6 หลัก",
   "unitos-sso": "ตัวแทน UnitOS · เมนูใน UnitOS",
   bluewealth: "ตัวแทน Bluewealth · รหัส 6 หลัก",
+  kingclub: "ตัวแทน KingClub · เมนูในแอปและรหัส 6 หลัก",
   google: "สมาชิกทั่วไป · Google",
 };
 
@@ -28,6 +29,7 @@ export const ROUTE_NOTE: Record<Route, string> = {
   "unitos-code": "อ่านรายชื่อตัวแทนจาก UnitOS (UnitClub)",
   "unitos-sso": "กดการ์ด advisortool Studio ในแอป UnitOS แล้วเข้าเลย",
   bluewealth: "ถามรายชื่อจากฐานข้อมูลของ Bluewealth",
+  kingclub: "ถามตั๋วและรายชื่อจากฐานข้อมูลของ KingClub",
   google: "ปุ่ม \"ดำเนินการต่อด้วย Google\" หน้าแรก",
 };
 
@@ -36,6 +38,7 @@ export const ROUTE_SEEN: Record<Route, string> = {
   "unitos-code": "ตัวแทน UnitOS ที่กรอกรหัสเห็น \"ระบบขัดข้อง ลองใหม่อีกครั้ง\"",
   "unitos-sso": "ตัวแทนที่กดเข้าจากเมนูใน UnitOS เข้าไม่ได้",
   bluewealth: "ตัวแทน Bluewealth ทุกคนเห็น \"ระบบขัดข้อง ลองใหม่อีกครั้ง\"",
+  kingclub: "ตัวแทน KingClub กดเมนูแล้วเด้งไปหน้าแรก และกรอกรหัสก็เข้าไม่ได้",
   google: "สมาชิกทั่วไปกดปุ่ม Google แล้วเข้าไม่ได้",
 };
 
@@ -59,6 +62,7 @@ export function diagnose(route: Route, error: string): Diagnosis {
   if (/ไม่ได้ตั้งค่า|not configured/i.test(error)) {
     const names = route === "bluewealth"
       ? ["BLUEWEALTH_SUPABASE_URL", "BLUEWEALTH_ANON_KEY", "BLUEWEALTH_LOOKUP_KEY"]
+      : route === "kingclub" ? ["KINGCLUB_SUPABASE_URL", "KINGCLUB_ANON_KEY", "KINGCLUB_LOOKUP_KEY"]
       : route === "google" ? ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] : [];
     return {
       why: "ยังไม่ได้ใส่ค่าการเชื่อมต่อบนเซิร์ฟเวอร์",
@@ -90,6 +94,32 @@ export function diagnose(route: Route, error: string): Diagnosis {
     }
     if (/could not find the function|PGRST202|does not exist/i.test(error)) {
       return { why: "ฐานข้อมูล Bluewealth ไม่มีฟังก์ชันตรวจรายชื่อ advisortool_agents", fix: ["ลง supabase/bluewealth/20261024_advisortool_lookup.sql ใหม่ที่ Bluewealth"] };
+    }
+  }
+  if (route === "kingclub") {
+    if (/invalid api key/i.test(error)) {
+      return {
+        why: "ฐานข้อมูล KingClub ไม่รับกุญแจเชื่อมต่อของเรา",
+        fix: [
+          "เปิดโปรเจกต์ KingClub ใน Supabase → Project Settings → API Keys คัดลอก Publishable key",
+          `ใส่ใหม่บน Cloudflare: ${PUT("KINGCLUB_ANON_KEY")}`,
+          "ถ้ายังไม่หาย ใส่ที่อยู่ใหม่ด้วย: " + PUT("KINGCLUB_SUPABASE_URL"),
+          "กด \"ตรวจตอนนี้\"",
+        ],
+      };
+    }
+    if (/not allowed|42501/i.test(error)) {
+      return {
+        why: "กุญแจตรวจรายชื่อของเราไม่ตรงกับที่ KingClub เก็บไว้",
+        fix: [
+          "ใส่กุญแจที่ตรงกับแถวใน advisortool_private.lookup_keys ของ KingClub",
+          `บน Cloudflare: ${PUT("KINGCLUB_LOOKUP_KEY")}`,
+          "กด \"ตรวจตอนนี้\"",
+        ],
+      };
+    }
+    if (/could not find the function|PGRST202|does not exist/i.test(error)) {
+      return { why: "ฐานข้อมูล KingClub ไม่มีฟังก์ชันของ advisortool", fix: ["ลง supabase/kingclub/20261111_advisortool_sso.sql ที่ KingClub"] };
     }
   }
   if (route === "google" && /invalid_client|unauthorized_client/i.test(error)) {

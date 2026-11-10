@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/assistant/rate-limit";
 import { safeNext } from "@/lib/auth/next";
 import { rememberBluewealthAgent } from "@/lib/auth/bluewealth";
+import { rememberKingclubAgent } from "@/lib/auth/kingclub";
 import { endEverySession } from "@/lib/auth/epoch";
 import { noteLogin } from "@/lib/auth/login-log";
 import { endSession, readSession, startSession } from "@/lib/auth/session";
@@ -138,6 +139,8 @@ export async function signIn(formData: FormData): Promise<{ error: string; premi
     agentId = viewer.agentId;
     // a Bluewealth agent's name and room, kept for the back office (src/lib/auth/bluewealth.ts)
     if (agent?.system === "bluewealth") await rememberBluewealthAgent(agent);
+    // KingClub's, for the back office and the starter credit (src/lib/auth/kingclub.ts)
+    if (agent?.system === "kingclub") await rememberKingclubAgent(agent);
   } catch (e) {
     console.error("signIn failed after the attempt was recorded:", e);
     return { error: BROKEN };

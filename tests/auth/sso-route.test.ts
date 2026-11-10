@@ -12,6 +12,8 @@ vi.mock("@/lib/auth/login-log", () => ({ noteLogin: vi.fn() }));
 const who = vi.hoisted(() => ({ agentById: vi.fn(), staffRow: vi.fn() }));
 vi.mock("@/lib/auth/viewer", () => who);
 vi.mock("@/lib/facebook/origin", () => ({ requestOrigin: () => "https://advisortool.test" }));
+const kc = vi.hoisted(() => ({ takeKingclubTicket: vi.fn(), kingclubAgentById: vi.fn(), rememberKingclubAgent: vi.fn() }));
+vi.mock("@/lib/auth/kingclub", () => kc);
 vi.mock("@/lib/supabase/admin", async () => {
   const { db } = await import("../helpers/fake-db");
   return { supabaseAdmin: () => db.client };
@@ -59,5 +61,55 @@ describe("/sso and UnitClub's tiers", () => {
     who.agentById.mockResolvedValue({ ...AGENT, member_tier: "basic", tenant: { ...AGENT.tenant, status: "canceled" } });
     expect(await land()).toBe("https://advisortool.test/");
     expect(auth.startSession).not.toHaveBeenCalled();
+  });
+});
+
+/** KingClub moved into a project of its own (2026-11-11) and writes its tickets there. */
+describe("/sso and KingClub's own project", () => {
+  const KC = { ...AGENT, id: "k1", system: "kingclub" as const, tenant: { ...AGENT.tenant, id: "9f35", slug: "ga83i", name: "KingClub", config: { premiumOnly: [] } } };
+
+  beforeEach(() => {
+    db.on("ins_sso_tickets", { data: null });
+  });
+
+  it("never asks KingClub about a ticket UnitClub has", async () => {
+    db.on("ins_sso_tickets", { data: { agent_id: "a1" } });
+    who.agentById.mockResolvedValue(AGENT);
+    expect(await land()).toBe("https://advisortool.test/");
+    expect(kc.takeKingclubTicket).not.toHaveBeenCalled();
+    expect(kc.kingclubAgentById).not.toHaveBeenCalled();
+  });
+
+  it("takes a ticket UnitClub does not have from KingClub, reads the agent there, and remembers them", async () => {
+    kc.takeKingclubTicket.mockResolvedValue("k1");
+    kc.kingclubAgentById.mockResolvedValue(KC);
+    expect(await land()).toBe("https://advisortool.test/");
+    expect(kc.takeKingclubTicket).toHaveBeenCalledWith(TICKET);
+    expect(who.agentById).not.toHaveBeenCalled();
+    expect(kc.rememberKingclubAgent).toHaveBeenCalledWith(KC);
+    expect(auth.startSession).toHaveBeenCalledWith("k1");
+  });
+
+  it("goes to the front page when neither has the ticket", async () => {
+    kc.takeKingclubTicket.mockResolvedValue(null);
+    expect(await land()).toBe("https://advisortool.test/");
+    expect(auth.startSession).not.toHaveBeenCalled();
+  });
+
+  it("goes to the front page, not an error, when KingClub cannot be asked", async () => {
+    kc.takeKingclubTicket.mockRejectedValue(new Error("not allowed"));
+    expect(await land()).toBe("https://advisortool.test/");
+    kc.takeKingclubTicket.mockResolvedValue("k1");
+    kc.kingclubAgentById.mockRejectedValue(new Error("fetch failed"));
+    expect(await land()).toBe("https://advisortool.test/");
+    expect(auth.startSession).not.toHaveBeenCalled();
+  });
+
+  it("keeps out an agent of a room KingClub itself closed", async () => {
+    kc.takeKingclubTicket.mockResolvedValue("k1");
+    kc.kingclubAgentById.mockResolvedValue({ ...KC, tenant: { ...KC.tenant, status: "suspended" } });
+    expect(await land()).toBe("https://advisortool.test/");
+    expect(auth.startSession).not.toHaveBeenCalled();
+    expect(kc.rememberKingclubAgent).not.toHaveBeenCalled();
   });
 });

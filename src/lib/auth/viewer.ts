@@ -6,7 +6,8 @@ import { PASS_PAGE } from "@/lib/members/pass";
 import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { bluewealthAgentById, bluewealthAgentsByCode, bluewealthNames } from "./bluewealth";
-import { admitMember, admitSuper, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type SuperAdminRow, type Viewer } from "./access";
+import { kingclubAgentById, kingclubAgentsByCode, kingclubNames, knownKingclubAgent } from "./kingclub";
+import { OPEN_ROOMS, admitMember, admitSuper, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type SuperAdminRow, type Viewer } from "./access";
 import { sessionNotBefore } from "./epoch";
 import { CALC_PATHS, type CalcPath } from "./calc-paths";
 import { safeNext } from "./next";
@@ -27,15 +28,55 @@ export async function agentById(id: string): Promise<AgentRow | null> {
 }
 
 /**
+ * A UnitClub row whose room is not open may be of a room that moved out to KingClub's own project
+ * (2026-11-11, ./kingclub.ts): KingClub's own row stands for it then, read live. A room open in
+ * UnitClub is never asked about, so no other room's agent waits on KingClub. KingClub out of reach
+ * leaves the UnitClub row, whose closed room keeps the agent out as before.
+ */
+async function movedToKingclub(agent: AgentRow): Promise<AgentRow | null> {
+  if (agent.tenant && OPEN_ROOMS.includes(agent.tenant.status)) return null;
+  return kingclubQuietly(agent.id);
+}
+
+/** KingClub's row, or null when KingClub has nobody or cannot be asked. */
+async function kingclubQuietly(id: string): Promise<AgentRow | null> {
+  try {
+    return await kingclubAgentById(id);
+  } catch (e) {
+    console.error("kingclub unreadable:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
+ * An agent UnitClub does not have: Bluewealth's, or one KingClub added after its move. KingClub
+ * is asked first for an id that signed in here as KingClub's, so neither waits on the other; asked
+ * last, KingClub out of reach does not turn somebody else's stale session into an error.
+ */
+async function outsideAgentById(id: string): Promise<AgentRow | null> {
+  if (await knownKingclubAgent(id)) return (await kingclubAgentById(id)) ?? bluewealthAgentById(id);
+  return (await bluewealthAgentById(id)) ?? kingclubQuietly(id);
+}
+
+/**
  * Every agent holding this code. Codes do not repeat across rooms today; this says if they ever do.
  * Bluewealth's agents are looked for only when UnitClub has nobody: the two are one company, so
  * a code is never in both (owner, 2026-10-24), and a UnitOS agent's sign-in never waits on Bluewealth.
+ * KingClub's are looked for after both (2026-11-11), and in place of a UnitClub row left in KingClub's
+ * old, closed room while KingClub still gives that agent the same code.
  */
 export async function agentsByCode(code: string): Promise<AgentRow[]> {
   const { data, error } = await supabaseAdmin().from("agents").select(AGENT_COLUMNS).eq("agent_code", code).limit(2);
   if (error) throw new Error(`อ่านข้อมูลตัวแทนไม่ได้: ${error.message}`);
   const rows = (data as unknown as AgentRow[]) ?? [];
-  return rows.length > 0 ? rows : bluewealthAgentsByCode(code);
+  if (rows.length > 0) {
+    return Promise.all(rows.map(async (r) => {
+      const moved = await movedToKingclub(r);
+      return moved?.agent_code === code ? moved : r;
+    }));
+  }
+  const outside = await bluewealthAgentsByCode(code);
+  return outside.length > 0 ? outside : kingclubAgentsByCode(code);
 }
 
 const MEMBER_COLUMNS = "id, email, name, status, revoked_at, office";
@@ -85,15 +126,15 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     agentById(session.agentId), staffRow(session.agentId), sessionNotBefore(session.agentId),
   ]);
   if (notBefore !== null && session.issuedAt < notBefore) return null;
-  if (agent) return admitAgent(agent, staff, session.issuedAt);
-  // not UnitOS's: a member who signed up here (owner, 2026-10-01), the Super Admin
-  // (2026-10-15), Bluewealth's agent (2026-10-24), or nobody. Bluewealth is asked last, so
-  // nobody else's request waits on it
+  if (agent) return admitAgent((await movedToKingclub(agent)) ?? agent, staff, session.issuedAt);
+  // not UnitClub's: a member who signed up here (owner, 2026-10-01), the Super Admin
+  // (2026-10-15), Bluewealth's agent (2026-10-24), KingClub's (2026-11-11), or nobody. The two
+  // other projects are asked last, so nobody else's request waits on them
   const member = await memberById(session.agentId);
   if (member) return admitMember(member, session.issuedAt);
   const superAdmin = await superAdminById(session.agentId);
   if (superAdmin) return admitSuper(superAdmin, session.issuedAt);
-  const outside = await bluewealthAgentById(session.agentId);
+  const outside = await outsideAgentById(session.agentId);
   return outside ? admitAgent(outside, staff, session.issuedAt) : null;
 });
 
@@ -109,7 +150,8 @@ async function whyOut(): Promise<"premium" | null> {
     agentById(session.agentId), staffRow(session.agentId), sessionNotBefore(session.agentId),
   ]);
   if (notBefore !== null && session.issuedAt < notBefore) return null;
-  return refusalOf(agent ?? (await bluewealthAgentById(session.agentId)), staff, session.issuedAt);
+  const live = agent ? (await movedToKingclub(agent)) ?? agent : await outsideAgentById(session.agentId);
+  return refusalOf(live, staff, session.issuedAt);
 }
 
 /**
@@ -233,11 +275,12 @@ export async function audit(action: string, target: string | null, detail?: Reco
 export async function displayNames(ids: string[]): Promise<Record<string, string>> {
   const unique = [...new Set(ids)];
   if (unique.length === 0) return {};
-  const [agents, members, supers, outside] = await Promise.all([
+  const [agents, members, supers, outside, kingclub] = await Promise.all([
     supabaseAdmin().from("agents").select("id, name, agent_code").in("id", unique),
     supabaseAdmin().from("ins_members").select("id, name, email").in("id", unique),
     supabaseAdmin().from("ins_super_admins").select("id, name, email").in("id", unique),
     bluewealthNames(unique),
+    kingclubNames(unique),
   ]);
   if (agents.error) console.error("agent names unreadable:", agents.error.message);
   if (members.error) console.error("member names unreadable:", members.error.message);
@@ -247,6 +290,8 @@ export async function displayNames(ids: string[]): Promise<Record<string, string
   for (const m of (members.data ?? []) as { id: string; name: string | null; email: string }[]) names[m.id] = m.name?.trim() || m.email;
   for (const b of outside) names[b.id] = b.name?.trim() || b.agent_code;
   for (const a of (agents.data ?? []) as { id: string; name: string | null; agent_code: string }[]) names[a.id] = a.name?.trim() || a.agent_code;
+  // KingClub's own word, as of the agent's last sign-in, over the row UnitClub kept from before the move
+  for (const k of kingclub) names[k.id] = k.name?.trim() || k.agent_code;
   return names;
 }
 

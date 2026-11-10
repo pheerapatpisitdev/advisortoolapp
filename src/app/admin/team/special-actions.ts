@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { admit, studioLocked, type AgentRow } from "@/lib/auth/access";
 import { bluewealthNames, rememberBluewealthAgent } from "@/lib/auth/bluewealth";
+import { kingclubNames, rememberKingclubAgent } from "@/lib/auth/kingclub";
 import { listSpecialAccess, removeSpecialAccess, setSpecialAccess } from "@/lib/auth/special";
 import { agentsByCode, audit, requireStaff } from "@/lib/auth/viewer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -38,10 +39,13 @@ export async function listSpecial(): Promise<SpecialMember[]> {
   if (error) throw new Error(`อ่านข้อมูลตัวแทนไม่ได้: ${error.message}`);
   const agents = new Map(((data ?? []) as unknown as AgentRow[]).map((a) => [a.id, a]));
   // Bluewealth's agents, as of their last sign-in (src/lib/auth/bluewealth.ts)
+  // and KingClub's (src/lib/auth/kingclub.ts), whose own word beats the row UnitClub kept from before its move
   const missing = rows.map((r) => r.agentId).filter((id) => !agents.has(id));
-  const outside = new Map((await bluewealthNames(missing)).map((b) => [b.id, b]));
+  const [bw, kc] = await Promise.all([bluewealthNames(missing), kingclubNames(rows.map((r) => r.agentId))]);
+  const outside = new Map([...bw, ...kc].map((b) => [b.id, b]));
+  const moved = new Set(kc.map((k) => k.id));
   return rows.map((r) => {
-    const a = agents.get(r.agentId);
+    const a = moved.has(r.agentId) ? undefined : agents.get(r.agentId);
     const b = outside.get(r.agentId);
     return {
       agentId: r.agentId,
@@ -88,6 +92,7 @@ export async function addSpecial(code: string, baht: string): Promise<{ ok: bool
   await setSpecialAccess(agent.id, amount.satang, me.code);
   // named on the list before their first sign-in
   if (agent.system === "bluewealth") await rememberBluewealthAgent(agent);
+  if (agent.system === "kingclub") await rememberKingclubAgent(agent);
   await audit("special-add", agent.id, { code: agent.agent_code, satang: amount.satang });
   revalidatePath("/admin/team");
   return { ok: true };
