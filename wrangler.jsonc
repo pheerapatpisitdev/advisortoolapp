@@ -25,8 +25,10 @@
 		"producers": [{ "binding": "LATER_QUEUE", "queue": "advisortool-later" }],
 		"consumers": [{ "queue": "advisortool-later", "max_batch_size": 10, "max_batch_timeout": 1, "max_retries": 0 }]
 	},
-	// next to Supabase in Singapore rather than next to the visitor in Bangkok: a page makes many queries
-	"placement": { "mode": "smart" },
+	// no Smart Placement (owner chose ข, 2026-11-11; mockup https://claude.ai/artifact/TGruAun4jbwiHr5P7ev8jR):
+	// it began sending requests to Atlanta, ~0.25 s from Supabase in Singapore per query, and a page makes
+	// many. Running next to the visitor puts a Thai visitor in Bangkok, ~0.03 s away. Do not pin a region
+	// either: a pin to aws:ap-southeast-1 made LINE's webhook time out (2026-11-03)
 	// the bots wait on AI for minutes; CPU itself is what counts here, up to 5 minutes
 	"limits": { "cpu_ms": 300000 },
 	"observability": { "enabled": true },
