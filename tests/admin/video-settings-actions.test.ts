@@ -2,8 +2,8 @@ import { generateKeyPairSync } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The video render keys and engine switch on /admin/ai. Keys go through the same encrypted
- * RPC as the AI keys; a malformed AWS key or an unknown name is refused before anything is
+ * The video render key and edit switch on /admin/ai. The Google key goes through the same
+ * encrypted RPC as the AI keys; a bad paste or any other service is refused before anything is
  * stored; a non-admin never reaches the database.
  */
 
@@ -54,50 +54,23 @@ beforeEach(() => {
 });
 
 describe("saveRenderKey", () => {
-  it("refuses a malformed AWS key and stores nothing", async () => {
-    for (const bad of ["AKIAEXAMPLE:onlytwo", `AKIAEXAMPLE:${SECRET}:ap-southeast-1`, `AKIAEXAMPLE:${SECRET}::fn`, `AKIAEXAMPLE:${SECRET}:evil.example.com:fn`]) {
-      const r = await saveRenderKey("aws", bad);
-      expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.error).not.toContain(SECRET);
+  it("refuses any service but Google Cloud Run — Rendi, AWS and Shotstack were removed 2026-11-11 — and stores nothing", async () => {
+    for (const p of ["openai", "rendi", "aws", "shotstack"]) {
+      // @ts-expect-error — deliberately outside the union
+      const r = await saveRenderKey(p, "sk-aaaaaaaaaaaa");
+      expect(r).toEqual({ ok: false, error: "บริการไม่ถูกต้อง" });
     }
     expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("refuses an unknown provider", async () => {
-    // @ts-expect-error — deliberately outside the union
-    const r = await saveRenderKey("openai", "sk-aaaaaaaaaaaa");
-    expect(r).toEqual({ ok: false, error: "บริการไม่ถูกต้อง" });
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("stores a good AWS key through the RPC, sanitized, colons kept", async () => {
-    const r = await saveRenderKey("aws", ` AKIAEXAMPLE:${SECRET}:ap-southeast-1:clip-render  `);
-    expect(r).toEqual({ ok: true });
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledWith("ins_set_api_key", {
-      p_provider: "aws", p_key: `AKIAEXAMPLE:${SECRET}:ap-southeast-1:clip-render`, p_passphrase: "test-passphrase",
-    });
-  });
-
-  it("stores a Rendi key through the RPC", async () => {
-    await expect(saveRenderKey("rendi", "rendi-key-12345678")).resolves.toEqual({ ok: true });
-    expect(rpc).toHaveBeenCalledWith("ins_set_api_key", { p_provider: "rendi", p_key: "rendi-key-12345678", p_passphrase: "test-passphrase" });
   });
 
   it("never puts the key in the message or the log when the database refuses", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     rpc.mockResolvedValue({ error: { message: "permission denied" } });
-    const r = await saveRenderKey("rendi", `rendi-${SECRET}`);
+    const r = await saveRenderKey("gcp", SA_FILE, { region: "asia-southeast1", job: "clip-ffmpeg" });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatch(/ไม่สำเร็จ/);
-    expect(JSON.stringify([r, log.mock.calls])).not.toContain(SECRET);
+    expect(JSON.stringify([r, log.mock.calls])).not.toContain(PEM_BODY);
     log.mockRestore();
-  });
-
-  it("is refused for a non-admin before anything is stored", async () => {
-    staffAllowed = false;
-    await expect(saveRenderKey("rendi", "rendi-key-12345678")).rejects.toThrow("forbidden");
-    expect(rpc).not.toHaveBeenCalled();
   });
 });
 
@@ -144,48 +117,24 @@ describe("saveRenderKey for Google Cloud Run", () => {
 });
 
 describe("saveVideoEngine", () => {
-  it("stores Google Cloud Run as the pick", async () => {
-    await expect(saveVideoEngine({ engine: "cloudrun", fallback: true, rendiMaxSeconds: 60, enabled: false })).resolves.toEqual({ ok: true });
-    expect(upsert.mock.calls[0][0]).toMatchObject({ video_engine: "cloudrun", video_fallback: true });
-  });
-
-  it("refuses an unknown engine and saves nothing", async () => {
-    // @ts-expect-error — deliberately outside the union
-    const r = await saveVideoEngine({ engine: "ffmpeg", fallback: true, rendiMaxSeconds: 60, enabled: false });
-    expect(r).toEqual({ ok: false, error: "ตัวตัดต่อไม่ถูกต้อง" });
-    expect(upsert).not.toHaveBeenCalled();
-  });
-
-  it("refuses a Rendi limit that is neither plan's", async () => {
-    const r = await saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 90, enabled: false });
-    expect(r.ok).toBe(false);
-    expect(upsert).not.toHaveBeenCalled();
-  });
-
-  it("refuses a fallback that is not a boolean instead of coercing it", async () => {
-    // @ts-expect-error — deliberately wrong type
-    const r = await saveVideoEngine({ engine: "rendi", fallback: "false", rendiMaxSeconds: 60, enabled: false });
-    expect(r.ok).toBe(false);
-    expect(upsert).not.toHaveBeenCalled();
+  it("stores the switch, and nothing of the old engine columns", async () => {
+    await expect(saveVideoEngine({ enabled: true })).resolves.toEqual({ ok: true });
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls[0][0]).toMatchObject({ id: true, video_edit_enabled: true });
+    expect(upsert.mock.calls[0][0]).not.toHaveProperty("video_engine");
   });
 
   it("refuses an enabled that is not a boolean instead of coercing it", async () => {
     // @ts-expect-error — deliberately wrong type
-    const r = await saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: "true" });
+    const r = await saveVideoEngine({ enabled: "true" });
     expect(r.ok).toBe(false);
     expect(upsert).not.toHaveBeenCalled();
-  });
-
-  it("stores the engine, the fallback and the limit", async () => {
-    await expect(saveVideoEngine({ engine: "lambda", fallback: false, rendiMaxSeconds: 600, enabled: true })).resolves.toEqual({ ok: true });
-    expect(upsert).toHaveBeenCalledTimes(1);
-    expect(upsert.mock.calls[0][0]).toMatchObject({ id: true, video_engine: "lambda", video_fallback: false, rendi_max_seconds: 600, video_edit_enabled: true });
   });
 
   it("says in Thai when the database refuses", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     upsert.mockResolvedValue({ error: { message: "boom" } });
-    const r = await saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false });
+    const r = await saveVideoEngine({ enabled: false });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatch(/ไม่สำเร็จ/);
     log.mockRestore();
@@ -193,55 +142,30 @@ describe("saveVideoEngine", () => {
 
   it("is refused for a non-admin", async () => {
     staffAllowed = false;
-    await expect(saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false })).rejects.toThrow("forbidden");
+    await expect(saveVideoEngine({ enabled: false })).rejects.toThrow("forbidden");
     expect(upsert).not.toHaveBeenCalled();
   });
 });
 
 describe("loadAiPage render keys", () => {
-  it("shows Rendi's last four and AWS's region and function, and never the secret or key id", async () => {
-    const aws = `AKIAEXAMPLEID:${SECRET}:ap-southeast-1:clip-ffmpeg`;
-    rpc.mockImplementation(async (fn: string) => fn === "ins_get_api_keys"
-      ? { data: [{ provider: "aws", api_key: aws }, { provider: "rendi", api_key: "rendi-whole-key-9999" }, { provider: "openai", api_key: "sk-x" }], error: null }
-      : { error: null });
-    const rows = [
-      { provider: "aws", tail: "ffmpeg".slice(-4), enabled: true },
-      { provider: "rendi", tail: "9999", enabled: true },
-      { provider: "openai", tail: "sk-x", enabled: true },
-    ];
-    tableRows = rows;
-    const { loadAiPage } = await import("@/app/admin/ai/actions");
-    const page = await loadAiPage();
-    expect(page.video.keys).toEqual([
-      { provider: "aws", shown: "ap-southeast-1 · clip-ffmpeg" },
-      { provider: "rendi", shown: "••••9999" },
-    ]);
-    const wire = JSON.stringify(page);
-    expect(wire).not.toContain(SECRET);
-    expect(wire).not.toContain("AKIAEXAMPLEID");
-    expect(page.keys.map((k) => k.provider)).toEqual(["openai"]);
-    tableRows = [];
-  });
-
   it("shows Google's project, region and job — never the private key or the service account's email", async () => {
     await saveRenderKey("gcp", SA_FILE, { region: "asia-southeast1", job: "clip-ffmpeg" });
     const stored = (rpc.mock.calls[0][1] as { p_key: string }).p_key;
     rpc.mockReset().mockImplementation(async (fn: string) => fn === "ins_get_api_keys"
-      ? { data: [{ provider: "gcp", api_key: stored }, { provider: "aws", api_key: `AKIAEXAMPLEID:${SECRET}:ap-southeast-1:clip-ffmpeg` }], error: null }
+      ? { data: [{ provider: "gcp", api_key: stored }, { provider: "openai", api_key: "sk-x" }], error: null }
       : { error: null });
     tableRows = [
       { provider: "gcp", tail: stored.slice(-4), enabled: true },
-      { provider: "aws", tail: "fmpeg".slice(-4), enabled: true },
+      { provider: "openai", tail: "sk-x", enabled: true },
     ];
     const { loadAiPage } = await import("@/app/admin/ai/actions");
     const page = await loadAiPage();
     expect(page.video.keys).toEqual([
       { provider: "gcp", shown: "my-proj · asia-southeast1 · clip-ffmpeg" },
-      { provider: "aws", shown: "ap-southeast-1 · clip-ffmpeg" },
     ]);
     const wire = JSON.stringify(page);
     for (const secret of [PEM_BODY, "PRIVATE KEY", SA_EMAIL, "client_email", "iam.gserviceaccount.com", SECRET]) expect(wire).not.toContain(secret);
-    expect(page.keys).toEqual([]);
+    expect(page.keys.map((k) => k.provider)).toEqual(["openai"]);
     tableRows = [];
   });
 

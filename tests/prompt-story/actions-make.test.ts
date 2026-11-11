@@ -16,11 +16,12 @@ describe("checkedPromptStory", () => {
     expect(typeof v).toBe("object");
     expect(v).toMatchObject({ product: "FREESTORY", draftId: DRAFT, size: "square", narrator: "M", style: "cartoon", painter: "standard", faces: { narrator: "w26" } });
   });
-  it("keeps ดีไซน์พิเศษ's look, drops one it does not know, and never takes the engine from the form", () => {
-    expect(checkedPromptStory(form({ design: "film" }), "F")).toMatchObject({ design: "film" });
-    const odd = checkedPromptStory(form({ design: "neon", engine: "shotstack" }), "F") as unknown as Record<string, unknown>;
-    expect(odd.design).toBeUndefined();
-    expect(odd.engine).toBeUndefined();
+  it("drops any ดีไซน์พิเศษ look (removed 2026-11-11) and never takes the engine from the form", () => {
+    for (const design of ["film", "neon"]) {
+      const odd = checkedPromptStory(form({ design, engine: "shotstack" }), "F") as unknown as Record<string, unknown>;
+      expect(odd.design).toBeUndefined();
+      expect(odd.engine).toBeUndefined();
+    }
   });
   it("refuses a form without a written draft, a bad count, style or painter", () => {
     expect(typeof checkedPromptStory(form({ draftId: "x" }), "F")).toBe("string");

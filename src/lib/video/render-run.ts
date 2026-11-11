@@ -52,16 +52,13 @@ export { tooLong };
 export { keepOf };
 
 /**
- * What a render costs, in baht, by the engine that takes it: Rendi bills $0.10 a GB through it
- * (the clip in, about 25MB out); our Lambda about $0.002 a run; our Cloud Run job about $0.006
- * (4 vCPU for about a minute). A preview is estimated the same way (the whole clip goes through
- * Rendi there too).
+ * What a render costs, in baht, by the engine that takes it: our Cloud Run job about $0.006
+ * (4 vCPU for about a minute), whatever the clip's size. A preview is estimated the same way.
  */
-export const renderCostThb = (sizeBytes: number): Record<EngineName, number> => ({
-  rendi: ((sizeBytes + 25e6) / 1e9) * 0.10 * THB_PER_USD,
-  lambda: 0.002 * THB_PER_USD,
-  cloudrun: 0.006 * THB_PER_USD,
-});
+export function renderCostThb(sizeBytes: number): Record<EngineName, number> {
+  void sizeBytes; // the size no longer changes the price (it did for Rendi); kept so callers need not change
+  return { cloudrun: 0.006 * THB_PER_USD };
+}
 
 /** The theme of the Page's latest poster — what the "page" style is drawn in; navy when it has none. */
 export async function pageTheme(pageId: string | null): Promise<Theme> {

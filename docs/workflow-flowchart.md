@@ -61,7 +61,7 @@ flowchart TD
   studio --> account["/studio/account"]
   write --> gen["API content-generate, draft, poster, claim, recruit, video"]
   gen --> db[("Supabase: content")]
-  gen --> video["วิดีโอ: lambda, cloudrun, rendi"]
+  gen --> video["วิดีโอ: cloudrun"]
   video --> sweep["cron 04:00 /api/content-video/sweep"]
   contentOld["/content และ /maryjane"] -->|redirect| studio
   wallet --> stripe["Stripe webhook /api/stripe/webhook"]

@@ -79,8 +79,8 @@ export { submitting };
 /** the edit a first job is recorded around, before the preview is made */
 const emptyEdit = (): ClipEdit => ({ cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box", rev: randomUUID() });
 const destination = (pieceId: string, ext: string) => `${pieceId}/${randomUUID()}.${ext}`;
-/** the engines that write our storage themselves and call back with the job's token; Rendi is only ever asked */
-export const callsBack = (engine: EngineName): boolean => engine === "lambda" || engine === "cloudrun";
+/** the engines that write our storage themselves and call back with the job's token */
+export const callsBack = (engine: EngineName): boolean => engine === "cloudrun";
 /** how long Cloud Run's link to the job's payload file lasts: the run fetches it as it starts, and a job is bounded at 15 minutes */
 export const PAYLOAD_LINK_SECONDS = 60 * 60;
 /** what is kept of a job's webhook secret: its sha256, so the row (which the edit page reads) never holds the secret */
@@ -438,7 +438,7 @@ function within<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-/** The engine's finished files copied into our storage (Rendi keeps them on its side), all within COLLECT_BUDGET_MS. */
+/** The engine's finished files copied into our storage, all within COLLECT_BUDGET_MS. */
 async function copyOutputs(pieceId: string, job: EditJob, status: JobStatus): Promise<Record<string, string>> {
   const paths: Record<string, string> = {};
   const budget = AbortSignal.timeout(COLLECT_BUDGET_MS);
@@ -576,7 +576,7 @@ function ownPaths(job: EditJob, outputs: Record<string, { path: string }> | unde
 /**
  * A job's end as the engine reported it (its webhook; the token was checked by the route).
  * - "ignored": the clip's job is no longer this one, is not a job of an engine that calls back
- *   (Lambda, Cloud Run — a Rendi job is only finished by asking Rendi), or is being collected.
+ *   (Cloud Run), or is being collected.
  * - "refused": a done callback naming a file other than the job's own destinations; nothing is
  *   written, and the job ends by a true callback or by the time limit.
  * - "finished": written. A callback past EDIT_JOB_TIMEOUT_MS fails the job whatever it says,

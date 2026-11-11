@@ -11,14 +11,12 @@ import { usageByPerson, type PersonUse } from "./people";
 import { requireStaff } from "@/lib/auth/viewer";
 import { walletChargedThb } from "@/lib/wallet/store";
 import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/video/settings";
-import { parseAwsKey } from "@/lib/video/engines/lambda";
 import { gcpKeyFromUpload, parseGcpKey } from "@/lib/video/engines/cloudrun";
 import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
 import { checkMotionKey, isMotionProvider, type MotionCheck } from "@/lib/video/motion-key";
-import { checkShotstackKey, type ShotstackCheck } from "@/lib/shotstack/api";
 
 const monthStartMs = () => monthStart().getTime();
-const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false };
+const DEFAULT_VIDEO: VideoSettings = { enabled: false };
 
 export type { ProviderCheck } from "@/lib/ai/client";
 export type { PersonUse } from "./people";
@@ -44,8 +42,8 @@ export type Provider = (typeof PROVIDERS)[number];
  * service that has no model. loadConfig (src/lib/ai/client.ts) only looks a key up by a model's
  * provider, so extra rows in the table are never reached by it.
  *
- * What the page may show of a held key: Rendi's last four characters; AWS's region and function;
- * Google's project, region and job. Never a secret, nor the service account's email.
+ * What the page may show of a held key: Google's project, region and job. Never a secret, nor the
+ * service account's email. (Rendi, AWS Lambda and Shotstack removed 2026-11-11, owner.)
  */
 export interface VideoKeyRow { provider: RenderProvider; shown: string }
 
@@ -225,22 +223,18 @@ export async function loadSpend(): Promise<{ spend: ProviderSpend[] | null; peop
 }
 
 /**
- * What to show of each render key. Rendi's is its last four characters. AWS's is one string of
- * four parts, so the tail says nothing; its region and function name are not secret and say which
- * function is wired, so they are read out of the decrypted key here and only they are returned —
- * never the secret or the access key id. Google's is a JSON object: its project, region and job
- * are shown the same way — never the private key or the service account's email. A key that
- * cannot be read shows as held, nothing more.
+ * What to show of the render key. Google's is a JSON object: its project, region and job are not
+ * secret and say which job is wired, so they are read out of the decrypted key here and only they
+ * are returned — never the private key or the service account's email. A key that cannot be read
+ * shows as held, nothing more.
  */
 async function renderKeysShown(held: { provider: string; tail: string }[]): Promise<VideoKeyRow[]> {
   const rows = held.filter((k): k is typeof k & { provider: RenderProvider } => (RENDER_PROVIDERS as readonly string[]).includes(k.provider));
   const labels: Partial<Record<RenderProvider, string>> = {};
-  if (rows.some((k) => k.provider === "aws" || k.provider === "gcp")) {
+  if (rows.some((k) => k.provider === "gcp")) {
     try {
       const { data } = await supabaseAdmin().rpc("ins_get_api_keys", { p_passphrase: passphrase() });
       const stored = (p: RenderProvider) => ((data ?? []) as { provider: string; api_key: string }[]).find((k) => k.provider === p)?.api_key;
-      const aws = stored("aws") ? parseAwsKey(stored("aws")!) : null;
-      if (aws) labels.aws = `${aws.region} · ${aws.functionName}`;
       const gcp = stored("gcp") ? parseGcpKey(stored("gcp")!) : null;
       if (gcp) labels.gcp = `${gcp.projectId} · ${gcp.region} · ${gcp.job}`;
     } catch (e) {
@@ -249,7 +243,7 @@ async function renderKeysShown(held: { provider: string; tail: string }[]): Prom
   }
   return rows.map((k) => ({
     provider: k.provider,
-    shown: k.provider === "rendi" || k.provider === "shotstack" ? `••••${k.tail}` : labels[k.provider] ?? "ตั้งไว้แล้ว",
+    shown: labels[k.provider] ?? "ตั้งไว้แล้ว",
   }));
 }
 
@@ -317,10 +311,7 @@ export async function saveApiKey(provider: string, key: string): Promise<Result>
 }
 
 /**
- * The key of a video render service. Rendi's is a plain API key; AWS's is one string,
- * "accessKeyId:secretAccessKey:region:functionName", checked here so a half-pasted one is
- * refused now instead of failing the first clip. Google's is the service account's JSON file as
- * pasted, with the region and job name typed beside it (`gcp`): only the fields the engine needs
+ * The key of the video render service. Google's is the service account's JSON file as pasted, with the region and job name typed beside it (`gcp`): only the fields the engine needs
  * are kept (gcpKeyFromUpload). It does not go through cleanKey — that would strip the file's line
  * breaks — and what is stored is the minified JSON gcpKeyFromUpload makes.
  */
@@ -334,42 +325,20 @@ export async function saveRenderKey(provider: RenderProvider, key: string, gcp?:
     }
     return storeKey(provider, stored);
   }
-  const value = cleanKey(key);
-  if (value.length < 8) return { ok: false, error: "กุญแจสั้นเกินไป — วางกุญแจทั้งเส้นอีกครั้ง" };
-  if (provider === "aws" && !parseAwsKey(value)) {
-    return { ok: false, error: "กุญแจ AWS ต้องเป็นรูปแบบ accessKeyId:secretAccessKey:region:functionName ครบสี่ส่วน" };
-  }
-  return storeKey(provider, value);
+  return { ok: false, error: "บริการไม่ถูกต้อง" };
 }
 
-/** Which service renders clips, whether the others are tried when it cannot, and Rendi's time limit. */
+/** Whether agents may edit clips. */
 export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
   await requireStaff("backoffice");
-  if (s?.engine !== "rendi" && s?.engine !== "lambda" && s?.engine !== "cloudrun") return { ok: false, error: "ตัวตัดต่อไม่ถูกต้อง" };
-  if (typeof s.fallback !== "boolean") return { ok: false, error: "ค่าสำรองไม่ถูกต้อง" };
-  if (typeof s.enabled !== "boolean") return { ok: false, error: "ค่าเปิดตัดต่อไม่ถูกต้อง" };
-  // 60 and 600 are the two Rendi plans' limits (free, Pro); anything between is a typo
-  if (s.rendiMaxSeconds !== 60 && s.rendiMaxSeconds !== 600) return { ok: false, error: "เวลาสูงสุดของ Rendi ต้องเป็น 60 หรือ 600 วินาที" };
+  if (typeof s?.enabled !== "boolean") return { ok: false, error: "ค่าเปิดตัดต่อไม่ถูกต้อง" };
   try {
-    await saveVideoSettings({ engine: s.engine, fallback: s.fallback, rendiMaxSeconds: s.rendiMaxSeconds, enabled: s.enabled });
+    await saveVideoSettings({ enabled: s.enabled });
   } catch (e) {
     return failed("บันทึกตัวตัดต่อไม่สำเร็จ", e);
   }
   revalidatePath("/admin/ai");
   return { ok: true };
-}
-
-/**
- * Asks Shotstack whether the held key is good and which environment it belongs to: one GET of
- * the template list per environment, no clip made (checkShotstackKey).
- */
-export async function testShotstackKey(): Promise<ShotstackCheck | { state: "no-key" }> {
-  await requireStaff("backoffice");
-  const { data, error } = await supabaseAdmin().rpc("ins_get_api_keys", { p_passphrase: passphrase() });
-  if (error) return { state: "bad", error: "อ่านกุญแจไม่สำเร็จ ลองใหม่อีกครั้ง" };
-  const key = ((data ?? []) as { provider: string; api_key: string }[]).find((k) => k.provider === "shotstack")?.api_key;
-  if (!key) return { state: "no-key" };
-  return checkShotstackKey(key);
 }
 
 /** ภาพขยับ's keys, fal.ai and Runware: plain API keys, stored like the AI keys (owner, 2026-10-16) */

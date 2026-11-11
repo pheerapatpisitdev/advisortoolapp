@@ -1,18 +1,13 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { limiter } from "@/lib/assistant/rate-limit";
-import { callsBack, checkJob, finishJob, hashToken, pieceOfJob } from "@/lib/video/jobs";
+import { callsBack, finishJob, hashToken, pieceOfJob } from "@/lib/video/jobs";
 
 /**
- * A render service telling us a clip's job has ended (src/lib/video/jobs.ts).
- *
- * - Our Lambda and our Cloud Run job post { id, token, state, outputs, error }: the token is the
- *   job's own secret. The job keeps only its sha256, so the token is hashed here and the hashes
- *   compared in constant time; a wrong one is 401 and nothing changes. Only a job of an engine
- *   that calls back is finished this way — a token callback for a Rendi job is ignored. A failure
- *   to write is 500, so the engine tries again.
- * - Rendi's dashboard webhook posts { data: { command_id } } and is not signed, so its body is
- *   never believed: the job is asked about again (checkJob), as the edit page's poll would.
+ * Our Cloud Run job telling us a clip's job has ended (src/lib/video/jobs.ts). It posts
+ * { id, token, state, outputs, error }: the token is the job's own secret. The job keeps only its
+ * sha256, so the token is hashed here and the hashes compared in constant time; a wrong one is
+ * 401 and nothing changes. A failure to write is 500, so the job tries again. (Rendi and AWS
+ * Lambda were removed 2026-11-11, owner.)
  *
  * A job id we do not have answers 200 and nothing else, so the endpoint says nothing about
  * which jobs exist.
@@ -20,8 +15,7 @@ import { callsBack, checkJob, finishJob, hashToken, pieceOfJob } from "@/lib/vid
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// 300, not the plan's 60: a Rendi webhook collects in this call (downloads + uploads within
-// COLLECT_BUDGET_MS, 240 s), and 300 is the Hobby plan's ceiling
+// the Hobby plan's ceiling, so a slow finish (storage checks, the round's charge) still fits
 export const maxDuration = 300;
 
 const ok = () => NextResponse.json({ ok: true });
@@ -34,20 +28,7 @@ function sameToken(given: string, expectedHash: string | undefined): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** the webhook URL's key against the one set, in constant time */
-function sameKey(given: string, key: string): boolean {
-  const a = Buffer.from(given);
-  const b = Buffer.from(key);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-/** an unsigned Rendi webhook makes us ask Rendi: twice per job per half minute at most */
-const asksPerJob = limiter(2, 30_000);
-
-type Body = {
-  id?: unknown; token?: unknown; state?: unknown; outputs?: unknown; error?: unknown;
-  data?: { command_id?: unknown } | null;
-};
+type Body = { id?: unknown; token?: unknown; state?: unknown; outputs?: unknown; error?: unknown };
 
 export async function POST(req: Request) {
   let body: Body;
@@ -58,25 +39,6 @@ export async function POST(req: Request) {
   }
   if (!body || typeof body !== "object") return NextResponse.json({ error: "bad body" }, { status: 400 });
 
-  // Rendi: unsigned — only a reason to ask again. With RENDI_WEBHOOK_KEY set (and ?key= on the
-  // dashboard's webhook URL) nobody else may send one; without it, two asks per job per half
-  // minute, and only for a Rendi job (owner, 2026-10-18)
-  const commandId = body.data && typeof body.data === "object" ? body.data.command_id : undefined;
-  if (typeof commandId === "string" && commandId) {
-    const key = process.env.RENDI_WEBHOOK_KEY;
-    if (key && !sameKey(new URL(req.url).searchParams.get("key") ?? "", key)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    if (!asksPerJob(`rendi:${commandId}`)) return ok();
-    try {
-      const found = await pieceOfJob(commandId);
-      if (found && found.job.engine === "rendi") await checkJob(found.pieceId);
-    } catch (e) {
-      // the edit page's poll asks too; Rendi need not send it again
-      console.error("rendi webhook: job not checked:", e instanceof Error ? e.message : "unknown error");
-    }
-    return ok();
-  }
-
-  // Lambda, Cloud Run: signed with the job's token
   const { id, token, state } = body;
   if (typeof id !== "string" || !id || typeof token !== "string") return NextResponse.json({ error: "bad body" }, { status: 400 });
   let found: Awaited<ReturnType<typeof pieceOfJob>>;
@@ -86,7 +48,6 @@ export async function POST(req: Request) {
     console.error("job webhook: lookup failed:", e instanceof Error ? e.message : "unknown error");
     return NextResponse.json({ error: "try again" }, { status: 500 });
   }
-  // a Rendi job is only finished by asking Rendi; a callback for one says nothing about whether it exists
   if (!found || !callsBack(found.job.engine)) return ok();
   if (!sameToken(token, found.job.tokenHash)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (state !== "done" && state !== "failed") return NextResponse.json({ error: "bad body" }, { status: 400 });

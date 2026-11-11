@@ -3,6 +3,8 @@ import type { ClipEdit, ClipVideo, EditJob, EditPass, EngineName } from "@/lib/c
 import type { ContentOutput } from "@/lib/content/output";
 import type { JobStatus, RenderEngine } from "@/lib/video/engines/types";
 import { clipDb } from "../helpers/fake-clip-db";
+/** a stand-in for an engine that is asked about its jobs rather than calling back (Rendi was one, removed 2026-11-11) */
+const POLLED = "polled" as EngineName;
 
 /**
  * A clip's render jobs as the row sees them: what is stored after a submit, a poll, a job that
@@ -62,7 +64,7 @@ const edit = (over: Partial<ClipEdit> = {}): ClipEdit => ({
   proxyPath: `${PIECE}/33333333-3333-4333-8333-333333333333.mp4`, silences: [[0, 0.4]], ...over,
 });
 const job = (over: Partial<EditJob> = {}): EditJob => ({
-  kind: "render", engine: "rendi", id: "cmd-1", startedAt: minutesAgo(1), tokenHash: "a".repeat(64), tried: ["rendi"],
+  kind: "render", engine: POLLED, id: "cmd-1", startedAt: minutesAgo(1), tokenHash: "a".repeat(64), tried: [POLLED],
   rev: "r1", pass: WALLET, costThb: 0.9, ...over,
 });
 function dbRow(v: ClipVideo) {
@@ -86,10 +88,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   vi.stubGlobal("fetch", fetchMock);
-  rendi = engine("rendi");
-  lambda = engine("lambda");
+  rendi = engine(POLLED);
+  lambda = engine("cloudrun");
   eng.enginesInOrder.mockImplementation(async () => [rendi, lambda]);
-  eng.engineNamed.mockImplementation(async (n: EngineName) => (n === "rendi" ? rendi : lambda));
+  eng.engineNamed.mockImplementation(async (n: EngineName) => (n === POLLED ? rendi : lambda));
   clipDb.reset(dbRow(video()));
 });
 
@@ -100,7 +102,7 @@ describe("submitJob", () => {
     const rec = await submitJob(PIECE, "prepare", job);
 
     expect(storedEdit().job).toEqual(rec);
-    expect(storedEdit().job).toMatchObject({ kind: "prepare", engine: "rendi", id: "cmd-1", tried: ["rendi"] });
+    expect(storedEdit().job).toMatchObject({ kind: "prepare", engine: POLLED, id: "cmd-1", tried: [POLLED] });
     // the engine gets the secret; the row keeps only its hash
     const raw = rendi.submit.mock.calls[0][1].token as string;
     expect(raw).toMatch(/^[0-9a-f]{64}$/);
@@ -129,7 +131,7 @@ describe("submitJob", () => {
     lambda.submit.mockResolvedValue({ id: "lam-1" });
     const rec = await submitJob(PIECE, "prepare", prepareJob("https://signed.test/source.mp4"));
 
-    expect(storedEdit().job).toMatchObject({ engine: "lambda", id: "lam-1", tried: ["rendi", "lambda"], tokenHash: rec.tokenHash });
+    expect(storedEdit().job).toMatchObject({ engine: "cloudrun", id: "lam-1", tried: [POLLED, "cloudrun"], tokenHash: rec.tokenHash });
     const raw = lambda.submit.mock.calls[0][1].token as string;
     expect(hashToken(raw)).toBe(rec.tokenHash);
     expect(JSON.stringify(clipDb.row)).not.toContain(raw);
@@ -250,7 +252,7 @@ describe("checkJob", () => {
 
   it("collects a finished render: the take kept, the old take removed, the round charged", async () => {
     // a render that went through after one that failed: the failure is forgotten
-    clipDb.reset(dbRow(video({ edit: edit({ renderedPath: OLD_TAKE, renderedRev: "r0", failedOn: "lambda", job: job() }) })));
+    clipDb.reset(dbRow(video({ edit: edit({ renderedPath: OLD_TAKE, renderedRev: "r0", failedOn: "cloudrun", job: job() }) })));
     clipDb.files.set(OLD_TAKE, { text: "OLD-TAKE" });
     const status: JobStatus = { state: "done", outputs: { out_1: { url: URLS.reel, fileId: "f9" } } };
     rendi.status.mockResolvedValue(status);
@@ -304,7 +306,7 @@ describe("checkJob", () => {
     const r = await checkJob(PIECE);
 
     expect(r.changed).toBe(true);
-    expect(storedEdit()).toMatchObject({ job: null, error: JOB_TIMED_OUT, renderedPath: OLD_TAKE, cut: [1], failedOn: "rendi" });
+    expect(storedEdit()).toMatchObject({ job: null, error: JOB_TIMED_OUT, renderedPath: OLD_TAKE, cut: [1], failedOn: POLLED });
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
   });
 
@@ -322,7 +324,7 @@ describe("checkJob", () => {
   });
 
   it("a Lambda job, which only calls back, is left waiting until it times out", async () => {
-    clipDb.reset(dbRow(video({ edit: edit({ job: job({ engine: "lambda", id: "lam-1" }) }) })));
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ engine: "cloudrun", id: "lam-1" }) }) })));
     lambda.status.mockResolvedValue(null);
     expect((await checkJob(PIECE)).changed).toBe(false);
     expect(storedEdit().job?.id).toBe("lam-1");
@@ -338,7 +340,7 @@ describe("checkJob", () => {
     const e = storedEdit();
     expect(e).toMatchObject({ job: null, error: JOB_FAILED, renderedPath: OLD_TAKE, renderedRev: "r0", cut: [1], hook: { main: "หัวของฉัน" }, rev: "r1" });
     // the engine it failed on is kept, so the next render goes to the other one (render-run.ts)
-    expect(e.failedOn).toBe("rendi");
+    expect(e.failedOn).toBe(POLLED);
     expect(JSON.stringify(clipDb.row)).not.toContain("SECRET");
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
     expect(clipDb.uploads).toHaveLength(0);
@@ -506,7 +508,7 @@ describe("what a delivered job cost, in the usage ledger (final review, 2026-10-
     await checkJob(PIECE);
     expect(storedEdit().renderedPath).toMatch(OWN_FILE);
     expect(ledger.recordUsage).toHaveBeenCalledTimes(1);
-    expect(ledger.recordUsage).toHaveBeenCalledWith("rendi", "content-edit", 0, 0, 0.9);
+    expect(ledger.recordUsage).toHaveBeenCalledWith(POLLED, "content-edit", 0, 0, 0.9);
 
     clipDb.reset(dbRow(video({ edit: edit({ job: job({ pass: WALLET }) }) })));
     await checkJob(PIECE);
@@ -527,7 +529,7 @@ describe("what a delivered job cost, in the usage ledger (final review, 2026-10-
     rendi.status.mockResolvedValue({ state: "done", outputs: { out_1: { url: URLS.proxy }, out_2: { url: URLS.silences } } });
     await checkJob(PIECE);
     expect(storedEdit().proxyPath).toMatch(OWN_FILE);
-    expect(ledger.recordUsage).toHaveBeenCalledWith("rendi", "content-edit", 0, 0, 0.6);
+    expect(ledger.recordUsage).toHaveBeenCalledWith(POLLED, "content-edit", 0, 0, 0.6);
     expect(round.settleLater).not.toHaveBeenCalled();
   });
 });
@@ -608,8 +610,8 @@ describe("an engine that takes the id it is given (final review, 2026-10-02)", (
     await submitJob(PIECE, "render", renderJob("https://signed.test/s.mp4", [[0, 5]], []), [], { claim: claimed.claim });
 
     // on the row while Lambda was asked; the claim back while Rendi was
-    expect(seen).toEqual(["lambda", claimed.claim]);
-    expect(storedEdit().job).toMatchObject({ engine: "rendi", id: "cmd-r", tried: ["lambda", "rendi"] });
+    expect(seen).toEqual(["cloudrun", claimed.claim]);
+    expect(storedEdit().job).toMatchObject({ engine: POLLED, id: "cmd-r", tried: ["cloudrun", POLLED] });
     expect(storedEdit().submitting).toBeUndefined();
   });
 
@@ -662,13 +664,13 @@ describe("a Cloud Run job (2026-10-02)", () => {
       return { id: o.id };
     });
     const j = render();
-    const rec = await submitJob(PIECE, "render", j, [], { pass: WALLET, costThb: { cloudrun: 0.216, rendi: 0.9 } });
+    const rec = await submitJob(PIECE, "render", j, [], { pass: WALLET, costThb: { cloudrun: 0.216 } });
 
     const o = submitted();
     const path = pathOf(o.payloadUrl!);
     expect(path).toMatch(PAYLOAD);
     expect(o.payloadUrl).toContain("s=3600");
-    // on file, as text, when the run was asked — the same object Lambda is invoked with
+    // on file, as text, when the run was asked — the same object the run reads
     expect(seen?.contentType).toBe("text/plain");
     expect(JSON.parse(seen!.text)).toEqual({ id: rec.id, job: j, uploads: o.uploads, callbackUrl: o.callbackUrl, token: o.token });
     expect(o.id).toBe(rec.id);
@@ -759,9 +761,9 @@ describe("a Cloud Run job (2026-10-02)", () => {
     rendi.submit.mockResolvedValue({ id: "cmd-next" });
     const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET });
 
-    expect(rec).toMatchObject({ engine: "rendi", id: "cmd-next", tried: ["cloudrun", "rendi"] });
+    expect(rec).toMatchObject({ engine: POLLED, id: "cmd-next", tried: ["cloudrun", POLLED] });
     expect(rec.payloadPath).toBeUndefined();
-    expect(storedEdit().job).toMatchObject({ engine: "rendi", id: "cmd-next" });
+    expect(storedEdit().job).toMatchObject({ engine: POLLED, id: "cmd-next" });
     expect(storedEdit().job?.payloadPath).toBeUndefined();
     expect(path).toMatch(PAYLOAD);
     expect(clipDb.files.has(path)).toBe(false);
@@ -784,17 +786,6 @@ describe("a Cloud Run job (2026-10-02)", () => {
     expect(storedEdit().renderedPath).toBe(rec.dest!.out_1);
     expect(clipDb.files.has(rec.payloadPath!)).toBe(false);
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.216);
-  });
-
-  it("the same for a Lambda invoke with no answer: kept as taken, no fallback", async () => {
-    eng.enginesInOrder.mockImplementation(async () => [lambda, rendi]);
-    lambda.submit.mockRejectedValue(new EngineError("ส่งงานให้ AWS ไม่ได้", true, true));
-    const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET });
-
-    expect(rendi.submit).not.toHaveBeenCalled();
-    expect(storedEdit().job).toMatchObject({ id: rec.id, engine: "lambda", tried: ["lambda"] });
-    expect(rec.payloadPath).toBeUndefined(); // Lambda is handed the job itself
-    expect(lambda.submit.mock.calls[0][1].payloadUrl).toBeUndefined();
   });
 
   it("a submit that loses the row to another before the run is asked lets its payload file go", async () => {

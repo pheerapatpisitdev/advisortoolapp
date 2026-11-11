@@ -17,7 +17,6 @@ describe("the owner's price list", () => {
       // คลิปตามโจทย์ (owner, 2026-10-16): ฿5, its own row
       videoPrompt: 500,
       // คลิปตามโจทย์ ดีไซน์พิเศษ (owner, 2026-10-21): ฿15
-      videoPromptDesign: 1500,
     });
   });
 

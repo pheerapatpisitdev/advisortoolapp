@@ -1,4 +1,4 @@
-// Pure helpers shared by the clip ffmpeg containers (AWS Lambda and Cloud Run) — tested in tests/video/lambda-core.test.ts.
+// Pure helpers for the clip ffmpeg container on Cloud Run — tested in tests/video/ffmpeg-core.test.ts.
 
 /** a command line split like a shell would: double-quoted runs stay one argument, the quotes themselves are dropped; single quotes inside stay as characters (ffmpeg's filter parser wants them) */
 export function splitArgs(command) {

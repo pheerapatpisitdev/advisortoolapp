@@ -118,7 +118,7 @@ const PICTURE_NAME: Record<string, [string, string]> = {
   "gpt-image-2": ["GPT Image", "OpenAI"], "gemini-3.1-flash-lite-image": ["Gemini Image Lite", "Google"], "gemini-3.1-flash-image": ["Gemini Image", "Google"],
 };
 const RENDER_NAME: Record<string, [string, string]> = {
-  cloudrun: ["Remotion บน Google Cloud Run", "ทุกคลิป"], shotstack: ["Shotstack", "คลิปตามโจทย์ ดีไซน์พิเศษ"],
+  cloudrun: ["Remotion บน Google Cloud Run", "ทุกคลิป"],
 };
 
 async function videoInfo(): Promise<VideoInfo> {
@@ -155,8 +155,6 @@ async function videoInfo(): Promise<VideoInfo> {
   const voice = of(["quote-video-voice"], voiceName);
   const clipRead = of(["content-clip"], (m) => [shortModel(m), "Google"]);
   const render = of(["quote-video-render"], (m) => RENDER_NAME[m] ?? [m, ""]);
-  // Shotstack is listed even before its first clip, so the step names both
-  if (!render.some((r) => r.model === "shotstack")) render.push({ model: "shotstack", name: RENDER_NAME.shotstack[0], company: RENDER_NAME.shotstack[1], uses: 0, thb: 0 });
   const script = [...VIDEO_SCRIPT_TASKS];
   const post = [...VIDEO_POST_TASKS];
   const aiThb = [...of(script, (m) => [m, ""]), ...of(post, (m) => [m, ""]), ...pictures, ...voice, ...clipRead].reduce((n, u) => n + u.thb, 0);

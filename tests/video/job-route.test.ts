@@ -3,11 +3,13 @@ import type { ClipEdit, ClipVideo, EditJob, EditPass, EngineName } from "@/lib/c
 import type { ContentOutput } from "@/lib/content/output";
 import type { RenderEngine } from "@/lib/video/engines/types";
 import { clipDb } from "../helpers/fake-clip-db";
+/** a stand-in for an engine that is asked about its jobs rather than calling back (Rendi was one, removed 2026-11-11) */
+const POLLED = "polled" as EngineName;
 
 /**
  * POST /api/content-video/job — the render services' webhook, through the real jobs module
  * onto one row in memory: what the row says after a callback that is ours, one that is not,
- * one for a job we do not have, and Rendi's unsigned one.
+ * one for a job we do not have.
  */
 
 vi.mock("@/lib/supabase/admin", async () => {
@@ -31,7 +33,7 @@ const WALLET: EditPass = { paidBy: "wallet", holdId: "h1", heldSatang: 600, mult
 const REEL_URL = "https://storage.rendi.test/out/reel.mp4";
 
 const job = (over: Partial<EditJob> = {}): EditJob => ({
-  kind: "render", engine: "lambda", id: "lam-1", startedAt: new Date().toISOString(), tokenHash: hashToken(TOKEN), tried: ["lambda"],
+  kind: "render", engine: "cloudrun", id: "lam-1", startedAt: new Date().toISOString(), tokenHash: hashToken(TOKEN), tried: ["cloudrun"],
   dest: { out_1: TAKE }, rev: "r1", pass: WALLET, costThb: 0.07, ...over,
 });
 const edit = (j: EditJob): ClipEdit => ({ cut: [], trimSilence: true, subs: [], hook: { main: "หัว" }, style: "box", rev: "r1", job: j });
@@ -47,19 +49,19 @@ const storedEdit = (): ClipEdit => (clipDb.row!.output as ContentOutput).video!.
 const post = (body: unknown) =>
   POST(new Request("https://x.test/api/content-video/job", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }));
 
-const rendi = { name: "rendi" as EngineName, submit: vi.fn(), status: vi.fn(), cleanup: vi.fn(async () => undefined) };
+const rendi = { name: POLLED, submit: vi.fn(), status: vi.fn(), cleanup: vi.fn(async () => undefined) };
 const fetchMock = vi.fn(async (url: string) => (url === REEL_URL ? new Response("REEL-BYTES") : new Response("no", { status: 404 })));
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   vi.stubGlobal("fetch", fetchMock);
-  eng.engineNamed.mockImplementation(async (n: EngineName) => (n === "rendi" ? (rendi as RenderEngine) : null));
+  eng.engineNamed.mockImplementation(async (n: EngineName) => (n === POLLED ? (rendi as RenderEngine) : null));
   clipDb.reset(dbRow(job()));
 });
 
 describe("the job webhook", () => {
-  it("finishes a Lambda job whose token matches", async () => {
+  it("finishes a Cloud Run job whose token matches", async () => {
     const res = await post({ id: "lam-1", token: TOKEN, state: "done", outputs: { out_1: { path: TAKE } } });
 
     expect(res.status).toBe(200);
@@ -87,26 +89,6 @@ describe("the job webhook", () => {
     expect(round.settleLater).not.toHaveBeenCalled();
   });
 
-  it("re-polls Rendi for its dashboard webhook instead of trusting the body", async () => {
-    clipDb.reset(dbRow(job({ engine: "rendi", id: "cmd-1", tried: ["rendi"], costThb: 0.9, dest: undefined })));
-    // still running on Rendi: whatever the body claims, nothing changes
-    rendi.status.mockResolvedValue({ state: "running" });
-    const before = JSON.stringify(clipDb.row);
-    const lie = { data: { command_id: "cmd-1", status: "SUCCESS" }, state: "done", outputs: { out_1: { path: TAKE } } };
-    expect((await post(lie)).status).toBe(200);
-    expect(rendi.status).toHaveBeenCalledWith("cmd-1");
-    expect(JSON.stringify(clipDb.row)).toBe(before);
-
-    // done on Rendi: the take is the file Rendi answers with, copied into our storage — not the body's path
-    rendi.status.mockResolvedValue({ state: "done", outputs: { out_1: { url: REEL_URL, fileId: "f1" } } });
-    expect((await post(lie)).status).toBe(200);
-    const e = storedEdit();
-    expect(e.job).toBeNull();
-    expect(e.renderedPath).not.toBe(TAKE);
-    expect(clipDb.files.get(e.renderedPath!)?.text).toBe("REEL-BYTES");
-    expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.9);
-  });
-
   it("refuses a callback naming any file but the job's own destination, the clip's source among them", async () => {
     clipDb.files.set(SOURCE, { text: "SOURCE" });
     const before = JSON.stringify(clipDb.row);
@@ -120,16 +102,16 @@ describe("the job webhook", () => {
     expect(round.settleLater).not.toHaveBeenCalled();
   });
 
-  it("a Lambda callback with no file for an output has failed", async () => {
+  it("a Cloud Run callback with no file for an output has failed", async () => {
     const res = await post({ id: "lam-1", token: TOKEN, state: "done", outputs: {} });
     expect(res.status).toBe(200);
     expect(storedEdit()).toMatchObject({ job: null, error: JOB_NO_FILES });
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
   });
 
-  it("a token callback for a Rendi job finishes nothing", async () => {
-    // a Rendi job's hash made from the same token: still, only asking Rendi ends a Rendi job
-    clipDb.reset(dbRow(job({ engine: "rendi", id: "cmd-1", tried: ["rendi"], dest: undefined })));
+  it("a token callback for a job of an engine that does not call back finishes nothing", async () => {
+    // the job's hash made from the same token: still, only asking its engine ends such a job
+    clipDb.reset(dbRow(job({ engine: POLLED, id: "cmd-1", tried: [POLLED], dest: undefined })));
     const before = JSON.stringify(clipDb.row);
     const res = await post({ id: "cmd-1", token: TOKEN, state: "done", outputs: { out_1: { path: TAKE } } });
 
@@ -139,7 +121,7 @@ describe("the job webhook", () => {
     expect(round.settleLater).not.toHaveBeenCalled();
   });
 
-  it("a Lambda callback after 16 minutes fails the job and lets its file go", async () => {
+  it("a Cloud Run callback after 16 minutes fails the job and lets its file go", async () => {
     clipDb.reset(dbRow(job({ startedAt: new Date(Date.now() - 16 * 60_000).toISOString() })));
     clipDb.files.set(TAKE, { text: "LATE-TAKE" });
     const res = await post({ id: "lam-1", token: TOKEN, state: "done", outputs: { out_1: { path: TAKE } } });
@@ -172,25 +154,17 @@ describe("the job webhook", () => {
     expect(round.settleLater).not.toHaveBeenCalled();
   });
 
-  it("an unsigned Rendi-style webhook naming a Cloud Run job asks nobody, and changes nothing (owner, 2026-10-18)", async () => {
+  it("a Rendi-style body (Rendi removed 2026-11-11) is a bad body: it asks nobody and changes nothing", async () => {
     const cloudrun = { name: "cloudrun" as EngineName, takesId: true, submit: vi.fn(), status: vi.fn(async () => null), cleanup: vi.fn(async () => undefined) };
     eng.engineNamed.mockImplementation(async (n: EngineName) => (n === "cloudrun" ? (cloudrun as RenderEngine) : null));
     clipDb.reset(dbRow(job({ engine: "cloudrun", id: "cr-1", tried: ["cloudrun"] })));
     const before = JSON.stringify(clipDb.row);
     const lie = { data: { command_id: "cr-1", status: "SUCCESS" }, state: "done", outputs: { out_1: { path: TAKE } } };
 
-    expect((await post(lie)).status).toBe(200);
+    expect((await post(lie)).status).toBe(400);
     expect(cloudrun.status).not.toHaveBeenCalled();
     expect(JSON.stringify(clipDb.row)).toBe(before);
     expect(round.settleLater).not.toHaveBeenCalled();
-  });
-
-  it("refuses a Rendi-style webhook without the key once RENDI_WEBHOOK_KEY is set", async () => {
-    vi.stubEnv("RENDI_WEBHOOK_KEY", "k-123");
-    clipDb.reset(dbRow(job({ engine: "rendi", id: "cmd-9", tried: ["rendi"], dest: undefined })));
-    expect((await post({ data: { command_id: "cmd-9" } })).status).toBe(401);
-    expect(rendi.status).not.toHaveBeenCalled();
-    vi.unstubAllEnvs();
   });
 
   it("a second callback for a job already finished changes nothing", async () => {

@@ -170,7 +170,7 @@ describe("the วิดีโอ group (owner, 2026-10-27, ก, https://claude.a
     // งานช่วย keeps its estimate, and no longer counts the clip scripts
     expect(lanes.find((l) => l.key === "write-help")!.options.find((o) => o.id === "gemini-3.1-flash-lite")!.price).toBe("฿30");
     expect(video?.voice.map((v) => [v.name, v.uses])).toEqual([["ElevenLabs (อ้อม / สมชาย)", 3], ["เสียง Gemini (API)", 1]]);
-    expect(video?.render.map((r) => [r.model, r.uses])).toEqual([["cloudrun", 1], ["shotstack", 0]]);
+    expect(video?.render.map((r) => [r.model, r.uses])).toEqual([["cloudrun", 1]]);
     expect(video?.aiThb).toBeCloseTo(0.0216 * 4 + 0.054 + 0.012 + 0.54 + 0.9 + 0.1 + 0.19, 6);
   });
 

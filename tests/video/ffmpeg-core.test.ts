@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { localize, postWithRetry, splitArgs } from "../../infra/lambda-ffmpeg/core.mjs";
+import { localize, postWithRetry, splitArgs } from "../../infra/ffmpeg-core/core.mjs";
 
-describe("lambda core", () => {
+describe("ffmpeg core", () => {
   it("splits a command like a shell, keeping quoted filters whole", () => {
     expect(splitArgs(`-i a.mp4 -filter_complex "[0:v]trim=start=1:end=2[v0];[v0]overlay=enable='between(t,0,1)'[b]" -map "[b]" out.mp4`))
       .toEqual(["-i", "a.mp4", "-filter_complex", "[0:v]trim=start=1:end=2[v0];[v0]overlay=enable='between(t,0,1)'[b]", "-map", "[b]", "out.mp4"]);

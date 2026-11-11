@@ -18,8 +18,6 @@ export function providerMap(models: { provider: string; model_name: string }[]):
     ...EMBEDDERS.map((e) => [e.model, e.provider] as const),
     [JUDGE.model, JUDGE.provider] as const,
     // a clip's render, written to the ledger under its engine (src/lib/video/jobs.ts): its key's name here
-    ["rendi", "rendi"] as const,
-    ["lambda", "aws"] as const,
     ["cloudrun", "gcp"] as const,
     // the วิดีโอนำเสนอ voices (owner, 2026-10-15): priced in code too, so the reference table
     // has neither, and ElevenLabs' row read "ยังไม่มีค่าใช้จ่าย" over ฿28 of clips

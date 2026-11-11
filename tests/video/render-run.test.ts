@@ -5,6 +5,8 @@ import type { ContentOutput } from "@/lib/content/output";
 import type { FfmpegJob } from "@/lib/video/command";
 import type { RenderEngine } from "@/lib/video/engines/types";
 import { clipDb } from "../helpers/fake-clip-db";
+/** a stand-in for an engine that is asked about its jobs rather than calling back (Rendi was one, removed 2026-11-11) */
+const POLLED = "polled" as EngineName;
 
 /**
  * A render, up to the moment a service has it: what is refused before a round, which pictures
@@ -96,12 +98,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   words.list = [];
-  rendi = engine("rendi");
-  lambda = engine("lambda");
+  rendi = engine(POLLED);
+  lambda = engine("cloudrun");
   rendi.submit.mockResolvedValue({ id: "cmd-9" });
   lambda.submit.mockResolvedValue({ id: "lam-9" });
   eng.enginesInOrder.mockImplementation(async () => [rendi, lambda]);
-  eng.engineNamed.mockImplementation(async (n: EngineName) => (n === "rendi" ? rendi : lambda));
+  eng.engineNamed.mockImplementation(async (n: EngineName) => (n === POLLED ? rendi : lambda));
   clipDb.reset(dbRow(video({ edit: edit() })));
 });
 
@@ -188,21 +190,19 @@ describe("startRender", () => {
 
   it("records the rev it rendered, the round's pass and the cost estimate on the job", async () => {
     const item = await startRender(await piece(), WALLET);
-    const rendiCost = ((20_000_000 + 25e6) / 1e9) * 0.10 * 36;
-    expect(storedEdit().job).toMatchObject({ kind: "render", engine: "rendi", id: "cmd-9", rev: "r1", pass: WALLET });
-    expect(storedEdit().job?.costThb).toBeCloseTo(rendiCost, 6);
-    expect(renderCostThb(20_000_000).rendi).toBeCloseTo(rendiCost, 6);
+    expect(storedEdit().job).toMatchObject({ kind: "render", engine: POLLED, id: "cmd-9", rev: "r1", pass: WALLET });
+    expect(Object.keys(renderCostThb(20_000_000))).toEqual(["cloudrun"]);
     // our Cloud Run job: about $0.006 a run (4 vCPU for a minute), whatever the clip's size
     expect(renderCostThb(20_000_000).cloudrun).toBeCloseTo(0.006 * 36, 9);
     expect(renderCostThb(300_000_000).cloudrun).toBeCloseTo(0.006 * 36, 9);
     expect(item.output.video?.edit?.job?.id).toBe("cmd-9");
 
-    // the cost is the engine's that took it: Rendi turned it away, our Lambda's estimate is kept
+    // the cost is the engine's that took it: the first turned it away, Cloud Run's estimate is kept
     clipDb.reset(dbRow(video({ edit: edit() })));
-    rendi.submit.mockRejectedValue(new EngineError("Rendi ไม่รับงาน (429)", true));
+    rendi.submit.mockRejectedValue(new EngineError("ไม่รับงาน (429)", true));
     await startRender(await piece(), WALLET);
-    expect(storedEdit().job).toMatchObject({ engine: "lambda", id: "lam-9", rev: "r1", pass: WALLET });
-    expect(storedEdit().job?.costThb).toBeCloseTo(0.002 * 36, 6);
+    expect(storedEdit().job).toMatchObject({ engine: "cloudrun", id: "lam-9", rev: "r1", pass: WALLET });
+    expect(storedEdit().job?.costThb).toBeCloseTo(0.006 * 36, 6);
   });
 
   it("hands the round back when no engine takes the job", async () => {
@@ -233,15 +233,15 @@ describe("startRender", () => {
   });
 
   it("sends a render after a failure to the other engine, or to the same one when it is the only one", async () => {
-    clipDb.reset(dbRow(video({ edit: edit({ failedOn: "rendi", error: "ตัดต่อไม่สำเร็จ — ลองอีกครั้งได้" }) })));
+    clipDb.reset(dbRow(video({ edit: edit({ failedOn: POLLED, error: "ตัดต่อไม่สำเร็จ — ลองอีกครั้งได้" }) })));
     await startRender(await piece(), WALLET);
     expect(rendi.submit).not.toHaveBeenCalled();
-    expect(storedEdit().job).toMatchObject({ engine: "lambda" });
+    expect(storedEdit().job).toMatchObject({ engine: "cloudrun" });
 
-    clipDb.reset(dbRow(video({ edit: edit({ failedOn: "rendi" }) })));
+    clipDb.reset(dbRow(video({ edit: edit({ failedOn: POLLED }) })));
     eng.enginesInOrder.mockResolvedValue([rendi]);
     await startRender(await piece(), WALLET);
-    expect(storedEdit().job).toMatchObject({ engine: "rendi", id: "cmd-9" });
+    expect(storedEdit().job).toMatchObject({ engine: POLLED, id: "cmd-9" });
   });
 });
 

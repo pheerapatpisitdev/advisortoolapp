@@ -4,6 +4,8 @@ import type { ContentOutput } from "@/lib/content/output";
 import type { FfmpegJob } from "@/lib/video/command";
 import type { RenderEngine } from "@/lib/video/engines/types";
 import { clipDb } from "../helpers/fake-clip-db";
+/** a stand-in for an engine that is asked about its jobs rather than calling back (Rendi was one, removed 2026-11-11) */
+const POLLED = "polled" as EngineName;
 
 /**
  * The clip editor's actions as the row sees them: what is stored after open, save, render and
@@ -49,7 +51,7 @@ vi.mock("@/lib/auth/viewer", () => auth);
 const { NO_FLAGS, clipOutput } = await import("@/lib/content/clip");
 const { EngineError } = await import("@/lib/video/engines/types");
 const { JOB_BUSY } = await import("@/lib/video/jobs");
-const { RENDER_DOWN, RENDER_SETUP, TOO_SHORT, renderCostThb } = await import("@/lib/video/render-run");
+const { RENDER_DOWN, RENDER_SETUP, TOO_SHORT } = await import("@/lib/video/render-run");
 const { openEdit, pollEdit, renderEdit, saveEdit, useOriginal } = await import("@/app/studio/clip-edit");
 const { saveFinishTicks } = await import("@/app/studio/ticks");
 
@@ -76,8 +78,8 @@ const prepared = (over: Partial<ClipEdit> = {}): ClipEdit => ({
   ...over,
 });
 const runningJob = (over: Partial<EditJob> = {}): EditJob => ({
-  kind: "render", engine: "rendi", id: "cmd-1", startedAt: new Date().toISOString(), tokenHash: "a".repeat(64),
-  tried: ["rendi"], rev: "r1", pass: { paidBy: "wallet", holdId: "hold-0", heldSatang: 600, multiplier: 2 }, costThb: 0.9, ...over,
+  kind: "render", engine: POLLED, id: "cmd-1", startedAt: new Date().toISOString(), tokenHash: "a".repeat(64),
+  tried: [POLLED], rev: "r1", pass: { paidBy: "wallet", holdId: "hold-0", heldSatang: 600, multiplier: 2 }, costThb: 0.9, ...over,
 });
 function dbRow(v: ClipVideo, over: Record<string, unknown> = {}) {
   const output: ContentOutput = { ...clipOutput("d"), rev: "o1", video: v };
@@ -111,13 +113,13 @@ beforeEach(() => {
   vi.setSystemTime(clock);
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
-  rendi = engine("rendi");
-  lambda = engine("lambda");
+  rendi = engine(POLLED);
+  lambda = engine("cloudrun");
   rendi.submit.mockResolvedValue({ id: "cmd-9" });
   lambda.submit.mockResolvedValue({ id: "lam-9" });
   rendi.status.mockResolvedValue({ state: "running" });
   eng.enginesInOrder.mockImplementation(async () => [rendi, lambda]);
-  eng.engineNamed.mockImplementation(async (n: EngineName) => (n === "rendi" ? rendi : lambda));
+  eng.engineNamed.mockImplementation(async (n: EngineName) => (n === POLLED ? rendi : lambda));
   quota.takeRound.mockResolvedValue(WALLET);
   ceiling.ceilingBeforeRound.mockResolvedValue(null);
   reads.after = null;
@@ -173,10 +175,11 @@ describe("openEdit", () => {
 
     expect(r.ok).toBe(true);
     expect(quota.takeRound).not.toHaveBeenCalled();
-    expect(storedEdit().job).toMatchObject({ kind: "prepare", engine: "rendi", id: "cmd-9" });
+    expect(storedEdit().job).toMatchObject({ kind: "prepare", engine: POLLED, id: "cmd-9" });
     expect(storedEdit().job?.pass).toBeUndefined();
     // free to the agent, not to the owner: the estimate rides on the job, for the usage ledger when delivered
-    expect(storedEdit().job?.costThb).toBeCloseTo(renderCostThb(20_000_000).rendi);
+    // a stand-in engine has no price of its own: only Cloud Run is priced (renderCostThb)
+    expect(storedEdit().job?.costThb).toBeUndefined();
     expect(storedEdit().submitting).toBeUndefined(); // the claim gave way to the job
     // the preview is made from the clip itself
     const job = rendi.submit.mock.calls[0][0] as FfmpegJob;
@@ -312,7 +315,7 @@ describe("renderEdit", () => {
     // the piece is the round's audit target, as a picture's is
     expect(quota.takeRound).toHaveBeenCalledWith(expect.objectContaining({ agentId: "a1" }), "ai-edit", PIECE);
     expect(storedEdit().job).toMatchObject({
-      kind: "render", engine: "rendi", id: "cmd-9", rev: "r1",
+      kind: "render", engine: POLLED, id: "cmd-9", rev: "r1",
       pass: { paidBy: "wallet", holdId: "hold-1", heldSatang: 600, multiplier: 2 },
     });
     expect(storedEdit().job?.pass).not.toHaveProperty("ok");
@@ -390,7 +393,7 @@ describe("pollEdit", () => {
     rendi.status.mockResolvedValue({ state: "failed", error: "boom" });
     const r = await pollEdit(PIECE);
     expect(r.ok).toBe(true);
-    expect(storedEdit()).toMatchObject({ job: null, failedOn: "rendi" });
+    expect(storedEdit()).toMatchObject({ job: null, failedOn: POLLED });
     expect(round.settleLater).toHaveBeenCalledWith(runningJob().pass, false, 0);
 
     clipDb.reset(dbRow(video({ edit: prepared({ job: runningJob() }) })));
@@ -404,7 +407,7 @@ describe("pollEdit", () => {
 
 describe("the other doors a piece goes back to the browser through", () => {
   it("a finish-tick save hands back a clip's job without its round, secret hash or paths", async () => {
-    clipDb.reset(dbRow(video({ edit: prepared({ job: runningJob({ engine: "lambda", dest: { out_1: TAKE } }) }) })));
+    clipDb.reset(dbRow(video({ edit: prepared({ job: runningJob({ engine: "cloudrun", dest: { out_1: TAKE } }) }) })));
     const r = await saveFinishTicks(PIECE, []);
     if (!r.ok) throw new Error(r.error);
     expect(r.item.output.video?.edit?.job?.id).toBe("cmd-1");

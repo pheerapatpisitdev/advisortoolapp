@@ -1,6 +1,6 @@
 # Build context is the infra/ folder (see README step 3): docker/gcloud builds -f cloudrun-ffmpeg/Dockerfile .
 FROM node:22-slim
-# The same pinned static ffmpeg build as infra/lambda-ffmpeg (x86_64), from https://johnvansickle.com/ffmpeg/old-releases/.
+# A pinned static ffmpeg build (x86_64), from https://johnvansickle.com/ffmpeg/old-releases/.
 # FFMPEG_SHA256 is the checksum of that exact archive and the build FAILS without it (see README).
 ARG FFMPEG_VERSION=6.0.1
 ARG FFMPEG_SHA256

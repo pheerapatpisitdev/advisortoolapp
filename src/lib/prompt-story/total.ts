@@ -1,5 +1,5 @@
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
-import { promptDesignExtra, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "./types";
+import { promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "./types";
 
 /**
  * The line above สร้างคลิป (owner's mockup, 2026-10-16): what pressing it takes, before anything is
@@ -9,8 +9,6 @@ export function totalLine(v: {
   scenes: number;
   painter: PromptStoryInput["painter"];
   voice?: string;
-  /** ดีไซน์พิเศษ chosen: its own clip price, and its extra on a free clip */
-  design?: PromptStoryInput["design"];
   prices: Prices;
   /** how the next clip is paid for (CostView.kind) */
   kind: "staff" | "free" | "wallet" | "closed";
@@ -19,8 +17,8 @@ export function totalLine(v: {
   /** the บัญชีสาธิต (CostView's demo, 2026-11-11) */
   demo?: boolean;
 }): { text: string; baht: string; blocked?: true } {
-  // only scenes.length, painter, voice and design are read by the price functions
-  const shell = { scenes: Array.from({ length: v.scenes }), painter: v.painter, ...(v.voice ? { voice: v.voice } : {}), ...(v.design ? { design: v.design } : {}) } as unknown as PromptStoryInput;
+  // only scenes.length, painter and voice are read by the price functions
+  const shell = { scenes: Array.from({ length: v.scenes }), painter: v.painter, ...(v.voice ? { voice: v.voice } : {}) } as unknown as PromptStoryInput;
   const each = priceBaht(promptPicturePrice(shell, v.prices));
   const pictures = `รูป ${v.scenes} × ฿${each}`;
   if (v.kind === "staff") return { text: v.demo ? "บัญชีทดลอง ใช้ฟรี" : "เจ้าของใช้ฟรี", baht: "0" };
@@ -28,12 +26,11 @@ export function totalLine(v: {
   if (v.kind === "free" && v.walletOff) return { text: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้ จึงยังสร้างคลิปตามโจทย์ไม่ได้", baht: "0", blocked: true };
   if (v.kind === "free") {
     const sum = priceBaht(promptFreePrice(shell, v.prices));
-    const extra = promptDesignExtra(shell, v.prices);
-    return { text: `ใช้สิทธิ์ฟรี 1 ครั้งกับค่าคลิป · ${pictures}${extra ? ` + ดีไซน์พิเศษ ฿${priceBaht(extra)}` : ""} = ฿${sum} หักจากกระเป๋า`, baht: sum };
+    return { text: `ใช้สิทธิ์ฟรี 1 ครั้งกับค่าคลิป · ${pictures} = ฿${sum} หักจากกระเป๋า`, baht: sum };
   }
   const total = priceBaht(promptStoryPrice(shell, v.prices));
-  const clip = priceBaht(v.design ? v.prices.videoPromptDesign : v.prices.videoPrompt);
-  const named = v.design ? "ค่าคลิปดีไซน์พิเศษ" : "ค่าคลิป";
+  const clip = priceBaht(v.prices.videoPrompt);
+  const named = "ค่าคลิป";
   if (v.voice) return { text: `${named} ฿${clip} + ${pictures} + เสียง ElevenLabs ฿${priceBaht(v.prices.elevenExtra)} = ฿${total}`, baht: total };
   return { text: `${named} ฿${clip} + ${pictures} = ฿${total} · เสียง ElevenLabs +฿${priceBaht(v.prices.elevenExtra)} (ถ้าเลือก)`, baht: total };
 }

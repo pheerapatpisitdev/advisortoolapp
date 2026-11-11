@@ -4,7 +4,7 @@ import { EngineError, mayHaveReached, type RenderEngine } from "./types";
 /**
  * Our own ffmpeg as a Google Cloud Run Job (owner, 2026-10-02), infra/cloudrun-ffmpeg. The app
  * writes the job's payload as a file and hands its signed link to the run call (env JOB_URL);
- * the job renders, writes the outputs into our storage itself and calls back, like Lambda.
+ * the job renders, writes the outputs into our storage itself and calls back.
  * Auth is a service-account key: we mint the OAuth token ourselves (RS256 JWT), no Google SDK.
  * Kept in the encrypted key store (provider "gcp") as minified JSON
  * { client_email, private_key, project_id, region, job }.

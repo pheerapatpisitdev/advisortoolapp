@@ -15,9 +15,7 @@ const rows = [
   ...Array.from({ length: 10 }, () => ({ model: "claude-sonnet-5", task: "copilot", cost_thb: 0.5 })),
   // the judge answers under its version, not the alias it was asked for by
   ...Array.from({ length: 50 }, () => ({ model: "jev-1.13.0", task: "route_shadow", cost_thb: 0.001 })),
-  // a clip's renders, under the engine that made them (final review, 2026-10-02)
-  ...Array.from({ length: 3 }, () => ({ model: "rendi", task: "content-edit", cost_thb: 0.2 })),
-  ...Array.from({ length: 2 }, () => ({ model: "lambda", task: "content-edit", cost_thb: 0.07 })),
+  // a clip's renders, under the engine that made them (final review, 2026-10-02; Cloud Run alone since 2026-11-11)
   ...Array.from({ length: 4 }, () => ({ model: "cloudrun", task: "content-edit", cost_thb: 0.216 })),
 ];
 
@@ -65,8 +63,8 @@ const { loadAiPage } = await import("@/app/admin/ai/actions");
 describe("the spend card", () => {
   it("counts the whole month, not the first thousand calls", async () => {
     const page = await loadAiPage();
-    expect(page.spentThisMonth).toBeCloseTo(1150 * 0.03 + 20 * 0.05 + 10 * 0.5 + 50 * 0.001 + 3 * 0.2 + 2 * 0.07 + 4 * 0.216, 6);
-    expect(page.spend.reduce((n, p) => n + p.calls, 0)).toBe(1239);
+    expect(page.spentThisMonth).toBeCloseTo(1150 * 0.03 + 20 * 0.05 + 10 * 0.5 + 50 * 0.001 + 4 * 0.216, 6);
+    expect(page.spend.reduce((n, p) => n + p.calls, 0)).toBe(1234);
   });
 
   it("still says which company was paid, and for what, busiest task first", async () => {
@@ -88,8 +86,6 @@ describe("the spend card", () => {
 
   it("puts a clip's renders under the render service's key, not a name the card does not know", async () => {
     const page = await loadAiPage();
-    expect(page.spend.find((p) => p.provider === "rendi")).toMatchObject({ calls: 3, tasks: ["content-edit"] });
-    expect(page.spend.find((p) => p.provider === "aws")).toMatchObject({ calls: 2, tasks: ["content-edit"] });
     expect(page.spend.find((p) => p.provider === "gcp")).toMatchObject({ calls: 4, tasks: ["content-edit"] });
     expect(page.spend.find((p) => p.provider === "gcp")?.baht).toBeCloseTo(4 * 0.216, 6);
   });
