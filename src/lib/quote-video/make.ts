@@ -1,3 +1,4 @@
+import { demoRefusal } from "@/lib/auth/demo";
 import { randomBytes, randomUUID } from "node:crypto";
 import { providerKey } from "@/lib/ai/client";
 import { TTS_RATE } from "@/lib/ai/tts";
@@ -103,7 +104,8 @@ export const isQuoteInput = (v: ClipInput): v is VideoInput => !isFhcInput(v) &&
 
 /** How the next clip would be paid for, as the board says it under the button. */
 export type CostView =
-  | { kind: "staff" }
+  /** demo: the บัญชีสาธิต, which says so instead of เจ้าของใช้ฟรี (2026-11-11) */
+  | { kind: "staff"; demo?: true }
   /** walletOff: the wallet is shut, so a คลิปตามโจทย์'s pictures (paid even on a free clip) cannot be */
   | { kind: "free"; left: number; of: number; walletOff?: true }
   /** the price of each look (an FHC summary its own), and whether the wallet holds it */
@@ -115,6 +117,8 @@ export type CostView =
 
 
 export async function costView(viewer: Viewer): Promise<CostView> {
+  // the บัญชีสาธิต pays nothing, as the owner (owner chose 2ข, 2026-11-11); its daily cap is asked at the press
+  if (viewer.kind === "demo") return { kind: "staff", demo: true };
   if (can(viewer, "owner")) return { kind: "staff" };
   const { limit, from } = await freeClips(viewer);
   const used = await freeUsed(viewer.agentId, from);
@@ -137,7 +141,11 @@ export async function costView(viewer: Viewer): Promise<CostView> {
 export async function createVideo(viewer: Viewer, input: ClipInput, customer: string, id?: string): Promise<{ id: string } | { refusal: string }> {
   let pay: Partial<VideoRow> = { paid_by: "staff" };
   let freeWindow: { limit: number; from: Date | null } | null = null;
-  if (!can(viewer, "owner")) {
+  if (viewer.kind === "demo") {
+    // free under the daily cap the owner set (owner chose 2ข, 2026-11-11)
+    const refusal = await demoRefusal();
+    if (refusal) return { refusal };
+  } else if (!can(viewer, "owner")) {
     // an outside member makes clips while their pass is live (owner, 2026-10-13); unreadable refuses
     const access = await memberAccess(viewer).catch((e) => {
       console.error("quote video refused, pass unreadable:", e);
@@ -923,7 +931,10 @@ export async function redrawPicture(
 
   let hold: string | null = null;
   let price = 0;
-  if (!can(viewer, "owner")) {
+  if (viewer.kind === "demo") {
+    const refusal = await demoRefusal();
+    if (refusal) return { ok: false, error: refusal };
+  } else if (!can(viewer, "owner")) {
     // as createVideo: an outside member pays while their pass is live
     const access = await memberAccess(viewer).catch(() => null);
     if (!access) return { ok: false, error: PASS_UNREADABLE };

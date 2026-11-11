@@ -152,6 +152,18 @@ async function pushToOwner(text: string): Promise<boolean> {
 }
 
 /**
+ * The บัญชีสาธิต's cap at 80% and full (owner chose 2ข, 2026-11-11, src/lib/auth/demo.ts). Never throws: a
+ * message that could not go out is only written to the log.
+ */
+export async function alertDemo(text: string): Promise<void> {
+  try {
+    await pushToOwner(text);
+  } catch (e) {
+    console.error("[line] demo alert not sent:", e);
+  }
+}
+
+/**
  * Tells the owner a member has just joined, once they have filled in สมัครสมาชิก (owner,
  * 2026-10-27). Never throws: the save it follows has already succeeded, and an alert that
  * could not go out is only written to the log.

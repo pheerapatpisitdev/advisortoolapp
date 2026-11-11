@@ -942,7 +942,7 @@ export async function contentSpend(): Promise<ContentSpend> {
     // the owner has no wallet and uses the tools free (owner, 2026-09-30); assistants have one (2026-10-02)
     const [spent, cap, allowance, wallet] = await Promise.all([
       contentSpentThisMonth(), contentCap(), allowanceOf(viewer),
-      can(viewer, "owner") ? Promise.resolve(null) : walletView(viewer.agentId),
+      can(viewer, "owner") || viewer.kind === "demo" ? Promise.resolve(null) : walletView(viewer.agentId),
     ]);
     const rounds = allowance.limit === null ? null : { used: allowance.used, limit: allowance.limit, wallet };
     if (can(viewer, "owner")) return { spent, cap, rounds };

@@ -22,5 +22,5 @@ export async function shellWho(viewer: Viewer | null): Promise<Who | null> {
   const [settings, switches] = await Promise.all([walletSettings().catch(() => null), readSwitches()]);
   const on = settings?.enabled === true;
   const closed = closedHrefs(switches);
-  return { ...who, wallet: who.owner ? false : on, prices: on, ...(closed.length ? { closed } : {}) };
+  return { ...who, wallet: who.owner || who.demo ? false : on, prices: who.demo ? false : on, ...(closed.length ? { closed } : {}) };
 }

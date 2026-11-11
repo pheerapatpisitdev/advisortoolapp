@@ -1,6 +1,6 @@
 import "./theme.css";
 import { AppShell } from "@/components/shell/AppShell";
-import { PassReminder, reminderOf } from "@/components/shell/PassReminder";
+import { DemoBanner, PassReminder, reminderOf } from "@/components/shell/PassReminder";
 import { gatePage } from "@/lib/auth/viewer";
 import { memberAccess } from "@/lib/members/access";
 import { studioMenu } from "@/lib/shell/menu";
@@ -27,6 +27,7 @@ export default async function ContentLayout({ children }: { children: React.Reac
         {/* pt-16 below lg: the phone's menu button is fixed at the top left */}
         <div className="mx-auto max-w-[1400px] px-4 pb-10 pt-16 lg:pt-6">
           {reminder && <div className="mb-4"><PassReminder {...reminder} /></div>}
+          {who.demo && <div className="mb-4"><DemoBanner /></div>}
           <PricesProvider prices={prices}>{children}</PricesProvider>
         </div>
       </AppShell>

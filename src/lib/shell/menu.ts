@@ -468,6 +468,8 @@ export interface Who {
   member?: boolean;
   /** the Super Admin (owner, 2026-10-15): the back office only, no way back to the front */
   super?: boolean;
+  /** the shared บัญชีสาธิต (owner, 2026-11-11): free AI, no wallet, a banner over every page */
+  demo?: boolean;
   /** the menu items of the tools switched off for now (src/lib/switches), marked ปิดชั่วคราว */
   closed?: string[];
 }

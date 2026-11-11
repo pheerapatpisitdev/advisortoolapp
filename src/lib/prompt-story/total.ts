@@ -16,12 +16,14 @@ export function totalLine(v: {
   kind: "staff" | "free" | "wallet" | "closed";
   /** a free clip while the wallet is off (CostView's walletOff): the pictures cannot be paid */
   walletOff?: boolean;
+  /** the บัญชีสาธิต (CostView's demo, 2026-11-11) */
+  demo?: boolean;
 }): { text: string; baht: string; blocked?: true } {
   // only scenes.length, painter, voice and design are read by the price functions
   const shell = { scenes: Array.from({ length: v.scenes }), painter: v.painter, ...(v.voice ? { voice: v.voice } : {}), ...(v.design ? { design: v.design } : {}) } as unknown as PromptStoryInput;
   const each = priceBaht(promptPicturePrice(shell, v.prices));
   const pictures = `รูป ${v.scenes} × ฿${each}`;
-  if (v.kind === "staff") return { text: "เจ้าของใช้ฟรี", baht: "0" };
+  if (v.kind === "staff") return { text: v.demo ? "บัญชีทดลอง ใช้ฟรี" : "เจ้าของใช้ฟรี", baht: "0" };
   // owner, 2026-10-16: the button is shut and says why, rather than refusing after the press
   if (v.kind === "free" && v.walletOff) return { text: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้ จึงยังสร้างคลิปตามโจทย์ไม่ได้", baht: "0", blocked: true };
   if (v.kind === "free") {

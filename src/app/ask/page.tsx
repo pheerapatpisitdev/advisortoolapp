@@ -4,7 +4,7 @@ import { closedFor } from "@/lib/switches/store";
 import { openingGuide } from "@/lib/copilot/guide";
 import { Chat } from "../Chat";
 import { AppShell } from "@/components/shell/AppShell";
-import { PassReminder, reminderOf } from "@/components/shell/PassReminder";
+import { DemoBanner, PassReminder, reminderOf } from "@/components/shell/PassReminder";
 import { gatePage } from "@/lib/auth/viewer";
 import { shellWho } from "@/lib/shell/who";
 import { memberAccess } from "@/lib/members/access";
@@ -40,6 +40,7 @@ export default async function Ask() {
         {/* inside the screen-tall column, so the chat gives up the bar's height; clear of the
             phone's menu button, which is fixed at the top left */}
         {reminder && <div className="mb-2 shrink-0 max-lg:ml-12"><PassReminder {...reminder} /></div>}
+        {viewer.kind === "demo" && <div className="mb-2 shrink-0 max-lg:ml-12"><DemoBanner /></div>}
         {locked ? (
           <LockedPage feature="ask" message={locked} back={{ href: "/home", label: "กลับหน้าหลัก" }} />
         ) : (

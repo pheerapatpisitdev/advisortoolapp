@@ -23,6 +23,18 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
   const viewer = await gatePage("/studio/wallet");
   const { paid } = await searchParams;
   const prices = await walletPrices();
+  if (viewer.kind === "demo") {
+    // the บัญชีสาธิต has no wallet: its AI is free under the owner's daily cap (owner chose 2ข, 2026-11-11)
+    return (
+      <div className="mx-auto max-w-xl space-y-3">
+        <div className="flex items-baseline justify-between rounded-lg border border-[var(--ct-line)] px-4 py-3">
+          <span>เครดิต</span>
+          <span className="text-xl font-bold text-[var(--ct-accent)]">ไม่จำกัด</span>
+        </div>
+        <p className="text-sm text-[var(--ct-mute)]">บัญชีทดลองใช้ ใช้ AI ใน Studio ได้โดยไม่ต้องเติมเงินครับ</p>
+      </div>
+    );
+  }
   if (can(viewer, "owner")) {
     // the owner pays nothing, but sees the list the agents see (owner, 2026-10-12)
     const settings = await walletSettings().catch(() => ({ enabled: false, multiplier: 2 }));

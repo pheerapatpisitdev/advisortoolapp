@@ -5,6 +5,7 @@ import { formatBaht, holdSatang, holdSatangFor } from "@/lib/wallet/money";
 import type { RoundPass } from "@/lib/wallet/round";
 import { holdWallet, walletFrozen, walletSettings } from "@/lib/wallet/store";
 import { can, type Viewer } from "./access";
+import { demoRefusal } from "./demo";
 
 /**
  * How many AI rounds an agent may start without paying: ten, once (owner, 2026-09-30).
@@ -68,7 +69,8 @@ export async function freeWindow(viewer: Viewer): Promise<FreeWindow> {
 }
 
 export async function allowanceOf(viewer: Viewer): Promise<Allowance> {
-  if (can(viewer, "owner")) return { limit: null, used: 0 };
+  // the บัญชีสาธิต has no allowance either: free under its daily cap (owner chose 2ข, 2026-11-11)
+  if (can(viewer, "owner") || viewer.kind === "demo") return { limit: null, used: 0 };
   // display pages: an unreadable pass throws, as an unreadable count does
   const { limit, from } = await freeWindow(viewer);
   const { count, error } = await supabaseAdmin().from("ins_audit").select("id", { count: "exact", head: true })
@@ -140,6 +142,11 @@ export async function takeRound(viewer: Viewer, round: AiRound, target: string |
   // the owner has no allowance to count against; the content ceiling covers them. Assistants
   // used to be let through here too, until the owner gave them wallets (2026-10-02)
   if (can(viewer, "owner")) return { ok: true, paidBy: "staff", agentId: viewer.agentId };
+  // the บัญชีสาธิต pays nothing, under the daily cap the owner set (owner chose 2ข, 2026-11-11)
+  if (viewer.kind === "demo") {
+    const refusal = await demoRefusal();
+    return refusal ? { ok: false, refusal } : { ok: true, paidBy: "staff", agentId: viewer.agentId };
+  }
   // an outside member needs a live pass for any round (owner, 2026-10-13); a pass that cannot
   // be read refuses the round, never lets it through. Read once: the window comes from it too
   const access = await memberAccess(viewer).catch((e) => {

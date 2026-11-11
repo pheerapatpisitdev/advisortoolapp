@@ -58,9 +58,10 @@ export interface Viewer {
   /**
    * a UnitOS agent, a member who signed up here (src/lib/auth/member.ts, owner 2026-10-01), or
    * the Super Admin who runs the back office and nothing else (owner, 2026-10-15). Bluewealth's
-   * agents are "unitos" too: they get what a UnitOS agent gets (owner, 2026-10-24, ./bluewealth.ts)
+   * agents are "unitos" too: they get what a UnitOS agent gets (owner, 2026-10-24, ./bluewealth.ts). "demo" is
+   * the shared บัญชีสาธิต customers try the system with: free AI under a daily cap, no wallet (./demo.ts, 2026-11-11)
    */
-  kind: "unitos" | "member" | "super";
+  kind: "unitos" | "member" | "super" | "demo";
   agentId: string;
   /** the agent's 6-digit code; a member's Google email */
   code: string;

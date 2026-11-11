@@ -124,7 +124,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const elevenIsOff = useElevenOff(eleven.length > 0);
   const notice = look.voice && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && !look.voice ? voiceNotice(quota, true) : null;
   const voiceBlocked = Boolean(notice?.blocked);
-  const total = totalLine({ scenes: draft?.scenes.length ?? scenes, painter, voice: look.voice || undefined, design: look.design || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff });
+  const total = totalLine({ scenes: draft?.scenes.length ?? scenes, painter, voice: look.voice || undefined, design: look.design || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff, demo: cost?.kind === "staff" && cost.demo === true });
   const closed = cost?.kind === "closed";
 
   async function write() {

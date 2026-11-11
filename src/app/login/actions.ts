@@ -5,6 +5,7 @@ import { clientIp } from "@/lib/assistant/rate-limit";
 import { safeNext } from "@/lib/auth/next";
 import { rememberBluewealthAgent } from "@/lib/auth/bluewealth";
 import { rememberKingclubAgent } from "@/lib/auth/kingclub";
+import { DEMO_CODE, DEMO_ID, admitDemo, demoRow } from "@/lib/auth/demo";
 import { endEverySession } from "@/lib/auth/epoch";
 import { noteLogin } from "@/lib/auth/login-log";
 import { endSession, readSession, startSession } from "@/lib/auth/session";
@@ -100,6 +101,7 @@ export async function signIn(formData: FormData): Promise<{ error: string; premi
   const release = () => supabase.from("ins_login_attempts").delete().eq("id", attempt.id);
 
   let agentId: string;
+  let demo = false;
   // what follows the claim can throw (database down); say so in words rather than reach the
   // error boundary. startSession and redirect stay outside: redirect works by throwing.
   try {
@@ -113,7 +115,12 @@ export async function signIn(formData: FormData): Promise<{ error: string; premi
       return { error: `มีการกรอกรหัสตัวแทนผิดจำนวนมาก ปิดการเข้าด้วยรหัสชั่วคราว กรุณารออีก ${WINDOW_MINUTES} นาที หรือเข้าจากเมนูใน UnitOS` };
     }
 
-    const agents = await agentsByCode(code);
+    // the บัญชีสาธิต customers try the system with (owner, 2026-11-11, ./demo.ts): ours, not UnitOS's
+    if (code === DEMO_CODE) {
+      if (!admitDemo(await demoRow(), Date.now())) return { error: "บัญชีทดลองใช้ปิดอยู่ในตอนนี้" };
+      demo = true;
+    }
+    const agents = demo ? [] : await agentsByCode(code);
     if (agents.length > 1) {
       // UnitOS keeps codes apart only within a room; if two rooms ever hold the same one, the
       // code alone cannot say who this is, and guessing would sign somebody in as a stranger.
@@ -122,7 +129,7 @@ export async function signIn(formData: FormData): Promise<{ error: string; premi
     }
     const agent = agents[0] ?? null;
     const staff = agent ? await staffRow(agent.id) : null;
-    const viewer = agent ? await admitAgent(agent, staff, Date.now()) : null;
+    const viewer = demo ? admitDemo(await demoRow(), Date.now()) : agent ? await admitAgent(agent, staff, Date.now()) : null;
 
     if (!viewer && (await refusalOf(agent, staff, Date.now())) === "premium") {
       // the right code of a basic agent in a room that keeps advisortool for Premium (owner,
@@ -161,7 +168,8 @@ export async function signIn(formData: FormData): Promise<{ error: string; premi
 export async function signOut(): Promise<void> {
   try {
     const session = await readSession();
-    if (session) await endEverySession(session.agentId, new Date());
+    // the บัญชีสาธิต is shared: one customer signing out must not sign out the others
+    if (session && session.agentId !== DEMO_ID) await endEverySession(session.agentId, new Date());
   } catch (e) {
     console.error("signOut: other devices could not be signed out:", e);
   }

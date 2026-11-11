@@ -62,3 +62,20 @@ export async function reminderOf(
     return null;
   }
 }
+
+/** The bar over /home, ถาม AI and every Studio page of the shared บัญชีสาธิต (owner, 2026-11-11, mockup Fm1t9Ejk). */
+export function DemoBanner() {
+  return (
+    <div
+      role="status"
+      className="rounded-lg border px-4 py-2 text-sm"
+      style={{
+        background: "var(--ct-warn-bg, var(--bot-sand-soft))",
+        color: "var(--ct-warn-ink, var(--bot-sand-ink))",
+        borderColor: "var(--ct-warn-line, var(--bot-sand-line))",
+      }}
+    >
+      บัญชีทดลองใช้ · ทุกคนที่ใช้รหัสนี้ใช้บัญชีเดียวกัน งานที่สร้างจะถูกล้างทุกคืน
+    </div>
+  );
+}

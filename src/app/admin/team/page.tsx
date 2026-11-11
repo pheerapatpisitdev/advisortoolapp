@@ -4,6 +4,8 @@ import { pageConnections } from "@/lib/facebook/connection";
 import { Card, PageHead } from "../ui";
 import { listStaff } from "./actions";
 import { listSpecial } from "./special-actions";
+import { readDemo } from "./demo-actions";
+import { DemoAccount } from "./DemoAccount";
 import { SpecialAccess } from "./SpecialAccess";
 import { Team } from "./Team";
 
@@ -13,7 +15,7 @@ export const metadata: Metadata = { title: "ทีมงาน | AdvisorTool" };
 /** The owner's assistants: who may post to the Page, connect it, or open the back office. */
 export default async function TeamPage() {
   await gatePage("/admin/team", "backoffice");
-  const [rows, connected, special] = await Promise.all([listStaff(), pageConnections().catch(() => []), listSpecial()]);
+  const [rows, connected, special, demo] = await Promise.all([listStaff(), pageConnections().catch(() => []), listSpecial(), readDemo()]);
   const pages = connected.map((p) => ({ pageId: p.pageId, pageName: p.pageName }));
   return (
     <>
@@ -29,6 +31,12 @@ export default async function TeamPage() {
       hint="ตัวแทนที่ให้เข้า advisortool ได้แม้ Premium ใน UnitClub หมดหรือเป็น basic (ห้องต้องยังเปิดอยู่ใน UnitOS) พร้อมงบใช้ AI พิเศษต่อเดือน เริ่มใหม่ทุกวันที่ 1 ใช้งบนี้ก่อนเงินที่เติมเอง ที่เหลือไม่ยกไปเดือนหน้า"
     >
       <SpecialAccess rows={special} />
+    </Card>
+    <Card
+      title="บัญชีสาธิต"
+      hint="บัญชีให้ลูกค้าทดลองใช้ระบบ รหัส 012345 ที่หน้าแรก แท็บตัวแทน UnitOS ใช้ AI ได้ฟรีไม่ต้องเติมเงิน แต่มีเพดานต่อวันกันค่าใช้จ่ายบานปลาย ใช้ถึง 80% และครบเพดาน LINE แจ้งเตือน ปิดสวิตช์แล้วทุกคนที่ใช้รหัสนี้ออกจากระบบทันที เชื่อมเพจ โพสต์ เติมเงิน และหลังบ้านใช้ไม่ได้"
+    >
+      <DemoAccount view={demo} />
     </Card>
     </>
   );

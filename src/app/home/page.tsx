@@ -1,6 +1,6 @@
 import "../home-theme.css";
 import { AppShell } from "@/components/shell/AppShell";
-import { PassReminder, reminderOf } from "@/components/shell/PassReminder";
+import { DemoBanner, PassReminder, reminderOf } from "@/components/shell/PassReminder";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { allowanceOf } from "@/lib/auth/quota";
@@ -61,7 +61,7 @@ export default async function Home() {
     reminderOf(viewer, memberAccess),
     memberAccess(viewer).catch(orNull("pass")),
     // the owner pays for nothing and has no wallet (2026-10-02)
-    owner ? null : walletView(viewer.agentId),
+    owner || viewer.kind === "demo" ? null : walletView(viewer.agentId),
     allowanceOf(viewer).catch(orNull("rounds")),
     myPages().catch(() => []),
     countByStatus().then((c) => c.draft).catch(orNull("drafts")),
@@ -106,7 +106,7 @@ export default async function Home() {
     <div className="home-chat">
       <AppShell who={await shellWho(viewer)}>
         <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 pb-10 pt-3 lg:pt-6">
-          <HomeToday today={today} notice={reminder && <PassReminder {...reminder} />} history={history} />
+          <HomeToday today={today} notice={reminder ? <PassReminder {...reminder} /> : viewer.kind === "demo" ? <DemoBanner /> : null} history={history} />
         </div>
       </AppShell>
     </div>

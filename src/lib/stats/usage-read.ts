@@ -1,3 +1,4 @@
+import { DEMO_CODE, DEMO_ID, DEMO_ROOM } from "@/lib/auth/demo";
 import { bluewealthNames } from "@/lib/auth/bluewealth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { calculatorName } from "./calculators";
@@ -101,5 +102,7 @@ export async function whoAre(ids: string[]): Promise<Map<string, Who>> {
   for (const b of outside) {
     out.set(b.id, { name: b.name?.trim() || b.agent_code, room: b.tenant_name, unit: b.unit?.trim() || null, member: false });
   }
+  // the shared บัญชีสาธิต (2026-11-11), whose cost the owner reads here like anybody's
+  if (uniq.includes(DEMO_ID)) out.set(DEMO_ID, { name: `บัญชีสาธิต (${DEMO_CODE})`, room: DEMO_ROOM, unit: null, member: false });
   return out;
 }

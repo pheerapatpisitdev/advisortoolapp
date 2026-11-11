@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { bluewealthAgentById, bluewealthAgentsByCode, bluewealthNames } from "./bluewealth";
 import { kingclubAgentById, kingclubAgentsByCode, kingclubNames, knownKingclubAgent } from "./kingclub";
 import { OPEN_ROOMS, admitMember, admitSuper, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type SuperAdminRow, type Viewer } from "./access";
+import { DEMO_CODE, DEMO_ID, admitDemo, demoRow } from "./demo";
 import { sessionNotBefore } from "./epoch";
 import { CALC_PATHS, type CalcPath } from "./calc-paths";
 import { safeNext } from "./next";
@@ -122,6 +123,8 @@ export const staffAgentIds = cache(async (): Promise<string[]> => {
 export const getViewer = cache(async (): Promise<Viewer | null> => {
   const session = await readSession();
   if (!session) return null;
+  // the บัญชีสาธิต (2026-11-11): no UnitOS row and no sign-out stamp, since its customers share it
+  if (session.agentId === DEMO_ID) return admitDemo(await demoRow(), session.issuedAt);
   const [agent, staff, notBefore] = await Promise.all([
     agentById(session.agentId), staffRow(session.agentId), sessionNotBefore(session.agentId),
   ]);
@@ -251,6 +254,7 @@ export function whoOf(viewer: Viewer | null): Who | null {
     owner: can(viewer, "owner"),
     member: viewer.kind === "member",
     super: viewer.kind === "super",
+    ...(viewer.kind === "demo" ? { demo: true } : {}),
   };
 }
 
@@ -292,6 +296,7 @@ export async function displayNames(ids: string[]): Promise<Record<string, string
   for (const a of (agents.data ?? []) as { id: string; name: string | null; agent_code: string }[]) names[a.id] = a.name?.trim() || a.agent_code;
   // KingClub's own word, as of the agent's last sign-in, over the row UnitClub kept from before the move
   for (const k of kingclub) names[k.id] = k.name?.trim() || k.agent_code;
+  if (unique.includes(DEMO_ID)) names[DEMO_ID] = `บัญชีสาธิต (${DEMO_CODE})`;
   return names;
 }
 
