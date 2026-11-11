@@ -45,9 +45,13 @@ export function recipeFits(key: RecipeKey, f: QuoteVideoFacts): boolean {
   if (f.product !== "LIFEPROTECT" || (f.lang && f.lang !== "th") || f.riders || f.budget) return false;
   const fig = recipeFigures(f);
   if (!fig) return false;
+  // none tells a plan paid to the end: versus's "จ่ายรวม N ปี" would run to 98 (final review, 2026-11-12)
+  if (f.payToEnd) return false;
   if (key === "versus") return fig.diff !== undefined && fig.diff > 0;
-  const told = !f.payToEnd && f.payYears !== undefined && f.lastPayAge !== undefined;
-  return key === "ask" ? told && Boolean(f.perDayAmount) : told;
+  const told = f.payYears !== undefined && f.lastPayAge !== undefined;
+  if (key === "ask") return told && Boolean(f.perDayAmount);
+  // the life line tells its ages in order: paid up before the cover steps down, or it would read 58 → 76 → 60 → 99
+  return told && f.lastPayAge! < fig.splitAge;
 }
 
 export const recipesFor = (f: QuoteVideoFacts): RecipeKey[] => RECIPE_KEYS.filter((k) => recipeFits(k, f));

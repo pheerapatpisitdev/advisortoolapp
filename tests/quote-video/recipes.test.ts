@@ -35,7 +35,8 @@ describe("clip recipes (owner, 2026-11-11, ก ก ก)", () => {
   });
 
   it("leaves out what the quote cannot back", () => {
-    expect(recipesFor({ ...LP35, payToEnd: true, payYears: undefined, lastPayAge: undefined })).toEqual(["versus"]);
+    // paying to the end: no recipe tells it, versus included (its "จ่ายรวม N ปี" would be paid to 98)
+    expect(recipesFor({ ...LP35, payToEnd: true, payYears: undefined, lastPayAge: undefined })).toEqual([]);
     expect(recipesFor({ ...LP35, breakEven: undefined })).toEqual(["ask", "life"]);
     expect(recipeFits("versus", { ...LP35, breakEven: { ...LP35.breakEven!, cash: LP35.totalPaid! } })).toBe(false);
     const more = { ...LP35, breakEven: { ...LP35.breakEven!, cash: "545,800" } };
@@ -44,6 +45,27 @@ describe("clip recipes (owner, 2026-11-11, ก ก ก)", () => {
     expect(recipesFor({ ...LP35, coverStyle: "rows" })).toEqual([]);
     expect(recipesFor({ ...LP35, cover: [LP35.cover[0]] })).toEqual([]);
     expect(recipesFor({ ...LP35, prices: LP35.prices.filter((p) => p.label !== "รายปี") })).toEqual([]);
+  });
+
+  it("offers none to a real pay-to-99 quote (final review, 2026-11-12)", () => {
+    const to99 = quoteVideoFacts({ product: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 1_000_000 })!;
+    expect(to99.payToEnd).toBe(true);
+    expect(recipesFor(to99)).toEqual([]);
+  });
+
+  it("offers เส้นชีวิต only where the premiums end before the cover steps down, so its ages run in order (final review, 2026-11-12)", () => {
+    // a woman of 58 pays to 76, past the step at 60: the line would read 58 → 76 → 60 → 99
+    const late = quoteVideoFacts({ product: "LIFEPROTECT", variant: "WLF19H", age: 58, sex: "F", sumAssured: 1_000_000 })!;
+    expect(late.lastPayAge).toBe(76);
+    expect(recipeFigures(late)?.splitAge).toBe(60);
+    expect(recipesFor(late)).toEqual(["ask", "versus"]);
+    // paid up at 59, the step at 60: in order; paid up at 60 itself is not before the step
+    const f41 = quoteVideoFacts({ product: "LIFEPROTECT", variant: "WLF19H", age: 41, sex: "F", sumAssured: 1_000_000 })!;
+    expect(f41.lastPayAge).toBe(59);
+    expect(recipeFits("life", f41)).toBe(true);
+    const f42 = quoteVideoFacts({ product: "LIFEPROTECT", variant: "WLF19H", age: 42, sex: "F", sumAssured: 1_000_000 })!;
+    expect(f42.lastPayAge).toBe(60);
+    expect(recipeFits("life", f42)).toBe(false);
   });
 
   it("speaks each recipe's scenes with the quote's own figures", () => {

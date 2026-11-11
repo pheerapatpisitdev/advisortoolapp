@@ -97,7 +97,10 @@ One function a recipe, `fits(facts)`; a recipe that does not fit is never offere
 
 - all three: product Life Protect, Thai, no riders, no budget, `coverStyle === "bars"` with two cover
   rows that name an age, and a yearly price row.
-- `ask`, `life`: also `perDayAmount` (ask), `payYears`, `lastPayAge`, and not `payToEnd`.
+- all three: not `payToEnd` (final review, 2026-11-12: a plan paid to 99 is told by none).
+- `ask`, `life`: also `perDayAmount` (ask), `payYears`, `lastPayAge`.
+- `life`: also `lastPayAge` below the first cover row's age, so its ages run in order (a woman of 58
+  paying to 76 past the step at 60 is not told as a life line).
 - `versus`: also `totalPaid`, `breakEven`, and `breakEven.cash` greater than `totalPaid`.
 
 ## Parts
