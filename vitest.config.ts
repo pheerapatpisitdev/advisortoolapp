@@ -8,7 +8,8 @@ export default defineConfig({
   // .tsx drawn in a test (the posters) uses the automatic runtime, as Next compiles it
   esbuild: { jsx: "automatic" },
   test: {
-    include: ["tests/**/*.test.ts"],
+    // .test.tsx too: the recipe frames are drawn JSX and are tested by rendering it
+    include: ["tests/**/*.test.{ts,tsx}"],
     // throwaway probes a session leaves while hunting a bug: no assertions, not the suite
     exclude: ["tests/scratch/**", "**/node_modules/**"],
     environment: "node",
