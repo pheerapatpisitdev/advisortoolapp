@@ -12,6 +12,8 @@ import { XFADE } from "./timeline";
 
 /** the figure a scene is about, said short; none where it has no one figure */
 export function carryFigure(key: string, f: QuoteVideoFacts): string | null {
+  // วิดีโอเทียบ 4 แผน has no one figure a scene: every scene compares
+  if (f.allPlans) return null;
   switch (key) {
     case "price": {
       if (f.perDayAmount) return `${f.perDayAmount} บาท/วัน`;

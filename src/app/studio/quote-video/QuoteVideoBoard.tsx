@@ -17,6 +17,7 @@ import { formatBaht } from "@/lib/wallet/money";
 import type { VideoBrief, WrittenLines } from "@/lib/quote-video/brief";
 import { REWRITES, StoryBrief, type ScriptState } from "./StoryBrief";
 import type { VideoSize } from "@/lib/quote-video/timeline";
+import type { PayMode } from "@/calc/types";
 import { ClipList } from "./ClipList";
 import { geminiOf, VoicePicker } from "./VoicePicker";
 import { GEMINI_DEFAULT, geminiVoice, type GeminiChoice } from "@/lib/voice/gemini";
@@ -117,6 +118,11 @@ const LENGTH_CHOICES: { length: VideoLength; name: string; hint: string }[] = [
   { length: "max", name: "2 นาที", hint: "9 ฉาก: เพิ่มเรื่องของลูกค้า เทียบกับเก็บเงินเอง ถาม-ตอบ และขั้นตอนเริ่มต้น · ยาวเกิน Reels ส่งให้ลูกค้าโดยตรง" },
 ];
 /** the three shapes (owner, 2026-10-11, mockup https://claude.ai/artifact/8bhEgAdp4pCBiv581F1weq); icons only (owner ก, 2026-10-20, mockup https://claude.ai/artifact/5sAgpnxR8WqbzoB5QrQu4t) */
+/** วิดีโอเทียบ 4 แผน's instalments, as the iHealthy Ultra Package page names them */
+const ALL4_MODES: { mode: PayMode; name: string }[] = [
+  { mode: "annual", name: "รายปี" }, { mode: "semi", name: "ราย 6 เดือน" }, { mode: "monthly", name: "รายเดือน" },
+];
+
 const SIZE_CHOICES: { size: VideoSize; name: string; ratio: string; shape: [number, number] }[] = [
   { size: "portrait", name: "แนวตั้ง 9:16", ratio: "9:16", shape: [16, 28] },
   { size: "square", name: "จัตุรัส 1:1", ratio: "1:1", shape: [24, 24] },
@@ -195,7 +201,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [withName, setWithName] = useState(true);
   const fhcPick = fhc.find((c) => c.id === fhcId);
   // the size picked last time, kept in this browser only (owner, 2026-10-11: like the voice)
-  const [size, setSize] = useState<VideoSize>("portrait");
+  const [pickedSize, setSize] = useState<VideoSize>("portrait");
   useEffect(() => {
     try {
       const kept = localStorage.getItem(SIZE_KEY);
@@ -243,6 +249,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     try { localStorage.setItem(GEMINI_KEY, name); } catch { /* not remembered, still used */ }
   }
   const [plan, setPlan] = useState(start?.plan && ihuPlans.some((p) => p.code === start.plan) ? start.plan : "GOLD");
+  // วิดีโอเทียบ 4 แผน (owner chose ข, 2026-11-11): the iHealthy Ultra Package page in one clip, in its instalment;
+  // null = the one-plan clip. It is Motion Graphic, upright and the whole length only: the form holds those
+  const [all4, setAll4] = useState<PayMode | null>(startProduct === "IHEALTHY" ? start?.allPlans ?? null : null);
+  const allOn = kind === "quote" && product === "IHEALTHY" && all4 !== null;
+  const size: VideoSize = allOn ? "portrait" : pickedSize;
   const [compare, setCompare] = useState<string[]>([]);
   // iHealthy from its page (owner, 2026-10-14): the page's base, sum, territory, coverage and riders
   const [setup, setSetup] = useState(startProduct === "IHEALTHY" ? start?.setup : undefined);
@@ -286,7 +297,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const refreshQuota = () => voiceQuota().then(setQuota).catch(() => undefined);
   /** an ElevenLabs voice instead, of the narrator's sex where there is one */
   const elevenInstead = eleven.find((v) => v.sex === narrator) ?? eleven[0];
-  const [style, setStyle] = useState<VideoStyle>("classic");
+  const [pickedStyle, setStyle] = useState<VideoStyle>("classic");
+  const style: VideoStyle = allOn ? "motion" : pickedStyle;
   // ธีม (owner, 2026-10-17): the Motion Graphic look, remembered in this browser
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_THEME);
   // ธีมเทศกาล (owner, 2026-10-20): offered in a festival's seven days, and picked by itself unless turned off for it
@@ -315,7 +327,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   }
   /** another language: fixed lines, Gemini's narrator, the 15-second clip or the whole one */
   const foreign = kind === "quote" && product === "IHEALTHY" && lang !== "th";
-  const length: VideoLength = foreign && pickedLength !== "short" ? "full" : pickedLength;
+  const length: VideoLength = allOn || (foreign && pickedLength !== "short") ? "full" : pickedLength;
   // โจทย์การเล่า (owner, 2026-10-13): a new agent starts on ให้ระบบเลือก, so every clip opens on a hook
   const [brief, setBriefState] = useState<VideoBrief>({ hook: "auto" });
   const [script, setScript] = useState<ScriptState | null>(null);
@@ -401,7 +413,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     ? { ...quiet, narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
     : { ...quiet, narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...(foreign ? { lang } : {}), ...look }
+    ? (allOn
+      ? { product, sex, age: Number(age), plan, compare: [], allPlans: all4!, ...(foreign ? { lang } : {}), ...look, budget: undefined, brief: undefined, lines: undefined }
+      : { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...(foreign ? { lang } : {}), ...look })
     : product === "PENSION"
       ? {
           product, sex, age: Number(age), annuityAge: pensionStart, pay, ...look,
@@ -442,13 +456,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier, setup, lpRiders]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier, setup, lpRiders, all4, lang]);
 
   // the script shown is the one for what the form holds: anything changed, and it is written again
   useEffect(() => {
     setScript(null);
     setScriptError(null);
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, gemini, setup, lang, lpRiders]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, gemini, setup, lang, lpRiders, all4]);
 
   /** ดูสคริปต์: written to the brief (again: another try), or the agent's edits read back */
   async function showScript(again: boolean) {
@@ -599,7 +613,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       ? fhcPick?.name ?? ""
       : `${sex === "M" ? "ชาย" : "หญิง"} ${age}${customer.trim() && length !== "short" ? ` · ${foreign ? "" : "คุณ"}${customer.trim()}` : ""}`,
     plan: product === "IHEALTHY"
-      ? (source === "sum" ? ihuPlans.find((p) => p.code === plan)?.name ?? "" : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
+      ? allOn ? `เทียบ 4 แผน · ${ALL4_MODES.find((m) => m.mode === all4)?.name ?? ""}`
+      : (source === "sum" ? ihuPlans.find((p) => p.code === plan)?.name ?? "" : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
       : product === "PENSION"
         ? `${source === "sum" ? `บำนาญเดือนละ ${monthly}` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · รับ ${pensionStart} · ${pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
       : product === "LEGACY"
@@ -621,7 +636,16 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const lookStep = (
     <Step n={kind === "quote" ? 5 : 4} title="หน้าตาวิดีโอ" summary={summary.look}>
       <div className={kind === "quote" ? "space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-5 xl:gap-y-3 xl:space-y-0" : "space-y-3"}>
-        {kind === "quote" && (
+        {allOn && (
+          <>
+            <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm xl:col-span-2">
+              เทียบ 4 แผน ทำเป็น Motion Graphic แนวตั้ง 9:16 ความยาวเต็มเท่านั้น · {priceBaht(prices[videoPriceKey("motion", "full")])} บาท
+            </p>
+            {themeChips}
+            {musicChips}
+          </>
+        )}
+        {kind === "quote" && !allOn && (
           <>
             <div>
               <span className={label}>ความยาว</span>
@@ -650,7 +674,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         )}
         {kind === "fhc" && themeChips}
         {kind === "fhc" && musicChips}
-        <SizePicker size={size} pick={pickSize} />
+        {!allOn && <SizePicker size={size} pick={pickSize} />}
         <VoicePicker
           id="qv-voice" pick={{ narrator, voice, gemini }} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)} foreign={foreign}
           onPick={(p) => { pickVoice(p.voice); if (!p.voice) { pickNarrator(p.narrator); pickGemini(p.gemini); } }}
@@ -765,6 +789,29 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             </Step>
 
             <Step n={3} title="แผน" summary={summary.plan}>
+              {product === "IHEALTHY" && (
+                <div>
+                  <span className={label}>แบบคลิป</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className={chip(!allOn)} onClick={() => setAll4(null)}>แผนเดียว</button>
+                    <button type="button" className={chip(allOn)} onClick={() => setAll4((m) => m ?? "annual")}>เทียบ 4 แผน</button>
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--ct-mute)]">
+                    {allOn
+                      ? "ทุกแผนในตารางหน้า iHealthy Ultra Package ราคาชุดเดียวกับหน้านั้น · อายุ 6–10 ปีซื้อได้ 2 แผน"
+                      : "แผนหลัก 1 แผน เทียบได้อีก 2 แผน ราคาจากหน้า iHealthy Ultra"}
+                  </p>
+                </div>
+              )}
+              {allOn && (
+                <div>
+                  <span className={label}>งวดชำระ</span>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL4_MODES.map((m) => <button key={m.mode} type="button" className={chip(all4 === m.mode)} onClick={() => setAll4(m.mode)}>{m.name}</button>)}
+                  </div>
+                </div>
+              )}
+              {!allOn && (<>
               {product === "PENSION" && (
                 <div className="grid gap-4 @sm:grid-cols-2">
                   <div>
@@ -907,20 +954,21 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   </div>
                 </>
               )}
+              </>)}
               <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
                 {ok ? (
                   <div className="space-y-0.5">
-                    <div className="flex justify-between gap-2"><span>{ok.lead.label}</span><b>{ok.lead.amount} บาท</b></div>
+                    {!allOn && <div className="flex justify-between gap-2"><span>{ok.lead.label}</span><b>{ok.lead.amount} บาท</b></div>}
                     {ok.prices.map((p) => (
                       <div key={p.label} className="flex justify-between gap-2"><span>{p.label}</span><b>{p.amount} บาท</b></div>
                     ))}
-                    {source !== "sum" && (
+                    {source !== "sum" && !allOn && (
                       <p className="font-medium">
                         {ok.resolved.tier ? `เลือกขนาดให้: มรดก ${ok.resolved.tier} ล้าน` : ok.resolved.sum ? `คิดทุนให้: ${ok.resolved.sum.toLocaleString("en-US")} บาท` : `เลือกแผนให้: ${resolvedPlan ?? ""}`}{" "}
                         <button type="button" className="underline" onClick={keepResolved}>ใช้ค่านี้แล้วแก้เอง</button>
                       </p>
                     )}
-                    <p className="text-xs text-[var(--ct-mute)]">{ok.mark} · ตัวเลขชุดเดียวกับหน้า {PRODUCTS.find((p) => p.code === product)?.page}</p>
+                    <p className="text-xs text-[var(--ct-mute)]">{ok.mark} · ตัวเลขชุดเดียวกับหน้า {allOn ? "/ihealthy-ultra/compare" : PRODUCTS.find((p) => p.code === product)?.page}</p>
                   </div>
                 ) : (
                   <p className="text-[var(--ct-mute)]">{preview && "error" in preview ? preview.error : "กำลังคิดราคา…"}</p>
@@ -933,6 +981,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
 
         {/* the right column: its first step drops the top rule, the column rule stands in for it */}
         <div className="min-w-0 xl:border-l xl:border-[var(--ct-hair)] xl:pl-5 xl:[&>section:first-child]:border-t-0 xl:[&>section:first-child]:pt-0">
+        {allOn && !foreign && (
+          <Step n={4} title="โจทย์การเล่า" summary="บทเทียบ 4 แผน">
+            <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">
+              เทียบ 4 แผนใช้บทมาตรฐาน 6 ฉาก ตัวเลขทุกตัวจากหน้า iHealthy Ultra Package ขั้นนี้จึงไม่ต้องเลือก
+            </p>
+          </Step>
+        )}
         {kind === "quote" && foreign && (
           <Step n={4} title="โจทย์การเล่า" summary="บทมาตรฐาน">
             <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">
@@ -940,7 +995,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             </p>
           </Step>
         )}
-        {kind === "quote" && !foreign && (
+        {kind === "quote" && !foreign && !allOn && (
           <Step n={4} title="โจทย์การเล่า" summary={summary.brief}>
             <StoryBrief
               brief={brief} setBrief={setBrief} stories={ok?.stories ?? []} longClip={length === "long" || length === "max"}

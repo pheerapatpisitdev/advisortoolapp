@@ -1,3 +1,5 @@
+import type { PayMode } from "@/calc/types";
+import type { AllPlansFacts } from "./ihealthy-all-plans";
 import type { QuoteVideoFacts, SceneScript } from "./script";
 import type { VideoLang } from "./video-words";
 
@@ -232,3 +234,104 @@ export function foreignScript(f: QuoteVideoFacts, lang: Foreign, name: string, s
 
 /** one space between words, and none before a full stop or comma; never a colon (see compareLine) */
 const tidy = (s: string) => s.replace(/\s+/g, " ").replace(/\s+([.,;:!?])/g, "$1").replace(/[:：]/g, ",").trim();
+
+/**
+ * วิดีโอเทียบ 4 แผน in English, Chinese, Russian and Burmese (owner chose ข, 2026-11-11): the Thai
+ * clip's six lines (ihealthy-all-plans-script.ts), said in fixed sentences from the page's figures.
+ */
+const SAME_SAID: Record<Foreign, Record<string, string>> = {
+  en: { "2": "hospital care", "4": "surgery", "9": "dialysis", "10": "cancer treatment", "11": "cancer treatment", "12": "the ambulance" },
+  zh: { "2": "住院治疗", "4": "手术", "9": "透析", "10": "癌症治疗", "11": "癌症治疗", "12": "急救车" },
+  ru: { "2": "лечение в больнице", "4": "операции", "9": "диализ", "10": "лечение рака", "11": "лечение рака", "12": "скорая помощь" },
+  my: { "2": "ဆေးရုံ ကုသမှု", "4": "ခွဲစိတ်မှု", "9": "ကျောက်ကပ်ဆေးကြောခြင်း", "10": "ကင်ဆာကုသမှု", "11": "ကင်ဆာကုသမှု", "12": "လူနာတင်ယာဉ်" },
+};
+const EXTRA_SAID: Record<Foreign, Record<string, string>> = {
+  en: { "14": "a private nurse", "15": "accidental dental care", "16": "oral surgery", "17": "pregnancy complications" },
+  zh: { "14": "特别护理", "15": "意外牙科", "16": "口腔外科手术", "17": "妊娠并发症" },
+  ru: { "14": "сиделка", "15": "стоматология при травме", "16": "хирургия полости рта", "17": "осложнения беременности" },
+  my: { "14": "အထူးသူနာပြု", "15": "မတော်တဆ သွားကုသမှု", "16": "ပါးစပ်ခွဲစိတ်မှု", "17": "ကိုယ်ဝန်ဆောင် နောက်ဆက်တွဲ" },
+};
+const MODE_SAID: Record<Foreign, Record<PayMode, string>> = {
+  en: { annual: "paying yearly", semi: "paying every six months", monthly: "paying monthly" },
+  zh: { annual: "年缴", semi: "半年缴", monthly: "月缴" },
+  ru: { annual: "при оплате раз в год", semi: "при оплате раз в полгода", monthly: "при ежемесячной оплате" },
+  my: { annual: "နှစ်စဉ်ပေးရင်", semi: "ခြောက်လတစ်ကြိမ်ပေးရင်", monthly: "လစဉ်ပေးရင်" },
+};
+const uniq = (keys: string[], said: Record<string, string>) => [...new Set(keys.flatMap((k) => (said[k] ? [said[k]] : [])))];
+
+export function allPlansForeign(f: QuoteVideoFacts, a: AllPlansFacts, lang: Foreign, name: string): SceneScript[] {
+  const n = a.plans.length;
+  const first = a.plans[0];
+  const last = a.plans[n - 1];
+  const prices = a.plans.map((p) => `${p.name} ${bahtSaid(lang, p.premium)}`);
+  const life = lifeWith(lang, bahtSaid(lang, a.lifeSum));
+  const cash = a.dailyCash !== null ? INCLUDES[lang].ค่าชดเชยรายวัน : "";
+  const inc = list(lang, [life, ...(cash ? [cash] : [])]);
+  const same = uniq(a.same.map((r) => r.key), SAME_SAID[lang]);
+  const whom = name ? "" : who(lang, f);
+  const room = (x: typeof first) => num(x.room);
+
+  const hello = {
+    en: name ? `Hello, ${name}!` : "Hello!",
+    zh: name ? `${name}，您好！` : "您好！",
+    ru: name ? `Здравствуйте, ${name}!` : "Здравствуйте!",
+    my: name ? `မင်္ဂလာပါ ${name}။` : "မင်္ဂလာပါ။",
+  }[lang];
+  const lead = {
+    en: `${hello} Here are all ${n} iHealthy Ultra plans side by side in one clip${whom ? `, ${whom.replace(/^For/, "for").replace(/,$/, "")}` : ""}.`,
+    zh: `${hello} 今天 用一个视频 为您对比 iHealthy Ultra 全部 ${n}个方案${whom ? `， 适合 ${whom}` : ""}。`,
+    ru: `${hello} Сравним все ${n} плана iHealthy Ultra в одном видео${whom ? ` ${whom.replace(/^Для/, "для")}` : ""}.`,
+    my: `${hello} ${whom} iHealthy Ultra အစီအစဉ် ${myNum(n)} ခုလုံးကို ဗီဒီယိုတစ်ခုတည်းမှာ နှိုင်းယှဉ်ပြပါမယ်။`,
+  }[lang];
+  const price = {
+    en: `In the first year, ${MODE_SAID.en[a.mode]}, ${list(lang, prices)}, with ${inc} already included.`,
+    zh: `首年 ${MODE_SAID.zh[a.mode]}保费 ${prices.join("， ")}， 已包含 ${inc}。`,
+    ru: `В первый год ${MODE_SAID.ru[a.mode]} ${list(lang, prices)}, уже включая ${inc}.`,
+    my: `ပထမနှစ် ${MODE_SAID.my[a.mode]} ${prices.join("၊ ")} ပါ။ ${inc} ပါဝင်ပြီးသားပါ။`,
+  }[lang];
+  const cover = {
+    en: `The yearly limit runs from ${bigSaid(lang, first.ceilingBaht).replace(/ baht$/, "")} to ${bigSaid(lang, last.ceilingBaht)}, and the room from ${comma(room(first))} to ${bahtSaid(lang, room(last))} a day.`,
+    zh: `每年保障额度 从 ${bigSaid(lang, first.ceilingBaht)} 到 ${bigSaid(lang, last.ceilingBaht)}， 房费 每天 ${bahtSaid(lang, room(first))} 到 ${bahtSaid(lang, room(last))}。`,
+    ru: `Годовой лимит — ${a.plans.map((p) => `${p.name} ${bigSaid(lang, p.ceilingBaht)}`).join(", ")}. Палата — от ${room(first)} до ${ruBaht(room(last))} в день.`,
+    my: `တစ်နှစ် ကန့်သတ်ငွေ ${bigSaid(lang, first.ceilingBaht)} ကနေ ${bigSaid(lang, last.ceilingBaht)} အထိ၊ အခန်း တစ်ရက်ကို ${bahtSaid(lang, room(first))} ကနေ ${bahtSaid(lang, room(last))} အထိ ပါ။`,
+  }[lang];
+  const sameLine = same.length ? {
+    en: `Every plan pays ${list(lang, same)} as charged, with no deductible.`,
+    zh: `所有方案 ${list(lang, same)} 都按实际费用支付， 无免赔额。`,
+    ru: `Во всех планах ${list(lang, same)} — по фактическим расходам, без франшизы.`,
+    my: `အစီအစဉ်တိုင်းမှာ ${list(lang, same)}ကို ကုန်ကျသလောက် ပေးပါတယ်။`,
+  }[lang] : "";
+  const extras = a.extras.map((g) => {
+    const rows = uniq(g.rows.map((r) => r.key as string).filter((k) => k !== "17" || f.sex === "F"), EXTRA_SAID[lang]);
+    const opd = g.opd?.amounts ?? [];
+    const opdEach = (fmt: (x: { name: string; baht: number }) => string, sep: string) => opd.map((x) => fmt({ name: x.name, baht: num(x.amount) })).join(sep);
+    if (lang === "en") {
+      const parts = [...rows, ...(opd.length ? [`outpatient care of ${opdEach((x) => `${bahtSaid(lang, x.baht)} a year on ${x.name}`, " and ")}`] : [])];
+      return `Choose ${g.plans.join(" or ")} and you also get ${list(lang, parts)}.`;
+    }
+    if (lang === "zh") {
+      const parts = [...rows, ...(opd.length ? [`门诊 每年 ${opdEach((x) => `${x.name} ${bahtSaid(lang, x.baht)}`, "、")}`] : [])];
+      return `选择 ${g.plans.join("或")}， 还可获得 ${list(lang, parts)}。`;
+    }
+    if (lang === "ru") {
+      const parts = [...rows, ...(opd.length ? [`амбулаторное лечение — ${opdEach((x) => `${x.name} до ${ruBaht(x.baht)}`, ", ")} в год`] : [])];
+      return `В планах ${g.plans.join(" и ")} есть ещё ${list(lang, parts)}.`;
+    }
+    const parts = [...rows, ...(opd.length ? [`ပြင်ပလူနာ တစ်နှစ်ကို ${opdEach((x) => `${x.name} ${bahtSaid(lang, x.baht)}`, "၊ ")}`] : [])];
+    return `${g.plans.join(" ဒါမှမဟုတ် ")} ကို ရွေးရင် ${list(lang, parts)} ထပ်ရပါတယ်။`;
+  });
+  const contact = {
+    en: "Interested in a plan? Send me a message any time. I'm happy to help you choose.",
+    zh: "对哪个方案 感兴趣， 欢迎随时 给我留言， 我很乐意 帮您挑选。",
+    ru: "Если какой-то план интересен, напишите мне в любое время. С удовольствием помогу выбрать.",
+    my: "စိတ်ဝင်စားတဲ့ အစီအစဉ် ရှိရင် အချိန်မရွေး မက်ဆေ့ချ် ပို့ပါ။ ရွေးချယ်ဖို့ ဝမ်းသာစွာ ကူညီပါမယ်။",
+  }[lang];
+  return [
+    { key: "lead", voice: tidy(lead) },
+    { key: "price", voice: tidy(price) },
+    { key: "cover", voice: tidy(cover) },
+    ...(sameLine ? [{ key: "value" as const, voice: tidy(sameLine) }] : []),
+    ...(extras.length ? [{ key: "compare" as const, voice: tidy(extras.join(" ")) }] : []),
+    { key: "contact", voice: tidy(contact) },
+  ];
+}

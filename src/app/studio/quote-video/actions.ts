@@ -14,6 +14,8 @@ import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iHealthyCard } from "@/lib/ihealthy-card";
 import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
+import { isAllPlansMode } from "@/lib/quote-video/ihealthy-all-plans";
+import { WORDS as IH_WORDS } from "@/lib/ihealthy-words";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
@@ -138,7 +140,9 @@ const voiceWord = (input: { voice?: string; gemini?: string }) => {
 /** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
 function checked(v: VideoInput): VideoInput | string {
   // from a budget: the form is checked with a stand-in sum, then the budget works out the real one
-  const budget = v.budget ? cleanBudget(v.budget) : undefined;
+  // วิดีโอเทียบ 4 แผน shows the page's own prices: no budget, Motion Graphic only, portrait, the whole length, no brief
+  const all = v.product === "IHEALTHY" && isAllPlansMode(v.allPlans);
+  const budget = v.budget && !all ? cleanBudget(v.budget) : undefined;
   if (typeof budget === "string") return budget;
   // a budget works the sum out from the plan alone: the page's riders go with the page's own sum
   const asked = !budget || v.product === "IHEALTHY" ? v
@@ -158,16 +162,16 @@ function checked(v: VideoInput): VideoInput | string {
   const gemini = eleven ? undefined : geminiVoice(v.gemini);
   const narrator = eleven ? eleven.sex : gemini ? gemini.sex : v.narrator === "M" ? "M" : "F";
   // แชทถาม-ตอบ (owner, 2026-10-20): its customer asks in Thai, so a clip in another language is แบบปกติ
-  const style = v.style === "motion" ? "motion" : v.style === "chat" && !foreign ? "chat" : "classic";
+  const style = all || v.style === "motion" ? "motion" : v.style === "chat" && !foreign ? "chat" : "classic";
   // a Motion Graphic clip's look (owner, 2026-10-17); น้ำเงินทอง is kept as no theme at all
   const look = lookOf(style === "motion" ? v.theme : undefined, v.myColor);
   const askedLength = readLength(v.length);
-  const length = foreign && askedLength !== "short" ? "full" : askedLength;
-  // every clip in every shape (owner, 2026-10-13)
-  const size = sizeOf(v);
+  const length = all || (foreign && askedLength !== "short") ? "full" : askedLength;
+  // every clip in every shape (owner, 2026-10-13); the 4-plan clip is drawn upright only
+  const size = all ? "portrait" : sizeOf(v);
   // โจทย์การเล่า: the brief, and the lines the agent saw (and may have edited) — checked again here
   const facts = quoteVideoFacts(c);
-  const brief = facts && !foreign ? cleanBrief(v.brief, facts) : undefined;
+  const brief = facts && !foreign && !all ? cleanBrief(v.brief, facts) : undefined;
   let lines: WrittenLines | undefined;
   if (facts && writes(brief) && v.lines) {
     const l = cleanLines(v.lines);
@@ -260,6 +264,11 @@ function checkedQuote(v: VideoInput): VideoInput | string {
   if (!Number.isInteger(v.age) || v.age < 0 || v.age > 99) return "ใส่อายุให้ถูกต้อง";
   if (v.product === "IHEALTHY") {
     const codes = new Set(iHealthyTable().plans.map((p) => p.code));
+    // วิดีโอเทียบ 4 แผน (owner chose ข, 2026-11-11): the iHealthy Ultra Package page, no plan of its own
+    if (isAllPlansMode(v.allPlans)) {
+      const lang = readVideoLang(v.lang);
+      return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: codes.has(v.plan) ? v.plan : "GOLD", compare: [], allPlans: v.allPlans, ...(lang !== "th" ? { lang } : {}) };
+    }
     if (!codes.has(v.plan)) return "เลือกแผน";
     const compare = [...new Set((Array.isArray(v.compare) ? v.compare : []).filter((c) => codes.has(c) && c !== v.plan))].slice(0, 2);
     const setup = cleanSetup(v.setup);
@@ -668,7 +677,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
     const input = v.input;
     const product = productOf(input);
     const what = input.product === "IHEALTHY"
-      ? `${planWord(input.plan)}${input.lang && input.lang !== "th" ? ` · ${LANG_NAME[readVideoLang(input.lang)]}` : ""}`
+      ? `${input.allPlans ? `เทียบ 4 แผน · ${IH_WORDS.th.mode[input.allPlans]}` : planWord(input.plan)}${input.lang && input.lang !== "th" ? ` · ${LANG_NAME[readVideoLang(input.lang)]}` : ""}`
       : input.product === "PENSION"
         ? `เดือนละ ${Math.round(input.sumAssured * MONTHLY_FACTOR_FIRST).toLocaleString("en-US")} · รับ ${input.annuityAge} · ${input.pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
         : input.product === "LEGACY"

@@ -19,7 +19,7 @@ import { it } from "vitest";
  * IHEALTHY=th:paper,zh:navy,ru:paper,my:navy writes iHealthy clips instead (props/ih-<lang>.json),
  * each language in the theme named, with the Chinese, Russian or Burmese face cut down by the app's
  * own googleFontSubset, as make.ts sends it. The Mac has no Burmese voice: those lines are silence of
- * about the length they would take.
+ * about the length they would take. ALL4=annual makes them วิดีโอเทียบ 4 แผน clips instead.
  */
 
 const ROOT = join(__dirname, "..");
@@ -118,7 +118,13 @@ it.runIf(Boolean(process.env.IHEALTHY))("prepares iHealthy props in each languag
   const report: Record<string, unknown> = {};
   for (const pair of process.env.IHEALTHY!.split(",")) {
     const [lang, theme = "navy"] = pair.split(":") as ["th" | "zh" | "ru" | "my", "navy"];
-    const input = {
+    // ALL4=annual|semi|monthly: วิดีโอเทียบ 4 แผน (ihealthy-all-plans.ts) for a woman of 35 instead
+    const all4 = process.env.ALL4 as "annual" | "semi" | "monthly" | undefined;
+    const input = all4 ? {
+      product: "IHEALTHY" as const, age: 35, sex: "F" as const, plan: "GOLD", compare: [], allPlans: all4,
+      style: "motion" as const, theme, size: "portrait" as const, length: "full" as const, narrator: "F" as const,
+      ...(lang !== "th" ? { lang } : {}),
+    } : {
       product: "IHEALTHY" as const, age: 40, sex: "F" as const, plan: "BRONZE", compare: ["SILVER", "GOLD"],
       setup: "base=WLF99H&sa=150000&area=&cover=&r=MEB%3A1000&r=DCI%3A%3A200000",
       style: "motion" as const, theme, size: "portrait" as const, length: "full" as const, narrator: "F" as const,

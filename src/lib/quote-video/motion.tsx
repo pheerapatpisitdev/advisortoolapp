@@ -11,6 +11,7 @@ import { captionShown, wordAt } from "./caption";
 import { countAt, H, LEAD, W, wordTimes } from "./timeline";
 import type { Extra } from "./told";
 import { preparedLine, wordsOf } from "./video-words";
+import { allPlansFrame, allPlansSpec } from "./ihealthy-all-plans-motion";
 
 /**
  * The Motion Graphic style of วิดีโอนำเสนอ (owner, 2026-10-11: "แค่โมชันกราฟิกอธิบายแบบประกัน",
@@ -45,6 +46,9 @@ export const a = (at: number, kind: Kind, dur = DUR[kind]): Anim => ({ at, dur, 
  * scene's pen notes wait on (chart-pen.tsx); without it they are left off.
  */
 export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, voice?: string): Record<string, Anim> {
+  // วิดีโอเทียบ 4 แผน draws its own scenes but the contact card (ihealthy-all-plans-motion.tsx)
+  const all = allPlansSpec(key, f, voiceSec);
+  if (all) return all;
   switch (key) {
     case "lead":
       return {
@@ -1448,7 +1452,7 @@ function StepsScene({ c, t }: { c: MotionContext; t: number }) {
 
 /** One frame of a Motion Graphic scene at scene time t: transparent, over the drifting background. */
 export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
-  const body = {
+  const body = allPlansFrame(key, c, t) ?? {
     lead: <Lead c={c} t={t} />,
     price: c.priceJar && jarFits(c.facts) ? <PriceJar c={c} t={t} /> : <Price c={c} t={t} />,
     cover: c.coverRoad && roadFits(c.facts) ? <CoverRoad c={c} t={t} /> : c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />

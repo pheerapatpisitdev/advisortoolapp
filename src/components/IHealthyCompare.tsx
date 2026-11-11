@@ -20,6 +20,7 @@ import { SEND_WORDS } from "@/lib/ihealthy-send-words";
 import type { IHealthyTable } from "@/lib/ihealthy-table";
 import { baseWords, WORDS } from "@/lib/ihealthy-words";
 import { markPdfReady, registerPrepare } from "@/lib/quote-pdf/prepare";
+import { videoStartHref } from "@/lib/quote-video/link";
 
 const label = "block text-sm text-[var(--lg-mute)]";
 const chip = (on: boolean) =>
@@ -235,8 +236,10 @@ export function IHealthyCompare(
             className="w-full rounded-sm border border-[var(--lg-panel-line)] px-3 py-3 text-center text-sm text-[var(--lg-mute)]"
             words={{ idle: w.printOrPdf, making: SEND_WORDS[lang].pdfMaking, ready: SEND_WORDS[lang].pdfReady, failed: SEND_WORDS[lang].pdfFailed }}
           />
+          {/* วิดีโอเทียบ 4 แผน (owner chose ข, 2026-11-11): the Studio form open on this table, for a signed-in agent only */}
           <ContactButtons
             copyText={quoteText} tableCardPath={compareCardPath(table, drawn, lang)} tableLabel={cw.picture} words={w.contact}
+            videoHref={videoStartHref({ product: "IHEALTHY", sex, age, plan: drawn.plan, allPlans: mode, lang })}
           />
         </div>
       )}

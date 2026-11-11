@@ -19,6 +19,9 @@ import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
 import { VIDEO_WORDS, type VideoLang } from "./video-words";
 import { WORDS } from "@/lib/ihealthy-words";
 import { foreignScript } from "./ihealthy-foreign";
+import type { AllPlansFacts } from "./ihealthy-all-plans";
+import { allPlansCaption, allPlansScript, allPlansVideoFacts } from "./ihealthy-all-plans-script";
+import type { PayMode } from "@/calc/types";
 
 /**
  * วิดีโอนำเสนอ (owner, 2026-10-11): what the scenes show and say, taken from the same quote the
@@ -55,7 +58,8 @@ export type VideoInput = (
   | { product?: "LIFEPROTECT" | "ISHIELD"; variant: string; age: number; sex: "M" | "F"; sumAssured: number; riders?: CardRiders }
   /** `setup`: the iHealthy Ultra page's base, sum, territory, coverage and riders as its address writes them (ihealthy-setup.ts); absent = the page's defaults */
   /** `lang`: the language the clip is told in (owner, 2026-10-15; video-words.ts); absent = Thai */
-  | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[]; setup?: string; lang?: VideoLang }
+  /** `allPlans`: วิดีโอเทียบ 4 แผน (owner chose ข, 2026-11-11), the iHealthy Ultra Package page in this instalment; `plan`, `compare` and `setup` are then unused */
+  | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[]; setup?: string; lang?: VideoLang; allPlans?: PayMode }
   /** the sum the pension is paid from; the form may send the monthly pension instead (pension.ts checkedPension) */
   | { product: "PENSION"; age: number; sex: "M" | "F"; annuityAge: number; pay: PensionPay; sumAssured: number; monthly?: number }
   /** มรดกเพื่อครอบครัว: the tier, 1–10, which is the millions the family receives (legacy.ts) */
@@ -201,6 +205,8 @@ export interface QuoteVideoFacts {
   plb?: PlbVideoFacts;
   /** Global Savings 15/8: the guarantee, the bonus at the picked return, the seven returns (gsaving.ts) */
   gsaving?: GsVideoFacts;
+  /** วิดีโอเทียบ 4 แผน: the iHealthy Ultra Package page's table (ihealthy-all-plans.ts) */
+  allPlans?: AllPlansFacts;
 }
 
 /**
@@ -425,6 +431,7 @@ function cellOf(rows: { label: string; cells: { text: string }[]; span?: string 
 }
 
 function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: Date): QuoteVideoFacts | undefined {
+  if (v.allPlans) return allPlansVideoFacts({ ...v, allPlans: v.allPlans }, today);
   const query = setupQuery(v);
   const card = iHealthyCard(query, today);
   // another language: the same card read in it (ihealthy-card.ts `l=`), row for row and column
@@ -611,6 +618,8 @@ function healthCoverLine(f: QuoteVideoFacts): string {
  * lines are always the fixed ones: the value table's pen notes are timed to their words.
  */
 export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator: "F" | "M" = "F", length: VideoLength = "full", told: Told = {}): SceneScript[] {
+  // วิดีโอเทียบ 4 แผน: its own six lines, at one length, with no brief (the form offers neither)
+  if (f.allPlans) return allPlansScript(f, f.allPlans, customer, narrator);
   const short = length === "short";
   const name = short ? "" : cleanCustomerName(customer);
   // another language (owner, 2026-10-15): its own fixed lines, the 15-second clip or the whole one, no brief
@@ -985,6 +994,7 @@ export function pageCaption(f: QuoteVideoFacts): string {
       ask,
     ].join("\n");
   }
+  if (f.allPlans) return allPlansCaption(f, f.allPlans);
   if (f.product === "IHEALTHY") {
     return [
       `ประกันสุขภาพเหมาจ่าย แผน ${f.planName} วงเงิน ${spokenBaht(f.lead.baht)}บาทต่อปี`,

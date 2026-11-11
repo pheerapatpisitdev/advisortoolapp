@@ -1,6 +1,8 @@
+import type { PayMode } from "@/calc/types";
 import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import { cleanSetup } from "./ihealthy-setup";
+import { MODES } from "@/lib/ihealthy-quote";
 import type { Product } from "./script";
 import { readVideoLang, type VideoLang } from "./video-words";
 
@@ -36,6 +38,8 @@ export interface VideoStart {
   riders?: CardRiders;
   /** Global Savings: the yearly premium, whole baht (owner, 2026-10-20) */
   premium?: number;
+  /** iHealthy: วิดีโอเทียบ 4 แผน from the iHealthy Ultra Package page, in its instalment (owner chose ข, 2026-11-11) */
+  allPlans?: PayMode;
 }
 
 export function videoStartHref(s: VideoStart): string {
@@ -50,6 +54,7 @@ export function videoStartHref(s: VideoStart): string {
   if (s.pay) q.set("pay", s.pay);
   if (s.tier !== undefined) q.set("tier", String(s.tier));
   if (s.premium !== undefined) q.set("premium", String(s.premium));
+  if (s.allPlans) q.set("all", s.allPlans);
   if (s.lang && s.lang !== "th") q.set("lang", s.lang);
   if (s.product === "LIFEPROTECT") writeRiders(q, s.riders);
   return `${VIDEO_PAGE}?${q.toString()}`;
@@ -99,5 +104,6 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...(setup ? { setup } : {}),
     ...(lang !== "th" ? { lang } : {}),
     ...(riders ? { riders } : {}),
+    ...(product === "IHEALTHY" && (MODES as unknown[]).includes(one(params.all)) ? { allPlans: one(params.all) as PayMode } : {}),
   };
 }

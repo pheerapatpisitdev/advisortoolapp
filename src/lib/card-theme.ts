@@ -294,6 +294,14 @@ export const QUOTE_VIDEO_COLORS = {
   coinTop: "#ffe680",
 } as const;
 
+/** iHealthy Ultra's plan colours (the company's sheet, as /ihealthy-ultra's theme.css has them), for วิดีโอเทียบ 4 แผน */
+export const IHEALTHY_PLAN_HUES = {
+  SMART: "#3D6B5B",
+  BRONZE: "#7B3C46",
+  SILVER: "#5B5F63",
+  GOLD: "#7E6520",
+} as const;
+
 /**
  * คลิปเล่าเรื่อง's palette (owner, 2026-10-15, mockup https://claude.ai/artifact/FmDZmdTf6Mwgb2Dza8hQtM):
  * the paper the cartoon faces were brought to (public/story/faces), the pen's ink and red ring,
