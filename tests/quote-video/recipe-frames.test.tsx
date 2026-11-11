@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { contactBlock, counted, enter, fitSize, footLine, type Enter, type RecipeClip } from "@/lib/quote-video/recipe-blocks";
 import { askFrame } from "@/lib/quote-video/recipe-ask";
 import { lifeFrame } from "@/lib/quote-video/recipe-life";
+import { versusFrame } from "@/lib/quote-video/recipe-versus";
 import { recipeFigures } from "@/lib/quote-video/recipes";
 import { quoteVideoFacts, type QuoteVideoFacts } from "@/lib/quote-video/script";
 
@@ -218,5 +219,89 @@ describe("lifeFrame (เส้นชีวิต)", () => {
     // the real column: the clip less the rail's 20 % and the 9 % right padding
     for (let i = 0; i < 5; i++) expect(nowrapOverflows(at(i, big.scenes[i].dur / 2, big), 1080 - 0.29 * 1080)).toEqual([]);
     expect(at(2, 2, big)).toContain("50,000,000");
+  });
+});
+
+describe("versusFrame (เทียบให้เห็น)", () => {
+  const DURS = [3.2, 3.8, 3.8, 2.8];
+  const c = lp35Clip(DURS);
+  const at = (i: number, t: number, clipOf = c, w = 1080, h = 1920) => renderToStaticMarkup(versusFrame(clipOf, i, t, clipOf.scenes[i].start + t, w, h));
+  /** a clip whose sums are set by hand: the facts and the figures agree */
+  const withSums = (paid: number, cash: number, name = "ชื่อตัวแทน"): RecipeClip => {
+    const f = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const facts = { ...LP35, totalPaid: f(paid), breakEven: { ...LP35.breakEven!, cash: f(cash) } };
+    const k = lp35Clip(DURS, facts, name);
+    k.figures = { ...k.figures, paid, cash, diff: cash - paid };
+    return k;
+  };
+  /** the heights in px of the grey (paid) and blue (cash) bars of scene 2 once settled */
+  const bars = (clipOf: RecipeClip) => {
+    const html = at(1, 3, clipOf);
+    const px = (color: string) => Number(new RegExp(`<div style="[^"]*height:([\\d.]+)px[^"]*background:${color}`).exec(html)?.[1]);
+    return { paid: px("#c9d2e3"), cash: px("#1e56d6") };
+  };
+
+  it("draws every scene at its start, middle and end with the foot line", () => {
+    c.scenes.forEach((s, i) => {
+      for (const t of [0, 0.3, s.dur / 2, s.dur - 0.01]) expect(at(i, t)).toContain(FOOT);
+    });
+  });
+  it("puts the quote's own figures on each scene", () => {
+    const first = at(0, 2);
+    for (const s of ["จ่ายรวม 19 ปี", "545,300", "อายุ 64 เวนคืนได้", "553,000"]) expect(first).toContain(s);
+    const second = at(1, 3);
+    for (const s of ["จ่ายไป กับ ได้คืน", "545,300", "553,000", "จ่ายรวม", "เวนคืนอายุ 64"]) expect(second).toContain(s);
+    const third = at(2, 3);
+    for (const s of ["ได้คืนมากกว่าที่จ่าย", "+7,700", "และระหว่างทาง", "มีความคุ้มครอง", "2,000,000 ก่อนอายุ 60"]) expect(third).toContain(s);
+  });
+  it("stands on the off-white sheet with Plex at 400 and 600 only", () => {
+    expect(at(1, 2)).toContain("background:#fbfaf7");
+    for (let i = 0; i < 4; i++) for (const m of at(i, 3).matchAll(/font-weight:(\d+)/g)) expect([400, 600]).toContain(Number(m[1]));
+  });
+  it("ends on the contact name and LINE", () => {
+    const html = at(3, c.scenes[3].dur / 2);
+    for (const s of ["ดูตัวเลขของคุณ", "ชื่อตัวแทน", "LINE @yourline", "081-234-5678"]) expect(html).toContain(s);
+  });
+  it("grows the bars from the bottom and draws them to true scale", () => {
+    const b = bars(c);
+    expect(b.cash).toBeGreaterThan(b.paid);
+    expect(b.paid / b.cash).toBeCloseTo(545_300 / 553_000, 3);
+    expect(at(1, 0.3)).toContain("scaleY(");
+    expect(at(1, 0.3)).not.toContain("scaleY(1");
+    expect(at(1, 3)).not.toContain("scaleY(");
+  });
+  it("a tiny difference (cash = paid + 500): +500, bars under 1% apart, both drawn", () => {
+    const k = withSums(545_300, 545_800);
+    expect(at(2, 3, k)).toContain("+500");
+    const { paid, cash } = bars(k);
+    expect(paid).toBeGreaterThan(0);
+    expect(cash).toBeGreaterThan(0);
+    // the bar area is the taller bar's height
+    expect((cash - paid) / cash).toBeLessThan(0.01);
+    expect(cash).toBeGreaterThan(paid);
+  });
+  it("a large difference (cash = 3 x paid): the paid bar is one third of the cash bar", () => {
+    const { paid, cash } = bars(withSums(500_000, 1_500_000));
+    expect(paid / cash).toBeCloseTo(1 / 3, 3);
+  });
+  it("refuses a clip without its three sums rather than draw an empty figure", () => {
+    const k = lp35Clip(DURS);
+    k.figures = { ...k.figures, diff: undefined };
+    expect(() => versusFrame(k, 1, 1, 4, 1080, 1920)).toThrow("versus recipe does not fit");
+  });
+  it("keeps 50,000,000 sums and a 40-letter name on one line inside their columns", () => {
+    const k = withSums(49_000_000, 50_000_000, "ก".repeat(40));
+    k.figures = { ...k.figures, early: "50,000,000" };
+    // scene 1: each half holds the figure in half the clip less its 6 % padding a side
+    expect(nowrapOverflows(at(0, 2, k), 540 - 2 * 65)).toEqual([]);
+    // scene 2: a bar's column (the title above them has the whole width)
+    expect(nowrapOverflows(at(1, 3, k), 1080 - 2 * 97).filter((x) => x !== "จ่ายไป กับ ได้คืน")).toEqual([]);
+    expect(nowrapOverflows(at(1, 3, k), Math.floor((1080 - 2 * 97 - 54) / 2)).filter((x) => x === "จ่ายไป กับ ได้คืน")).toEqual(["จ่ายไป กับ ได้คืน"]);
+    const col = Math.floor((1080 - 2 * 97 - 54) / 2);
+    expect(nowrapOverflows(at(1, 3, k), col).filter((x) => /\d|เวน|จ่ายรวม/.test(x))).toEqual([]);
+    // scenes 3 and 4: the clip less 9 % a side
+    for (const i of [2, 3]) expect(nowrapOverflows(at(i, 3, k), 1080 - 2 * 97)).toEqual([]);
+    expect(at(2, 3, k)).toContain("+1,000,000");
+    expect(at(1, 3, k)).toContain("50,000,000");
   });
 });
