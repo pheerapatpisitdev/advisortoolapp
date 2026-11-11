@@ -470,6 +470,19 @@ export const KINETIC_COLORS = [
   { ground: "#022162", ink: "#ffffff", figure: "#f2c75c", soft: "rgba(255,255,255,0.6)" },
 ] as const;
 
+/**
+ * สูตรคลิป Motion (owner, 2026-11-11, mockup https://claude.ai/artifact/2yaTZU2RVFVmMn9VNi9K88, ก ก ก; quote-video/recipe-*.tsx):
+ * each recipe's own colours, as the mockup has them (3: every recipe its own colours and face, not the themes')
+ */
+export const RECIPE_COLORS = {
+  // เปิดด้วยคำถาม: a yellow poster in black ink, the 2nd and 4th scenes swapped; one red mark
+  ask: { yellow: "#ffd23f", ink: "#111", mark: "#e63946", onMark: "#fff", rowInk: "#fff", footOnYellow: "rgba(17,17,17,0.6)", footOnInk: "rgba(255,210,63,0.6)" },
+  // เส้นชีวิต: deep green, cream words, a gold rail on a faint cream track, the dot's gold halo
+  life: { ground: "#0f3d3a", ink: "#f6efe0", gold: "#f2b84b", track: "rgba(246,239,224,0.18)", halo: "rgba(242,184,75,0.25)", foot: "rgba(246,239,224,0.6)" },
+  // เทียบให้เห็น: an off-white sheet, navy words; the paid half pale, the cash half blue in white; one orange pill
+  versus: { sheet: "#fbfaf7", ink: "#1b2a4a", blue: "#1e56d6", onBlue: "#fff", grey: "#c9d2e3", pale: "#e9edf5", pill: "#ff5a3c", onPill: "#fff", foot: "rgba(27,42,74,0.6)" },
+} as const;
+
 /** แชทถาม-ตอบ (owner, 2026-10-20; quote-video/chat.tsx): a plain chat, nobody's brand */
 export const CHAT_COLORS = {
   ground: "#eef1f6", head: "#022162", headInk: "#ffffff", online: "#4ade80", avatar: "#f5e6c8",

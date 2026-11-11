@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { RECIPE_COLORS } from "@/lib/card-theme";
 import { contactBlock, counted, enter, fitSize, footLine, type RecipeClip } from "./recipe-blocks";
 
 /**
@@ -9,9 +10,7 @@ import { contactBlock, counted, enter, fitSize, footLine, type RecipeClip } from
  * seconds. Every figure comes from the clip's facts.
  */
 
-const YELLOW = "#ffd23f";
-const INK = "#111";
-const MARK = "#e63946";
+const { yellow: YELLOW, ink: INK, mark: MARK } = RECIPE_COLORS.ask;
 const FACE = "Kanit";
 
 /** one scene at scene time t; T (the clip's own time) is not used: every scene here stands alone */
@@ -41,7 +40,7 @@ export function askFrame(c: RecipeClip, index: number, t: number, _T: number, w:
         {piece("wipe", 0.9, big,
           <>
             <div style={{ display: "flex" }}>
-              <span style={{ display: "flex", background: MARK, color: "#fff", padding: `0 ${cq(2)}px` }}>ที่บ้าน</span>อยู่ได้
+              <span style={{ display: "flex", background: MARK, color: RECIPE_COLORS.ask.onMark, padding: `0 ${cq(2)}px` }}>ที่บ้าน</span>อยู่ได้
             </div>
             <div style={{ display: "flex" }}>กี่เดือน?</div>
           </>)}
@@ -67,7 +66,7 @@ export function askFrame(c: RecipeClip, index: number, t: number, _T: number, w:
       <>
         {piece("left", 0, { fontWeight: 900, fontSize: cq(10), lineHeight: 1.08 }, "แลกกับ")}
         {rows.map(([n, a, b], i) =>
-          piece("right", 0.3 * (i + 1), { alignItems: "center", gap: cq(4), background: INK, color: "#fff", padding: `${cq(3.5)}px ${cq(4)}px`, borderRadius: cq(3), fontWeight: 500, fontSize: cq(5.2), lineHeight: 1.25 },
+          piece("right", 0.3 * (i + 1), { alignItems: "center", gap: cq(4), background: INK, color: RECIPE_COLORS.ask.rowInk, padding: `${cq(3.5)}px ${cq(4)}px`, borderRadius: cq(3), fontWeight: 500, fontSize: cq(5.2), lineHeight: 1.25 },
             <>
               <div style={{ display: "flex", color: YELLOW, fontWeight: 900, fontSize: cq(9), minWidth: cq(11), fontVariantNumeric: "tabular-nums" }}>{n}</div>
               <div style={{ display: "flex", flexDirection: "column" }}><div style={{ display: "flex" }}>{a}</div><div style={{ display: "flex" }}>{b}</div></div>
@@ -81,7 +80,7 @@ export function askFrame(c: RecipeClip, index: number, t: number, _T: number, w:
   return (
     <div style={{ display: "flex", position: "relative", width: w, height: h, overflow: "hidden", background: ground, color: ink, fontFamily: FACE }}>
       <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h, flexDirection: "column", justifyContent: "center", alignItems: index === 3 ? "center" : "stretch", gap: cq(4), padding: cq(9) }}>{body}</div>
-      {footLine(c, w, h, inverted ? "rgba(255,210,63,0.6)" : "rgba(17,17,17,0.6)")}
+      {footLine(c, w, h, inverted ? RECIPE_COLORS.ask.footOnInk : RECIPE_COLORS.ask.footOnYellow)}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { RECIPE_COLORS } from "@/lib/card-theme";
 import { contactBlock, enter, fitSize, footLine, type RecipeClip } from "./recipe-blocks";
 
 /**
@@ -13,12 +14,7 @@ import { contactBlock, enter, fitSize, footLine, type RecipeClip } from "./recip
  * loaded at 400 and 600 only; the mockup's 500 and 700 are drawn as 400 and 600.
  */
 
-const SHEET = "#fbfaf7";
-const INK = "#1b2a4a";
-const BLUE = "#1e56d6";
-const GREY = "#c9d2e3";
-const PALE = "#e9edf5";
-const PILL = "#ff5a3c";
+const { sheet: SHEET, ink: INK, blue: BLUE, grey: GREY, pale: PALE, pill: PILL } = RECIPE_COLORS.versus;
 const FACE = "Plex";
 
 const thousands = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -54,7 +50,7 @@ export function versusFrame(c: RecipeClip, index: number, t: number, _T: number,
     body = (
       <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h }}>
         {side(PALE, INK, "left", 0, facts.payYears !== undefined ? `จ่ายรวม ${facts.payYears} ปี` : "จ่ายรวม", facts.totalPaid)}
-        {side(BLUE, "#fff", "right", 0.25, `อายุ ${be.age} เวนคืนได้`, be.cash)}
+        {side(BLUE, RECIPE_COLORS.versus.onBlue, "right", 0.25, `อายุ ${be.age} เวนคืนได้`, be.cash)}
       </div>
     );
   } else if (index === 1) {
@@ -94,7 +90,7 @@ export function versusFrame(c: RecipeClip, index: number, t: number, _T: number,
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: cq(4), width: room }}>
         {piece("up", 0, oneLine("ได้คืนมากกว่าที่จ่าย", room, cq(4.4), { fontWeight: 400, lineHeight: 1.3 }), "ได้คืนมากกว่าที่จ่าย")}
         {piece("pop", 0.2, oneLine(gain, room, cq(20), { fontWeight: 600, color: BLUE, lineHeight: 1, fontVariantNumeric: "tabular-nums" }), gain)}
-        {piece("left", 0.9, { fontWeight: 600, fontSize: cq(4.6), background: PILL, color: "#fff", padding: `${cq(1)}px ${cq(4)}px`, borderRadius: 99 }, "และระหว่างทาง")}
+        {piece("left", 0.9, { fontWeight: 600, fontSize: cq(4.6), background: PILL, color: RECIPE_COLORS.versus.onPill, padding: `${cq(1)}px ${cq(4)}px`, borderRadius: 99 }, "และระหว่างทาง")}
         {piece("up", 1.1, { flexDirection: "column", fontWeight: 600, fontSize: coverSize, lineHeight: 1.15 }, <>{line("มีความคุ้มครอง")}{line(cover)}</>)}
       </div>
     );
@@ -109,7 +105,7 @@ export function versusFrame(c: RecipeClip, index: number, t: number, _T: number,
       ) : (
         <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h, flexDirection: "column", justifyContent: index === 1 ? "flex-start" : "center", alignItems: "flex-start", padding: pad }}>{body}</div>
       )}
-      {footLine(c, w, h, "rgba(27,42,74,0.6)")}
+      {footLine(c, w, h, RECIPE_COLORS.versus.foot)}
     </div>
   );
 }

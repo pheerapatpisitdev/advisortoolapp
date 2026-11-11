@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { RECIPE_COLORS } from "@/lib/card-theme";
 import { bezier, contactBlock, enter, fitSize, footLine, type RecipeClip } from "./recipe-blocks";
 
 /**
@@ -9,9 +10,7 @@ import { bezier, contactBlock, enter, fitSize, footLine, type RecipeClip } from 
  * (1cqw = 1% of the clip width); cues are its `--d` seconds. Every figure comes from the clip's facts.
  */
 
-const GROUND = "#0f3d3a";
-const INK = "#f6efe0";
-const GOLD = "#f2b84b";
+const { ground: GROUND, ink: INK, gold: GOLD } = RECIPE_COLORS.life;
 const FACE = "Trirong";
 
 /** where the rail's gold stands at the start of each scene, in % of the clip height */
@@ -90,13 +89,13 @@ export function lifeFrame(c: RecipeClip, index: number, t: number, T: number, w:
 
   return (
     <div style={{ display: "flex", position: "relative", width: w, height: h, overflow: "hidden", background: GROUND, color: INK, fontFamily: FACE }}>
-      <div style={{ display: "flex", position: "absolute", left: cq(11), top: 0, width: cq(0.8), height: h, background: "rgba(246,239,224,0.18)" }}>
+      <div style={{ display: "flex", position: "absolute", left: cq(11), top: 0, width: cq(0.8), height: h, background: RECIPE_COLORS.life.track }}>
         <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: "100%", height: `${railFill(c.scenes, T).toFixed(3)}%`, background: GOLD }} />
       </div>
-      <div style={{ display: "flex", position: "absolute", left: cq(8.4), top: Math.round(h * 0.47), width: cq(6), height: cq(6), borderRadius: "50%", background: GOLD, boxShadow: `0 0 0 ${cq(2)}px rgba(242,184,75,0.25)` }} />
+      <div style={{ display: "flex", position: "absolute", left: cq(8.4), top: Math.round(h * 0.47), width: cq(6), height: cq(6), borderRadius: "50%", background: GOLD, boxShadow: `0 0 0 ${cq(2)}px ${RECIPE_COLORS.life.halo}` }} />
       {/* every scene, the closing card too, stands in the column right of the rail (the mockup's padding-left 20cqw) */}
       <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h, flexDirection: "column", justifyContent: "center", alignItems: "flex-start", gap: cq(3), paddingLeft: cq(20), paddingRight: cq(9) }}>{body}</div>
-      {footLine(c, w, h, "rgba(246,239,224,0.6)")}
+      {footLine(c, w, h, RECIPE_COLORS.life.foot)}
     </div>
   );
 }
