@@ -53,7 +53,7 @@ function namedText(text: string | undefined, name: string | undefined, w: Contac
 }
 
 export function ContactButtons(
-  { copyText, cardPath, tableCardPath, tableLabel, diseaseCardPath, videoHref, compact = false, words }:
+  { copyText, cardPath, tableCardPath, tableLabel, diseaseCardPath, videoHref, videoLabel, compact = false, words }:
     {
       copyText?: string; cardPath?: string; tableCardPath?: string;
       /** what the table is called, for a plan whose table is not a table of values */
@@ -62,6 +62,8 @@ export function ContactButtons(
       diseaseCardPath?: string;
       /** วิดีโอนำเสนอ in Studio, started from this quote — shown to signed-in agents only */
       videoHref?: string;
+      /** the small word under its camera in the page's language; Thai without it */
+      videoLabel?: string;
       compact?: boolean;
       /** the buttons' labels in another language; Thai without it */
       words?: ContactWords;
@@ -91,11 +93,11 @@ export function ContactButtons(
       </div>
     );
   }
-  return <Kit pieces={pieces} text={copyText} videoHref={videoHref} w={w} copyWords={words?.copy} main={main} quiet={quiet} shape={shape} />;
+  return <Kit pieces={pieces} text={copyText} videoHref={videoHref} videoLabel={videoLabel} w={w} copyWords={words?.copy} main={main} quiet={quiet} shape={shape} />;
 }
 
-function Kit({ pieces: plain, text: plainText, videoHref, w, copyWords, main, quiet, shape }: {
-  pieces: Piece[]; text?: string; videoHref?: string; w: ContactWords["kit"]; copyWords?: ContactWords["copy"];
+function Kit({ pieces: plain, text: plainText, videoHref, videoLabel, w, copyWords, main, quiet, shape }: {
+  pieces: Piece[]; text?: string; videoHref?: string; videoLabel?: string; w: ContactWords["kit"]; copyWords?: ContactWords["copy"];
   main: string; quiet: string; shape: string;
 }) {
   const typed = useTypedName();
@@ -265,7 +267,7 @@ function Kit({ pieces: plain, text: plainText, videoHref, w, copyWords, main, qu
           {text && <CopyButton text={text} words={copyWords} className={`${quiet} text-sm`} />}
         </div>
       )}
-      {videoHref && <VideoButton href={videoHref} className={`${shape} border border-[var(--lg-gold)] text-[var(--lg-gold)]`} />}
+      {videoHref && <VideoButton href={videoHref} label={videoLabel} className={`${shape} border border-[var(--lg-gold)] text-[var(--lg-gold)]`} />}
     </div>
   );
 }

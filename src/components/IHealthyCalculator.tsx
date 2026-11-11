@@ -27,6 +27,7 @@ import { deathBenefitRows } from "@/lib/death-benefit";
 import type { AttachedRider } from "@/lib/ihealthy-rider-quote";
 import type { Attached } from "@/components/ihealthy/RiderPanel";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { VIDEO_LABEL } from "@/components/sales/video-label";
 import { videoStartHref } from "@/lib/quote-video/link";
 import { iHealthyQuoteText, type IHealthyCtaFacts } from "@/lib/ihealthy-cta";
 import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
@@ -666,6 +667,7 @@ export function IHealthyCalculator(
           copyText={quoteText} cardPath={picture} words={w.contact}
           tableCardPath={fullPicture} tableLabel={SEND_WORDS[lang].fullTableKit(data.plans.length)}
           videoHref={plan ? videoStartHref({ product: "IHEALTHY", sex, age, plan: plan.code, ...(videoSetup ? { setup: videoSetup } : {}), lang }) : undefined}
+          videoLabel={VIDEO_LABEL[lang]}
         />
       </div>
 

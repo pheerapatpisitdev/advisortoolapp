@@ -5,6 +5,7 @@ import type { PayMode, Sex } from "@/calc/types";
 import { cellRuns } from "@/components/ihealthy/BenefitTable";
 import { PdfButton } from "@/components/ihealthy/PdfButton";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { VIDEO_LABEL } from "@/components/sales/video-label";
 import { IHEALTHY_OPENING, resolveArrangement, type IHealthyInitial } from "@/lib/ihealthy-choice";
 import {
   compareCells, comparePlans, compareText, visibleLines, type CompareLine, type ComparePlanFacts,
@@ -239,7 +240,7 @@ export function IHealthyCompare(
           {/* วิดีโอเทียบ 4 แผน (owner chose ข, 2026-11-11): the Studio form open on this table, for a signed-in agent only */}
           <ContactButtons
             copyText={quoteText} tableCardPath={compareCardPath(table, drawn, lang)} tableLabel={cw.picture} words={w.contact}
-            videoHref={videoStartHref({ product: "IHEALTHY", sex, age, plan: drawn.plan, allPlans: mode, lang })}
+            videoHref={videoStartHref({ product: "IHEALTHY", sex, age, plan: drawn.plan, allPlans: mode, lang })} videoLabel={VIDEO_LABEL[lang]}
           />
         </div>
       )}
