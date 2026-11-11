@@ -64,7 +64,7 @@ describe("วิดีโอเทียบ 4 แผน", () => {
       for (const l of lines) expect(l.voice).not.toMatch(/[฀-๿]/);
       expect(f.allPlans!.same.length).toBe(11);
     }
-    expect(quoteVideoScript(quoteVideoFacts({ ...PAGE, lang: "en" })!, "")[1].voice)
+    expect(quoteVideoScript(quoteVideoFacts({ ...PAGE, lang: "en" as const })!, "")[1].voice)
       .toBe("In the first year, paying yearly, Smart 20,550 baht, Bronze 23,950 baht, Silver 35,850 baht and Gold 45,850 baht, with life cover of 50,000 baht and daily hospital cash already included.");
   });
 
