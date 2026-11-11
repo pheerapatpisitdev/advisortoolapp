@@ -12,7 +12,7 @@ import type { QuoteVideoFacts } from "./script";
 export type Enter = "up" | "slam" | "wipe" | "left" | "right" | "pop" | "fade" | "grow";
 
 /** CSS cubic-bezier(x1, y1, x2, y2) as a function of progress 0…1 (the overshoot is kept) */
-function bezier(x1: number, y1: number, x2: number, y2: number) {
+export function bezier(x1: number, y1: number, x2: number, y2: number) {
   const at = (a: number, b: number, u: number) => 3 * a * (1 - u) ** 2 * u + 3 * b * (1 - u) * u ** 2 + u ** 3;
   return (x: number) => {
     if (x <= 0) return 0;
@@ -111,18 +111,32 @@ export function footLine(c: RecipeClip, w: number, h: number, color: string): Re
   );
 }
 
-/** the closing card: a lead line, the agent's name slammed in, then phone and LINE; every line one line wide */
-export function contactBlock(c: RecipeClip, lead: string, s: number, w: number, unit: number, face: { family: string; weight: number; color: string; accent: string }): ReactNode {
+/**
+ * The closing card: a lead line, the agent's name, then phone and LINE; every line one line wide.
+ * `face.enter` is how the name and the last lines arrive (default: the name slammed at 0.25 s, the
+ * rest up at 0.7 s, as `ask` has it; `life` and `versus` use the mockup's up at 0.2 s / 0.5 s).
+ * `face.light` is the weight of the non-bold lines (default 400; Kanit has no 400, so `ask` passes 500).
+ */
+export function contactBlock(
+  c: RecipeClip,
+  lead: string,
+  s: number,
+  w: number,
+  unit: number,
+  face: { family: string; weight: number; color: string; accent: string; light?: number; enter?: { kind: Enter; name: number; rest: number } },
+): ReactNode {
+  const light = face.light ?? 400;
+  const arrive = face.enter ?? { kind: "slam" as Enter, name: 0.25, rest: 0.7 };
   const room = w - Math.round(64 * unit) * 2;
   const line = (text: string, cap: number, color: string, weight: number, kind: Enter, at: number, gap = 0) => (
     <div style={{ display: "flex", whiteSpace: "nowrap", justifyContent: "center", fontFamily: face.family, fontWeight: weight, color, fontSize: fitSize(text, room, Math.round(cap * unit)), lineHeight: 1.25, marginTop: Math.round(gap * unit), ...enter(kind, s - at, unit) }}>{text}</div>
   );
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: room }}>
-      {line(lead, 54, face.color, 400, "up", 0)}
-      {line(c.contact.name, 120, face.accent, face.weight, "slam", 0.25, 24)}
-      {line(`โทร ${c.contact.phone}`, 54, face.color, 400, "up", 0.7, 28)}
-      {c.contact.line ? line(`LINE ${c.contact.line}`, 54, face.color, 400, "up", 0.7) : null}
+      {line(lead, 54, face.color, light, "up", 0)}
+      {line(c.contact.name, 120, face.accent, face.weight, arrive.kind, arrive.name, 24)}
+      {line(`โทร ${c.contact.phone}`, 54, face.color, light, "up", arrive.rest, 28)}
+      {c.contact.line ? line(`LINE ${c.contact.line}`, 54, face.color, light, "up", arrive.rest) : null}
     </div>
   );
 }

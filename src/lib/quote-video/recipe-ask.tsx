@@ -75,7 +75,7 @@ export function askFrame(c: RecipeClip, index: number, t: number, _T: number, w:
       </>
     );
   } else {
-    body = contactBlock(c, "ขอตัวเลขของคุณเอง", t, w, u, { family: FACE, weight: 800, color: ink, accent: ink });
+    body = contactBlock(c, "ขอตัวเลขของคุณเอง", t, w, u, { family: FACE, weight: 800, color: ink, accent: ink, light: 500 });
   }
 
   return (

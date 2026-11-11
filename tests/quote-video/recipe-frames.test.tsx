@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { contactBlock, counted, enter, fitSize, footLine, type Enter, type RecipeClip } from "@/lib/quote-video/recipe-blocks";
 import { askFrame } from "@/lib/quote-video/recipe-ask";
+import { lifeFrame } from "@/lib/quote-video/recipe-life";
 import { recipeFigures } from "@/lib/quote-video/recipes";
 import { quoteVideoFacts, type QuoteVideoFacts } from "@/lib/quote-video/script";
 
@@ -84,6 +85,32 @@ describe("contactBlock", () => {
   });
 });
 
+describe("contactBlock entrance and weight settings", () => {
+  const face = { family: "Trirong", weight: 700, color: "#fff", accent: "#f2b84b" };
+  it("keeps ask's slam at 0.25 s and last lines at 0.7 s by default", () => {
+    // 0.3 s in: the name has started (slam, opacity partly up), the phone has not (opacity 0)
+    const html = renderToStaticMarkup(contactBlock(clip(), "x", 0.3, 1080, 1, face));
+    expect(html).toMatch(/>ชื่อตัวแทน</);
+    expect(/rotate\(/.test(/<div[^>]*>ชื่อตัวแทน</.exec(html)![0])).toBe(true);
+    expect(/<div[^>]*opacity:0[;"][^>]*>โทร/.test(html)).toBe(true);
+  });
+  it("takes its own entrance for the name and the rest", () => {
+    const html = renderToStaticMarkup(contactBlock(clip(), "x", 0.3, 1080, 1, { ...face, enter: { kind: "up", name: 0.2, rest: 0.5 } }));
+    expect(/rotate\(/.test(/<div[^>]*>ชื่อตัวแทน</.exec(html)![0])).toBe(false);
+    expect(/<div[^>]*opacity:0[;"][^>]*>โทร/.test(html)).toBe(true);
+    const later = renderToStaticMarkup(contactBlock(clip(), "x", 0.6, 1080, 1, { ...face, enter: { kind: "up", name: 0.2, rest: 0.5 } }));
+    expect(/<div[^>]*opacity:0[;"][^>]*>โทร/.test(later)).toBe(false);
+  });
+  it("weights the non-bold lines from face.light (default 400)", () => {
+    const weightOf = (html: string, text: string) => new RegExp(`font-weight:(\\d+)[^>]*>${text}<`).exec(html)?.[1];
+    const plain = renderToStaticMarkup(contactBlock(clip(), "ลีด", 5, 1080, 1, face));
+    expect(weightOf(plain, "ลีด")).toBe("400");
+    const lighter = renderToStaticMarkup(contactBlock(clip(), "ลีด", 5, 1080, 1, { ...face, light: 500 }));
+    expect(weightOf(lighter, "ลีด")).toBe("500");
+    expect(weightOf(lighter, "ชื่อตัวแทน")).toBe("700");
+  });
+});
+
 describe("footLine", () => {
   it("prints the example line and the card's footnote when there is one", () => {
     expect(renderToStaticMarkup(footLine(clip(), 1080, 1920, "#000"))).toContain("ตัวอย่างประกอบ · เงื่อนไขตามกรมธรรม์");
@@ -141,5 +168,54 @@ describe("askFrame (เปิดด้วยคำถาม)", () => {
       expect(nowrapOverflows(html)).toEqual([]);
     }
     expect(at(1, 2, big)).toContain("50,000,000");
+  });
+});
+
+describe("lifeFrame (เส้นชีวิต)", () => {
+  const c = lp35Clip([3.2, 3.2, 3.4, 3.4, 2.8]);
+  const at = (i: number, t: number, clipOf = c, w = 1080, h = 1920) => renderToStaticMarkup(lifeFrame(clipOf, i, t, clipOf.scenes[i].start + t, w, h));
+  const railAt = (T: number, i = 0) => Number(/height:([\d.]+)%/.exec(renderToStaticMarkup(lifeFrame(c, i, 1, T, 1080, 1920)))?.[1]);
+
+  it("draws every scene at its start, middle and end with the foot line", () => {
+    c.scenes.forEach((s, i) => {
+      for (const t of [0, 0.3, s.dur / 2, s.dur - 0.01]) expect(at(i, t)).toContain(FOOT);
+    });
+  });
+  it("puts the quote's own figures on each scene", () => {
+    expect(at(0, 2)).toContain(">35<");
+    expect(at(0, 2)).toContain("28,700 บาท");
+    expect(at(1, 2)).toContain("อีก 19 ปี · อายุ");
+    expect(at(1, 2)).toContain(">53<");
+    expect(at(2, 2)).toContain(">60<");
+    expect(at(2, 2)).toContain("2,000,000");
+    expect(at(3, 2)).toContain("จาก 60 ยาวถึงอายุ");
+    expect(at(3, 2)).toContain(">99<");
+    expect(at(3, 2)).toContain("1,000,000");
+  });
+  it("stands on the green ground in Trirong weights it has", () => {
+    const html = at(0, 2);
+    expect(html).toContain("background:#0f3d3a");
+    for (let i = 0; i < 5; i++) for (const m of at(i, 2).matchAll(/font-weight:(\d+)/g)) expect([400, 600, 700]).toContain(Number(m[1]));
+  });
+  it("ends on the contact name and LINE", () => {
+    const html = at(4, c.scenes[4].dur / 2);
+    for (const s of ["วางเส้นชีวิตของคุณ", "ชื่อตัวแทน", "LINE @yourline", "081-234-5678"]) expect(html).toContain(s);
+  });
+  it("fills the rail from the clip's time and never jumps at a scene join", () => {
+    expect(railAt(0)).toBeCloseTo(8, 1);
+    expect(railAt(c.scenes[4].start + 2)).toBeCloseTo(100, 1);
+    for (let i = 1; i < 5; i++) {
+      const j = c.scenes[i].start;
+      expect(Math.abs(railAt(j + 0.01, i) - railAt(j - 0.01, i - 1))).toBeLessThan(1);
+    }
+    expect(railAt(c.scenes[1].start + 0.6, 1)).toBeGreaterThan(8);
+    expect(railAt(c.scenes[1].start + 0.6, 1)).toBeLessThan(34);
+  });
+  it("keeps a 50,000,000 figure and a 40-letter name on one line inside the clip", () => {
+    const facts = { ...LP35, lead: { ...LP35.lead, baht: 50_000_000 } };
+    const big = lp35Clip([3.2, 3.2, 3.4, 3.4, 2.8], { ...facts }, "ก".repeat(40));
+    big.figures = { ...big.figures, early: "50,000,000", late: "25,000,000", yearly: "5,000,000" };
+    for (let i = 0; i < 5; i++) expect(nowrapOverflows(at(i, big.scenes[i].dur / 2, big))).toEqual([]);
+    expect(at(2, 2, big)).toContain("50,000,000");
   });
 });
