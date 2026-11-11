@@ -6,6 +6,7 @@ import type { Prices } from "@/lib/wallet/prices";
 import { entryLabel } from "@/lib/wallet/labels";
 import type { WalletEntry } from "@/lib/wallet/store";
 import { neverEnds, type CreditLotView } from "@/lib/members/credit";
+import { HelpLink } from "@/components/help/HelpLink";
 import { PriceList } from "./PriceList";
 import { startTopUp, topUpStatus } from "./actions";
 
@@ -112,6 +113,7 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
+      <HelpLink clip="topup">ดูคลิปวิธีเติมเงิน</HelpLink>
       <section className="rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5">
         <p className="text-sm text-[var(--ct-mute)]">ยอดในกระเป๋า</p>
         <p className="mt-1 text-3xl font-semibold tabular-nums">{formatBaht(balance)}</p>

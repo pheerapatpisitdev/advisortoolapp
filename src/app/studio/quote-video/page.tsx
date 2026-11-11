@@ -18,6 +18,7 @@ import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
 import { fxFor } from "@/lib/quote-video/fx-switch";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
 import { ToolLogo } from "@/components/shell/ToolLogo";
+import { HelpLink } from "@/components/help/HelpLink";
 import { GS_AGE_MAX, GS_AGE_MIN } from "@/calc/global-saving/engine";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +86,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
+      <p className="mt-1.5"><HelpLink clip="quote-video">ดูคลิปวิธีทำ</HelpLink></p>
       <ClosedNotice viewer={viewer} feature="quote-video" />
       <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} fx={fx} />
     </div>

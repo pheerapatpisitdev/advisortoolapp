@@ -102,6 +102,9 @@ function Icon({ name }: { name: MenuIcon }) {
       return <svg {...common}><path d="M4 5.5h16v13H4zM10 9.3v5.4l4.5-2.7z" /></svg>;
     case "calendar":
       return <svg {...common}><path d="M5 6.5h14v13H5zM5 10.5h14M9 4v4M15 4v4" /></svg>;
+    // วิธีใช้งาน: a clip to watch, a play button in a ring
+    case "play":
+      return <svg {...common}><path d="M12 4.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zM10.3 8.8v6.4l5-3.2z" /></svg>;
     case "quote":
       return <svg {...common}><path d="M9.5 7.5C7 8.5 5.5 10.5 5.5 13.5V17h4.5v-4.5H7.5M18.5 7.5c-2.5 1-4 3-4 6V17H19v-4.5h-2.5" /></svg>;
     // Maryjane, Studio's writer: a woman with a fringe and her hair down to her shoulders

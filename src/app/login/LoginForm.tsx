@@ -117,6 +117,8 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
       {prices && (
         <a href="#prices" className="mt-5 block text-center text-sm font-semibold text-[var(--bot-navy)] underline-offset-2 hover:underline">ดูค่าบริการ ↓</a>
       )}
+      {/* the how-to clips, for somebody who has not got in yet (owner chose 1ก, 2026-11-11) */}
+      <Link href="/help" className="mt-3 block text-center text-sm font-semibold text-[var(--bot-navy)] underline-offset-2 hover:underline">ดูคลิปวิธีใช้งาน</Link>
     </AuthCard>
   );
 }

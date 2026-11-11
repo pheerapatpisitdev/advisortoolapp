@@ -51,7 +51,8 @@ export type MenuIcon =
   | "chart"
   | "gear"
   | "send"
-  | "coins";
+  | "coins"
+  | "play";
 
 export interface MenuLink {
   href: string;
@@ -351,6 +352,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       { href: "/ask", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
+      // the how-to clips, open to everyone (owner chose ก ก, 2026-11-11)
+      { href: "/help", label: "วิธีใช้งาน", icon: "play", hue: "#2e5480" },
       ...(office ? [{ href: office, label: "หลังบ้าน", icon: "grid" as const, hue: "#2b736f" }] : []),
     ],
   }];

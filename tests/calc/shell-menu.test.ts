@@ -242,11 +242,11 @@ describe("what the menu shows to somebody who has not signed in", () => {
     for (const group of menuGroups(false)) expect(group.links.length).toBeGreaterThan(0);
   });
 
-  it("puts the agent's own work first: หน้าหลัก, their FHC customers, ถาม AI, Studio (owner chose ข, 2026-10-14)", () => {
+  it("puts the agent's own work first: หน้าหลัก, their FHC customers, ถาม AI, Studio (owner chose ข, 2026-10-14), then วิธีใช้งาน (2026-11-11)", () => {
     const who = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false };
     const first = (w: typeof who | null) => menuGroups(false, w)[0];
-    expect(first({ ...who, member: true } as typeof who).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio"]);
-    expect(first({ ...who, admin: true }).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio"]);
+    expect(first({ ...who, member: true } as typeof who).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio", "/help"]);
+    expect(first({ ...who, admin: true }).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio", "/help"]);
     expect(first(null).title).toBe("งานของฉัน");
     // the membership pass is in the account box now, in no menu's list
     const hrefs = (w: typeof who | null) => [...menuGroups(false, w), ...menuGroups(true, w), ...studioMenu(w)].flatMap((g) => g.links.map((l) => l.href));
