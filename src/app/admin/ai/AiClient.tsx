@@ -58,6 +58,9 @@ function Status({ check }: { check?: ProviderCheck }) {
 }
 
 
+/** asked before Google Cloud Run is switched off: its key drives far more than clips (owner chose ข, 2026-11-11) */
+const GCP_OFF_CONFIRM = "ปิด Google Cloud Run ใช่ไหม?\n\nงานเหล่านี้จะหยุดทั้งเว็บจนกว่าจะเปิดอีกครั้ง:\n• ทำวิดีโอทุกแบบ\n• ตัดต่อคลิปของเอเจนต์\n• เสียงพากย์ Gemini ทาง Cloud\n• การ์ดสรุป ตาราง และ PDF ใบเสนอ รวมถึงรูปที่บอทส่งให้ลูกค้า";
+
 export function AiClient({ keys, settings, providers, spentThisMonth, content, video, rates, lanesCard }: {
   keys: KeyRow[]; settings: Settings | null; providers: string[];
   spentThisMonth: number | null; content: { spent: number | null; cap: number; fallback: number };
@@ -116,11 +119,12 @@ export function AiClient({ keys, settings, providers, spentThisMonth, content, v
   // Google Cloud Run: the service account file is pasted whole; region and job are typed beside it
   const [gcp, setGcp] = useState({ region: "asia-southeast1", job: "clip-ffmpeg" });
   const gcpHeld = video.keys.find((k) => k.provider === "gcp");
+  const gcpOn = gcpHeld?.enabled ?? true;
   const input = "rounded border border-[var(--bot-line-strong)] bg-[var(--bot-surface)] px-2 py-1";
 
   return (
     <>
-      <Card title="กุญแจของค่าย AI" hint="เก็บแยกจากระบบอื่น เข้ารหัสไว้ในฐานข้อมูล แสดงเฉพาะ 4 ตัวท้าย">
+      <Card title="กุญแจของค่าย AI" hint="เก็บแยกจากระบบอื่น เข้ารหัสไว้ในฐานข้อมูล แสดงเฉพาะ 4 ตัวท้าย ส่วน Google Cloud Run แสดงว่ากุญแจชี้ไปที่โปรเจกต์ไหน">
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <button
             type="button" disabled={testing}
@@ -185,21 +189,28 @@ export function AiClient({ keys, settings, providers, spentThisMonth, content, v
               </div>
             );
           })}
-        </div>
-        <p className="mt-3 text-xs text-[var(--bot-ink-mute)]">
-          ยอดใช้ของแต่ละค่ายและงานที่ใช้ อยู่ที่หน้า{" "}
-          <a href="/admin/stats?tab=provider" className="text-[var(--bot-navy)]">การใช้งานและค่า AI → ตามค่าย AI</a>
-        </p>
-      </Card>
-
-      <Card title="ตัวตัดต่อวิดีโอ" hint="บริการที่ใช้ตัดคลิปเป็นรีล ตอนนี้ใช้ Google Cloud Run ตัวเดียว แสดงว่ากุญแจชี้ไปที่โปรเจกต์ไหน">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-start gap-2 rounded-md border border-[var(--bot-line)] p-2">
-            <span className="w-44 text-sm">Google Cloud Run</span>
-            <span className="w-44 break-all text-xs text-[var(--bot-ink-mute)]">{gcpHeld ? gcpHeld.shown : "ยังไม่ได้ตั้ง"}</span>
+          {/* Google Cloud Run, moved up from its own card (owner, 2026-11-11, ข): the same switch as the companies' */}
+          <div className={`flex flex-wrap items-start gap-2 rounded-md border border-[var(--bot-line)] p-2 ${gcpOn ? "" : "opacity-60"}`}>
+            <span className="w-44 text-sm">Google Cloud Run (ทำวิดีโอ)</span>
+            <span className="w-24 break-all text-xs text-[var(--bot-ink-mute)]">{gcpHeld ? gcpHeld.shown : "ยังไม่ได้ตั้ง"}</span>
+            <label className={`flex w-20 items-center gap-1.5 text-xs ${gcpHeld ? "cursor-pointer" : "invisible"}`} title={gcpOn ? "ปิดเพื่อหยุดทุกงานที่ใช้ Google Cloud Run โดยไม่ต้องลบกุญแจ" : "เปิดเพื่อให้ระบบเรียก Google Cloud Run ได้อีก"}>
+              <input
+                type="checkbox" role="switch" className="sr-only" checked={gcpOn} disabled={pending || !gcpHeld}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  if (!next && !window.confirm(GCP_OFF_CONFIRM)) return;
+                  run("render:gcp", () => setProviderEnabled("gcp", next), `${next ? "เปิด" : "ปิด"} Google Cloud Run แล้ว`);
+                }}
+              />
+              <span aria-hidden className={`relative inline-block h-4 w-7 rounded-full transition-colors ${gcpOn ? "bg-[var(--bot-ok)]" : "bg-[var(--bot-line-strong)]"}`}>
+                <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-[var(--bot-surface)] transition-all ${gcpOn ? "left-3.5" : "left-0.5"}`} />
+              </span>
+              <span className={gcpOn ? "text-[var(--bot-ok)]" : "text-[var(--bot-ink-mute)]"}>{gcpOn ? "เปิด" : "ปิด"}</span>
+            </label>
+            <span className="w-24 text-xs text-[var(--bot-ink-mute)]">ยังไม่ได้ทดสอบ</span>
             <span className="flex min-w-64 flex-1 flex-col gap-2">
               <textarea
-                placeholder="วางไฟล์ Service Account (JSON)" autoComplete="off" spellCheck={false} rows={3}
+                placeholder="วางไฟล์ Service Account (JSON)" autoComplete="off" spellCheck={false} rows={2}
                 className={`min-w-0 font-mono text-xs ${input}`}
                 value={draft["render:gcp"] ?? ""} onChange={(e) => setDraft({ ...draft, ["render:gcp"]: e.target.value })}
               />
@@ -225,25 +236,31 @@ export function AiClient({ keys, settings, providers, spentThisMonth, content, v
                 </button>
               </span>
             </span>
+            {/* saved as it is ticked: no button of its own */}
+            <label className="flex basis-full items-center gap-2 text-sm">
+              <input
+                type="checkbox" checked={engine.enabled} disabled={pending}
+                onChange={(e) => {
+                  const next = { enabled: e.target.checked };
+                  setEngine(next);
+                  run("engine", async () => {
+                    const res = await saveVideoEngine(next);
+                    if (!res.ok) setEngine({ enabled: !next.enabled });
+                    return res;
+                  }, `${next.enabled ? "เปิด" : "ปิด"}ให้เอเจนต์ตัดต่อคลิปแล้ว`);
+                }}
+              />
+              <span>เปิดให้เอเจนต์ตัดต่อคลิป</span>
+              <span className="text-xs text-[var(--bot-ink-mute)]">· ปิดอยู่ = เอเจนต์ไม่เห็นปุ่มตัดต่อ · คลิปที่กำลังทำอยู่ยังทำต่อจนเสร็จ</span>
+            </label>
             <Said note={note} where="render:gcp" className="basis-full" />
+            <Said note={note} where="engine" className="basis-full" />
           </div>
         </div>
-        <form
-          className="mt-3 flex flex-wrap items-end gap-3"
-          onSubmit={(e) => { e.preventDefault(); run("engine", () => saveVideoEngine(engine), "บันทึกตัวตัดต่อแล้ว"); }}
-        >
-          <div className="basis-full text-sm">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={engine.enabled} onChange={(e) => setEngine({ ...engine, enabled: e.target.checked })} />
-              <span>เปิดให้เอเจนต์ตัดต่อคลิป</span>
-            </label>
-            <p className="mt-0.5 text-xs text-[var(--bot-ink-mute)]">ปิดอยู่ = เอเจนต์ไม่เห็นปุ่มตัดต่อ · คลิปที่กำลังทำอยู่ยังทำต่อจนเสร็จ</p>
-          </div>
-          <button disabled={pending} className="rounded bg-[var(--bot-navy)] px-3 py-1.5 text-sm text-[var(--bot-surface)] disabled:opacity-40">
-            {busy === "engine" ? "กำลังบันทึก…" : "บันทึก"}
-          </button>
-          <Said note={note} where="engine" className="basis-full text-sm" />
-        </form>
+        <p className="mt-3 text-xs text-[var(--bot-ink-mute)]">
+          ยอดใช้ของแต่ละค่ายและงานที่ใช้ อยู่ที่หน้า{" "}
+          <a href="/admin/stats?tab=provider" className="text-[var(--bot-navy)]">การใช้งานและค่า AI → ตามค่าย AI</a>
+        </p>
       </Card>
 
       {lanesCard}

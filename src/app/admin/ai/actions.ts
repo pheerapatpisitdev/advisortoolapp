@@ -44,7 +44,7 @@ export type Provider = (typeof PROVIDERS)[number];
  * What the page may show of a held key: Google's project, region and job. Never a secret, nor the
  * service account's email. (Rendi, AWS Lambda and Shotstack removed 2026-11-11, owner.)
  */
-export interface VideoKeyRow { provider: RenderProvider; shown: string }
+export interface VideoKeyRow { provider: RenderProvider; shown: string; /** the switch beside it: off keeps the key and stops every call that uses it */ enabled: boolean }
 
 export interface KeyRow { provider: string; tail: string; enabled: boolean }
 export interface ModelRow {
@@ -223,7 +223,7 @@ export async function loadSpend(): Promise<{ spend: ProviderSpend[] | null; peop
  * are returned — never the private key or the service account's email. A key that cannot be read
  * shows as held, nothing more.
  */
-async function renderKeysShown(held: { provider: string; tail: string }[]): Promise<VideoKeyRow[]> {
+async function renderKeysShown(held: { provider: string; tail: string; enabled?: boolean | null }[]): Promise<VideoKeyRow[]> {
   const rows = held.filter((k): k is typeof k & { provider: RenderProvider } => (RENDER_PROVIDERS as readonly string[]).includes(k.provider));
   const labels: Partial<Record<RenderProvider, string>> = {};
   if (rows.some((k) => k.provider === "gcp")) {
@@ -239,6 +239,7 @@ async function renderKeysShown(held: { provider: string; tail: string }[]): Prom
   return rows.map((k) => ({
     provider: k.provider,
     shown: labels[k.provider] ?? "ตั้งไว้แล้ว",
+    enabled: k.enabled !== false,
   }));
 }
 
@@ -343,7 +344,9 @@ export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
  */
 export async function setProviderEnabled(provider: string, enabled: boolean): Promise<Result> {
   await requireStaff("backoffice");
-  if (!PROVIDERS.includes(provider as Provider)) return { ok: false, error: "ค่ายไม่ถูกต้อง" };
+  // Google Cloud Run sits in the same card with the same switch (owner, 2026-11-11, ข): off stops
+  // every job its key drives — clips, clip editing, the Cloud voice, and the cards and PDFs drawn there
+  if (!PROVIDERS.includes(provider as Provider) && !(RENDER_PROVIDERS as readonly string[]).includes(provider)) return { ok: false, error: "ค่ายไม่ถูกต้อง" };
   try {
     const { error } = await supabaseAdmin().from("ins_api_keys").update({ enabled: Boolean(enabled) }).eq("provider", provider);
     if (error) return failed("เปิด/ปิดค่ายไม่สำเร็จ", error);

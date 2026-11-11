@@ -19,6 +19,7 @@ const SA_FILE = JSON.stringify({
 }, null, 2).replace(/\n/g, "\r\n");
 const rpc = vi.fn();
 const upsert = vi.fn();
+const switched = vi.fn();
 let tableRows: unknown[] = [];
 let staffAllowed = true;
 
@@ -36,7 +37,8 @@ vi.mock("@/lib/supabase/admin", () => ({
     rpc,
     from: (table: string) => {
       const q = {
-        upsert, order: () => q, maybeSingle: async () => ({ data: null, error: null }),
+        upsert, order: () => q,
+        update: (v: unknown) => ({ eq: async (_c: string, who: string) => { switched(who, v); return { error: null }; } }), maybeSingle: async () => ({ data: null, error: null }),
         then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: table === "ins_api_keys" ? tableRows : [], error: null }).then(ok),
       };
       return { ...q, select: () => q };
@@ -45,12 +47,13 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 process.env.ADMIN_SESSION_SECRET = "test-passphrase";
-const { saveRenderKey, saveVideoEngine } = await import("@/app/admin/ai/actions");
+const { saveRenderKey, saveVideoEngine, setProviderEnabled } = await import("@/app/admin/ai/actions");
 
 beforeEach(() => {
   staffAllowed = true;
   rpc.mockReset().mockResolvedValue({ error: null });
   upsert.mockReset().mockResolvedValue({ error: null });
+  switched.mockReset();
 });
 
 describe("saveRenderKey", () => {
@@ -147,6 +150,25 @@ describe("saveVideoEngine", () => {
   });
 });
 
+describe("the Google Cloud Run switch (owner, 2026-11-11, ข)", () => {
+  it("switches the gcp key off and on like a company's; a service that was removed is refused", async () => {
+    await expect(setProviderEnabled("gcp", false)).resolves.toEqual({ ok: true });
+    expect(switched).toHaveBeenCalledWith("gcp", { enabled: false });
+    await expect(setProviderEnabled("gcp", true)).resolves.toEqual({ ok: true });
+    expect(switched).toHaveBeenLastCalledWith("gcp", { enabled: true });
+    for (const gone of ["rendi", "aws", "shotstack", "fal", "runware"]) {
+      await expect(setProviderEnabled(gone, false)).resolves.toEqual({ ok: false, error: "ค่ายไม่ถูกต้อง" });
+    }
+    expect(switched).toHaveBeenCalledTimes(2);
+  });
+
+  it("is refused for a non-admin", async () => {
+    staffAllowed = false;
+    await expect(setProviderEnabled("gcp", false)).rejects.toThrow("forbidden");
+    expect(switched).not.toHaveBeenCalled();
+  });
+});
+
 describe("loadAiPage render keys", () => {
   it("shows Google's project, region and job — never the private key or the service account's email", async () => {
     await saveRenderKey("gcp", SA_FILE, { region: "asia-southeast1", job: "clip-ffmpeg" });
@@ -161,7 +183,7 @@ describe("loadAiPage render keys", () => {
     const { loadAiPage } = await import("@/app/admin/ai/actions");
     const page = await loadAiPage();
     expect(page.video.keys).toEqual([
-      { provider: "gcp", shown: "my-proj · asia-southeast1 · clip-ffmpeg" },
+      { provider: "gcp", shown: "my-proj · asia-southeast1 · clip-ffmpeg", enabled: true },
     ]);
     const wire = JSON.stringify(page);
     for (const secret of [PEM_BODY, "PRIVATE KEY", SA_EMAIL, "client_email", "iam.gserviceaccount.com", SECRET]) expect(wire).not.toContain(secret);
@@ -171,10 +193,10 @@ describe("loadAiPage render keys", () => {
 
   it("a Google key that cannot be read shows as held, nothing more", async () => {
     rpc.mockImplementation(async (fn: string) => fn === "ins_get_api_keys" ? { data: [{ provider: "gcp", api_key: `{"private_key":"${SECRET}"}` }], error: null } : { error: null });
-    tableRows = [{ provider: "gcp", tail: "xx\"}", enabled: true }];
+    tableRows = [{ provider: "gcp", tail: "xx\"}", enabled: false }];
     const { loadAiPage } = await import("@/app/admin/ai/actions");
     const page = await loadAiPage();
-    expect(page.video.keys).toEqual([{ provider: "gcp", shown: "ตั้งไว้แล้ว" }]);
+    expect(page.video.keys).toEqual([{ provider: "gcp", shown: "ตั้งไว้แล้ว", enabled: false }]);
     expect(JSON.stringify(page)).not.toContain(SECRET);
     tableRows = [];
   });
