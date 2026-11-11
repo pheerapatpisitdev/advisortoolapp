@@ -95,7 +95,8 @@ export function lifeFrame(c: RecipeClip, index: number, t: number, T: number, w:
       <div style={{ display: "flex", position: "absolute", left: cq(8.4), top: Math.round(h * 0.47), width: cq(6), height: cq(6), borderRadius: "50%", background: GOLD, boxShadow: `0 0 0 ${cq(2)}px ${RECIPE_COLORS.life.halo}` }} />
       {/* every scene, the closing card too, stands in the column right of the rail (the mockup's padding-left 20cqw) */}
       <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h, flexDirection: "column", justifyContent: "center", alignItems: "flex-start", gap: cq(3), paddingLeft: cq(20), paddingRight: cq(9) }}>{body}</div>
-      {footLine(c, w, h, RECIPE_COLORS.life.foot)}
+      {/* the foot stands right of the rail too: the card's long footnote crossed it on the first real still (2026-11-12) */}
+      {footLine(c, w, h, RECIPE_COLORS.life.foot, cq(14))}
     </div>
   );
 }

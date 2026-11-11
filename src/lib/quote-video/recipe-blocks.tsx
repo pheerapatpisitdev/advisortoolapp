@@ -36,12 +36,17 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 const mix = (a: number, b: number, p: number) => a + (b - a) * p;
 const DUR = 0.55;
 const GROW_DUR = 1.1;
+/**
+ * the wipe uncovers left to right only: its clip reaches a quarter of the box past the top and bottom, so the Thai
+ * marks Kanit 900 draws above and below a 1.08 line (the ่ of ที่) are never cut (seen on the first real still, 2026-11-12)
+ */
+const WIPE_OVER = "-25%";
 
 /** the style of a piece s seconds after its cue (s < 0: not yet shown); settled at s >= 0.55 (grow: 1.1) */
 export function enter(kind: Enter, s: number, unit: number): CSSProperties {
   const w = 1080 * unit;
   const done = s >= (kind === "grow" ? GROW_DUR : DUR);
-  if (done) return kind === "wipe" ? { opacity: 1, transform: "none", clipPath: "inset(0px 0px 0px 0px)" } : kind === "grow" ? { transform: "none" } : { opacity: 1, transform: "none" };
+  if (done) return kind === "wipe" ? { opacity: 1, transform: "none", clipPath: `inset(${WIPE_OVER} 0% ${WIPE_OVER} 0px)` } : kind === "grow" ? { transform: "none" } : { opacity: 1, transform: "none" };
   const p = SPRING(clamp01(s / DUR));
   const o = clamp01(p);
   switch (kind) {
@@ -55,7 +60,7 @@ export function enter(kind: Enter, s: number, unit: number): CSSProperties {
       return { opacity: o };
     case "wipe": {
       const e = EASE_OUT(clamp01(s / DUR));
-      return { opacity: 1, clipPath: `inset(0px ${((1 - e) * 100).toFixed(2)}% 0px 0px)` };
+      return { opacity: 1, clipPath: `inset(${WIPE_OVER} ${((1 - e) * 100).toFixed(2)}% ${WIPE_OVER} 0px)` };
     }
     case "slam": {
       // 0% scale 2.2 / −6°, 60% scale 0.94 / 1°, 100% settled; each leg eased on its own as CSS does
@@ -98,13 +103,18 @@ export interface RecipeClip {
   scenes: { start: number; dur: number }[];
 }
 
-/** the same foot on every scene: it is an example, and the footnote the card prints stays with it */
-export function footLine(c: RecipeClip, w: number, h: number, color: string): ReactNode {
+/**
+ * the same foot on every scene: it is an example, and the footnote the card prints stays with it. `left` is where its
+ * column starts (default 64 px in, as the right side): เส้นชีวิต keeps it right of its rail, which the card's long
+ * footnote crossed on the first real still (2026-11-12)
+ */
+export function footLine(c: RecipeClip, w: number, h: number, color: string, left?: number): ReactNode {
   const unit = w / 1080;
   const side = Math.round(64 * unit);
+  const from = left ?? side;
   const height = Math.round(130 * unit);
   return (
-    <div style={{ display: "flex", position: "absolute", left: side, top: h - height - Math.round(36 * unit), width: w - side * 2, height, flexDirection: "column", justifyContent: "flex-end", alignItems: "center", textAlign: "center", fontFamily: "Plex", fontSize: Math.round(26 * unit), lineHeight: 1.35, color }}>
+    <div style={{ display: "flex", position: "absolute", left: from, top: h - height - Math.round(36 * unit), width: w - from - side, height, flexDirection: "column", justifyContent: "flex-end", alignItems: "center", textAlign: "center", fontFamily: "Plex", fontSize: Math.round(26 * unit), lineHeight: 1.35, color }}>
       <div style={{ display: "flex" }}>ตัวอย่างประกอบ · เงื่อนไขตามกรมธรรม์</div>
       {c.facts.footNote ? <div style={{ display: "flex" }}>{c.facts.footNote}</div> : null}
     </div>

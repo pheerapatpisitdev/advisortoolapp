@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
-import { REMOTION_DRAWING, REMOTION_JOB, type ClassicClipProps, type ClipProps, type FhcClipProps, type StoryClipProps } from "@/lib/quote-video/remotion";
+import { clipProps, REMOTION_DRAWING, REMOTION_JOB, type ClassicClipProps, type ClipProps, type FhcClipProps, type RemotionMotion, type StoryClipProps } from "@/lib/quote-video/remotion";
 import { checkedStory, storyScript, type StoryVideoInput } from "@/lib/quote-video/story";
 import type { PromptStoryInput } from "@/lib/prompt-story/types";
 import type { VideoInput } from "@/lib/quote-video/script";
@@ -393,5 +393,25 @@ describe("ลูกเล่นคลิปใหม่ (owner chose ก, 2026-1
     const pid = (plain as { id: string }).id;
     await produce(pid, "ตัวแทน");
     expect(JSON.parse(db.files.get(`${pid}/job.json`)!.toString()).remotion.props.fx).toBeUndefined();
+  });
+});
+
+describe("clipProps and สูตรคลิป Motion (owner, 2026-11-11, ก ก ก)", () => {
+  const motion = {
+    theme: "navy", sex: "M", facts: { product: "LIFEPROTECT" }, customer: "", narrator: "F",
+    contact: { name: "ชื่อตัวแทน", phone: "081-234-5678" }, shown: { loop: false, extra: {} },
+  } as unknown as RemotionMotion;
+  const plans = [{ key: "lead", start: 0, dur: 3 }, { key: "contact", start: 2.6, dur: 2.5 }] as const;
+  const script = [{ voice: "หนึ่ง" }, { voice: "สอง" }];
+  it("a clip without a recipe serializes exactly as before", () => {
+    const props = clipProps(motion, [...plans], script, [2, 2], 5.1, "audio/navy.wav");
+    expect(props).toEqual({
+      ...motion, drawing: REMOTION_DRAWING, total: 5.1, audio: "audio/navy.wav",
+      scenes: [{ key: "lead", voice: "หนึ่ง", voiceSec: 2, start: 0, dur: 3 }, { key: "contact", voice: "สอง", voiceSec: 2, start: 2.6, dur: 2.5 }],
+    });
+    expect("recipe" in props).toBe(false);
+  });
+  it("a recipe clip carries its recipe", () => {
+    expect(clipProps({ ...motion, recipe: "ask" }, [...plans], script, [2, 2], 5.1, "audio/r-ask.wav").recipe).toBe("ask");
   });
 });

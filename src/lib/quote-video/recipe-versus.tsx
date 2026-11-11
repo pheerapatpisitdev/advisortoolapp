@@ -105,7 +105,14 @@ export function versusFrame(c: RecipeClip, index: number, t: number, _T: number,
       ) : (
         <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h, flexDirection: "column", justifyContent: index === 1 ? "flex-start" : "center", alignItems: "flex-start", padding: pad }}>{body}</div>
       )}
-      {footLine(c, w, h, RECIPE_COLORS.versus.foot)}
+      {index === 0 ? (
+        // the foot crosses both halves: navy on the pale one, white on the blue one (navy on blue could not be read on the
+        // first real still, 2026-11-12), the same line drawn twice, each cut to its half
+        <>
+          <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h, clipPath: `inset(0px ${w - Math.round(w / 2)}px 0px 0px)` }}>{footLine(c, w, h, RECIPE_COLORS.versus.foot)}</div>
+          <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h, clipPath: `inset(0px 0px 0px ${Math.round(w / 2)}px)` }}>{footLine(c, w, h, RECIPE_COLORS.versus.footOnBlue)}</div>
+        </>
+      ) : footLine(c, w, h, RECIPE_COLORS.versus.foot)}
     </div>
   );
 }

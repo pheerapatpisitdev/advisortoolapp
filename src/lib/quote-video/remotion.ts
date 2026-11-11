@@ -12,6 +12,7 @@ import type { StoryVideoInput } from "./story";
 import type { StoryContext } from "./story-motion";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import type { FxProps } from "./fx";
+import type { RecipeKey } from "./recipes";
 
 /**
  * วิดีโอนำเสนอ's Motion Graphic clip drawn by Remotion (owner, 2026-10-17: "ต่อ Remotion เข้าแอปจริงเลย";
@@ -58,6 +59,11 @@ export type RemotionMotion = {
   contact: MotionContext["contact"];
   /** priceJar: the price told as the piggy jar (motion.tsx PriceJar); coverRoad: the cover as the road of life (CoverRoad) */
   shown: { headline?: string[]; loop: boolean; extra: Extra; priceJar?: boolean; coverRoad?: boolean };
+  /**
+   * สูตรคลิป Motion (owner, 2026-11-11, ก ก ก; recipes.ts): the whole clip drawn as this recipe (recipes-draw.tsx)
+   * in place of the theme's scenes; absent on every other clip, whose props stay exactly as before
+   */
+  recipe?: RecipeKey;
 };
 
 /** a type, not an interface: Remotion's props must fit Record<string, unknown> */

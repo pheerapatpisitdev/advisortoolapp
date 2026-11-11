@@ -479,8 +479,9 @@ export const RECIPE_COLORS = {
   ask: { yellow: "#ffd23f", ink: "#111", mark: "#e63946", onMark: "#fff", rowInk: "#fff", footOnYellow: "rgba(17,17,17,0.6)", footOnInk: "rgba(255,210,63,0.6)" },
   // เส้นชีวิต: deep green, cream words, a gold rail on a faint cream track, the dot's gold halo
   life: { ground: "#0f3d3a", ink: "#f6efe0", gold: "#f2b84b", track: "rgba(246,239,224,0.18)", halo: "rgba(242,184,75,0.25)", foot: "rgba(246,239,224,0.6)" },
-  // เทียบให้เห็น: an off-white sheet, navy words; the paid half pale, the cash half blue in white; one orange pill
-  versus: { sheet: "#fbfaf7", ink: "#1b2a4a", blue: "#1e56d6", onBlue: "#fff", grey: "#c9d2e3", pale: "#e9edf5", pill: "#ff5a3c", onPill: "#fff", foot: "rgba(27,42,74,0.6)" },
+  // เทียบให้เห็น: an off-white sheet, navy words; the paid half pale, the cash half blue in white; one orange pill;
+  // the foot line in white where it crosses the blue half
+  versus: { sheet: "#fbfaf7", ink: "#1b2a4a", blue: "#1e56d6", onBlue: "#fff", grey: "#c9d2e3", pale: "#e9edf5", pill: "#ff5a3c", onPill: "#fff", foot: "rgba(27,42,74,0.6)", footOnBlue: "rgba(255,255,255,0.7)" },
 } as const;
 
 /** แชทถาม-ตอบ (owner, 2026-10-20; quote-video/chat.tsx): a plain chat, nobody's brand */

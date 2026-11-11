@@ -37,10 +37,11 @@ export function askFrame(c: RecipeClip, index: number, t: number, _T: number, w:
         {piece("pop", 0, { alignSelf: "flex-start" },
           <div style={{ display: "flex", background: INK, color: YELLOW, fontWeight: 800, fontSize: cq(5), padding: `${cq(1)}px ${cq(4)}px`, transform: "rotate(-3deg)" }}>ถามจริง</div>)}
         {piece("slam", 0.25, big, <><div style={{ display: "flex" }}>ถ้าพรุ่งนี้</div><div style={{ display: "flex" }}>ไม่มีคุณ</div></>)}
+        {/* the red reaches up past its box (a shadow, so nothing moves): Kanit 900's ่ over ที่ stands above the line (first real still, 2026-11-12) */}
         {piece("wipe", 0.9, big,
           <>
             <div style={{ display: "flex" }}>
-              <span style={{ display: "flex", background: MARK, color: RECIPE_COLORS.ask.onMark, padding: `0 ${cq(2)}px` }}>ที่บ้าน</span>อยู่ได้
+              <span style={{ display: "flex", background: MARK, color: RECIPE_COLORS.ask.onMark, padding: `0 ${cq(2)}px`, boxShadow: `0 -${cq(1.6)}px 0 ${MARK}` }}>ที่บ้าน</span>อยู่ได้
             </div>
             <div style={{ display: "flex" }}>กี่เดือน?</div>
           </>)}

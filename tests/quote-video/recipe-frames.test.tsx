@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { contactBlock, counted, enter, fitSize, footLine, type Enter, type RecipeClip } from "@/lib/quote-video/recipe-blocks";
 import { askFrame } from "@/lib/quote-video/recipe-ask";
 import { lifeFrame } from "@/lib/quote-video/recipe-life";
 import { versusFrame } from "@/lib/quote-video/recipe-versus";
 import { recipeFigures } from "@/lib/quote-video/recipes";
+import { RECIPE_COLORS } from "@/lib/card-theme";
+import { recipeFrame, recipeJoin } from "@/lib/quote-video/recipes-draw";
 import { quoteVideoFacts, type QuoteVideoFacts } from "@/lib/quote-video/script";
 
 /**
@@ -34,7 +37,7 @@ const clip = (name = "ชื่อตัวแทน", footNote?: string): Recip
 describe("enter", () => {
   it("hides a piece before its cue", () => {
     expect(enter("up", -0.1, 1).opacity).toBe(0);
-    expect(enter("wipe", -0.1, 1).clipPath).toBe("inset(0px 100.00% 0px 0px)");
+    expect(enter("wipe", -0.1, 1).clipPath).toBe("inset(-25% 100.00% -25% 0px)");
     expect(enter("grow", -0.1, 1).transform).toBe("scaleY(0.0000)");
   });
   it("settles every kind to its resting place", () => {
@@ -48,6 +51,10 @@ describe("enter", () => {
     expect(enter("up", 0.2, 1).transform).not.toBe("none");
     expect(enter("grow", 0.6, 1).transform).not.toBe("none");
     expect(enter("up", 0.6, 1).transform).toBe("none");
+  });
+  it("wipes from left to right only: Thai marks above and below the box are never cut (first real still, Kanit 900 at line-height 1.08)", () => {
+    for (const s of [0, 0.2, 0.4, 2]) expect(enter("wipe", s, 1).clipPath).toMatch(/^inset\(-25% [\d.]+% -25% 0px\)$/);
+    expect(enter("wipe", 2, 1).clipPath).toBe("inset(-25% 0% -25% 0px)");
   });
   it("scales its travel with the unit", () => {
     expect(enter("left", 0, 2).transform).toBe("translateX(-648.00px)");
@@ -148,6 +155,9 @@ describe("askFrame (เปิดด้วยคำถาม)", () => {
     for (const s of ["79", "28,700", "19", "53", "99"]) expect(rows).toContain(s);
     expect(at(0, 2)).toContain("ถามจริง");
   });
+  it("reaches the red mark up over the tone marks Kanit 900 draws above its box (the ่ of ที่ stood on the yellow on the first real still)", () => {
+    expect(at(0, 2)).toMatch(/<span style="[^"]*background:#e63946[^"]*box-shadow:0 -17px 0 #e63946[^"]*">ที่บ้าน</);
+  });
   it("counts the big figure up from nothing", () => {
     expect(at(1, 0.1)).not.toContain("2,000,000");
     expect(at(1, 0.1)).toContain(">0<");
@@ -211,6 +221,13 @@ describe("lifeFrame (เส้นชีวิต)", () => {
     }
     expect(railAt(c.scenes[1].start + 0.6, 1)).toBeGreaterThan(8);
     expect(railAt(c.scenes[1].start + 0.6, 1)).toBeLessThan(34);
+  });
+  it("keeps the foot line right of the rail on every scene (the card's long footnote crossed it on the first real still)", () => {
+    for (let i = 0; i < 5; i++) {
+      const left = Number(/<div style="[^"]*left:(\d+)px[^"]*"><div style="display:flex">ตัวอย่างประกอบ/.exec(at(i, 2))?.[1]);
+      // the rail stands at 11 % of the width and is 0.8 % wide
+      expect(left).toBeGreaterThan(Math.round(0.118 * 1080) + 16);
+    }
   });
   it("keeps a 50,000,000 figure and a 40-letter name on one line inside the clip", () => {
     const facts = { ...LP35, lead: { ...LP35.lead, baht: 50_000_000 } };
@@ -284,6 +301,14 @@ describe("versusFrame (เทียบให้เห็น)", () => {
     const { paid, cash } = bars(withSums(500_000, 1_500_000));
     expect(paid / cash).toBeCloseTo(1 / 3, 3);
   });
+  it("inks the foot line in each half's own colour on the two halves (navy on blue was unreadable on the first real still)", () => {
+    const html = at(0, 2);
+    expect(html.split("ตัวอย่างประกอบ").length - 1).toBe(2);
+    expect(html).toContain("clip-path:inset(0px 540px 0px 0px)");
+    expect(html).toContain("clip-path:inset(0px 0px 0px 540px)");
+    expect(html).toContain(`color:${RECIPE_COLORS.versus.footOnBlue}`);
+    for (const i of [1, 2, 3]) expect(at(i, 2).split("ตัวอย่างประกอบ").length - 1).toBe(1);
+  });
   it("refuses a clip without its three sums rather than draw an empty figure", () => {
     const k = lp35Clip(DURS);
     k.figures = { ...k.figures, diff: undefined };
@@ -303,5 +328,24 @@ describe("versusFrame (เทียบให้เห็น)", () => {
     for (const i of [2, 3]) expect(nowrapOverflows(at(i, 3, k), 1080 - 2 * 97)).toEqual([]);
     expect(at(2, 3, k)).toContain("+1,000,000");
     expect(at(1, 3, k)).toContain("50,000,000");
+  });
+});
+
+describe("recipeFrame and recipeJoin (the Remotion side, recipes-draw.tsx)", () => {
+  const ask = lp35Clip([3.4, 3.6, 4.2, 2.8]);
+  const life = lp35Clip([3.2, 3.2, 3.4, 3.4, 2.8]);
+  const versus = lp35Clip([3.2, 3.8, 3.8, 2.8]);
+  it("draws each recipe with its own frame function", () => {
+    const html = (n: ReactNode) => renderToStaticMarkup(<>{n}</>);
+    for (const [i, t] of [[0, 0.3], [1, 2], [2, 1.1], [3, 2]] as const) {
+      expect(html(recipeFrame("ask", ask, i, t, ask.scenes[i].start + t, 1080, 1920))).toBe(html(askFrame(ask, i, t, ask.scenes[i].start + t, 1080, 1920)));
+      expect(html(recipeFrame("versus", versus, i, t, versus.scenes[i].start + t, 1080, 1920))).toBe(html(versusFrame(versus, i, t, versus.scenes[i].start + t, 1080, 1920)));
+    }
+    for (let i = 0; i < 5; i++) expect(html(recipeFrame("life", life, i, 1, life.scenes[i].start + 1, 1080, 1920))).toBe(html(lifeFrame(life, i, 1, life.scenes[i].start + 1, 1080, 1920)));
+  });
+  it("joins ask with a hard cut, life with a cross-fade, versus sliding left", () => {
+    expect(recipeJoin("ask")).toBe("cut");
+    expect(recipeJoin("life")).toBe("fade");
+    expect(recipeJoin("versus")).toBe("slideleft");
   });
 });

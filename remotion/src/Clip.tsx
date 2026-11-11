@@ -17,6 +17,9 @@ import { setFxBlur } from "@/lib/quote-video/motion";
 import { transitionOf } from "@/lib/quote-video/fx";
 import { quoteCues } from "@/lib/quote-video/fx-cues";
 import { fxIcon, iconFor } from "@/lib/quote-video/fx-icons";
+import { recipeFigures } from "@/lib/quote-video/recipes";
+import { recipeFrame, recipeJoin } from "@/lib/quote-video/recipes-draw";
+import type { RecipeClip } from "@/lib/quote-video/recipe-blocks";
 
 /**
  * วิดีโอนำเสนอ's Motion Graphic clip drawn by Remotion (owner 2026-10-17; src/lib/quote-video/remotion.ts). The frames are
@@ -36,6 +39,9 @@ export const SATORI_CSS = `
 export const FONTS: [string, string, number][] = [
   ["Plex", "fonts/IBMPlexSansThai-Regular.ttf", 400], ["Plex", "fonts/IBMPlexSansThai-SemiBold.ttf", 600],
   ["Mali", "fonts/Mali-400.ttf", 400], ["Mali", "fonts/Mali-600.ttf", 600], ["Sriracha", "fonts/Sriracha-400.ttf", 400],
+  // สูตรคลิป Motion (recipes-draw.tsx): เปิดด้วยคำถาม's heavy Kanit, เส้นชีวิต's Trirong, at the weights their frames use
+  ["Kanit", "fonts/Kanit-500.ttf", 500], ["Kanit", "fonts/Kanit-800.ttf", 800], ["Kanit", "fonts/Kanit-900.ttf", 900],
+  ["Trirong", "fonts/Trirong-400.ttf", 400], ["Trirong", "fonts/Trirong-600.ttf", 600], ["Trirong", "fonts/Trirong-700.ttf", 700],
 ];
 
 /**
@@ -83,6 +89,12 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
     (async () => {
       await loadFonts();
       await loadScriptFonts(p.scriptFont);
+      // a recipe clip draws its own ground (recipes-draw.tsx): no theme hero or background to fetch
+      if (p.recipe) {
+        setGot({ ground: null });
+        continueRender(handle);
+        return;
+      }
       const bgH = motionBgHeight({ h });
       const [hero, ground] = await Promise.all([themeHero(p.theme, p.sex), themeBackground(p.theme, { w, h }, bgH, lookOf(p))]);
       setGot({ hero, ground: ground ?? motionBackground({ w, h }) });
@@ -132,6 +144,36 @@ export function Clip(p: ClipProps) {
             <Audio src={staticFile("video/ding.wav")} volume={0.5} />
           </Sequence>
         ))}
+      </AbsoluteFill>
+    );
+  }
+  // สูตรคลิป Motion (recipes-draw.tsx): the whole clip in the recipe's own look, with no theme, ground, hero, festival, mascot,
+  // carried figure or icon; its scenes join as the recipe says (a "cut" puts the incoming scene over the outgoing one as it is)
+  if (p.recipe) {
+    const figures = recipeFigures(p.facts);
+    if (!figures) throw new Error("recipe does not fit");
+    const clip: RecipeClip = { facts: p.facts, figures, contact: p.contact, total: p.total, scenes: p.scenes };
+    const join = recipeJoin(p.recipe);
+    const recipe = p.recipe;
+    return (
+      <AbsoluteFill className="sat" style={{ background: "#000" }}>
+        <style>{SATORI_CSS}</style>
+        {p.scenes.map((sc, s) => {
+          if (T < sc.start || T >= sc.start + sc.dur) return null;
+          const t = T - sc.start;
+          const next = p.scenes[s + 1];
+          let style: CSSProperties = {};
+          if (join !== "cut" && t < XFADE && s > 0) style = crossing(join, t / XFADE, w).in;
+          else if (join !== "cut" && next && T >= next.start) style = crossing(join, (T - next.start) / XFADE, w).out;
+          return (
+            <AbsoluteFill key={s} style={{ overflow: "hidden", ...style }}>
+              <KeepWords>{recipeFrame(recipe, clip, s, t, T, w, h)}</KeepWords>
+            </AbsoluteFill>
+          );
+        })}
+        <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
+        {/* the whooshes alone, as ตัวหนังสือเด้ง has them: the recipe's own entrances carry the rest */}
+        {p.fx ? <FxSound music={p.fx.music} cues={quoteCues(p.scenes, p.facts, false).filter((c) => c.sound === "whoosh")} scenes={p.scenes} total={p.total} fps={fps} /> : null}
       </AbsoluteFill>
     );
   }

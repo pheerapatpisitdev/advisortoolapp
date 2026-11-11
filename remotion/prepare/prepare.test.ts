@@ -54,6 +54,9 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets
   await googleFont("Mali", 400, join(PUB, "fonts/Mali-400.ttf"));
   await googleFont("Mali", 600, join(PUB, "fonts/Mali-600.ttf"));
   await googleFont("Sriracha", 400, join(PUB, "fonts/Sriracha-400.ttf"));
+  // สูตรคลิป Motion (recipes-draw.tsx): เปิดด้วยคำถาม's Kanit and เส้นชีวิต's Trirong, at the weights their frames use
+  for (const wt of [500, 800, 900]) await googleFont("Kanit", wt, join(PUB, `fonts/Kanit-${wt}.ttf`));
+  for (const wt of [400, 600, 700]) await googleFont("Trirong", wt, join(PUB, `fonts/Trirong-${wt}.ttf`));
   // the symbols satori draws from Noto Sans Symbols 2 (draw-png.ts FALLBACK): ☐ ✓ ✗ (Clip.tsx SYMBOLS)
   await googleFont("Noto Sans Symbols 2", 400, join(PUB, "fonts/NotoSansSymbols2-400.ttf"));
   copyFileSync(join(APP, "public/collage/paper-light.jpg"), join(PUB, "collage/paper-light.jpg"));
@@ -242,4 +245,29 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the แบบปกติ sam
     composition: "ClassicClip", drawing: REMOTION_DRAWING, ...drawn, total, audio: "audio/c-lp.wav",
     scenes: parts.plans.map((p, i) => ({ key: p.key, voice: parts.script[i].voice, voiceSec: secs[i], start: p.start, dur: p.dur, frames: p.frames, ...(layers[i] ? { layer: layers[i] } : {}), ...(p.table ? { table: p.table } : {}) })),
   }));
+});
+
+/**
+ * สูตรคลิป Motion samples (owner, 2026-11-11, mockup https://claude.ai/artifact/2yaTZU2RVFVmMn9VNi9K88, ก ก ก): the Life
+ * Protect quote above (ชาย 35, ทุน 1 ล้าน) told as each recipe, as props/r-ask.json, r-life.json and r-versus.json, from
+ * recipeScript's lines and planScenes with no motion windows (each scene the voice and its lead and tail). The voice is
+ * silence, 0.07 s a letter and at least 2 s a line, as the iHealthy block's Burmese.
+ */
+it.skipIf(Boolean(process.env.IHEALTHY))("prepares the สูตรคลิป Motion samples", async () => {
+  const { quoteVideoFacts } = await import("@/lib/quote-video/script");
+  const { recipeScript, RECIPE_KEYS } = await import("@/lib/quote-video/recipes");
+  const { planScenes, clipLength } = await import("@/lib/quote-video/timeline");
+  const { clipProps } = await import("@/lib/quote-video/remotion");
+  for (const d of ["audio", "props"]) mkdirSync(join(PUB, d), { recursive: true });
+  const facts = quoteVideoFacts({ product: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
+  const extra = { story: { points: [] }, qas: [], versus: { left: { label: "", amount: "", unit: "" }, right: { label: "", amount: "", unit: "" }, note: "" }, steps: [] };
+  for (const recipe of RECIPE_KEYS) {
+    const script = recipeScript(recipe, facts, "F");
+    const secs = script.map((s) => Math.max(2, [...s.voice].length * 0.07));
+    const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i] })));
+    const total = clipLength(plans);
+    writeFileSync(join(PUB, `audio/r-${recipe}.wav`), silentWav(total));
+    const motion = { theme: "navy" as const, recipe, sex: "M" as const, facts, customer: "", narrator: "F" as const, contact: CONTACT, shown: { loop: false, extra } };
+    writeFileSync(join(PUB, `props/r-${recipe}.json`), JSON.stringify(clipProps(motion, plans, script, secs, total, `audio/r-${recipe}.wav`)));
+  }
 });
