@@ -269,7 +269,8 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the สูตรคลิป 
     const input = { product: "LIFEPROTECT" as const, variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000, style: "motion" as const, size: "portrait" as const, narrator: "F" as const, recipe };
     const pcms = narisa(join(OUT, `voice-r-${recipe}`), recipeScript(recipe, quoteVideoFacts(input)!, "F"));
     const secs = pcms.map((p) => pcmSeconds(p, 24000));
-    const parts = quotePartsFor({ input, customer_name: "" }, CONTACT, secs);
+    // with a รายละเอียดเพิ่มเติม, so the closing card shows it as an agent's would (final review, 2026-11-12)
+    const parts = quotePartsFor({ input, customer_name: "" }, { ...CONTACT, more: "ตัวแทนประกันชีวิต ใบอนุญาตเลขที่ 6501234567" }, secs);
     if (parts.motion$?.recipe !== recipe) throw new Error(`r-${recipe}: the app did not make it a recipe clip`);
     const total = clipLength(parts.plans);
     writeFileSync(join(PUB, `audio/r-${recipe}.wav`), mixNarration(pcms.map((pcm, i) => ({ pcm, at: parts.plans[i].voiceAt })), total, 24000));
