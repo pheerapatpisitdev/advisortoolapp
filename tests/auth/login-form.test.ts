@@ -8,17 +8,16 @@ const { LoginForm } = await import("@/app/login/LoginForm");
 const draw = (signupOpen: boolean, error: string | null = null) =>
   renderToStaticMarkup(createElement(LoginForm, { next: "/studio", signupOpen, error }));
 
-describe("LoginForm's first tab", () => {
-  it("is the member's while sign-up is open", () => {
-    const html = draw(true);
-    expect(html).toContain("ดำเนินการต่อด้วย Google");
-    expect(html).not.toContain('id="login-code"');
-  });
+/** the member tab, open because Google sent somebody back with a reason */
+const drawMember = (signupOpen: boolean) => draw(signupOpen, "ลองใหม่อีกครั้ง");
 
-  it("is the UnitOS agent's while sign-up is off, so nobody is sent to a tab that cannot be joined", () => {
-    const html = draw(false);
-    expect(html).toContain('id="login-code"');
-    expect(html).not.toContain("ดำเนินการต่อด้วย Google");
+describe("LoginForm's first tab", () => {
+  it("is the UnitOS agent's, sign-up open or not (owner, 2026-11-11)", () => {
+    for (const open of [true, false]) {
+      const html = draw(open);
+      expect(html).toContain('id="login-code"');
+      expect(html).not.toContain("ดำเนินการต่อด้วย Google");
+    }
   });
 
   it("is the member's whenever Google sent somebody back with a reason, so they read it", () => {
@@ -30,21 +29,21 @@ describe("LoginForm's first tab", () => {
 
 describe("LoginForm's member tab (owner, 2026-10-02)", () => {
   it("is one Google button, a plain link that works before the page hydrates", () => {
-    const html = draw(true);
+    const html = drawMember(true);
     expect(html).toMatch(/<a[^>]*href="\/auth\/google\?next=%2Fstudio"[^>]*>[\s\S]*ดำเนินการต่อด้วย Google<\/a>/);
     expect(html).not.toContain("PIN");
     expect(html).not.toContain("เบอร์มือถือ");
   });
 
   it("tells newcomers the same button signs them up, only while sign-up is open", () => {
-    expect(draw(true)).toContain("กดปุ่มนี้แล้วกรอกข้อมูลสั้นๆ");
+    expect(drawMember(true)).toContain("กดปุ่มนี้แล้วกรอกข้อมูลสั้นๆ");
     // the trial's own words come from the back office, through the door (src/lib/pricing/front.ts)
-    expect(draw(true)).not.toContain("10 รอบ");
+    expect(drawMember(true)).not.toContain("10 รอบ");
     expect(draw(false, "x")).not.toContain("เพื่อสมัคร");
   });
 
   it("says that going on accepts the privacy policy", () => {
-    expect(draw(true)).toMatch(/ยอมรับ[\s\S]*href="\/privacy"/);
+    expect(drawMember(true)).toMatch(/ยอมรับ[\s\S]*href="\/privacy"/);
   });
 });
 
@@ -56,12 +55,12 @@ describe("LoginForm's look (owner, 2026-10-01)", () => {
   });
 
   it("says under each tab who it is for", () => {
-    expect(draw(true)).toContain("บัญชี Google");
+    expect(drawMember(true)).toContain("บัญชี Google");
     expect(draw(false)).toContain("รหัสเดียวกับที่ใช้เข้า UnitOS");
   });
 
   it("wears the site's mark and does not repeat เข้าสู่ระบบ as its heading", () => {
-    const html = draw(true);
+    const html = drawMember(true);
     expect(html).toContain('src="/mark.png"');
     expect(html).toMatch(/<h1[^>]*>ยินดีต้อนรับสู่ advisortool<\/h1>/);
   });

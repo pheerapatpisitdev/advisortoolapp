@@ -44,9 +44,9 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
   /** sent here as a basic agent of a room that keeps advisortool for Premium (door.tsx) */
   premium?: boolean;
 }) {
-  // the member tab is for people who can still sign up; while sign-up is off a visitor is
-  // almost surely a UnitOS agent, so that tab opens first (both stay available)
-  const [tab, setTab] = useState<Tab>(!premium && (signupOpen || googleError) ? "member" : "unitos");
+  // ตัวแทน UnitOS opens first (owner, 2026-11-11); the member tab only when Google sent somebody
+  // back with a reason to read there. Both stay available
+  const [tab, setTab] = useState<Tab>(!premium && googleError ? "member" : "unitos");
   const [error, setError] = useState<string>();
   // the code typed was a basic agent's: the Premium box takes the error's place
   const [locked, setLocked] = useState(false);
