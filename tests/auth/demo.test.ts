@@ -26,7 +26,7 @@ import { db, has } from "../helpers/fake-db";
 const demo = await import("@/lib/auth/demo");
 const { signIn, signOut } = await import("@/app/login/actions");
 
-const ROW = { open: true, daily_cap_satang: 30000, warned_day: null, full_day: null, revoked_at: null, wiped_at: null };
+const ROW: import("@/lib/auth/demo").DemoRow = { open: true, daily_cap_satang: 30000, warned_day: null, full_day: null, revoked_at: null, wiped_at: null };
 
 const form = (code: string) => {
   const fd = new FormData();
@@ -36,7 +36,7 @@ const form = (code: string) => {
 };
 
 /** the demo row, what it spent today (baht), and the alert stamps answering as written */
-function answer(row: typeof ROW | null, spentBaht = 0) {
+function answer(row: import("@/lib/auth/demo").DemoRow | null, spentBaht = 0) {
   db.on("ins_demo", (steps) => (has(steps, "update") ? { data: [{ id: true }] } : { data: row }));
   db.on("rpc:ins_demo_spent", () => ({ data: spentBaht }));
 }
