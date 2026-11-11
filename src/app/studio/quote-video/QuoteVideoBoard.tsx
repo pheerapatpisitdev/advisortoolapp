@@ -128,7 +128,7 @@ const TELL_HINT: Record<Tell, string> = {
   old: "Motion Graphic แบบที่ใช้อยู่ทุกวันนี้ เลือกธีมและความยาวได้",
 };
 /** the rows a recipe does not use fold into this one line (owner, 2026-11-12, 2ก) */
-const RECIPE_FOLD = "สูตรนี้มีสี ความยาว และบทของตัวเอง · ยาวประมาณ 20 วินาที · ไม่ใส่ชื่อลูกค้า · ราคาเท่า Motion Graphic";
+const RECIPE_FOLD = "สูตรนี้มีสี ความยาว และบทของตัวเอง · ยาวประมาณ 25 วินาที · ไม่ใส่ชื่อลูกค้า · ราคาเท่า Motion Graphic";
 /** สุ่มให้'s little picture: the three recipes' grounds side by side */
 const RANDOM_TILE = `linear-gradient(135deg, ${RECIPE_COLORS.ask.yellow} 0 33%, ${RECIPE_COLORS.life.ground} 33% 66%, ${RECIPE_COLORS.versus.blue} 66%)`;
 /** the four lengths (owner, 2026-10-13: up to 2 minutes; told.ts sceneOrder) */

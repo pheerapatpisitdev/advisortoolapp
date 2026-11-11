@@ -60,7 +60,8 @@ export function lifeFrame(c: RecipeClip, index: number, t: number, T: number, w:
   } else if (index === 1) {
     body = (
       <>
-        {piece("fade", 0, age, `อีก ${facts.payYears ?? ""} ปี · อายุ`)}
+        {/* the age the last premium is paid at: 35 paying 19 years pays up at 53, not "อีก 19 ปี" on (final review, 2026-11-12) */}
+        {piece("fade", 0, age, `จ่าย ${facts.payYears ?? ""} ปี · ถึงอายุ`)}
         {year(facts.lastPayAge ?? "")}
         {piece("up", 0.6, txt, line("จ่ายครบ หยุดจ่าย", "ความคุ้มครองยังอยู่"))}
       </>

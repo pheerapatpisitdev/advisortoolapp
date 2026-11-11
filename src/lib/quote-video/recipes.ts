@@ -100,7 +100,7 @@ export function recipeScript(key: RecipeKey, f: QuoteVideoFacts, narrator: "F" |
     ["contact", "อยากรู้ตัวเลขของคุณเอง ทักมาได้เลยค่ะ"],
   ] : key === "life" ? [
     ["lead", `วันนี้อายุ ${f.age} เริ่มออมปีละ ${baht(fig.yearly)}`],
-    ["price", `อีก ${f.payYears} ปี อายุ ${f.lastPayAge} จ่ายครบ หยุดจ่าย แต่ความคุ้มครองยังอยู่`],
+    ["price", `จ่าย ${f.payYears} ปี ถึงอายุ ${f.lastPayAge} จ่ายครบ หยุดจ่าย แต่ความคุ้มครองยังอยู่`],
     ["cover", `ตลอดช่วงก่อนอายุ ${fig.splitAge} หากจากไป ครอบครัวได้รับ ${baht(fig.early)}`],
     ["value", `จากนั้นยาวถึงอายุ ${f.coverToAge} ยังคุ้มครองต่อ ${baht(fig.late)}`],
     ["contact", "อยากวางเส้นชีวิตของคุณเอง ทักมาได้เลยค่ะ"],

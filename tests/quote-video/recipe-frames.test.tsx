@@ -195,7 +195,9 @@ describe("lifeFrame (เส้นชีวิต)", () => {
   it("puts the quote's own figures on each scene", () => {
     expect(at(0, 2)).toContain(">35<");
     expect(at(0, 2)).toContain("28,700 บาท");
-    expect(at(1, 2)).toContain("อีก 19 ปี · อายุ");
+    // 35 + 19 is 54: the 53 is the age the last premium is paid at, so it is "จ่าย 19 ปี · ถึงอายุ" (final review, 2026-11-12)
+    expect(at(1, 2)).toContain("จ่าย 19 ปี · ถึงอายุ");
+    expect(at(1, 2)).not.toContain("อีก 19 ปี");
     expect(at(1, 2)).toContain(">53<");
     expect(at(2, 2)).toContain(">60<");
     expect(at(2, 2)).toContain("2,000,000");

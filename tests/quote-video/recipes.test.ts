@@ -76,6 +76,8 @@ describe("clip recipes (owner, 2026-11-11, ก ก ก)", () => {
     expect(lifeScenes.map((s) => s.key)).toEqual(["lead", "price", "cover", "value", "contact"]);
     const life = said("life");
     for (const s of [spokenBaht(28_700), spokenBaht(2_000_000), spokenBaht(1_000_000), "35", "53", "60", "99"]) expect(life).toContain(s);
+    // 35 + 19 is 54, not 53: paid for 19 years up to the age of 53 (final review, 2026-11-12)
+    expect(lifeScenes[1].voice).toBe("จ่าย 19 ปี ถึงอายุ 53 จ่ายครบ หยุดจ่าย แต่ความคุ้มครองยังอยู่");
     const vs = recipeScript("versus", LP35, "F");
     expect(vs.map((s) => s.key)).toEqual(["lead", "value", "cover", "contact"]);
     const versus = said("versus");
