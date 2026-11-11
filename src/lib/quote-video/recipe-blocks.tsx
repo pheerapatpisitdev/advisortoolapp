@@ -98,7 +98,8 @@ export function fitSize(text: string, room: number, cap: number): number {
 export interface RecipeClip {
   facts: QuoteVideoFacts;
   figures: RecipeFigures;
-  contact: { name: string; phone: string; line?: string };
+  /** the agent as the closing card shows them; `more` is บัญชีของฉัน's รายละเอียดเพิ่มเติม (at most two lines, contact.ts) */
+  contact: { name: string; phone: string; line?: string; more?: string };
   total: number;
   scenes: { start: number; dur: number }[];
 }
@@ -122,7 +123,8 @@ export function footLine(c: RecipeClip, w: number, h: number, color: string, lef
 }
 
 /**
- * The closing card: a lead line, the agent's name, then phone and LINE; every line one line wide.
+ * The closing card: a lead line, the agent's name, then phone and LINE, then the agent's รายละเอียดเพิ่มเติม as the
+ * standing Motion clip's card has it (final review, 2026-11-12); every line one line wide, the last two at most.
  * `face.enter` is how the name and the last lines arrive (default: the name slammed at 0.25 s, the
  * rest up at 0.7 s, as `ask` has it; `life` and `versus` use the mockup's up at 0.2 s / 0.5 s).
  * `face.room` / `face.align` set the column the lines are fitted to and aligned in (default: the clip width less 64 px a side, centred;
@@ -141,6 +143,8 @@ export function contactBlock(
   const arrive = face.enter ?? { kind: "slam" as Enter, name: 0.25, rest: 0.7 };
   const room = face.room ?? w - Math.round(64 * unit) * 2;
   const left = face.align === "left";
+  // บัญชีของฉัน keeps it to two lines (contact.ts cleanMore); a third that slipped through is not drawn
+  const [more1, more2] = (c.contact.more ?? "").split("\n").map((m) => m.trim()).filter(Boolean);
   const line = (text: string, cap: number, color: string, weight: number, kind: Enter, at: number, gap = 0) => (
     <div style={{ display: "flex", whiteSpace: "nowrap", justifyContent: left ? "flex-start" : "center", fontFamily: face.family, fontWeight: weight, color, fontSize: fitSize(text, room, Math.round(cap * unit)), lineHeight: 1.25, marginTop: Math.round(gap * unit), ...enter(kind, s - at, unit) }}>{text}</div>
   );
@@ -150,6 +154,8 @@ export function contactBlock(
       {line(c.contact.name, 120, face.accent, face.weight, arrive.kind, arrive.name, 24)}
       {line(`โทร ${c.contact.phone}`, 54, face.color, light, "up", arrive.rest, 28)}
       {c.contact.line ? line(`LINE ${c.contact.line}`, 54, face.color, light, "up", arrive.rest) : null}
+      {more1 ? line(more1, 44, face.color, light, "up", arrive.rest, 20) : null}
+      {more2 ? line(more2, 44, face.color, light, "up", arrive.rest) : null}
     </div>
   );
 }

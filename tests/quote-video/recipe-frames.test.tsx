@@ -119,6 +119,32 @@ describe("contactBlock entrance and weight settings", () => {
   });
 });
 
+describe("contactBlock's รายละเอียดเพิ่มเติม (contact.more, as the standing Motion clip draws it; final review, 2026-11-12)", () => {
+  const face = { family: "Trirong", weight: 700, color: "#fff", accent: "#f2b84b", light: 400, enter: { kind: "up" as Enter, name: 0.2, rest: 0.5 } };
+  const withMore = (more?: string): RecipeClip => ({ ...clip(), contact: { ...clip().contact, ...(more === undefined ? {} : { more }) } });
+  const draw = (k: RecipeClip, s = 5) => renderToStaticMarkup(contactBlock(k, "ลีด", s, 1080, 1, face));
+
+  it("draws nothing more, and the same markup as before, without it", () => {
+    expect(draw(withMore())).toBe(draw(clip()));
+    expect(draw(withMore(""))).toBe(draw(clip()));
+  });
+  it("draws one line under the LINE line, in the light weight, entering with the last lines", () => {
+    const html = draw(withMore("รับวางแผนประกันทั้งครอบครัว"));
+    expect(html).toMatch(/LINE @yourline<\/div><div style="[^"]*font-weight:400[^"]*">รับวางแผนประกันทั้งครอบครัว</);
+    // 0.3 s in: the last lines (and it) have not come up yet; 0.6 s in, they have started
+    expect(/<div[^>]*opacity:0[;"][^>]*>รับวางแผน/.test(draw(withMore("รับวางแผนประกันทั้งครอบครัว"), 0.3))).toBe(true);
+    expect(/<div[^>]*opacity:0[;"][^>]*>รับวางแผน/.test(draw(withMore("รับวางแผนประกันทั้งครอบครัว"), 0.6))).toBe(false);
+  });
+  it("draws at most two lines, each one line inside the room", () => {
+    const long = `${"ก".repeat(40)}\n${"ข".repeat(40)}\nสาม`;
+    const html = draw(withMore(long));
+    expect(html).toContain("ก".repeat(40));
+    expect(html).toContain("ข".repeat(40));
+    expect(html).not.toContain(">สาม<");
+    expect(nowrapOverflows(html, 1080 - 128)).toEqual([]);
+  });
+});
+
 describe("footLine", () => {
   it("prints the example line and the card's footnote when there is one", () => {
     expect(renderToStaticMarkup(footLine(clip(), 1080, 1920, "#000"))).toContain("ตัวอย่างประกอบ · เงื่อนไขตามกรมธรรม์");
@@ -331,6 +357,36 @@ describe("versusFrame (เทียบให้เห็น)", () => {
     expect(at(2, 3, k)).toContain("+1,000,000");
     expect(at(1, 3, k)).toContain("50,000,000");
   });
+});
+
+describe("each recipe's closing card with the agent's รายละเอียดเพิ่มเติม (final review, 2026-11-12)", () => {
+  const ONE = "รับวางแผนประกันทั้งครอบครัว";
+  const TWO = `${"ก".repeat(40)}\n${"ข".repeat(40)}`;
+  const recipes = [
+    // ask's card stands in the block's own room, the clip less 64 px a side; life's right of its rail; versus's in its 9 % margins
+    { name: "ask", draw: askFrame, durs: [3.4, 3.6, 4.2, 2.8], room: 1080 - 128 },
+    { name: "life", draw: lifeFrame, durs: [3.2, 3.2, 3.4, 3.4, 2.8], room: 1080 - Math.round(0.2 * 1080) - Math.round(0.09 * 1080) },
+    { name: "versus", draw: versusFrame, durs: [3.2, 3.8, 3.8, 2.8], room: 1080 - 2 * Math.round(0.09 * 1080) },
+  ] as const;
+  const last = (r: (typeof recipes)[number], more?: string) => {
+    const k = lp35Clip([...r.durs]);
+    if (more !== undefined) k.contact = { ...k.contact, more };
+    const i = r.durs.length - 1;
+    return renderToStaticMarkup(r.draw(k, i, r.durs[i] / 2, k.scenes[i].start + r.durs[i] / 2, 1080, 1920));
+  };
+
+  for (const r of recipes) {
+    it(`${r.name}: draws it on one line or two, each inside its column, and nothing new without it`, () => {
+      const one = last(r, ONE);
+      expect(one).toContain(ONE);
+      expect(nowrapOverflows(one, r.room)).toEqual([]);
+      const two = last(r, TWO);
+      expect(two).toContain("ก".repeat(40));
+      expect(two).toContain("ข".repeat(40));
+      expect(nowrapOverflows(two, r.room)).toEqual([]);
+      expect(last(r)).not.toContain(ONE);
+    });
+  }
 });
 
 describe("recipeFrame and recipeJoin (the Remotion side, recipes-draw.tsx)", () => {
