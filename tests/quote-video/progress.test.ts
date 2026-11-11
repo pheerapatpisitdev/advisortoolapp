@@ -75,6 +75,13 @@ describe("clipKind", () => {
     expect(clipKind({ style: "motion", length: "short" })).toBe("motion-short");
     expect(clipKind({ fhc: { x: 1 }, style: "motion" })).toBe("fhc");
   });
+  it("counts a recipe clip, stored as the 15-second one but about 25 seconds long, as a whole Remotion clip (final review, 2026-11-12)", () => {
+    expect(clipKind({ style: "motion", length: "short", engine: "remotion", recipe: "life" })).toBe("remotion-full");
+    expect(clipKind({ style: "motion", length: "short", recipe: "ask" })).toBe("remotion-full");
+    // no recipe, or a key that is none: as before
+    expect(clipKind({ style: "motion", length: "short", engine: "remotion" })).toBe("remotion-short");
+    expect(clipKind({ style: "motion", length: "short", engine: "remotion", recipe: "nope" })).toBe("remotion-short");
+  });
 });
 
 describe("leftWords", () => {

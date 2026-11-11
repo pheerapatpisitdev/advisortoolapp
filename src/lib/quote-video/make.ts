@@ -244,7 +244,7 @@ export async function clipEstimates(now = Date.now()): Promise<Record<ClipKind, 
     const asked = Date.parse(r.created_at);
     const done = Date.parse(r.updated_at);
     if (![started, asked, done].every(Number.isFinite)) return [];
-    return [{ kind: clipKind(r.input as { fhc?: unknown; style?: unknown; length?: unknown; engine?: unknown }), pre: (started - asked) / 1000, render: (done - started) / 1000 }];
+    return [{ kind: clipKind(r.input as { fhc?: unknown; style?: unknown; length?: unknown; engine?: unknown; recipe?: unknown }), pre: (started - asked) / 1000, render: (done - started) / 1000 }];
   });
   estimates = { at: now, value: estimatesFrom(samples) };
   return estimates.value;

@@ -609,7 +609,7 @@ function progressAt(v: Pick<VideoRow, "status" | "job" | "progress" | "created_a
     status: v.status, note: readNote(v.progress),
     sinceStart: Math.max(0, (now - Date.parse(v.created_at)) / 1000),
     sinceRender: Number.isFinite(started) ? Math.max(0, (now - started) / 1000) : null,
-    est: est[clipKind(v.input as { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown; engine?: unknown })],
+    est: est[clipKind(v.input as { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown; engine?: unknown; recipe?: unknown })],
   };
 }
 

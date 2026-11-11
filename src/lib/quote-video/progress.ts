@@ -8,6 +8,8 @@
  * is split by measured time: rendering is most of a clip's making. Pure and browser-safe.
  */
 
+import { readRecipe } from "./recipe-keys";
+
 /** "pictures": a คลิปตามโจทย์'s painted pictures, before its voice */
 export type ProgressStep = "pictures" | "voice" | "files" | "draw" | "submit";
 /** what produce has done, on the row: `done` of `of` lines spoken or scenes drawn */
@@ -50,9 +52,11 @@ export const RECENT = 20;
 /** a render longer than this is a clip that hung, not a measure */
 export const MAX_RENDER_SEC = 15 * 60;
 
-export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown; engine?: unknown }): ClipKind {
+export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown; engine?: unknown; recipe?: unknown }): ClipKind {
   if (input.fhc) return "fhc";
   if (input.product === "STORY" || input.product === "FREESTORY") return input.engine === "remotion" ? "story-remotion" : "story";
+  // สูตรคลิป Motion is stored as the 15-second clip but runs about 25 seconds, drawn by Remotion (final review, 2026-11-12)
+  if (input.style === "motion" && readRecipe(input.recipe)) return "remotion-full";
   const length = input.length === "short" || input.length === "long" || input.length === "max" ? input.length : "full";
   // แชทถาม-ตอบ is drawn the Motion way (make.ts)
   return `${input.style === "motion" || input.style === "chat" ? (input.engine === "remotion" ? "remotion" : "motion") : "classic"}-${length}`;
