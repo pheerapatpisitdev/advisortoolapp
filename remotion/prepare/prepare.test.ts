@@ -73,18 +73,7 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets
   const facts = quoteVideoFacts(inputOf("navy"), TODAY)!;
   const script = quoteVideoScript(facts, "", "F", "full", {});
 
-  // the voice: the Mac's Narisa, 24 kHz 16-bit mono as Gemini gives it; kept while the line is the same
-  const vdir = join(OUT, "voice");
-  mkdirSync(vdir, { recursive: true });
-  const pcms = script.map((s, i) => {
-    const pcm = join(vdir, `${i}.pcm`);
-    if (!existsSync(pcm) || readFileSync(join(vdir, `${i}.txt`), "utf8") !== s.voice) {
-      execFileSync("say", ["-v", "Narisa", "-o", join(vdir, `${i}.aiff`), s.voice]);
-      execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(vdir, `${i}.aiff`), "-ar", "24000", "-ac", "1", "-f", "s16le", pcm]);
-      writeFileSync(join(vdir, `${i}.txt`), s.voice);
-    }
-    return readFileSync(pcm);
-  });
+  const pcms = narisa(join(OUT, "voice"), script);
   const secs = pcms.map((p) => pcmSeconds(p, 24000));
   console.log(script.map((s, i) => `${s.key} ${secs[i].toFixed(1)}s: ${s.voice}`).join("\n"));
 
@@ -105,6 +94,20 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets
   writeFileSync(join(OUT, "prepare-props.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 });
+
+/** the voice: the Mac's Narisa, 24 kHz 16-bit mono as Gemini gives it, a line a file in `vdir`; kept while the line is the same */
+function narisa(vdir: string, script: { voice: string }[]): Buffer[] {
+  mkdirSync(vdir, { recursive: true });
+  return script.map((s, i) => {
+    const pcm = join(vdir, `${i}.pcm`);
+    if (!existsSync(pcm) || readFileSync(join(vdir, `${i}.txt`), "utf8") !== s.voice) {
+      execFileSync("say", ["-v", "Narisa", "-o", join(vdir, `${i}.aiff`), s.voice]);
+      execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(vdir, `${i}.aiff`), "-ar", "24000", "-ac", "1", "-f", "s16le", pcm]);
+      writeFileSync(join(vdir, `${i}.txt`), s.voice);
+    }
+    return readFileSync(pcm);
+  });
+}
 
 /** the Mac's voice for a language, 24 kHz 16-bit mono; null where it has none */
 const SAY: Record<string, string | null> = { th: "Narisa", en: "Samantha", zh: "Tingting", ru: "Milena", my: null };
@@ -249,25 +252,30 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the แบบปกติ sam
 
 /**
  * สูตรคลิป Motion samples (owner, 2026-11-11, mockup https://claude.ai/artifact/2yaTZU2RVFVmMn9VNi9K88, ก ก ก): the Life
- * Protect quote above (ชาย 35, ทุน 1 ล้าน) told as each recipe, as props/r-ask.json, r-life.json and r-versus.json, from
- * recipeScript's lines and planScenes with no motion windows (each scene the voice and its lead and tail). The voice is
- * silence, 0.07 s a letter and at least 2 s a line, as the iHealthy block's Burmese.
+ * Protect quote above (ชาย 35, ทุน 1 ล้าน) told as each recipe, as props/r-ask.json, r-life.json and r-versus.json, made
+ * as the app makes a recipe clip (quotePartsFor on an input that asks for the recipe). The voice is the Mac's Narisa, as
+ * the navy and paper clips have it, so each scene is as long as its spoken line makes it.
  */
 it.skipIf(Boolean(process.env.IHEALTHY))("prepares the สูตรคลิป Motion samples", async () => {
+  const { quotePartsFor } = await import("@/lib/quote-video/make");
+  const { mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
+  const { RECIPE_KEYS, recipeScript } = await import("@/lib/quote-video/recipes");
   const { quoteVideoFacts } = await import("@/lib/quote-video/script");
-  const { recipeScript, RECIPE_KEYS } = await import("@/lib/quote-video/recipes");
-  const { planScenes, clipLength } = await import("@/lib/quote-video/timeline");
+  const { clipLength } = await import("@/lib/quote-video/timeline");
   const { clipProps } = await import("@/lib/quote-video/remotion");
   for (const d of ["audio", "props"]) mkdirSync(join(PUB, d), { recursive: true });
-  const facts = quoteVideoFacts({ product: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
-  const extra = { story: { points: [] }, qas: [], versus: { left: { label: "", amount: "", unit: "" }, right: { label: "", amount: "", unit: "" }, note: "" }, steps: [] };
+  const report: Record<string, unknown> = {};
   for (const recipe of RECIPE_KEYS) {
-    const script = recipeScript(recipe, facts, "F");
-    const secs = script.map((s) => Math.max(2, [...s.voice].length * 0.07));
-    const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i] })));
-    const total = clipLength(plans);
-    writeFileSync(join(PUB, `audio/r-${recipe}.wav`), silentWav(total));
-    const motion = { theme: "navy" as const, recipe, sex: "M" as const, facts, customer: "", narrator: "F" as const, contact: CONTACT, shown: { loop: false, extra } };
-    writeFileSync(join(PUB, `props/r-${recipe}.json`), JSON.stringify(clipProps(motion, plans, script, secs, total, `audio/r-${recipe}.wav`)));
+    const input = { product: "LIFEPROTECT" as const, variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000, style: "motion" as const, size: "portrait" as const, narrator: "F" as const, recipe };
+    const pcms = narisa(join(OUT, `voice-r-${recipe}`), recipeScript(recipe, quoteVideoFacts(input)!, "F"));
+    const secs = pcms.map((p) => pcmSeconds(p, 24000));
+    const parts = quotePartsFor({ input, customer_name: "" }, CONTACT, secs);
+    if (parts.motion$?.recipe !== recipe) throw new Error(`r-${recipe}: the app did not make it a recipe clip`);
+    const total = clipLength(parts.plans);
+    writeFileSync(join(PUB, `audio/r-${recipe}.wav`), mixNarration(pcms.map((pcm, i) => ({ pcm, at: parts.plans[i].voiceAt })), total, 24000));
+    writeFileSync(join(PUB, `props/r-${recipe}.json`), JSON.stringify(clipProps(parts.motion$, parts.plans as never, parts.script, secs, total, `audio/r-${recipe}.wav`)));
+    report[`r-${recipe}`] = { total, scenes: parts.plans.map((p, i) => ({ key: p.key, start: p.start, dur: p.dur, voiceAt: p.voiceAt, voiceSec: secs[i] })) };
   }
+  writeFileSync(join(OUT, "prepare-recipes.json"), JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report, null, 2));
 });
