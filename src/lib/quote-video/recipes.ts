@@ -70,11 +70,18 @@ export function recipeOf(input: { style?: unknown; size?: unknown; recipe?: unkn
  * A checked input as a recipe clip keeps it, where the recipe asked for fits: the recipe, and none of what a
  * recipe does not use (the theme and its colours, น้องโล่, the carried figures, the brief and its lines). It is
  * stored as the 15-second clip, which goes up on public Pages, so no customer's name is said or kept with it.
- * Where no recipe fits, the input exactly as it came.
+ * Where no recipe fits, the input as it came, the standing clip the agent set up: the form sends its whole standing
+ * input with every recipe, so a recipe a stale preview offered still makes the clip asked for (final review, 2026-11-12).
  */
 export function recipeInput(c: VideoInput, asked: unknown, f: QuoteVideoFacts | undefined): VideoInput {
   const recipe = f ? recipeOf({ style: c.style, size: c.size, recipe: asked }, f) : undefined;
-  if (!recipe) return c;
+  if (!recipe) {
+    if (!("recipe" in c)) return c;
+    // a key the input carried does not stay with a clip that is not made with it
+    const { recipe: _dropped, ...standing } = c;
+    void _dropped;
+    return standing;
+  }
   const { theme: _theme, festival: _festival, myColor: _myColor, mascot: _mascot, carry: _carry, brief: _brief, lines: _lines, ...kept } = c;
   void [_theme, _festival, _myColor, _mascot, _carry, _brief, _lines];
   return { ...kept, length: "short", recipe };

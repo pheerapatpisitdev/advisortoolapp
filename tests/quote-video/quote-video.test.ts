@@ -386,6 +386,21 @@ describe("a recipe clip", () => {
     expect(recipeInput(asked, "life", undefined)).toBe(asked);
   });
 
+  /**
+   * The form sends the standing clip's fields with every recipe (final review, 2026-11-12): a preview that had not come back
+   * yet may have offered a recipe the quote no longer fits, and the clip made then is the one the agent set up, not a bare one.
+   */
+  it("from the whole standing input: the recipe clip where it fits, the standing clip as set up where it does not", async () => {
+    const { recipeInput } = await import("@/lib/quote-video/recipes");
+    const standing = { ...asked, theme: "mine" as const, myColor: "teal" as const, length: "long" as const };
+    expect(recipeInput(standing, "ask", quoteVideoFacts(standing)!)).toEqual({ ...lp, narrator: "F", style: "motion", length: "short", size: "portrait", noMusic: true, recipe: "ask" });
+    // หญิง 58 pays to 76, past the step at 60: เส้นชีวิต does not fit, so the clip is the standing one, every field kept
+    const late = { ...standing, sex: "F" as const, age: 58 };
+    expect(recipeInput(late, "life", quoteVideoFacts(late)!)).toBe(late);
+    // and a recipe key the input itself carried does not stay with a clip that is not made with it
+    expect(recipeInput({ ...late, recipe: "life" }, "life", quoteVideoFacts(late)!)).toEqual(late);
+  });
+
   it("is told as its recipe, in navy's place, with no customer and nothing else of the standing clip", async () => {
     const { quotePartsFor } = await import("@/lib/quote-video/make");
     const input = { ...lp, narrator: "F" as const, style: "motion" as const, length: "short" as const, size: "portrait" as const, recipe: "life" as const };

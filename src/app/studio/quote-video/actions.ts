@@ -175,8 +175,11 @@ function checked(v: VideoInput): VideoInput | string {
   // โจทย์การเล่า: the brief, and the lines the agent saw (and may have edited) — checked again here
   const facts = quoteVideoFacts(c);
   const brief = facts && !foreign && !all ? cleanBrief(v.brief, facts) : undefined;
+  // a recipe clip speaks its own fixed lines and drops the brief's (recipeInput, below): the form sends them with it,
+  // so they are not checked, and never refuse a clip that will not say them (final review, 2026-11-12)
+  const recipe = facts ? recipeOf({ style, size, recipe: v.recipe }, facts) : undefined;
   let lines: WrittenLines | undefined;
-  if (facts && writes(brief) && v.lines) {
+  if (facts && !recipe && writes(brief) && v.lines) {
     const l = cleanLines(v.lines);
     const bad = writtenProblems(l, facts, { loop: Boolean(brief.loop), story: length === "long" || length === "max", note: brief.note });
     const first = Object.entries(bad)[0];

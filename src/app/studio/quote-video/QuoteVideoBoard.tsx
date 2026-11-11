@@ -445,37 +445,49 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length), kind === "fhc" || !preview || "error" in preview ? undefined : preview.clipSatang);
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
-  // a recipe has its own colours, and no น้องโล่, carried figures or brief
-  const themed = style === "motion" && !recipeOn
-    ? { ...(theme !== DEFAULT_THEME ? { theme, ...(theme === "mine" ? { myColor } : {}) } : {}), ...(mascot ? { mascot: true } : {}), ...(carry ? { carry: true } : {}) }
-    : {};
   // the music only means something on a clip with the new look, which the server decides (make.ts createVideo)
   const quiet = fx && !music ? { noMusic: true as const } : {};
-  const look = foreign
-    ? { ...quiet, narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
-    : { ...quiet, narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf(),
-        // a picked recipe goes with every ask; สุ่มให้'s is chosen at the press of สร้าง (make)
-        ...(recipeOn ? (chosen ? { recipe: chosen } : {}) : { brief, ...(script?.lines ? { lines: script.lines } : {}) }) };
-  const input = (): VideoInput => (product === "IHEALTHY"
-    ? (allOn
-      ? { product, sex, age: Number(age), plan, compare: [], allPlans: all4!, ...(foreign ? { lang } : {}), ...look, budget: undefined, brief: undefined, lines: undefined }
-      : { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...(foreign ? { lang } : {}), ...look })
-    : product === "PENSION"
-      ? {
-          product, sex, age: Number(age), annuityAge: pensionStart, pay, ...look,
-          // from the monthly pension typed, or the page's own sum; a budget works the sum out itself
-          sumAssured: pensionSum ?? 0,
-          ...(source === "sum" && pensionSum === undefined ? { monthly: Number(monthly.replace(/[^\d]/g, "")) } : {}),
-        }
-      : product === "LEGACY"
-        // a budget works the tier out itself
-        ? { product, sex, age: Number(age), tier, ...look }
-      : product === "PLB"
-        ? { product, variant: variant as PlbVariant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
-      : product === "GSAVING"
-        // a budget works the premium out itself
-        ? { product, sex, age: Number(age), premium: Number(gsPremium.replace(/[^\d]/g, "")), rate: gsRate, ...look }
-        : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...(lpRiders ? { riders: lpRiders } : {}), ...look });
+  /**
+   * What is asked for. The preview asks for the recipe clip as it is kept: no theme, น้องโล่, carried figures or brief, the
+   * 15-second length, so the price under the button is the Motion price. สร้าง (`standing`) sends the standing clip's
+   * fields exactly as แบบเดิม does, with the recipe on top: the server keeps the recipe only where it still fits the quote
+   * (recipes.ts recipeInput), so a recipe offered by a preview that had not caught up with a new age or term makes the
+   * clip the agent set up, not a bare navy one (final review, 2026-11-12).
+   */
+  const lookOf = (asRecipe: boolean) => {
+    const themed = style === "motion" && !asRecipe
+      ? { ...(theme !== DEFAULT_THEME ? { theme, ...(theme === "mine" ? { myColor } : {}) } : {}), ...(mascot ? { mascot: true } : {}), ...(carry ? { carry: true } : {}) }
+      : {};
+    return foreign
+      ? { ...quiet, narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
+      : { ...quiet, narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length: asRecipe ? length : baseLength, size, budget: budgetOf(),
+          ...(asRecipe ? {} : { brief, ...(script?.lines ? { lines: script.lines } : {}) }),
+          // a picked recipe goes with every ask; สุ่มให้'s is chosen at the press of สร้าง (make)
+          ...(chosen ? { recipe: chosen } : {}) };
+  };
+  const input = (standing = false): VideoInput => {
+    const look = lookOf(recipeOn && !standing);
+    return product === "IHEALTHY"
+      ? (allOn
+        ? { product, sex, age: Number(age), plan, compare: [], allPlans: all4!, ...(foreign ? { lang } : {}), ...look, budget: undefined, brief: undefined, lines: undefined }
+        : { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...(foreign ? { lang } : {}), ...look })
+      : product === "PENSION"
+        ? {
+            product, sex, age: Number(age), annuityAge: pensionStart, pay, ...look,
+            // from the monthly pension typed, or the page's own sum; a budget works the sum out itself
+            sumAssured: pensionSum ?? 0,
+            ...(source === "sum" && pensionSum === undefined ? { monthly: Number(monthly.replace(/[^\d]/g, "")) } : {}),
+          }
+        : product === "LEGACY"
+          // a budget works the tier out itself
+          ? { product, sex, age: Number(age), tier, ...look }
+        : product === "PLB"
+          ? { product, variant: variant as PlbVariant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
+        : product === "GSAVING"
+          // a budget works the premium out itself
+          ? { product, sex, age: Number(age), premium: Number(gsPremium.replace(/[^\d]/g, "")), rate: gsRate, ...look }
+          : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...(lpRiders ? { riders: lpRiders } : {}), ...look };
+  };
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -546,7 +558,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     try {
       const r = kind === "fhc"
         ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(theme === "mine" ? { myColor } : {}), ...(mascot ? { mascot: true } : {}), ...(fx && !music ? { noMusic: true } : {}) })
-        : await makeVideo(recipe ? { ...input(), recipe } : input(), customer);
+        : await makeVideo(recipe ? { ...input(true), recipe } : input(), customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
         refreshQuota();
