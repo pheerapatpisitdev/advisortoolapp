@@ -423,5 +423,6 @@ export async function resetSpend(): Promise<Result> {
  */
 export async function checkKeys(): Promise<ProviderCheck[]> {
   await requireStaff("backoffice");
-  return testProviders([...PROVIDERS]);
+  // Google Cloud Run too, since its row sits in the same card (owner, 2026-11-11)
+  return testProviders([...PROVIDERS, ...RENDER_PROVIDERS]);
 }

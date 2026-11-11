@@ -538,6 +538,19 @@ async function checkJudge(apiKey: string): Promise<ProviderCheck> {
   }
 }
 
+/** Google Cloud Run's key name in the key table (src/lib/video/render-providers.ts) */
+const GCP = "gcp";
+
+/** Google Cloud Run has no model either: its key is signed in and asked whether it may run its job; nothing runs. */
+async function checkGcp(apiKey: string): Promise<ProviderCheck> {
+  const began = Date.now();
+  const { checkGcpKey } = await import("@/lib/video/engines/cloudrun");
+  const r = await checkGcpKey(apiKey);
+  return r.ok
+    ? { provider: GCP, state: "ok", ms: Date.now() - began, note: "สั่งงานได้" }
+    : { provider: GCP, state: "failed", ms: Date.now() - began, error: scrub(r.error) };
+}
+
 /** ElevenLabs speaks rather than writes, so it is asked for its voice list, which costs no credit. */
 async function checkElevenLabs(apiKey: string): Promise<ProviderCheck> {
   const provider = ELEVENLABS;
@@ -561,6 +574,7 @@ export async function testProviders(providers: string[]): Promise<ProviderCheck[
     if (!apiKey) return { provider, state: "no-key", ms: 0 };
     if (provider === JUDGE.provider) return checkJudge(apiKey);
     if (provider === ELEVENLABS) return checkElevenLabs(apiKey);
+    if (provider === GCP) return checkGcp(apiKey);
 
     // an enabled model first, because that is what the bot would actually reach for; a
     // disabled one still proves the key, which is the question being asked

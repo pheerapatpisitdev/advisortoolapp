@@ -146,7 +146,7 @@ export function AiClient({ keys, settings, providers, spentThisMonth, content, v
           <span className="text-xs text-[var(--bot-ink-mute)]">
             {checks
               ? `ตอบได้ ${checks.filter((c) => c.state === "ok").length} จาก ${checks.length} ค่าย`
-              : "ส่งคำถามสั้นๆ ไปทุกค่ายเพื่อดูว่ากุญแจไหนยังใช้ได้ — ราคาไม่ถึงหนึ่งสตางค์"}
+              : "ส่งคำถามสั้นๆ ไปทุกค่ายเพื่อดูว่ากุญแจไหนยังใช้ได้ — ราคาไม่ถึงหนึ่งสตางค์ (Google Cloud Run แค่ถามสิทธิ์ ไม่ได้สั่งงาน)"}
           </span>
           <Said note={note} where="test" />
         </div>
@@ -207,7 +207,7 @@ export function AiClient({ keys, settings, providers, spentThisMonth, content, v
               </span>
               <span className={gcpOn ? "text-[var(--bot-ok)]" : "text-[var(--bot-ink-mute)]"}>{gcpOn ? "เปิด" : "ปิด"}</span>
             </label>
-            <span className="w-24 text-xs text-[var(--bot-ink-mute)]">ยังไม่ได้ทดสอบ</span>
+            <Status check={checkOf("gcp")} />
             <span className="flex min-w-64 flex-1 flex-col gap-2">
               <textarea
                 placeholder="วางไฟล์ Service Account (JSON)" autoComplete="off" spellCheck={false} rows={2}

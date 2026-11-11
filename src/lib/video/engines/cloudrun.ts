@@ -224,3 +224,41 @@ export function cloudRunEngine(key: string, deps: Deps = {}): RenderEngine {
     async cleanup() { /* the job writes straight into our storage */ },
   };
 }
+
+/** the two permissions a run needs: a plain run, and one with the JOB_URL override */
+const RUN_PERMISSIONS = ["run.jobs.run", "run.jobs.runWithOverrides"] as const;
+export type GcpCheck = { ok: true } | { ok: false; error: string };
+
+/**
+ * Whether the stored key can run its job, without running anything (ตั้งค่า AI's ทดสอบ, owner
+ * 2026-11-11): Google signs the key in, then is asked which of the run permissions the key holds
+ * on that job (testIamPermissions — free, needs no permission itself, and answers with none for
+ * a job that is not there). The service account may not read the job, so it is not read.
+ */
+export async function checkGcpKey(stored: string, deps: { fetch?: typeof fetch; now?: () => number } = {}): Promise<GcpCheck> {
+  const k = parseGcpKey(stored);
+  if (!k) return { ok: false, error: "กุญแจอ่านไม่ได้ วางไฟล์ Service Account ใหม่อีกครั้ง" };
+  const f = deps.fetch ?? fetch;
+  let token: string;
+  try {
+    token = await googleToken(k, deps);
+  } catch {
+    return { ok: false, error: "Google ไม่รับกุญแจนี้ (ถูกลบหรือยกเลิกแล้ว)" };
+  }
+  const name = `projects/${encodeURIComponent(k.projectId)}/locations/${encodeURIComponent(k.region)}/jobs/${encodeURIComponent(k.job)}`;
+  let res: Response;
+  try {
+    res = await f(`${RUN_API}/${name}:testIamPermissions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ permissions: RUN_PERMISSIONS }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return { ok: false, error: "ติดต่อ Google Cloud ไม่ได้ ลองใหม่อีกครั้ง" };
+  }
+  if (!res.ok) return { ok: false, error: `Google Cloud ตอบ ${res.status}` };
+  const held = ((await res.json().catch(() => ({}))) as { permissions?: string[] }).permissions ?? [];
+  if (RUN_PERMISSIONS.every((p) => held.includes(p))) return { ok: true };
+  return { ok: false, error: `กุญแจสั่งงาน ${k.job} ที่ ${k.region} ไม่ได้ ตรวจชื่อ job, region และสิทธิ์ของ Service Account` };
+}

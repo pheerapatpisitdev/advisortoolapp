@@ -1,6 +1,6 @@
 import { createVerify, generateKeyPairSync } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cloudRunEngine, gcpKeyFromUpload, GOOGLE_SCOPE, GOOGLE_TOKEN_URL, parseGcpKey } from "@/lib/video/engines/cloudrun";
+import { checkGcpKey, cloudRunEngine, gcpKeyFromUpload, GOOGLE_SCOPE, GOOGLE_TOKEN_URL, parseGcpKey } from "@/lib/video/engines/cloudrun";
 import { EngineError } from "@/lib/video/engines/types";
 
 // a throwaway key pair made here, never a real one
@@ -237,5 +237,37 @@ describe("gcpKeyFromUpload / parseGcpKey", () => {
 
   it("a file without a type is taken", () => {
     expect(gcpKeyFromUpload(saFile({ type: undefined }), "us-central1", "c")).not.toBeNull();
+  });
+});
+
+describe("checkGcpKey (ตั้งค่า AI's ทดสอบ, owner 2026-11-11)", () => {
+  const both = { body: { permissions: ["run.jobs.run", "run.jobs.runWithOverrides"] } };
+
+  it("signs in, asks which run permissions the key holds on its job, and runs nothing", async () => {
+    const g = google([tokenOk(), both]);
+    expect(await checkGcpKey(storedKey().key, { fetch: g.fetch })).toEqual({ ok: true });
+    expect(g.calls).toHaveLength(2);
+    expect(g.calls[1].url).toBe("https://run.googleapis.com/v2/projects/my-proj/locations/asia-southeast1/jobs/clip-ffmpeg:testIamPermissions");
+    expect(JSON.parse(String(g.calls[1].init.body))).toEqual({ permissions: ["run.jobs.run", "run.jobs.runWithOverrides"] });
+    expect(g.calls.some((c) => c.url.endsWith(":run"))).toBe(false);
+  });
+
+  it("fails in Thai when the job is not there or a permission is missing, naming the job and region", async () => {
+    for (const body of [{}, { permissions: ["run.jobs.run"] }]) {
+      const r = await checkGcpKey(storedKey().key, { fetch: google([tokenOk(), { body }]).fetch });
+      expect(r).toEqual({ ok: false, error: expect.stringMatching(/clip-ffmpeg.*asia-southeast1/) });
+    }
+  });
+
+  it("fails when Google refuses the key, cannot be reached, or the key cannot be read — never with the key in the words", async () => {
+    captureLogs();
+    const refused = await checkGcpKey(storedKey().key, { fetch: google([{ status: 400, body: { error: "invalid_grant" } }]).fetch });
+    expect(refused).toEqual({ ok: false, error: expect.stringContaining("ไม่รับกุญแจ") });
+    const down = await checkGcpKey(storedKey().key, { fetch: google([tokenOk(), new Error("network")]).fetch });
+    expect(down).toEqual({ ok: false, error: expect.stringContaining("ติดต่อ Google Cloud ไม่ได้") });
+    const busy = await checkGcpKey(storedKey().key, { fetch: google([tokenOk(), { status: 503 }]).fetch });
+    expect(busy).toEqual({ ok: false, error: "Google Cloud ตอบ 503" });
+    expect(await checkGcpKey("not json")).toEqual({ ok: false, error: expect.stringContaining("อ่านไม่ได้") });
+    expect(JSON.stringify([refused, down, busy])).not.toContain("PRIVATE KEY");
   });
 });
