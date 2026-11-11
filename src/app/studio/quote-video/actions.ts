@@ -53,7 +53,7 @@ import { FESTIVALS, festivalOn, readFestival, type FestivalKey } from "@/lib/quo
 import { MY_COLORS, type MyColor } from "@/lib/card-theme";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
-import { readRecipe, RECIPE_NAMES, recipeInput, recipeOf, recipeScript } from "@/lib/quote-video/recipes";
+import { readRecipe, RECIPE_NAMES, recipeInput, recipeOf, recipeScript, recipesFor, type RecipeKey } from "@/lib/quote-video/recipes";
 import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
 import { POST_TRIES, readTone, readVoice } from "@/lib/quote-video/post-tones";
 import { closedFor } from "@/lib/switches/store";
@@ -72,6 +72,8 @@ export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
   /** the stories this quote backs, for โจทย์การเล่า (brief.ts storiesFor) */
   stories: { key: string; name: string }[];
+  /** the สูตรคลิป this quote can be told as, for การเล่า (owner, 2026-11-12, ก ก): none where none fits */
+  recipes: RecipeKey[];
   /** what the form asked for settled into: the sum, or iHealthy's plan (a budget works these out); บำนาญ 95's monthly pension too; มรดก's tier */
   resolved: { sum?: number; plan?: string; monthly?: number; tier?: number; premium?: number };
   /** iHealthy from its page (owner, 2026-10-14): the page's arrangement the clip is priced on */
@@ -479,6 +481,7 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
   return {
     lead: { label: f.lead.label, amount: f.lead.amount }, mark: f.leadMark, prices: f.prices,
     stories: storiesFor(f).map((x) => ({ key: x.key, name: x.name })),
+    recipes: recipesFor(f),
     resolved: c.product === "IHEALTHY" ? { plan: c.plan }
       : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht }
       : c.product === "LEGACY" ? { tier: c.tier }

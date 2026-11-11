@@ -8,7 +8,8 @@ import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-v
 import type { PlbVariant } from "@/lib/quote-video/plb";
 import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
 import { festivalOn } from "@/lib/quote-video/festival";
-import { MY_COLORS, POSTER_THEMES, VIDEO_FESTIVAL_COLORS, type MyColor } from "@/lib/card-theme";
+import { MY_COLORS, POSTER_THEMES, QUOTE_VIDEO_COLORS, RECIPE_COLORS, VIDEO_FESTIVAL_COLORS, type MyColor } from "@/lib/card-theme";
+import { nextRecipe, readRecipe, RECIPE_NAMES, type RecipeKey } from "@/lib/quote-video/recipe-keys";
 import { THEME_LABEL } from "@/lib/content/poster";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
@@ -110,6 +111,26 @@ const MUSIC_KEY = "quote-video-music";
 const CARRY_KEY = "quote-video-carry";
 /** โจทย์การเล่า as it was left: the technique, the customer, the loop (owner, 2026-10-13) */
 const BRIEF_KEY = "quote-video-brief";
+/**
+ * การเล่า (owner, 2026-11-12, ก ก, mockup https://claude.ai/artifact/4hZKq9XDjrKwnA9cS1qgbU): สุ่มให้, one of the สูตรคลิป,
+ * or แบบเดิม, kept in this browser; and the recipe this browser made last, so สุ่มให้ gives another next time (spec, Form)
+ */
+const TELL_KEY = "quote-video-recipe-choice";
+const LAST_RECIPE_KEY = "quote-video-last-recipe";
+type Tell = "random" | RecipeKey | "old";
+const readTell = (v: unknown): Tell | undefined => (v === "random" || v === "old" ? v : readRecipe(v));
+// the mockup's words; เส้นชีวิต's ages are the example quote's, so they are said as an example
+const TELL_HINT: Record<Tell, string> = {
+  random: "กดสร้างแต่ละครั้งได้สูตรที่ไม่ซ้ำครั้งก่อน",
+  ask: "พื้นเหลือง ตัวหนังสือหนา เปิดด้วยคำถามแล้วตอบด้วยตัวเลข",
+  life: "พื้นเขียวเข้ม เส้นทองวิ่งตามอายุ เช่น 35 → 53 → 60 → 99",
+  versus: "พื้นขาว เทียบเบี้ยที่จ่ายกับเงินที่ได้คืนเป็นแท่ง",
+  old: "Motion Graphic แบบที่ใช้อยู่ทุกวันนี้ เลือกธีมและความยาวได้",
+};
+/** the rows a recipe does not use fold into this one line (owner, 2026-11-12, 2ก) */
+const RECIPE_FOLD = "สูตรนี้มีสี ความยาว และบทของตัวเอง · ยาวประมาณ 20 วินาที · ไม่ใส่ชื่อลูกค้า · ราคาเท่า Motion Graphic";
+/** สุ่มให้'s little picture: the three recipes' grounds side by side */
+const RANDOM_TILE = `linear-gradient(135deg, ${RECIPE_COLORS.ask.yellow} 0 33%, ${RECIPE_COLORS.life.ground} 33% 66%, ${RECIPE_COLORS.versus.blue} 66%)`;
 /** the four lengths (owner, 2026-10-13: up to 2 minutes; told.ts sceneOrder) */
 const LENGTH_CHOICES: { length: VideoLength; name: string; hint: string }[] = [
   { length: "short", name: "สั้น · ~15 วินาที", hint: "3 ฉาก: ตัวเลขเด่น · ราคา · ชวนทัก ไม่ใส่ชื่อลูกค้า เหมาะลงเพจเป็น Reels" },
@@ -310,6 +331,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [carry, setCarry] = useState(true);
   const [music, setMusic] = useState(true);
   const [pickedLength, setLength] = useState<VideoLength>("full");
+  // การเล่า: สุ่มให้ unless another was picked here last
+  const [pickedTell, setTell] = useState<Tell>("random");
   // ภาษาในวิดีโอ (owner, 2026-10-15, mockup https://claude.ai/artifact/H3HkP5iMpLD1rvEiCtdngb): iHealthy Ultra only
   // the iHealthy page's shortcut opens in the language the page was read in; otherwise the one kept
   const fromPage = start?.product === "IHEALTHY";
@@ -327,7 +350,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   }
   /** another language: fixed lines, Gemini's narrator, the 15-second clip or the whole one */
   const foreign = kind === "quote" && product === "IHEALTHY" && lang !== "th";
-  const length: VideoLength = allOn || (foreign && pickedLength !== "short") ? "full" : pickedLength;
+  /** the length the form's own chips give; a recipe clip is the 15-second one whatever was picked (below) */
+  const baseLength: VideoLength = allOn || (foreign && pickedLength !== "short") ? "full" : pickedLength;
   // โจทย์การเล่า (owner, 2026-10-13): a new agent starts on ให้ระบบเลือก, so every clip opens on a hook
   const [brief, setBriefState] = useState<VideoBrief>({ hook: "auto" });
   const [script, setScript] = useState<ScriptState | null>(null);
@@ -358,6 +382,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       if (l === "short" || l === "long" || l === "max") setLength(l);
       const b = JSON.parse(localStorage.getItem(BRIEF_KEY) ?? "null") as Partial<VideoBrief> | null;
       if (b && typeof b.hook === "string") setBrief({ hook: b.hook, ...(b.audience ? { audience: b.audience } : {}), ...(b.loop ? { loop: true } : {}) });
+      const t = readTell(localStorage.getItem(TELL_KEY));
+      if (t) setTell(t);
     } catch { /* storage closed: the defaults stand */ }
   }, []);
   function pickStyle(v: VideoStyle) {
@@ -391,6 +417,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       }
     } catch { /* not remembered, still used */ }
   }
+  function pickTell(v: Tell) {
+    setTell(v);
+    try { localStorage.setItem(TELL_KEY, v); } catch { /* not remembered, still used */ }
+  }
   function pickLength(v: VideoLength) {
     setLength(v);
     try { localStorage.setItem(LENGTH_KEY, v); } catch { /* not remembered, still used */ }
@@ -400,18 +430,32 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // the page's riders go with the page's own sum: a budget prices the plan alone
   const lpRiders = product === "LIFEPROTECT" && source === "sum" ? riders : undefined;
   const [budget, setBudget] = useState("3,000");
+  // การเล่า stands only for a portrait Life Protect Motion clip, Thai, without riders or a budget, where the quote on
+  // the form fits a recipe; the server says which fit (previewQuote) and makes the standing clip if one stops fitting
+  const fitting = preview && !("error" in preview) ? preview.recipes : [];
+  const tellRow = kind === "quote" && product === "LIFEPROTECT" && style === "motion" && size === "portrait" && !lpRiders && source === "sum" && fitting.length > 0;
+  // a recipe picked here last that this quote cannot tell is not offered: สุ่มให้ stands in
+  const tell: Tell = pickedTell === "random" || pickedTell === "old" || fitting.includes(pickedTell) ? pickedTell : "random";
+  const recipeOn = tellRow && tell !== "old";
+  /** the recipe picked by hand; none under สุ่มให้ until สร้าง is pressed */
+  const chosen = recipeOn ? readRecipe(tell) : undefined;
+  // a recipe clip is kept as the 15-second clip and priced as one (recipes.ts recipeInput)
+  const length: VideoLength = recipeOn ? "short" : baseLength;
   // an FHC summary has its own price, whatever its look (owner, 2026-10-12: ฿3); a quote clip its look's and length's
   const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length), kind === "fhc" || !preview || "error" in preview ? undefined : preview.clipSatang);
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
-  const themed = style === "motion"
+  // a recipe has its own colours, and no น้องโล่, carried figures or brief
+  const themed = style === "motion" && !recipeOn
     ? { ...(theme !== DEFAULT_THEME ? { theme, ...(theme === "mine" ? { myColor } : {}) } : {}), ...(mascot ? { mascot: true } : {}), ...(carry ? { carry: true } : {}) }
     : {};
   // the music only means something on a clip with the new look, which the server decides (make.ts createVideo)
   const quiet = fx && !music ? { noMusic: true as const } : {};
   const look = foreign
     ? { ...quiet, narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
-    : { ...quiet, narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
+    : { ...quiet, narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf(),
+        // a picked recipe goes with every ask; สุ่มให้'s is chosen at the press of สร้าง (make)
+        ...(recipeOn ? (chosen ? { recipe: chosen } : {}) : { brief, ...(script?.lines ? { lines: script.lines } : {}) }) };
   const input = (): VideoInput => (product === "IHEALTHY"
     ? (allOn
       ? { product, sex, age: Number(age), plan, compare: [], allPlans: all4!, ...(foreign ? { lang } : {}), ...look, budget: undefined, brief: undefined, lines: undefined }
@@ -455,14 +499,15 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       previewQuote(input()).then((p) => { if (n === seq.current) setPreview(p); }).catch(() => undefined);
     }, 400);
     return () => clearTimeout(t);
+    // style and length too: the price under the button is the clip's whole (clipSatang), and a recipe changes the length
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier, setup, lpRiders, all4, lang]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier, setup, lpRiders, all4, lang, style, length]);
 
   // the script shown is the one for what the form holds: anything changed, and it is written again
   useEffect(() => {
     setScript(null);
     setScriptError(null);
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, gemini, setup, lang, lpRiders, all4]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, gemini, setup, lang, lpRiders, all4, recipeOn, tell]);
 
   /** ดูสคริปต์: written to the brief (again: another try), or the agent's edits read back */
   async function showScript(again: boolean) {
@@ -496,14 +541,17 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   async function make() {
     setBusy(true);
     setError(null);
+    // สุ่มให้: one of the recipes that fit, never the one this browser made last where another fits
+    const recipe = chosen ?? (recipeOn ? nextRecipe(fitting, () => localStorage.getItem(LAST_RECIPE_KEY), Math.random()) : undefined);
     try {
       const r = kind === "fhc"
         ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(theme === "mine" ? { myColor } : {}), ...(mascot ? { mascot: true } : {}), ...(fx && !music ? { noMusic: true } : {}) })
-        : await makeVideo(input(), customer);
+        : await makeVideo(recipe ? { ...input(), recipe } : input(), customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
         refreshQuota();
       } else {
+        if (recipe) try { localStorage.setItem(LAST_RECIPE_KEY, recipe); } catch { /* not remembered: the next pick may repeat it */ }
         setItems(await myVideos());
         // the next clip gets its own three tries
         setRewrites(REWRITES);
@@ -606,6 +654,35 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       )}
     </div>
   );
+  // การเล่า (owner, 2026-11-12, ก ก): a tile with a small still each, under สไตล์
+  const tellTiles = (
+    <div>
+      <span className={label}>
+        การเล่า <span className="ml-1 rounded-full bg-[var(--ct-warn-bg)] px-2 text-[11px] font-semibold text-[var(--ct-warn-ink)]">ใหม่</span>
+      </span>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(84px,1fr))] gap-2" role="group" aria-label="การเล่า">
+        {(["random", ...fitting, "old"] as Tell[]).map((k) => {
+          const name = k === "random" ? "สุ่มให้" : k === "old" ? "แบบเดิม" : RECIPE_NAMES[k];
+          return (
+            <button key={k} type="button" aria-pressed={tell === k} onClick={() => pickTell(k)}
+              className={`flex min-w-0 flex-col items-center gap-1 rounded-xl border p-1.5 text-center text-xs leading-tight ${tell === k ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`}>
+              {k === "random" ? (
+                <span aria-hidden className="flex h-24 w-[54px] items-center justify-center rounded-md text-2xl" style={{ background: RANDOM_TILE, color: RECIPE_COLORS.life.ink }}>⟳</span>
+              ) : k === "old" ? (
+                <span aria-hidden className="flex h-24 w-[54px] items-center justify-center rounded-md text-[11px] font-semibold" style={{ background: QUOTE_VIDEO_COLORS.motionNavy, color: QUOTE_VIDEO_COLORS.motionGold }}>แบบเดิม</span>
+              ) : (
+                // a few-KB still of the recipe, made from its rendered stills (public/video/recipes); too small to optimise
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`/video/recipes/${k}.jpg`} alt="" width={54} height={96} loading="lazy" className="h-24 w-[54px] rounded-md object-cover" />
+              )}
+              {name}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1 text-xs text-[var(--ct-mute)]">{TELL_HINT[tell]}</p>
+    </div>
+  );
   const summary = {
     brief: [HOOK_WORD[brief.hook], brief.loop ? "วนลูป" : ""].filter(Boolean).join(" · "),
     what: kind === "fhc" ? "สรุป FHC" : `${PRODUCTS.find((p) => p.code === product)?.name ?? ""}${foreign ? ` · ${LANG_NAME[lang]}` : ""}`,
@@ -621,8 +698,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ? (source === "sum" ? `มรดก ${tier} ล้าน` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
-      kind === "quote" ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
+      kind === "quote" && !recipeOn ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
       kind === "quote" ? (style === "motion" ? "Motion" : style === "chat" && !foreign ? "แชท" : "ปกติ") : themeName(theme),
+      // the recipe, as the finished clip's card names it
+      recipeOn ? (chosen ? RECIPE_NAMES[chosen] : "สุ่มสูตร") : "",
       SIZE_CHOICES.find((c) => c.size === shownSize)?.name.split(" ")[0] ?? "",
       voiceWord,
     ].filter(Boolean).join(" · "),
@@ -647,7 +726,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         )}
         {kind === "quote" && !allOn && (
           <>
-            <div>
+            {/* a recipe has its own length: the row folds into the line under การเล่า */}
+            {!recipeOn && <div>
               <span className={label}>ความยาว</span>
               <div className="flex flex-wrap gap-2">
                 {LENGTH_CHOICES.filter((c) => !foreign || c.length === "short" || c.length === "full").map((c) => (
@@ -657,18 +737,25 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                 ))}
               </div>
               <p className="mt-1 text-xs text-[var(--ct-mute)]">{LENGTH_CHOICES.find((c) => c.length === length)?.hint}</p>
-            </div>
+            </div>}
             <div>
               <span className={label}>สไตล์</span>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={chip(style === "classic" || (style === "chat" && foreign))} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", length)])} บาท</button>
+                <button type="button" className={chip(style === "classic" || (style === "chat" && foreign))} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", baseLength)])} บาท</button>
                 <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices[videoPriceKey("motion", length)])} บาท</button>
                 {/* แชทถาม-ตอบ (owner, 2026-10-20): the customer asks in Thai, so Thai clips only */}
-                {!foreign && <button type="button" className={chip(style === "chat")} onClick={() => pickStyle("chat")}>แชทถาม-ตอบ · {priceBaht(prices[videoPriceKey("chat", length)])} บาท</button>}
+                {!foreign && <button type="button" className={chip(style === "chat")} onClick={() => pickStyle("chat")}>แชทถาม-ตอบ · {priceBaht(prices[videoPriceKey("chat", baseLength)])} บาท</button>}
               </div>
               <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : style === "chat" && !foreign ? "หน้าจอแชท ลูกค้าถาม ตัวแทนตอบ พร้อมส่งการ์ดราคา ตาราง และนามบัตรในแชท" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
             </div>
-            {style === "motion" && themeChips}
+            {/* one cell, so on a wide screen the fold line stays under the tiles, beside สไตล์ */}
+            {tellRow && (
+              <div className="space-y-3">
+                {tellTiles}
+                {recipeOn && <p className="rounded-lg border border-dashed border-[var(--ct-line)] bg-[var(--ct-ground)] px-3 py-2.5 text-sm text-[var(--ct-mute)]">{RECIPE_FOLD}</p>}
+              </div>
+            )}
+            {style === "motion" && !recipeOn && themeChips}
             {musicChips}
           </>
         )}
@@ -995,7 +1082,18 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             </p>
           </Step>
         )}
-        {kind === "quote" && !foreign && !allOn && (
+        {/* a recipe's lines are its own, fixed: โจทย์การเล่า folds to one line (owner, 2026-11-12, 2ก) */}
+        {kind === "quote" && recipeOn && (
+          <Step n={4} title="โจทย์การเล่า" summary="บทของสูตร">
+            <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">
+              {chosen
+                ? `${RECIPE_NAMES[chosen]} มีบทของตัวเอง เขียนไว้ตายตัว ตัวเลขทุกตัวจากใบเสนอ ขั้นนี้จึงไม่ต้องเลือก`
+                : "สุ่มสูตรให้ตอนกดสร้าง แต่ละสูตรมีบทของตัวเอง เขียนไว้ตายตัว ตัวเลขทุกตัวจากใบเสนอ ขั้นนี้จึงไม่ต้องเลือก"}
+              {" · "}อยากใช้โจทย์การเล่า เลือก <b>แบบเดิม</b> ในแถวการเล่า
+            </p>
+          </Step>
+        )}
+        {kind === "quote" && !foreign && !allOn && !recipeOn && (
           <Step n={4} title="โจทย์การเล่า" summary={summary.brief}>
             <StoryBrief
               brief={brief} setBrief={setBrief} stories={ok?.stories ?? []} longClip={length === "long" || length === "max"}

@@ -1,5 +1,9 @@
 import { spokenBaht, spokenBy, type QuoteVideoFacts, type SceneKey, type VideoInput } from "./script";
 import { sizeOf } from "./timeline";
+import { readRecipe, RECIPE_KEYS, type RecipeKey } from "./recipe-keys";
+
+// the keys, names and picking live apart so the form can import them without script.ts
+export { nextRecipe, pickRecipe, readRecipe, RECIPE_KEYS, RECIPE_NAMES, type RecipeKey } from "./recipe-keys";
 
 /**
  * The three whole alternative clips a Life Protect quote can be told as (owner, 2026-11-11,
@@ -7,11 +11,6 @@ import { sizeOf } from "./timeline";
  * line, or what is paid against what comes back. This file only says which fits a quote and what
  * each scene's voice says; the frames are drawn elsewhere. Every figure comes from the facts.
  */
-export type RecipeKey = "ask" | "life" | "versus";
-export const RECIPE_KEYS: RecipeKey[] = ["ask", "life", "versus"];
-export const RECIPE_NAMES: Record<RecipeKey, string> = { ask: "เปิดด้วยคำถาม", life: "เส้นชีวิต", versus: "เทียบให้เห็น" };
-
-export const readRecipe = (v: unknown): RecipeKey | undefined => RECIPE_KEYS.find((k) => k === v);
 
 export interface RecipeFigures {
   /** the yearly instalment as the card prints it: "28,700" */
@@ -108,14 +107,4 @@ export function recipeScript(key: RecipeKey, f: QuoteVideoFacts, narrator: "F" |
     ["contact", "อยากดูตัวเลขของคุณ ทักมาได้เลยค่ะ"],
   ];
   return lines.map(([k, voice]) => ({ key: k, voice: spokenBy(voice, narrator) }));
-}
-
-/**
- * One recipe at random, never the one the last clip used where another fits; with only one that
- * fits, repeating it beats offering nothing. `roll` is in [0, 1).
- */
-export function pickRecipe(fitting: RecipeKey[], last: RecipeKey | undefined, roll: number): RecipeKey | undefined {
-  const others = fitting.filter((k) => k !== last);
-  const pool = others.length ? others : fitting;
-  return pool[Math.min(pool.length - 1, Math.floor(roll * pool.length))];
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { quoteVideoFacts, spokenBaht } from "@/lib/quote-video/script";
-import { RECIPE_KEYS, RECIPE_NAMES, pickRecipe, readRecipe, recipeFigures, recipeFits, recipeScript, recipesFor } from "@/lib/quote-video/recipes";
+import { RECIPE_KEYS, RECIPE_NAMES, nextRecipe, pickRecipe, readRecipe, recipeFigures, recipeFits, recipeScript, recipesFor } from "@/lib/quote-video/recipes";
 
 const LP35 = quoteVideoFacts({ product: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000 })!;
 const said = (key: "ask" | "life" | "versus", narrator: "F" | "M" = "F") => recipeScript(key, LP35, narrator).map((s) => s.voice).join(" ");
@@ -78,6 +78,34 @@ describe("clip recipes (owner, 2026-11-11, ก ก ก)", () => {
     expect(pickRecipe([...all], "ask", 0.99)).toBe("versus");
     expect(pickRecipe(["ask"], "ask", 0.5)).toBe("ask");
     expect(pickRecipe([], undefined, 0)).toBeUndefined();
+  });
+});
+
+describe("สุ่มให้ at the press of สร้าง (owner, 2026-11-12, ก ก)", () => {
+  const all = ["ask", "life", "versus"] as const;
+
+  it("still picks a fitting recipe when the browser's storage throws, is empty or holds garbage", () => {
+    const reads: (() => string | null)[] = [() => { throw new Error("storage closed"); }, () => null, () => "garbage"];
+    for (const read of reads) {
+      for (const roll of [0, 0.5, 0.99]) expect(all).toContain(nextRecipe([...all], read, roll));
+      expect(nextRecipe(["life"], read, 0.5)).toBe("life");
+    }
+  });
+
+  it("never gives the one this browser made last while another fits", () => {
+    for (const last of all) {
+      for (const roll of [0, 0.25, 0.5, 0.75, 0.99]) {
+        const got = nextRecipe([...all], () => last, roll);
+        expect(got).not.toBe(last);
+        expect(all).toContain(got);
+      }
+      expect(nextRecipe(["ask", "versus"].filter((k) => k !== last) as ("ask" | "versus")[], () => last, 0.5)).not.toBe(last);
+    }
+  });
+
+  it("repeats the last where it is the only one that fits, and gives none where none fits", () => {
+    expect(nextRecipe(["versus"], () => "versus", 0.3)).toBe("versus");
+    expect(nextRecipe([], () => "ask", 0.3)).toBeUndefined();
   });
 });
 
