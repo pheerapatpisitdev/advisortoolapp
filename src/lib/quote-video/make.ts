@@ -45,10 +45,11 @@ import { clipProps, REMOTION_DRAWING, REMOTION_JOB, storyClipProps, type Classic
 import { secondsBetween, type CostParts } from "./run-record";
 import { WIDE_CHART_W } from "./classic-wide";
 import { CLASSIC_BOXES } from "./table-geo";
-import { extraOf, linesOf, loops, readLength, type Told } from "./told";
+import { extraOf, linesOf, loops, readLength, type Extra, type Told } from "./told";
+import { recipeOf, recipeScript, type RecipeKey } from "./recipes";
 import { writes } from "./brief";
 import { writeLines } from "./writer";
-import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBy, type SceneKey, type VideoInput } from "./script";
+import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBy, type QuoteVideoFacts, type SceneKey, type VideoInput } from "./script";
 import { clipLength, LOOP_TAIL, planScenes, sizeOf, type ScenePlan, type VideoSize } from "./timeline";
 import { VOICE_FULL, voiceDay } from "./voice-quota";
 import { geminiVoice } from "@/lib/voice/gemini";
@@ -328,6 +329,9 @@ function spokenLines(row: VideoRow): { key: string; voice: string }[] {
   if (isPromptStory(row.input)) return freeScript(row.input, row.customer_name, narratorOf(row.input));
   const facts = quoteVideoFacts(row.input);
   if (!facts) throw new Error("quote not priced");
+  // a สูตรคลิป Motion clip speaks its recipe's lines, the same quotePartsFor plans its scenes from
+  const recipe = recipeOf(row.input, facts);
+  if (recipe) return recipeScript(recipe, facts, narratorOf(row.input));
   const length = readLength(row.input.length);
   return quoteVideoScript(facts, length === "short" ? "" : row.customer_name, narratorOf(row.input), length, toldOf(row.input));
 }
@@ -409,6 +413,26 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
   return quotePartsFor(row, await contactOf(row.agent_id, agentName), secs);
 }
 
+/** a recipe clip has no brief, so no extra scenes: what the standing clip's `shown.extra` holds, empty */
+const NO_EXTRA: Extra = { story: { points: [] }, qas: [], versus: { left: { label: "", amount: "", unit: "" }, right: { label: "", amount: "", unit: "" }, note: "" }, steps: [] };
+
+/**
+ * A สูตรคลิป Motion clip's parts (owner, 2026-11-11, mockup https://claude.ai/artifact/2yaTZU2RVFVmMn9VNi9K88, ก ก ก):
+ * the recipe's own lines, each scene its voice with the lead and tail around it (the recipe's frames move by the
+ * clip's time, so no motion windows), and the props Remotion draws the recipe from (Clip.tsx). Portrait, no
+ * customer's name, and none of the standing clip's theme, น้องโล่, carried figures, jar or road. Motion only: the
+ * scene keys are the recipe's slots, never read as the standing clip's scenes (no table, pen notes or chart).
+ */
+function recipeParts(recipe: RecipeKey, facts: QuoteVideoFacts, sex: "M" | "F", narrator: "F" | "M", contact: Contact, secs: number[]): ClipParts {
+  const script = recipeScript(recipe, facts, narrator);
+  if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
+  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i] })));
+  return {
+    size: "portrait", script, motion: true, plans,
+    motion$: { theme: "navy", recipe, sex, facts, customer: "", narrator, contact, shown: { loop: false, extra: NO_EXTRA } },
+  };
+}
+
 /** A quote clip's parts, the agent's contact in hand: no database, so a local render draws the same clip. */
 export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: VideoInput }, agentContact: Contact, secs: number[]): ClipParts {
   const facts = quoteVideoFacts(row.input);
@@ -417,6 +441,8 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const lang = facts.lang ?? "th";
   const contact: Contact = lang === "th" ? agentContact : { ...agentContact, more: undefined };
   const narrator = narratorOf(row.input);
+  const recipe = recipeOf(row.input, facts);
+  if (recipe) return recipeParts(recipe, facts, row.input.sex, narrator, contact, secs);
   const size = clipSize(row.input);
   // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
   const length = readLength(row.input.length);

@@ -15,6 +15,7 @@ import { plbVideoFacts, termsSaid, type PlbVariant, type PlbVideoFacts } from ".
 import { gsavingVideoFacts, gsIndexLine, gsLeadLine, gsMoney, rateLabel, type GsVideoFacts } from "./gsaving";
 import type { SceneMotion, VideoSize } from "./timeline";
 import type { VideoBrief, WrittenLines } from "./brief";
+import type { RecipeKey } from "./recipes";
 import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
 import { VIDEO_WORDS, type VideoLang } from "./video-words";
 import { WORDS } from "@/lib/ihealthy-words";
@@ -102,6 +103,12 @@ export type VideoInput = (
   brief?: VideoBrief;
   /** the sentences written to the brief, checked (writer.ts); absent until they are written */
   lines?: WrittenLines;
+  /**
+   * สูตรคลิป Motion (owner, 2026-11-11, mockup https://claude.ai/artifact/2yaTZU2RVFVmMn9VNi9K88, ก ก ก; recipes.ts):
+   * the whole clip told as this recipe. Read only with style motion, portrait, and while it fits the quote (recipeOf);
+   * absent on every other clip
+   */
+  recipe?: RecipeKey;
 };
 
 /** 15 s, ~50 s, ~90 s, ~2 min (owner, 2026-10-13: "สูงสุดถึง 2 นาที"; told.ts sceneOrder) */

@@ -1,4 +1,5 @@
-import { spokenBaht, spokenBy, type QuoteVideoFacts, type SceneKey } from "./script";
+import { spokenBaht, spokenBy, type QuoteVideoFacts, type SceneKey, type VideoInput } from "./script";
+import { sizeOf } from "./timeline";
 
 /**
  * The three whole alternative clips a Life Protect quote can be told as (owner, 2026-11-11,
@@ -51,6 +52,30 @@ export function recipeFits(key: RecipeKey, f: QuoteVideoFacts): boolean {
 }
 
 export const recipesFor = (f: QuoteVideoFacts): RecipeKey[] => RECIPE_KEYS.filter((k) => recipeFits(k, f));
+
+/**
+ * The recipe a stored input is made with: a portrait Motion clip's, where the key is one of ours and still fits
+ * these facts; else none, and the clip is the standing one (spec, Errors: rates changed since, it falls back).
+ */
+export function recipeOf(input: { style?: unknown; size?: unknown; recipe?: unknown }, f: QuoteVideoFacts): RecipeKey | undefined {
+  if (input.style !== "motion" || sizeOf(input) !== "portrait") return undefined;
+  const key = readRecipe(input.recipe);
+  return key && recipeFits(key, f) ? key : undefined;
+}
+
+/**
+ * A checked input as a recipe clip keeps it, where the recipe asked for fits: the recipe, and none of what a
+ * recipe does not use (the theme and its colours, น้องโล่, the carried figures, the brief and its lines). It is
+ * stored as the 15-second clip, which goes up on public Pages, so no customer's name is said or kept with it.
+ * Where no recipe fits, the input exactly as it came.
+ */
+export function recipeInput(c: VideoInput, asked: unknown, f: QuoteVideoFacts | undefined): VideoInput {
+  const recipe = f ? recipeOf({ style: c.style, size: c.size, recipe: asked }, f) : undefined;
+  if (!recipe) return c;
+  const { theme: _theme, festival: _festival, myColor: _myColor, mascot: _mascot, carry: _carry, brief: _brief, lines: _lines, ...kept } = c;
+  void [_theme, _festival, _myColor, _mascot, _carry, _brief, _lines];
+  return { ...kept, length: "short", recipe };
+}
 
 /** "2 ล้านบาท" runs together as it is said; a figure in digits keeps its space (as script.ts says it) */
 const baht = (n: number | string) => {

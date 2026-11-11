@@ -80,3 +80,17 @@ describe("clip recipes (owner, 2026-11-11, ก ก ก)", () => {
     expect(pickRecipe([], undefined, 0)).toBeUndefined();
   });
 });
+
+describe("the recipe a stored input is made with", () => {
+  it("is its recipe only for a portrait Motion clip whose facts it fits", async () => {
+    const { recipeOf } = await import("@/lib/quote-video/recipes");
+    expect(recipeOf({ style: "motion", recipe: "ask" }, LP35)).toBe("ask");
+    expect(recipeOf({ style: "motion", size: "portrait", recipe: "life" }, LP35)).toBe("life");
+    expect(recipeOf({ style: "classic", recipe: "ask" }, LP35)).toBeUndefined();
+    expect(recipeOf({ style: "chat", recipe: "ask" }, LP35)).toBeUndefined();
+    expect(recipeOf({ style: "motion", size: "square", recipe: "ask" }, LP35)).toBeUndefined();
+    expect(recipeOf({ style: "motion", recipe: "nope" }, LP35)).toBeUndefined();
+    expect(recipeOf({ style: "motion" }, LP35)).toBeUndefined();
+    expect(recipeOf({ style: "motion", recipe: "versus" }, { ...LP35, breakEven: undefined })).toBeUndefined();
+  });
+});

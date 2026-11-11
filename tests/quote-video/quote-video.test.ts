@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { cleanContactName, cleanLine, cleanMore, cleanPhone } from "@/lib/quote-video/contact";
 import { mixNarration, pcmSeconds } from "@/lib/quote-video/job";
 import { cleanCustomerName, pageCaption, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBaht } from "@/lib/quote-video/script";
@@ -319,5 +319,105 @@ describe("agent contact", () => {
     expect(cleanContactName("  พีรพัฒน์ \n  ที่ปรึกษาประกัน ")).toBe("พีรพัฒน์ ที่ปรึกษาประกัน");
     expect(cleanContactName("ก".repeat(40))).toBe("ก".repeat(40));
     expect(cleanContactName("ก".repeat(41))).toBeNull();
+  });
+});
+
+/**
+ * A clip without a recipe is made exactly as it was before สูตรคลิป Motion (owner, 2026-11-11: "everything that
+ * exists stays"): the parts of four standing clips, at a fixed day and a fixed roll of the piggy jar and the
+ * road, pinned as one fingerprint taken on the code before recipes were wired in. It changes only when a
+ * standing clip's parts are meant to change; then take it again and say why in the commit.
+ */
+describe("clips without a recipe", () => {
+  it("are made as they were before recipes (pinned)", async () => {
+    const { createHash } = await import("node:crypto");
+    const { quotePartsFor } = await import("@/lib/quote-video/make");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-11T12:00:00+07:00"));
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.9);
+    try {
+      const lp = { product: "LIFEPROTECT" as const, variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000, narrator: "F" as const, size: "portrait" as const };
+      const rows = [
+        { input: { ...lp, style: "motion" as const, length: "full" as const }, customer_name: "สมชาย" },
+        { input: { ...lp, style: "motion" as const, length: "short" as const }, customer_name: "" },
+        { input: { ...lp, style: "motion" as const, theme: "kinetic" as const, mascot: true, carry: true, length: "full" as const }, customer_name: "" },
+        { input: { ...lp, style: "classic" as const, length: "full" as const }, customer_name: "สมชาย" },
+      ];
+      const contact = { name: "ก", phone: "081" };
+      const parts = rows.map((row) => {
+        const f = quoteVideoFacts(row.input)!;
+        const script = quoteVideoScript(f, row.input.length === "short" ? "" : row.customer_name, "F", row.input.length, {});
+        return quotePartsFor(row, contact, script.map((s) => 2 + [...s.voice].length * 0.07));
+      });
+      random.mockReturnValue(0.1);
+      parts.push(quotePartsFor(rows[1], contact, [3, 3, 3]));
+      expect(createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 16)).toBe("090aac182673a133");
+    } finally {
+      random.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+});
+
+/**
+ * สูตรคลิป Motion made from the stored input (owner, 2026-11-11, mockup https://claude.ai/artifact/2yaTZU2RVFVmMn9VNi9K88,
+ * ก ก ก): the checked input keeps a recipe only where it fits, and the clip's parts are the recipe's own.
+ */
+describe("a recipe clip", () => {
+  const lp = { product: "LIFEPROTECT" as const, variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000 };
+  const asked = {
+    ...lp, narrator: "F" as const, style: "motion" as const, theme: "kinetic" as const, mascot: true, carry: true, length: "full" as const, size: "portrait" as const,
+    brief: { hook: "question" as const }, lines: { kind: "question" as const, hook: "ถามจริง", headline: ["ก"] }, noMusic: true as const,
+  };
+  const contact = { name: "ก", phone: "081" };
+
+  it("is stored with its recipe and without what a recipe does not use, as the 15-second clip", async () => {
+    const { recipeInput } = await import("@/lib/quote-video/recipes");
+    const stored = recipeInput(asked, "life", quoteVideoFacts(asked)!);
+    expect(stored).toEqual({ ...lp, narrator: "F", style: "motion", length: "short", size: "portrait", noMusic: true, recipe: "life" });
+  });
+
+  it("keeps today's input where no recipe fits", async () => {
+    const { recipeInput } = await import("@/lib/quote-video/recipes");
+    const ridden = { ...asked, riders: { waiver: { code: "WP", option: "FIT" }, medical: 1000 } };
+    expect(recipeInput(ridden, "life", quoteVideoFacts(ridden)!)).toBe(ridden);
+    expect(recipeInput(asked, undefined, quoteVideoFacts(asked)!)).toBe(asked);
+    expect(recipeInput({ ...asked, style: "classic" }, "life", quoteVideoFacts(asked)!)).toEqual({ ...asked, style: "classic" });
+    expect(recipeInput(asked, "life", undefined)).toBe(asked);
+  });
+
+  it("is told as its recipe, in navy's place, with no customer and nothing else of the standing clip", async () => {
+    const { quotePartsFor } = await import("@/lib/quote-video/make");
+    const input = { ...lp, narrator: "F" as const, style: "motion" as const, length: "short" as const, size: "portrait" as const, recipe: "life" as const };
+    const secs = [3, 4, 4, 4, 3];
+    const parts = quotePartsFor({ input, customer_name: "สมชาย" }, contact, secs);
+    expect(parts.script.map((s) => s.key)).toEqual(["lead", "price", "cover", "value", "contact"]);
+    expect(parts.plans.map((p) => p.key)).toEqual(["lead", "price", "cover", "value", "contact"]);
+    expect(parts.plans.map((p) => Math.round(p.dur * 1000) / 1000)).toEqual(secs.map((s) => Math.round((LEAD + s + 0.6) * 1000) / 1000));
+    expect(parts.motion).toBe(true);
+    expect(parts.classic$).toBeUndefined();
+    const m = parts.motion$!;
+    expect(m.recipe).toBe("life");
+    expect(m.theme).toBe("navy");
+    expect(m.customer).toBe("");
+    expect(m.shown.loop).toBe(false);
+    expect(m.shown.priceJar).toBeUndefined();
+    expect(m.shown.coverRoad).toBeUndefined();
+    expect([m.mascot, m.carry, m.size, m.festival, m.myColor]).toEqual([undefined, undefined, undefined, undefined, undefined]);
+    expect(m.sex).toBe("M");
+    expect(m.contact).toEqual(contact);
+  });
+
+  it("falls back to the standing clip where the recipe no longer fits", async () => {
+    const { quotePartsFor } = await import("@/lib/quote-video/make");
+    // paying to 99, a woman of 35: the cash value never passes what is paid, so เทียบให้เห็น does not fit
+    const input = { ...lp, variant: "WLF99H", sex: "F" as const, narrator: "F" as const, style: "motion" as const, length: "short" as const, size: "portrait" as const };
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.9);
+    try {
+      const secs = quoteVideoScript(quoteVideoFacts(input)!, "", "F", "short", {}).map(() => 3);
+      expect(quotePartsFor({ input: { ...input, recipe: "versus" }, customer_name: "" }, contact, secs)).toEqual(quotePartsFor({ input, customer_name: "" }, contact, secs));
+    } finally {
+      random.mockRestore();
+    }
   });
 });

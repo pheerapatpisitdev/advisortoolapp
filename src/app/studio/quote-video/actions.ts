@@ -53,6 +53,7 @@ import { FESTIVALS, festivalOn, readFestival, type FestivalKey } from "@/lib/quo
 import { MY_COLORS, type MyColor } from "@/lib/card-theme";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
+import { readRecipe, RECIPE_NAMES, recipeInput, recipeOf, recipeScript } from "@/lib/quote-video/recipes";
 import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
 import { POST_TRIES, readTone, readVoice } from "@/lib/quote-video/post-tones";
 import { closedFor } from "@/lib/switches/store";
@@ -180,7 +181,9 @@ function checked(v: VideoInput): VideoInput | string {
     if (first) return `${FIELD_WORD[first[0]] ?? "ประโยค"}: ${first[1]}`;
     lines = l;
   }
-  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...look, ...(style === "motion" && v.mascot === true ? { mascot: true } : {}), ...(style === "motion" && v.carry === true ? { carry: true } : {}), length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}), ...(v.noMusic === true ? { noMusic: true } : {}) };
+  const made: VideoInput = { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...look, ...(style === "motion" && v.mascot === true ? { mascot: true } : {}), ...(style === "motion" && v.carry === true ? { carry: true } : {}), length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}), ...(v.noMusic === true ? { noMusic: true } : {}) };
+  // สูตรคลิป Motion (owner, 2026-11-11, ก ก ก): kept only where it fits this quote, else the standing Motion clip is made (spec, Errors)
+  return recipeInput(made, v.recipe, facts);
 }
 
 /**
@@ -250,6 +253,9 @@ export async function previewScript(v: VideoInput, customer: string, seed = 0, r
   if (rewrite && !previewsPerHour(`script:${viewer.agentId}`)) return { error: "ดูตัวอย่างบทครบ 60 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   const f = quoteVideoFacts(c);
   if (!f) return { error: NOT_PRICED };
+  // a สูตรคลิป Motion clip's lines are its recipe's own: fixed, no model writes them
+  const recipe = recipeOf(c, f);
+  if (recipe) return { script: recipeScript(recipe, f, c.narrator === "M" ? "M" : "F"), written: false };
   const length = readLength(c.length);
   const name = length === "short" ? "" : cleanCustomerName(customer);
   if (!writes(c.brief)) return { script: quoteVideoScript(f, name, c.narrator, length, {}), written: false };
@@ -687,7 +693,12 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         : input.product === "GSAVING"
         ? `ออมปีละ ${input.premium.toLocaleString("en-US")} · ดัชนี ${rateLabel(input.rate)}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    // a สูตรคลิป Motion clip is named by its recipe, so an agent who got one by chance can ask for it again; its
+    // length is the recipe's own, not the 15-second clip it is stored as
+    const recipe = input.style === "motion" ? readRecipe(input.recipe) : undefined;
+    const who = recipe
+      ? `${NAMES[product]} (Motion · ${RECIPE_NAMES[recipe]})${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`
+      : `${NAMES[product]}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,
