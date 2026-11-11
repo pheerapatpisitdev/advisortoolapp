@@ -13,7 +13,6 @@ import { walletChargedThb } from "@/lib/wallet/store";
 import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/video/settings";
 import { gcpKeyFromUpload, parseGcpKey } from "@/lib/video/engines/cloudrun";
 import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
-import { checkMotionKey, isMotionProvider, type MotionCheck } from "@/lib/video/motion-key";
 
 const monthStartMs = () => monthStart().getTime();
 const DEFAULT_VIDEO: VideoSettings = { enabled: false };
@@ -118,8 +117,6 @@ export async function loadAiPage(): Promise<{
   content: { spent: number | null; cap: number; fallback: number };
   /** the clip render services: how they are set, and the last four characters of each key held */
   video: { settings: VideoSettings; keys: VideoKeyRow[] };
-  /** ภาพขยับ's keys (fal.ai, Runware) that are held: last four characters and switch */
-  motion: KeyRow[];
   /** who used AI this month and how much; null when it could not be read */
   people: PersonUse[] | null;
 }> {
@@ -162,9 +159,7 @@ export async function loadAiPage(): Promise<{
     people,
     video: { settings: videoCfg, keys: videoKeys },
     keys: heldKeys
-      .filter((k) => !(RENDER_PROVIDERS as readonly string[]).includes(k.provider) && !isMotionProvider(k.provider))
-      .map((k) => ({ provider: k.provider, tail: k.tail, enabled: k.enabled !== false })),
-    motion: heldKeys.filter((k) => isMotionProvider(k.provider))
+      .filter((k) => !(RENDER_PROVIDERS as readonly string[]).includes(k.provider))
       .map((k) => ({ provider: k.provider, tail: k.tail, enabled: k.enabled !== false })),
     /**
      * Only the companies above. `model_configs` is shared with another product, so it lists
@@ -339,45 +334,6 @@ export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
   }
   revalidatePath("/admin/ai");
   return { ok: true };
-}
-
-/** ภาพขยับ's keys, fal.ai and Runware: plain API keys, stored like the AI keys (owner, 2026-10-16) */
-export async function saveMotionKey(provider: string, key: string): Promise<Result> {
-  await requireStaff("backoffice");
-  if (!isMotionProvider(provider)) return { ok: false, error: "บริการไม่ถูกต้อง" };
-  const value = cleanKey(key);
-  if (value.length < 8) return { ok: false, error: "กุญแจสั้นเกินไป — วางกุญแจทั้งเส้นอีกครั้ง" };
-  return storeKey(provider, value);
-}
-
-/** off keeps the key and stops every call to that service */
-export async function setMotionEnabled(provider: string, enabled: boolean): Promise<Result> {
-  await requireStaff("backoffice");
-  if (!isMotionProvider(provider)) return { ok: false, error: "บริการไม่ถูกต้อง" };
-  try {
-    const { error } = await supabaseAdmin().from("ins_api_keys").update({ enabled: Boolean(enabled) }).eq("provider", provider);
-    if (error) return failed("เปิด/ปิดไม่สำเร็จ", error);
-  } catch (e) {
-    return failed("เปิด/ปิดไม่สำเร็จ", e);
-  }
-  clearAiConfigCache();
-  revalidatePath("/admin/ai");
-  return { ok: true };
-}
-
-/**
- * Asks the service whether the held key is good (checkMotionKey: no video made; Runware also says
- * the credit left). Read straight from the table, so a key switched off can still be tested
- * before it is switched on.
- */
-export async function testMotionKey(provider: string): Promise<MotionCheck | { state: "no-key" }> {
-  await requireStaff("backoffice");
-  if (!isMotionProvider(provider)) return { state: "bad", error: "บริการไม่ถูกต้อง" };
-  const { data, error } = await supabaseAdmin().rpc("ins_get_api_keys", { p_passphrase: passphrase() });
-  if (error) return { state: "bad", error: "อ่านกุญแจไม่สำเร็จ ลองใหม่อีกครั้ง" };
-  const key = ((data ?? []) as { provider: string; api_key: string }[]).find((k) => k.provider === provider)?.api_key;
-  if (!key) return { state: "no-key" };
-  return checkMotionKey(provider, key);
 }
 
 /**
