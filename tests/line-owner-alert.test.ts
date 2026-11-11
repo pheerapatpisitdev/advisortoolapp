@@ -61,4 +61,11 @@ describe("the failed-clip alert", () => {
     expect(clipWhat({ product: "STORY", topic: "pool48" })).toBe("คลิปเล่าเรื่อง · กองกลาง 48 คน");
     expect(clipWhat({ product: "FREESTORY", title: "เงินก้อนสุดท้าย" })).toBe("คลิปตามโจทย์ · เงินก้อนสุดท้าย");
   });
+
+  it("names a สูตรคลิป Motion clip's recipe, and only a Motion clip's", () => {
+    expect(clipWhat({ product: "LIFEPROTECT", style: "motion", recipe: "ask" })).toBe("วิดีโอนำเสนอ · Life Protect (Motion · เปิดด้วยคำถาม)");
+    expect(clipWhat({ product: "LIFEPROTECT", style: "motion", recipe: "versus" })).toBe("วิดีโอนำเสนอ · Life Protect (Motion · เทียบให้เห็น)");
+    expect(clipWhat({ product: "LIFEPROTECT", style: "motion", recipe: "nope" })).toBe("วิดีโอนำเสนอ · Life Protect (Motion)");
+    expect(clipWhat({ product: "LIFEPROTECT", style: "classic", recipe: "life" })).toBe("วิดีโอนำเสนอ · Life Protect");
+  });
 });

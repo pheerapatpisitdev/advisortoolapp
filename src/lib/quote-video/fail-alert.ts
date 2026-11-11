@@ -5,6 +5,7 @@ import { siteUrl } from "@/lib/site-url";
 import { topicOf } from "@/lib/story/topics";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isFhcInput } from "./fhc";
+import { readRecipe, RECIPE_NAMES } from "./recipe-keys";
 import type { Product } from "./script";
 import { isStoryInput } from "./story";
 
@@ -18,12 +19,15 @@ const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "
 
 /** the tool and the clip, as the owner knows them on the board */
 export function clipWhat(input: unknown): string {
-  const v = (input && typeof input === "object" ? input : {}) as { product?: string; style?: string; topic?: string; title?: string };
+  const v = (input && typeof input === "object" ? input : {}) as { product?: string; style?: string; topic?: string; title?: string; recipe?: unknown };
   if (isFhcInput(v)) return "วิดีโอนำเสนอ · สรุป FHC";
   if (isStoryInput(v)) return `คลิปเล่าเรื่อง · ${topicOf(String(v.topic ?? ""))?.name ?? "ไม่ทราบตอน"}`;
   if (isPromptStory(v)) return `คลิปตามโจทย์ · ${String(v.title ?? "").trim() || "ไม่มีชื่อ"}`;
   const plan = NAMES[(v.product ?? "LIFEPROTECT") as Product] ?? v.product;
-  return `วิดีโอนำเสนอ · ${plan}${v.style === "motion" ? " (Motion)" : v.style === "chat" ? " (แชท)" : ""}`;
+  // a สูตรคลิป Motion clip is named by its recipe, as the board names it (owner, 2026-11-11, ก ก ก)
+  const recipe = v.style === "motion" ? readRecipe(v.recipe) : undefined;
+  const look = recipe ? ` (Motion · ${RECIPE_NAMES[recipe]})` : v.style === "motion" ? " (Motion)" : v.style === "chat" ? " (แชท)" : "";
+  return `วิดีโอนำเสนอ · ${plan}${look}`;
 }
 
 const baht = (satang: number) => `฿${(satang / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;

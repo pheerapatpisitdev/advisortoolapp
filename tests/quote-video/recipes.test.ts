@@ -99,7 +99,9 @@ describe("สุ่มให้ at the press of สร้าง (owner, 2026-11-
         expect(got).not.toBe(last);
         expect(all).toContain(got);
       }
-      expect(nextRecipe(["ask", "versus"].filter((k) => k !== last) as ("ask" | "versus")[], () => last, 0.5)).not.toBe(last);
+      // two fit, the last among them: always the other
+      const other = all.find((k) => k !== last)!;
+      for (const roll of [0, 0.5, 0.99]) expect(nextRecipe([last, other], () => last, roll)).toBe(other);
     }
   });
 

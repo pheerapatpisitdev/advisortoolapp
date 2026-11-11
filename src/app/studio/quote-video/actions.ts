@@ -697,8 +697,10 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         ? `ออมปีละ ${input.premium.toLocaleString("en-US")} · ดัชนี ${rateLabel(input.rate)}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     // a สูตรคลิป Motion clip is named by its recipe, so an agent who got one by chance can ask for it again; its
-    // length is the recipe's own, not the 15-second clip it is stored as
-    const recipe = input.style === "motion" ? readRecipe(input.recipe) : undefined;
+    // length is the recipe's own, not the 15-second clip it is stored as. Named only where the row is still made
+    // with it (recipeOf, as make.ts reads it), so the title never names a recipe the clip does not tell
+    const facts = input.style === "motion" && readRecipe(input.recipe) ? quoteVideoFacts(input) : undefined;
+    const recipe = facts ? recipeOf(input, facts) : undefined;
     const who = recipe
       ? `${NAMES[product]} (Motion · ${RECIPE_NAMES[recipe]})${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`
       : `${NAMES[product]}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
