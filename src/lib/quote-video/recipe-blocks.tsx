@@ -115,6 +115,8 @@ export function footLine(c: RecipeClip, w: number, h: number, color: string): Re
  * The closing card: a lead line, the agent's name, then phone and LINE; every line one line wide.
  * `face.enter` is how the name and the last lines arrive (default: the name slammed at 0.25 s, the
  * rest up at 0.7 s, as `ask` has it; `life` and `versus` use the mockup's up at 0.2 s / 0.5 s).
+ * `face.room` / `face.align` set the column the lines are fitted to and aligned in (default: the clip width less 64 px a side, centred;
+ * `life` stands left-aligned in the column right of its rail, as the mockup has it).
  * `face.light` is the weight of the non-bold lines (default 400; Kanit has no 400, so `ask` passes 500).
  */
 export function contactBlock(
@@ -123,16 +125,17 @@ export function contactBlock(
   s: number,
   w: number,
   unit: number,
-  face: { family: string; weight: number; color: string; accent: string; light?: number; enter?: { kind: Enter; name: number; rest: number } },
+  face: { family: string; weight: number; color: string; accent: string; light?: number; enter?: { kind: Enter; name: number; rest: number }; room?: number; align?: "center" | "left" },
 ): ReactNode {
   const light = face.light ?? 400;
   const arrive = face.enter ?? { kind: "slam" as Enter, name: 0.25, rest: 0.7 };
-  const room = w - Math.round(64 * unit) * 2;
+  const room = face.room ?? w - Math.round(64 * unit) * 2;
+  const left = face.align === "left";
   const line = (text: string, cap: number, color: string, weight: number, kind: Enter, at: number, gap = 0) => (
-    <div style={{ display: "flex", whiteSpace: "nowrap", justifyContent: "center", fontFamily: face.family, fontWeight: weight, color, fontSize: fitSize(text, room, Math.round(cap * unit)), lineHeight: 1.25, marginTop: Math.round(gap * unit), ...enter(kind, s - at, unit) }}>{text}</div>
+    <div style={{ display: "flex", whiteSpace: "nowrap", justifyContent: left ? "flex-start" : "center", fontFamily: face.family, fontWeight: weight, color, fontSize: fitSize(text, room, Math.round(cap * unit)), lineHeight: 1.25, marginTop: Math.round(gap * unit), ...enter(kind, s - at, unit) }}>{text}</div>
   );
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: room }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: left ? "flex-start" : "center", width: room }}>
       {line(lead, 54, face.color, light, "up", 0)}
       {line(c.contact.name, 120, face.accent, face.weight, arrive.kind, arrive.name, 24)}
       {line(`โทร ${c.contact.phone}`, 54, face.color, light, "up", arrive.rest, 28)}

@@ -215,7 +215,8 @@ describe("lifeFrame (เส้นชีวิต)", () => {
     const facts = { ...LP35, lead: { ...LP35.lead, baht: 50_000_000 } };
     const big = lp35Clip([3.2, 3.2, 3.4, 3.4, 2.8], { ...facts }, "ก".repeat(40));
     big.figures = { ...big.figures, early: "50,000,000", late: "25,000,000", yearly: "5,000,000" };
-    for (let i = 0; i < 5; i++) expect(nowrapOverflows(at(i, big.scenes[i].dur / 2, big))).toEqual([]);
+    // the real column: the clip less the rail's 20 % and the 9 % right padding
+    for (let i = 0; i < 5; i++) expect(nowrapOverflows(at(i, big.scenes[i].dur / 2, big), 1080 - 0.29 * 1080)).toEqual([]);
     expect(at(2, 2, big)).toContain("50,000,000");
   });
 });

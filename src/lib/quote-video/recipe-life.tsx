@@ -85,18 +85,17 @@ export function lifeFrame(c: RecipeClip, index: number, t: number, T: number, w:
       </>
     );
   } else {
-    body = contactBlock(c, "วางเส้นชีวิตของคุณ", t, w, u, { family: FACE, weight: 700, color: INK, accent: GOLD, light: 400, enter: { kind: "up", name: 0.2, rest: 0.5 } });
+    body = contactBlock(c, "วางเส้นชีวิตของคุณ", t, w, u, { family: FACE, weight: 700, color: INK, accent: GOLD, light: 400, enter: { kind: "up", name: 0.2, rest: 0.5 }, room, align: "left" });
   }
 
-  const last = index === 4;
   return (
     <div style={{ display: "flex", position: "relative", width: w, height: h, overflow: "hidden", background: GROUND, color: INK, fontFamily: FACE }}>
       <div style={{ display: "flex", position: "absolute", left: cq(11), top: 0, width: cq(0.8), height: h, background: "rgba(246,239,224,0.18)" }}>
         <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: "100%", height: `${railFill(c.scenes, T).toFixed(3)}%`, background: GOLD }} />
       </div>
       <div style={{ display: "flex", position: "absolute", left: cq(8.4), top: Math.round(h * 0.47), width: cq(6), height: cq(6), borderRadius: "50%", background: GOLD, boxShadow: `0 0 0 ${cq(2)}px rgba(242,184,75,0.25)` }} />
-      {/* the closing card is centred on the clip as the other two recipes' are; the words stand right of the rail */}
-      <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h, flexDirection: "column", justifyContent: "center", alignItems: last ? "center" : "flex-start", gap: cq(3), paddingLeft: last ? 0 : cq(20), paddingRight: last ? 0 : cq(9) }}>{body}</div>
+      {/* every scene, the closing card too, stands in the column right of the rail (the mockup's padding-left 20cqw) */}
+      <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: w, height: h, flexDirection: "column", justifyContent: "center", alignItems: "flex-start", gap: cq(3), paddingLeft: cq(20), paddingRight: cq(9) }}>{body}</div>
       {footLine(c, w, h, "rgba(246,239,224,0.6)")}
     </div>
   );
