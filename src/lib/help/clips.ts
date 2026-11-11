@@ -43,5 +43,8 @@ export const helpClip = (id: string): HelpClip | undefined => HELP_CLIPS.find((c
 /** 104 → "1:44" */
 export const clipLength = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
 
+/** the file in public/ */
 export const clipFile = (id: string) => `/help/${id}.mp4`;
+/** what the player loads: the same file through /help/clip/[id], which answers an iPhone's range requests */
+export const clipPlay = (id: string) => `/help/clip/${id}`;
 export const clipCover = (id: string) => `/help/${id}.jpg`;

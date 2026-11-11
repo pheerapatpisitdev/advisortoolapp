@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { clipCover, clipFile, clipLength, HELP_GROUPS, helpClip } from "@/lib/help/clips";
+import { clipCover, clipLength, clipPlay, HELP_GROUPS, helpClip } from "@/lib/help/clips";
 
 /**
  * The list of clips, and the one being played in its place. Which one is open is the page's
@@ -26,7 +26,7 @@ export function HelpClips() {
           key={clip.id} controls playsInline autoPlay preload="metadata" poster={clipCover(clip.id)}
           className="mx-auto aspect-[9/16] max-h-[66dvh] max-w-full rounded-xl bg-black"
         >
-          <source src={clipFile(clip.id)} type="video/mp4" />
+          <source src={clipPlay(clip.id)} type="video/mp4" />
         </video>
         {clip.go && (
           <Link href={clip.go.href} className="rounded-lg bg-[var(--hm-solid)] px-4 py-2.5 text-center font-semibold text-[var(--hm-solid-ink)]">
