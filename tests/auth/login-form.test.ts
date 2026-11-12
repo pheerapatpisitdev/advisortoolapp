@@ -75,3 +75,14 @@ describe("LoginForm without the how-to video (owner, 2026-10-18: removed, option
     }
   });
 });
+
+describe("LoginForm's agent code (owner chose ข, 2026-11-12)", () => {
+  it("is hidden as dots, keeps the number pad, and has an eye to show it", () => {
+    const html = draw(false);
+    const input = html.match(/<input[^>]*id="login-code"[^>]*>/)?.[0] ?? "";
+    expect(input).toContain('type="password"');
+    expect(input).toContain('inputMode="numeric"');
+    expect(html).toContain('aria-label="แสดงรหัส"');
+    expect(html).toContain('aria-controls="login-code"');
+  });
+});
