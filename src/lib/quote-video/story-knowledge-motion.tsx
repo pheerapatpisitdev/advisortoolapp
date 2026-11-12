@@ -7,7 +7,7 @@ import type { StoryVideoInput } from "./story";
 import { familyFaces } from "./story-family";
 import { knowEpisode, partnerFace, type Kin, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine, type PicIcon } from "./story-knowledge";
 import type { PoseName } from "@/lib/story/figure";
-import { Contact, contactSpec, minimal, paperInk, Pic, type StoryContext } from "./story-motion";
+import { Contact, contactSpec, line, LineTitle, minimal, paper, paperInk, PaperTitle, Pic, whole, type StoryContext } from "./story-motion";
 import { SIZES, type VideoSize } from "./timeline";
 
 /**
@@ -166,7 +166,9 @@ export function knowWindows(key: KnowSceneKey | "storyContact", input: StoryVide
   return Object.values(spec).map((x) => [x.at, x.at + x.dur]);
 }
 
-function Title({ g, w, an, t, text, ink = C.ink }: { g: Geo; w: number; an?: Anim; t: number; text: [string, string]; ink?: string }) {
+function Title({ g, w, an, t, text, ink = C.ink, cut, pill }: { g: Geo; w: number; an?: Anim; t: number; text: [string, string]; ink?: string; cut?: boolean; pill?: boolean }) {
+  if (cut) return <PaperTitle w={w} top={g.title} size={g.titleSize} an={an} t={t} text={text} />;
+  if (pill) return <LineTitle w={w} top={g.title} size={g.titleSize} an={an} t={t} text={text} />;
   return (
     <El an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: ink }}>
       <div style={box({ fontSize: g.titleSize, fontWeight: 600, lineHeight: 1.15 })}>{text[0]}</div>
@@ -179,7 +181,7 @@ function Title({ g, w, an, t, text, ink = C.ink }: { g: Geo; w: number; an?: Ani
 export function Note({ g, r, an, t, lines, tilt = -1.2, scale = 1 }: { g: Pick<Geo, "text">; r: Rect; an?: Anim; t: number; lines: NoteLine[]; tilt?: number; scale?: number }) {
   const l = look(an, t);
   return (
-    <div style={{ display: "flex", position: "absolute", left: r.x, top: r.y, width: r.w, flexDirection: "column", alignItems: "center", background: C.note, border: `4px solid ${C.ink}`, borderRadius: 16, padding: "26px 28px", opacity: l.opacity, transform: `rotate(${tilt}deg)${l.transform ? ` ${l.transform}` : ""}`, fontFamily: HAND, color: C.ink }}>
+    <div className="cut" style={{ display: "flex", position: "absolute", left: r.x, top: r.y, width: r.w, flexDirection: "column", alignItems: "center", background: C.note, border: `4px solid ${C.ink}`, borderRadius: 16, padding: "26px 28px", opacity: l.opacity, transform: `rotate(${tilt}deg)${l.transform ? ` ${l.transform}` : ""}`, fontFamily: HAND, color: C.ink }}>
       {lines.map((x, i) => (
         <div key={i} style={box({ fontSize: Math.round(g.text * scale * (x.big ? 1.4 : 1)), fontWeight: x.big ? 600 : 500, lineHeight: 1.35, color: x.tone === "red" ? C.red : x.tone === "green" ? GREEN : C.ink, textAlign: "center" })}>{x.text}</div>
       ))}
@@ -202,7 +204,7 @@ function Face({ c, r, an, t, gray, pose = "stand" }: { c: StoryContext; r: Rect;
  * up at them (the mockup's ชี้อธิบาย), in the band above the subtitle. The wider shapes have no room for them.
  */
 function Pointer({ c, t, an }: { c: StoryContext; t: number; an?: Anim }) {
-  if (!minimal(c.input) || c.size !== "portrait") return null;
+  if (!whole(c.input) || c.size !== "portrait") return null;
   const l = look(an, t);
   return (
     <div style={{ display: "flex", position: "absolute", left: 40, top: 1450, width: 240, height: 260, opacity: l.opacity }}>
@@ -254,7 +256,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
       );
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
           <Face c={c} r={r} an={s.face} t={t} pose="think" />
           {mark(r.x + r.w * 0.86, r.y - r.h * 0.06, Math.round(r.w * 0.3), 14)}
           {mark(r.x - r.w * 0.16, r.y + r.h * 0.18, Math.round(r.w * 0.2), -12)}
@@ -293,7 +295,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
       const il = look(s.icon, t);
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
           {/* the premium leaves the hero for the coins; the sum comes from the bag to the hero */}
           <Face c={c} r={show.dir === "out" ? f.face : { ...f.face, x: f.icon.x }} an={s.face} t={t} pose={show.dir === "out" ? "give" : "cheer"} />
           <div style={abs({ left: show.dir === "out" ? f.icon.x : f.face.x, top: f.icon.y, width: f.icon.w, height: f.icon.h, opacity: il.opacity, ...(il.transform ? { transform: il.transform } : {}) })}>
@@ -310,7 +312,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
     case "note":
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
           <Face c={c} r={g.face} an={s.face} t={t} gray={show.dim} pose={show.dim ? "sad" : "stand"} />
           <Note g={g} r={g.note} an={s.note} t={t} lines={show.note} />
         </>
@@ -321,8 +323,8 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
       const cl = look(s.card, t);
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
-          <div style={{ display: "flex", position: "absolute", left: g.card.x, top: g.card.y, width: g.card.w, flexDirection: "column", background: C.note, border: `4px solid ${C.ink}`, borderRadius: 16, padding: "36px 40px", opacity: cl.opacity, transform: `rotate(0.8deg)${cl.transform ? ` ${cl.transform}` : ""}` }}>
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <div className="cut" style={{ display: "flex", position: "absolute", left: g.card.x, top: g.card.y, width: g.card.w, flexDirection: "column", background: C.note, border: `4px solid ${C.ink}`, borderRadius: 16, padding: "36px 40px", opacity: cl.opacity, transform: `rotate(0.8deg)${cl.transform ? ` ${cl.transform}` : ""}` }}>
             {show.items.map((it, i) => (
               <El key={i} an={s[`item${i}`]} t={t} style={{ alignItems: "center", marginTop: i ? 24 : 0, fontFamily: HAND, fontSize: Math.round(g.text * 1.25), color: C.ink }}>
                 <div style={box({ width: Math.round(g.text * 1.5), color: markColor, fontWeight: 700, flexShrink: 0 })}>{markWord}</div>
@@ -337,7 +339,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
     case "recap":
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={["จำง่าย ๆ", ""]} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={["จำง่าย ๆ", ""]} />
           <Note g={g} r={{ ...g.card, y: g.card.y + Math.round(g.card.h * 0.08) }} an={s.card} t={t} lines={show.lines} tilt={0.8} scale={1.35} />
           <Pointer c={c} t={t} an={s.card} />
         </>
@@ -382,7 +384,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
       const noteR = c.size === "portrait" ? { x: g.note.x, y: g.note.y + 40, w: g.note.w, h: g.note.h } : { x: r.x + r.w + 30, y: r.y + 40, w: SIZES[c.size].w - (r.x + r.w + 30) - 50, h: g.note.h };
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
           <div style={abs({ left: r.x, top: r.y, width: r.w, height: r.h, justifyContent: "center", alignItems: "flex-end", opacity: pl.opacity, ...(pl.transform ? { transform: pl.transform } : {}) })}>
             {people.map((id, i) => {
               const size = i === 0 || i === people.length - 1 ? adult : child;
@@ -402,7 +404,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
       const noteR = c.size === "portrait" ? g.note : { x: g.gift.x + g.gift.w + 60, y: g.gift.y + 40, w: SIZES[c.size].w - (g.gift.x + g.gift.w + 60) - 60, h: g.note.h };
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
           <div style={abs({ left: g.gift.x, top: g.gift.y, width: g.gift.w, height: g.gift.h, opacity: gl.opacity, ...(gl.transform ? { transform: gl.transform } : {}) })}>{GIFT({ x: 0, y: 0, w: g.gift.w, h: g.gift.h })}</div>
           <Note g={g} r={noteR} an={s.note} t={t} lines={show.note} />
           <Pointer c={c} t={t} an={s.note} />
@@ -425,7 +427,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
       );
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
           {show.bag ? (
             <div style={abs({ left: k.bag.x, top: k.bag.y, width: k.bag.w, height: k.bag.h, opacity: bl.opacity, ...(bl.transform ? { transform: bl.transform } : {}) })}>
               {BAG({ x: 0, y: 0, w: k.bag.w, h: k.bag.h })}
@@ -444,7 +446,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
                 const tl = look(s[`tag${i}`], t);
                 const color = show.tags!.red ? C.red : C.ink;
                 return (
-                  <div key={i} style={box({ margin: Math.round(g.text * 0.3), background: C.note, border: `4px solid ${color}`, borderRadius: 14, padding: `${Math.round(g.text * 0.2)}px ${Math.round(g.text * 0.55)}px`, fontFamily: HAND, fontWeight: 600, fontSize: Math.round(g.text * 1.15), color, opacity: tl.opacity, transform: `rotate(${i % 2 ? 2 : -2}deg)${tl.transform ? ` ${tl.transform}` : ""}` })}>{tag}</div>
+                  <div className="cut" key={i} style={box({ margin: Math.round(g.text * 0.3), background: C.note, border: `4px solid ${color}`, borderRadius: 14, padding: `${Math.round(g.text * 0.2)}px ${Math.round(g.text * 0.55)}px`, fontFamily: HAND, fontWeight: 600, fontSize: Math.round(g.text * 1.15), color, opacity: tl.opacity, transform: `rotate(${i % 2 ? 2 : -2}deg)${tl.transform ? ` ${tl.transform}` : ""}` })}>{tag}</div>
                 );
               })}
             </div>
@@ -467,7 +469,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
       const x = Math.min(L.x, Math.max(60, Math.round((w - dot - g.text * 0.7 - markW - labelW) / 2)));
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
           <div style={abs({ left: x - 4, top: L.y + Math.round(ageSize * 0.6), width: 8, height: Math.max(0, Math.round(len * p)), background: ink, borderRadius: 4 })} />
           {show.rows.map((r, i) => (
             <El key={i} an={s[`row${i}`]} t={t} style={{ position: "absolute", left: x - Math.round(dot / 2), top: L.y + i * L.step, alignItems: "center", fontFamily: HAND, color: i === last ? GREEN : ink }}>
@@ -482,7 +484,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
     case "card":
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
           <Note g={g} r={{ ...g.card, y: g.card.y + Math.round(g.card.h * 0.1) }} an={s.card} t={t} lines={show.lines} tilt={0.8} scale={1.2} />
           <Pointer c={c} t={t} an={s.card} />
         </>
@@ -495,7 +497,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
       const fl = look(s.face, t);
       return (
         <>
-          <Title ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Title cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
           <div style={abs({ left: icon.x, top: icon.y, width: icon.w, height: icon.h, opacity: il.opacity, ...(il.transform ? { transform: il.transform } : {}) })}>
             {ICON[show.icon]({ x: 0, y: 0, w: icon.w, h: icon.h })}
             {show.icon === "bag" ? <div style={abs({ left: 0, width: icon.w, top: Math.round(icon.h * 0.42), justifyContent: "center", fontSize: Math.round(icon.h * 0.32), fontWeight: 600, color: C.ink })}>฿</div> : null}
@@ -613,8 +615,8 @@ function Person({ c, p, size, gap, gone, t }: { c: StoryContext; p: Kin; size: n
     <div style={box({ position: "relative", width: size, height: size, marginLeft: gap, flexShrink: 0 })}>
       {grey > 0 ? <Pic c={c} id={p.id} r={r} opacity={grey} gray t={t} pose={p.state === "sick" ? "sad" : "stand"} /> : null}
       {colour > 0 ? <Pic c={c} id={p.id} r={r} opacity={colour} t={t} /> : null}
-      {fade > 0 && minimal(c.input) ? <Pic c={c} id={p.id} r={r} opacity={fade} dash t={t} /> : null}
-      {fade > 0 && !minimal(c.input) ? (
+      {fade > 0 && whole(c.input) ? <Pic c={c} id={p.id} r={r} opacity={fade} dash t={t} /> : null}
+      {fade > 0 && !whole(c.input) ? (
         <div style={abs({ left: 0, top: 0, width: size, height: size, opacity: fade })}>
           <svg width={size} height={size} viewBox="0 0 100 100"><circle cx={50} cy={50} r={46} fill="none" stroke={C.ink} strokeWidth={2.4} strokeDasharray="7 6" /></svg>
         </div>

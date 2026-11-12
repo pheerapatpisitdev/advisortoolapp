@@ -15,11 +15,13 @@ import { BABY, faceOf, GRANDMAS, GRANDPAS } from "./faces";
  */
 
 /** the clip's ground, the three the form offers */
-export type FigureGround = "lav" | "line" | "dark";
+export type FigureGround = "lav" | "line" | "dark" | "warm";
 export interface GroundColors { name: string; bg: string; ink: string; outline: string | null; shadow: string; chair: string; chairLeg: string }
 export const GROUNDS: Record<FigureGround, GroundColors> = {
   lav: { name: "ม่วงอ่อน", bg: "#e4e3f0", ink: "#2a2d3e", outline: null, shadow: "rgba(70,70,120,0.13)", chair: "#c4c7cf", chairLeg: "#2a2b30" },
   line: { name: "ขาว เส้นดำ", bg: "#ffffff", ink: "#1b1b1d", outline: "#1b1b1d", shadow: "rgba(0,0,0,0)", chair: "#e4e6ea", chairLeg: "#1b1b1d" },
+  // ฉากกระดาษใต้แสงอุ่น (owner, 2026-11-12): the paper stage under a warm lamp (story-motion.tsx storyBackground); it took มินิมอล's place on the form
+  warm: { name: "แสงอุ่น", bg: "#e3d2b4", ink: "#3a2a1c", outline: null, shadow: "rgba(58,42,24,0.24)", chair: "#52706c", chairLeg: "#2f2a26" },
   dark: { name: "เทาเข้ม", bg: "#343740", ink: "#f1f1f4", outline: null, shadow: "rgba(0,0,0,0.32)", chair: "#585c68", chairLeg: "#20222a" },
 };
 export const FIGURE_GROUNDS = Object.keys(GROUNDS) as FigureGround[];

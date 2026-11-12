@@ -1,6 +1,8 @@
+import type React from "react";
 import { CARD_PALETTE as P, QUOTE_VIDEO_COLORS, STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { CROWD_HERO, FACE_PAPER } from "@/lib/story/faces";
-import { blend, Figure, GROUNDS, lookFromId, POSES, type Drawn, type Pose, type PoseName } from "@/lib/story/figure";
+import { blend, Figure, GROUNDS, lookFromId, type GroundColors, POSES, type Drawn, type Pose, type PoseName } from "@/lib/story/figure";
+import { dollLook, PaperDoll } from "@/lib/story/paper-doll";
 import { topicOf } from "@/lib/story/topics";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import { heroName, planName, storyEvent, termShort, type StorySceneKey, type StoryVideoInput } from "./story";
@@ -149,9 +151,53 @@ export function storyHandText(input: StoryVideoInput, customer: string): string 
   return [...Object.values(storyTitles(input, customer)).flat(), ...(noteLines(input) ?? []), "0123456789,"].join("");
 }
 
+/** สต็อปโมชันกระดาษ's poses a second: every scene's time is held to them (story-frames.tsx clipFrame) */
+export const PAPER_POSES = 12;
+export const paperTime = (t: number) => Math.floor(t * PAPER_POSES + 1e-6) / PAPER_POSES;
+/** a cut piece's white edge and the shadow it throws on the table, for a piece `w` wide */
+export const cutEdge = (w: number): React.CSSProperties => {
+  const b = Math.max(3, Math.round(w * 0.035));
+  return { border: `${b}px solid ${C.cutEdge}`, boxShadow: `${b}px ${Math.round(b * 1.6)}px ${Math.round(b * 1.4)}px ${C.cutShadow}` };
+};
+
+/**
+ * สต็อปโมชันกระดาษ's title: each word on its own coloured tile, laid down one after another from the title's
+ * moment, the line under it on a strip of note paper. A tile is put down, not faded in.
+ */
+export function PaperTitle({ w, top, size, an, t, text }: { w: number; top: number; size: number; an?: Anim; t: number; text: [string, string] }) {
+  // a word a tile; ๆ stays on the tile of the word it repeats
+  const words = text[0].split(" ").filter(Boolean).reduce<string[]>((all, x) => (x === "ๆ" && all.length ? [...all.slice(0, -1), `${all[all.length - 1]} ๆ`] : [...all, x]), []);
+  const at = an?.at ?? 0;
+  const fontSize = Math.round(size * (text[0].length > 14 ? 0.6 : 0.78));
+  const down = (i: number) => !an || t >= at + i * 0.25;
+  return (
+    <div style={abs({ left: 40, width: w - 80, top: top - 10, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: INK })}>
+      <div style={box({ flexWrap: "wrap", justifyContent: "center" })}>
+        {words.map((word, i) => (
+          <div key={i} style={box({ margin: "0 9px 14px", padding: `${Math.round(fontSize * 0.08)}px ${Math.round(fontSize * 0.3)}px`, background: C.tiles[i % C.tiles.length], fontSize, fontWeight: 600, lineHeight: 1.25, opacity: down(i) ? 1 : 0, transform: `rotate(${[-2.5, 2, -1.2, 2.8][i % 4] + (t < at + i * 0.25 + 2 / PAPER_POSES ? 3 : 0)}deg)`, ...cutEdge(fontSize * 2.2) })}>{word}</div>
+        ))}
+      </div>
+      {text[1] ? <div style={box({ marginTop: 4, padding: "6px 26px", background: C.note, fontSize: Math.round(size * 0.42), textAlign: "center", opacity: down(words.length) ? 1 : 0, transform: "rotate(-0.8deg)", ...cutEdge(size * 1.2) })}>{text[1]}</div> : null}
+    </div>
+  );
+}
+
+/** การ์ตูนลายเส้น's title: the words in a round-cornered sign with a thick black edge, the line under it in red */
+export function LineTitle({ w, top, size, an, t, text }: { w: number; top: number; size: number; an?: Anim; t: number; text: [string, string] }) {
+  const fontSize = Math.round(size * (text[0].length > 14 ? 0.56 : 0.72));
+  return (
+    <El an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: top - 6, flexDirection: "column", alignItems: "center", color: INK }}>
+      <div style={box({ background: C.white, border: `${Math.max(4, Math.round(size * 0.055))}px solid ${INK}`, borderRadius: Math.round(size * 0.3), padding: `${Math.round(fontSize * 0.1)}px ${Math.round(fontSize * 0.5)}px`, fontSize, fontWeight: 700, lineHeight: 1.3, textAlign: "center" })}>{text[0]}</div>
+      {text[1] ? <div style={box({ marginTop: Math.round(size * 0.14), fontSize: Math.round(size * 0.46), fontWeight: 700, color: RED, textAlign: "center" })}>{text[1]}</div> : null}
+    </El>
+  );
+}
+
 function Title({ c, an, t, text }: { c: StoryContext; an?: Anim; t: number; text: [string, string] }) {
   const g = GEO[c.size];
   const { w } = SIZES[c.size];
+  if (paper(c.input)) return <PaperTitle w={w} top={g.title} size={g.titleSize} an={an} t={t} text={text} />;
+  if (line(c.input)) return <LineTitle w={w} top={g.title} size={g.titleSize} an={an} t={t} text={text} />;
   return (
     <El an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: paperInk(c.input) }}>
       <div style={box({ fontSize: g.titleSize, fontWeight: 600, lineHeight: 1.15 })}>{text[0]}</div>
@@ -176,19 +222,33 @@ export const Img = ({ src, r, opacity = 1 }: { src?: string; r: Rect; opacity?: 
 
 /** มินิมอล (lib/story/figure.tsx): whole people in place of the faces, on the ground the agent picked */
 export const minimal = (input: StoryVideoInput) => input.art === "minimal";
-export const groundOf = (input: StoryVideoInput) => GROUNDS[input.ground ?? "lav"];
+/** สต็อปโมชันกระดาษ's people stand on the kraft sheet, every part of them edged in white as a cut piece is; their shadow is the clip's own */
+const PAPER_GROUND: GroundColors = { name: "กระดาษ", bg: C.kraft, ink: C.ink, outline: C.cutEdge, shadow: "rgba(0,0,0,0)", chair: C.paperChair, chairLeg: C.ink };
+export const groundOf = (input: StoryVideoInput): GroundColors => (input.art === "paper" ? PAPER_GROUND : GROUNDS[input.ground ?? "lav"]);
+/** ฉากกระดาษใต้แสงอุ่น (owner, 2026-11-12): มินิมอล's people on the paper stage under a warm lamp */
+export const warm = (input: StoryVideoInput) => input.art === "minimal" && input.ground === "warm";
+/** การ์ตูนลายเส้น (owner, 2026-11-12): the dolls in a thick black line on a clean white ground, a fourth look */
+export const line = (input: StoryVideoInput) => input.art === "line";
+/** its people are the dolls (lib/story/paper-doll.tsx): สต็อปโมชันกระดาษ's cut ones, or การ์ตูนลายเส้น's inked ones */
+export const dolls = (input: StoryVideoInput) => input.art === "paper" || input.art === "line";
+/** drawn with whole people (lib/story/figure.tsx), not the faces: มินิมอล and สต็อปโมชันกระดาษ */
+export const whole = (input: StoryVideoInput) => input.art === "minimal" || dolls(input);
 /** the colour of words written straight on the ground: light on the dark one */
-export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(input).ink : info(input) ? C.white : INK);
+export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(input).ink : plot(input) ? C.plotInk : info(input) ? C.white : INK);
 /** อินโฟกราฟิก (story-info-motion.tsx): tiles and icons on วิดีโอนำเสนอ Motion's navy, no faces */
-export const info = (input: StoryVideoInput) => input.art === "info";
+export const info = (input: StoryVideoInput) => input.art === "info" || input.art === "plot";
+/** ปากกาพล็อตเตอร์ (owner, 2026-11-12): อินโฟกราฟิก's scenes on cream paper, written by one pen as the voice goes */
+export const plot = (input: StoryVideoInput) => input.art === "plot";
 export const INFO_GROUND = QUOTE_VIDEO_COLORS.motionNavy;
+/** สต็อปโมชันกระดาษ (owner, 2026-11-12): the faces cut out of paper on a wooden table, 12 poses a second */
+export const paper = (input: StoryVideoInput) => input.art === "paper";
 
 /** how someone is drawn: the hero and the agent as the agent dressed them, anyone else from their id */
 export function lookFor(id: string, input: StoryVideoInput): Drawn {
   const cast = input.cast;
   if (cast && id === input.faces.hero) return { ...cast.hero, age: "adult" };
   if (cast && id === input.faces.narrator) return { ...cast.narrator, age: "adult" };
-  return lookFromId(id);
+  return dolls(input) ? dollLook(id) : lookFromId(id);
 }
 
 /**
@@ -198,7 +258,14 @@ export function lookFor(id: string, input: StoryVideoInput): Drawn {
 export function Pic({ c, id, r, opacity = 1, gray, dash, pose = "stand", t = 0, dir }: {
   c: StoryContext; id: string; r: Rect; opacity?: number; gray?: boolean; dash?: boolean; pose?: PoseName | Pose; t?: number; dir?: 1 | -1;
 }) {
-  if (!minimal(c.input)) return <Img src={c.faces[gray ? `${id}-g` : id]} r={r} opacity={opacity} />;
+  if (!whole(c.input)) return <Img src={c.faces[gray ? `${id}-g` : id]} r={r} opacity={opacity} />;
+  if (dolls(c.input)) {
+    return (
+      <div style={abs({ left: r.x, top: r.y, width: r.w, height: r.h, opacity })}>
+        <PaperDoll look={lookFor(id, c.input)} pose={typeof pose === "string" ? POSES[pose](t) : pose} w={r.w} h={r.h} gray={gray} dash={dash} dir={dir} ink={line(c.input)} />
+      </div>
+    );
+  }
   const p = typeof pose === "string" ? POSES[pose](t) : pose;
   return (
     <div style={abs({ left: r.x, top: r.y, width: r.w, height: r.h, opacity })}>
@@ -294,7 +361,7 @@ function Hit({ c, t }: { c: StoryContext; t: number }) {
   const hero = cells(g.crowd, g.cols, g.rows)[CROWD_HERO];
   const h = look(s.hero, t);
   // มินิมอล: a whole person is small in a crowd's cell, so the hero comes forward further, and slumps
-  const grow = h.p > 0 ? 1 + (minimal(c.input) ? 1.3 : 0.25) * Math.min(1, h.p) : 1;
+  const grow = h.p > 0 ? 1 + (minimal(c.input) ? 1.3 : dolls(c.input) ? 0.7 : 0.25) * Math.min(1, h.p) : 1;
   const big = { x: Math.round(hero.x - (hero.w * (grow - 1)) / 2), y: Math.round(hero.y - (hero.h * (grow - 1)) / 2), w: Math.round(hero.w * grow), h: Math.round(hero.h * grow) };
   const ring = { x: big.x - Math.round(big.w * 0.22), y: big.y - Math.round(big.h * 0.2), w: Math.round(big.w * 1.44), h: Math.round(big.h * 1.4) };
   const heroId = c.crowd[CROWD_HERO];
@@ -342,7 +409,7 @@ function Help({ c, t }: { c: StoryContext; t: number }) {
         <El an={s.name} t={t} style={{ position: "absolute", left: g.name.x, width: g.name.w, top: g.name.y, justifyContent: "center", fontFamily: HAND, fontWeight: 600, fontSize: Math.round(g.name.h * 0.72), color: ink }}>{name}</El>
       ) : null}
       {note ? (
-        <div style={{ display: "flex", position: "absolute", left: g.note.x, top: g.note.y, width: g.note.w, flexDirection: "column", alignItems: "center", background: NOTE, border: `4px solid ${INK}`, borderRadius: 14, padding: "22px 26px", opacity: nl.opacity, transform: `rotate(-1.5deg)${nl.transform ? ` ${nl.transform}` : ""}`, fontFamily: HAND, color: INK }}>
+        <div className="cut" style={{ display: "flex", position: "absolute", left: g.note.x, top: g.note.y, width: g.note.w, flexDirection: "column", alignItems: "center", background: NOTE, border: `4px solid ${INK}`, borderRadius: 14, padding: "22px 26px", opacity: nl.opacity, transform: `rotate(-1.5deg)${nl.transform ? ` ${nl.transform}` : ""}`, fontFamily: HAND, color: INK }}>
           <div style={box({ fontSize: Math.round(g.note.w * 0.05) })}>{note[0]}</div>
           <div style={box({ fontSize: Math.round(g.note.w * 0.078), fontWeight: 600, marginTop: 4 })}>{note[1]}</div>
           <div style={box({ fontSize: Math.round(g.note.w * 0.04), marginTop: 6, fontFamily: "Plex" })}>{note[2]}</div>
@@ -387,7 +454,7 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
   const wide = c.size === "landscape";
   const big = g.px(88, 62, 84);
   // on the dark ground the card's navy words would be lost: they take the ground's own ink
-  const onDark = (minimal(c.input) && c.input.ground === "dark") || info(c.input);
+  const onDark = (minimal(c.input) && c.input.ground === "dark") || (info(c.input) && !plot(c.input));
   const head = (
     <El an={s.head} t={t} style={{ flexDirection: "column", ...(wide ? { width: 820, flexShrink: 0 } : {}) }}>
       {kicker ? <div style={box({ fontSize: g.px(44, 34, 44), fontWeight: 600, color: onDark ? paperInk(c.input) : P.accent })}>{kicker}</div> : null}
@@ -399,7 +466,7 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
   return (
     <div style={abs({ left: g.side, width: w - g.side * 2, top: g.top, height: h - g.top - GEO[c.size].sub - 140, flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start" })}>
       {head}
-      <div style={box({ flexDirection: "column", ...(wide ? { flex: 1 } : { width: w - g.side * 2 }), marginLeft: wide ? 40 : 0, marginTop: g.px(120, 36, 0) })}>
+      <div className="cut-card" style={box({ flexDirection: "column", ...(wide ? { flex: 1 } : { width: w - g.side * 2 }), marginLeft: wide ? 40 : 0, marginTop: g.px(120, 36, 0) })}>
         <El an={s.card} t={t} style={{ background: C.white, border: `3px solid ${P.hair}`, borderRadius: g.px(44, 36, 36), padding: g.px(44, 30, 40), alignItems: "center" }}>
           {k.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -424,7 +491,7 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
         </El>
       </div>
       {/* มินิมอล, portrait: the agent waves under their card (the mockup's last scene); the wider shapes have no room */}
-      {minimal(c.input) && portrait && c.input.faces.narrator ? (
+      {whole(c.input) && portrait && c.input.faces.narrator ? (
         // in the band between the small print and the subtitle: 1420–1700 of the 1920
         <El an={s.legal} t={t} style={{ position: "absolute", left: Math.round((w - g.side * 2 - 260) / 2), top: 1420 - g.top, width: 260, height: 280 }}>
           <Pic c={c} id={c.input.faces.narrator} r={{ x: 0, y: 0, w: 260, h: 280 }} pose="wave" t={t} />
@@ -441,7 +508,21 @@ export function Subtitle({ c, t }: { c: StoryContext; t: number }) {
   const maxWidth = c.size === "landscape" ? 1400 : w - 120;
   const times = wordTimes(c.words.join(" "), c.voiceSec);
   // the piece the voice is on (caption.ts), one line of the band at most
-  const shown = captionShown(c.words, (maxWidth - 56) / fontSize, wordAt(c.words, t, c.voiceSec, LEAD));
+  // การ์ตูนลายเส้น's words are larger, so fewer fit the one line
+  const big = Math.round(fontSize * 1.18);
+  const shown = captionShown(c.words, (maxWidth - 56) / (line(c.input) ? big * 1.08 : fontSize), wordAt(c.words, t, c.voiceSec, LEAD));
+  if (line(c.input)) {
+    // no band; big white words with a black edge all round, the one being spoken yellow
+    const e = Math.max(3, Math.round(big * 0.055));
+    const edge = [[-e, 0], [e, 0], [0, -e], [0, e], [-e, -e], [e, -e], [-e, e], [e, e]].map(([x, y]) => `${x}px ${y}px 0 ${INK}`).join(", ");
+    return (
+      <div style={abs({ left: 60, width: w - 120, bottom: GEO[c.size].sub, justifyContent: "center" })}>
+        <div style={box({ flexWrap: "wrap", justifyContent: "center", fontSize: big, fontWeight: 700, lineHeight: 1.45, maxWidth, textShadow: edge })}>
+          {shown.map((i, k) => <div key={i} style={box({ color: t >= times[i].from && t < times[i].to ? C.lineSpoken : C.white, marginRight: k < shown.length - 1 ? 14 : 0 })}>{c.words[i]}</div>)}
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={abs({ left: 60, width: w - 120, bottom: GEO[c.size].sub, justifyContent: "center" })}>
       <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(20,22,26,0.82)", borderRadius: 28, padding: "16px 28px", fontSize, lineHeight: 1.45, maxWidth })}>
@@ -477,5 +558,50 @@ export function storyFrame(key: PoolSceneKey, c: StoryContext, t: number) {
 /** the paper every scene is drawn on: the faces' own colour, so they sit on it with no edge; มินิมอล's ground its own */
 export function storyBackground(size: VideoSize, input?: StoryVideoInput) {
   const { w, h } = SIZES[size];
+  if (input && paper(input)) {
+    // the table's grain, the sheet pinned on it a little askew, a pin at each top corner
+    const m = Math.round(Math.min(w, h) * 0.04);
+    const lines = Array.from({ length: Math.ceil(h / 64) }, (_, i) => i);
+    return (
+      <div style={{ display: "flex", position: "relative", width: w, height: h, background: C.wood }}>
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: "absolute", left: 0, top: 0 }}>
+          {lines.map((i) => <path key={i} d={`M0 ${30 + i * 64} Q ${w * 0.3 + (i % 5) * 40} ${8 + i * 64} ${w} ${40 + i * 64}`} fill="none" stroke={C.woodGrain} strokeWidth={2 + (i % 3) * 1.5} opacity={0.6} />)}
+        </svg>
+        <div style={abs({ left: m, top: m, width: w - m * 2, height: h - m * 2, background: C.kraft, transform: "rotate(-0.35deg)", boxShadow: `6px 10px 14px ${C.cutShadow}` })} />
+        {[m + 26, w - m - 26].map((x) => <div key={x} style={abs({ left: x - 11, top: m + 14, width: 22, height: 22, borderRadius: 999, background: RED, boxShadow: `2px 3px 3px ${C.cutShadow}` })} />)}
+      </div>
+    );
+  }
+  if (input && line(input)) return <div style={{ display: "flex", width: w, height: h, background: C.lineGround }} />;
+  if (input && plot(input)) {
+    // the plotter's sheet: a registration mark at each corner, the drawing's frame inside them
+    const m = Math.round(Math.min(w, h) * 0.05);
+    const mark = (x: number, y: number) => <g key={`${x}-${y}`}><circle cx={x} cy={y} r={m * 0.2} /><path d={`M${x - m * 0.38} ${y}h${m * 0.76}M${x} ${y - m * 0.38}v${m * 0.76}`} /></g>;
+    return (
+      <div style={{ display: "flex", position: "relative", width: w, height: h, background: C.plotPaper }}>
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" stroke={C.plotInk} strokeWidth={2.5} style={{ position: "absolute", left: 0, top: 0 }}>
+          {[[m * 0.55, m * 0.55], [w - m * 0.55, m * 0.55], [m * 0.55, h - m * 0.55], [w - m * 0.55, h - m * 0.55]].map(([x, y]) => mark(x, y))}
+          <rect x={m * 1.15} y={m * 1.15} width={w - m * 2.3} height={h - m * 2.3} strokeWidth={3} />
+        </svg>
+      </div>
+    );
+  }
+  if (input && warm(input)) {
+    // a paper backdrop under one hanging lamp: its glow from the top corner, the stage darker toward the edges and its foot
+    const k = Math.min(w, h) / 1080;
+    const lx = Math.round(w * 0.9), ly = Math.round(96 * k);
+    return (
+      <div style={{ display: "flex", position: "relative", width: w, height: h, background: groundOf(input).bg }}>
+        <div style={abs({ left: 0, top: 0, width: w, height: h, background: `radial-gradient(circle at ${lx}px ${ly + 60 * k}px, ${C.warmGlow} 0%, ${C.warmGlowFar} ${Math.round(Math.max(w, h) * 0.62)}px)` })} />
+        <div style={abs({ left: 0, top: 0, width: w, height: h, background: `radial-gradient(ellipse at ${lx}px ${ly}px, ${C.warmShadeFar} 45%, ${C.warmShade} 130%)` })} />
+        <div style={abs({ left: 0, bottom: 0, width: w, height: Math.round(h * 0.16), background: `linear-gradient(to top, ${C.warmShade}, ${C.warmShadeFar})` })} />
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: "absolute", left: 0, top: 0 }}>
+          <line x1={lx} y1={0} x2={lx} y2={ly - 58 * k} stroke={C.lampCord} strokeWidth={5 * k} />
+          <circle cx={lx} cy={ly + 6 * k} r={22 * k} fill={C.lampBulb} />
+          <path d={`M${lx - 30 * k} ${ly - 60 * k} L${lx + 30 * k} ${ly - 60 * k} L${lx + 78 * k} ${ly + 6 * k} L${lx - 78 * k} ${ly + 6 * k} Z`} fill={C.lampShade} />
+        </svg>
+      </div>
+    );
+  }
   return <div style={{ display: "flex", width: w, height: h, background: input && minimal(input) ? groundOf(input).bg : input && info(input) ? INFO_GROUND : FACE_PAPER }} />;
 }

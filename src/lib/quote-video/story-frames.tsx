@@ -4,7 +4,7 @@ import { type StorySceneKey, type StoryVideoInput } from "./story";
 import { knowEpisode, knowText, type KnowSceneKey } from "./story-knowledge";
 import { knowBody, knowFaces, knowWindows } from "./story-knowledge-motion";
 import { infoBody } from "./story-info-motion";
-import { info, paperInk, storyFrame, storyHandText, storyWindows, Subtitle, type PoolSceneKey, type StoryContext } from "./story-motion";
+import { info, paper, paperInk, paperTime, storyFrame, storyHandText, storyWindows, Subtitle, type PoolSceneKey, type StoryContext } from "./story-motion";
 import { SIZES, type VideoSize } from "./timeline";
 
 /**
@@ -34,7 +34,9 @@ export function clipHandText(input: StoryVideoInput, customer: string): string {
 }
 
 /** One frame of a story clip's scene at scene time t: transparent, over the paper. */
-export function clipFrame(key: StorySceneKey, c: StoryContext, t: number) {
+export function clipFrame(key: StorySceneKey, c: StoryContext, at: number) {
+  // สต็อปโมชันกระดาษ: nothing moves between two poses
+  const t = paper(c.input) ? paperTime(at) : at;
   if (pool(c.input)) return storyFrame(key as PoolSceneKey, c, t);
   const { w, h } = SIZES[c.size];
   const episode = knowEpisode(c.input, c.customer, c.narrator);

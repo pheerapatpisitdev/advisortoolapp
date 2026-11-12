@@ -81,8 +81,11 @@ export interface StoryVideoInput {
    * three grounds, the hero and the agent as the agent dressed them. None = the hand-drawn faces.
    * อินโฟกราฟิก ("info", owner chose ข 2026-11-01, story-info-motion.tsx): tiles and icons on navy, no
    * people; only ความรู้ประกัน 1 นาที and ตอบข้อโต้แย้ง are drawn in it.
+   * สต็อปโมชันกระดาษ ("paper", owner 2026-11-12, mockup https://claude.ai/artifact/3A348EtVD3Td4bvJrgZkbV, 1ก 2ก 3ก):
+   * the hand-drawn faces as cut paper on a wooden table, moved 12 poses a second. It took การ์ตูนหน้าคน's
+   * place on the form; a row with no art is an older clip, still drawn as it was.
    */
-  art?: "minimal" | "info";
+  art?: "minimal" | "info" | "paper" | "plot" | "line";
   ground?: FigureGround;
   cast?: { hero: FigureLook; narrator: FigureLook };
 }
@@ -274,6 +277,14 @@ export function checkedStory(
     minimal = { art: "minimal", ground: isGround(v.ground) ? v.ground : "lav", cast: { hero: heroLook, narrator: narratorLook } };
   } else if (v.art === "info" && INFO_SHELVES.includes(topic.shelf)) {
     minimal = { art: "info" };
+  } else if (v.art === "plot" && INFO_SHELVES.includes(topic.shelf)) {
+    // ปากกาพล็อตเตอร์ (owner, 2026-11-12): อินโฟกราฟิก's scenes drawn line by line by one pen; it took its place on the form
+    minimal = { art: "plot" };
+  } else if (v.art === "line") {
+    // การ์ตูนลายเส้น (owner, 2026-11-12): a fourth look beside the three, the dolls drawn in a thick black line on white
+    minimal = { art: "line" };
+  } else if (v.art === "paper") {
+    minimal = { art: "paper" };
   }
   let ladder: StoryLadder | undefined;
   if (v.ladder === true && topic.figure === "ladder") {

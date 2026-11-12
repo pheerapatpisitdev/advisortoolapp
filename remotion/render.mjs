@@ -13,7 +13,7 @@ const concurrency = Number(process.env.CONC || os.cpus().length);
 const out = process.env.OUT || `/tmp/${theme}.mp4`;
 await ensureBrowser();
 lap("browser ready");
-const composition = await selectComposition({ serveUrl, id: "QuoteMotion", inputProps });
+const composition = await selectComposition({ serveUrl, id: inputProps.composition ?? "QuoteMotion", inputProps });
 lap("composition selected");
 let last = -10;
 await renderMedia({

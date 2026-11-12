@@ -21,6 +21,22 @@ import { KeepWords } from "./KeepWords";
 
 export type { StoryClipProps };
 
+/**
+ * สต็อปโมชันกระดาษ: every drawn piece (the jar, an arrow, an icon) throws a shadow on the table as the cut
+ * faces and the title's tiles do, and every card is a piece of white-edged paper; the subtitle band is left flat.
+ */
+const PAPER_CSS = [
+  ".paper .piece svg { filter: drop-shadow(3px 5px 3px rgba(42,26,14,0.4)); }",
+  // a note, a list's card, a tag and the agent's card (marked `cut` / `cut-card` where they are drawn): white-edged, squarer, with a shadow
+  ".paper .cut, .paper .cut-card > div:first-child { border-color: white !important; border-width: 7px !important; border-radius: 8px !important; box-shadow: 7px 11px 9px rgba(42,26,14,0.42); }",
+  ".paper .cut svg, .paper .cut-card svg { filter: none; }",
+  // ฉากกระดาษใต้แสงอุ่น: the lamp throws a soft shadow under every person and thing, and a card is a sheet of
+  // paper lifted off the backdrop, with no inked edge
+  ".warm .piece svg { filter: drop-shadow(5px 10px 7px rgba(58,42,24,0.3)); }",
+  ".warm .cut, .warm .cut-card > div:first-child { border-color: transparent !important; border-radius: 22px !important; box-shadow: 0 16px 26px rgba(58,42,24,0.3); }",
+  ".warm .cut svg, .warm .cut-card svg { filter: none; }",
+].join("\n");
+
 /** the zoompan's push: 1.00 at the scene's start to 1.12 at its end */
 export const PUSH = 0.12;
 
@@ -56,7 +72,7 @@ export function StoryClip(p: StoryClipProps) {
   // the cartoon faces, colour and grey, from the bundle's story/faces as story-faces.ts reads them; มินิมอล draws its people instead
   const story = p.kind === "story" ? (p.input as StoryVideoInput) : null;
   const faces: Record<string, string> = {};
-  for (const id of story && story.art !== "minimal" ? clipFaces(story) : []) {
+  for (const id of story && story.art !== "minimal" && story.art !== "paper" && story.art !== "line" ? clipFaces(story) : []) {
     faces[id] = staticFile(`story/faces/${id}.jpg`);
     faces[`${id}-g`] = staticFile(`story/faces/${id}-g.jpg`);
   }
@@ -85,13 +101,13 @@ export function StoryClip(p: StoryClipProps) {
         {sc.picture ? (
           <Img src={asUrl(sc.picture)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1 + PUSH * Math.min(1, t / sc.dur)})` }} />
         ) : null}
-        <KeepWords>{body}</KeepWords>
+        <div className="piece" style={{ position: "absolute", inset: 0, display: "flex" }}><KeepWords>{body}</KeepWords></div>
       </AbsoluteFill>
     );
   });
   return (
-    <AbsoluteFill className="sat" style={{ background: "#000" }}>
-      <style>{SATORI_CSS}</style>
+    <AbsoluteFill className={story?.art === "paper" ? "sat paper" : story?.art === "minimal" && story.ground === "warm" ? "sat warm" : "sat"} style={{ background: "#000" }}>
+      <style>{SATORI_CSS}{PAPER_CSS}</style>
       {layers}
       <Audio src={asUrl(p.audio)} />
       {p.fx ? <FxSound music={p.fx.music} cues={joinCues(p.scenes)} scenes={p.scenes} total={p.total} fps={fps} /> : null}

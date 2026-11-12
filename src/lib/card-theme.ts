@@ -329,6 +329,49 @@ export const STORY_CLIP_COLORS = {
   cake: "#f3c9c0",
   water: "#cfe3ea",
   waterInk: "#3b7ea1",
+  /* สต็อปโมชันกระดาษ (story-motion.tsx paper): the wooden table and its grain, the kraft sheet pinned to it,
+     the white edge and the shadow of a cut piece, and the coloured tiles a title's words sit on */
+  wood: "#6e4a30",
+  woodGrain: "#5a3b25",
+  kraft: "#dcc7a3",
+  cutEdge: "#ffffff",
+  cutShadow: "rgba(42,26,14,0.45)",
+  tiles: ["#f2c75c", "#9fc5b8", "#e9a48f", "#b9a6d6", "#f3e3b1"],
+  /* its people (owner chose ค, 2026-11-12): whole figures of bright cut paper, a shirt and trousers by who they are */
+  paperShirts: ["#e4572e", "#f2b632", "#3fa7a3", "#5b8def", "#e77fa6", "#7bb661", "#9b6fd0", "#f08a4b"],
+  paperPants: ["#2f3a5f", "#5a4636", "#3d5a4c", "#6b4a7a", "#39424e"],
+  paperChair: "#b08a5e",
+  /* ฉากกระดาษใต้แสงอุ่น (story-motion.tsx storyBackground): the lamp's glow on the backdrop, the dark toward the
+     edges and the foot of the stage, the lamp's shade, cord and bulb */
+  warmGlow: "rgba(255,244,214,0.95)",
+  warmGlowFar: "rgba(255,244,214,0)",
+  warmShade: "rgba(74,52,30,0.42)",
+  warmShadeFar: "rgba(74,52,30,0)",
+  lampShade: "#f2c75c",
+  lampCord: "#3d3a38",
+  lampBulb: "#fff6dc",
+  /* ปากกาพล็อตเตอร์ (story-info-motion.tsx): the sheet, the one pen's ink and its soft and faint, the line being
+     spoken, and the machine: its rail, the carriage, the pen's blue barrel */
+  plotPaper: "#f3efe4",
+  plotInk: "#1f2126",
+  plotSoft: "rgba(31,33,38,0.74)",
+  plotDim: "rgba(31,33,38,0.4)",
+  plotOn: "rgba(194,65,45,0.08)",
+  plotRail: "#b9bcc2",
+  plotRailEdge: "#6d7077",
+  plotHead: "#2b2d33",
+  plotPen: "#1d4fb8",
+  /* การ์ตูนลายเส้น (story-motion.tsx line): its clean ground, the smudge a figure stands on, the word being spoken */
+  lineGround: "#fbfaf6",
+  lineSmudge: "#e3e1da",
+  lineSpoken: "#f7d23e",
+  /* the paper doll (lib/story/paper-doll.tsx): its skin, its face's ink, its cheeks, its shoes, a coin in its hand, and the dashes of someone gone */
+  dollSkin: "#f6d7c3",
+  dollInk: "#2a2420",
+  dollBlush: "#f0a3a0",
+  dollShoe: "#3a3531",
+  dollCoin: "#e2b24a",
+  dollGone: "#8b8c90",
 } as const;
 
 /**

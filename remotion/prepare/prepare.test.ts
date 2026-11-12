@@ -205,6 +205,49 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
   writeFileSync(join(PUB, "audio/st-pool48.wav"), silentWav(clipLength(plans)));
   writeFileSync(join(PUB, "props/st-pool48.json"), JSON.stringify(storyClipProps(pool as never, "portrait", "", "F", CONTACT, plans, script, secs, clipLength(plans), "audio/st-pool48.wav", [])));
 
+  // สต็อปโมชันกระดาษ (owner, 2026-11-12): กองกลาง 48 คน and one ความรู้ประกัน 1 นาที episode as cut paper on the table
+  const cuts = [["st-paper", "pool48", "portrait"], ["st-paper-know", "mythclaim", "portrait"], ["st-paper-fam", "prebaby", "portrait"], ["st-paper-life", "firstjob", "portrait"],
+    ["st-paper-bday", "birthday", "portrait"], ["st-paper-sq", "pool48", "square"], ["st-paper-wide", "mythclaim", "landscape"]] as const;
+  for (const [name, topic, size] of cuts) {
+    const cut = { ...pool, topic, size, art: "paper" };
+    const pScript = storyScript(cut as never, "", "F");
+    const pSecs = pScript.map((s) => secsOf(s.voice));
+    const pPlans = planScenes(pScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: pSecs[i], windows: clipWindows(s.key, cut as never, size), fps: MOTION_FPS })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), silentWav(clipLength(pPlans)));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(cut as never, size, "", "F", CONTACT, pPlans, pScript, pSecs, clipLength(pPlans), `audio/${name}.wav`, [])));
+  }
+
+  // ฉากกระดาษใต้แสงอุ่น (owner, 2026-11-12): มินิมอล's people, dressed as the form's first cast, under the warm lamp
+  const { DEFAULT_CAST } = await import("@/lib/story/figure");
+  for (const [name, topic, size] of [["st-warm", "pool48", "portrait"], ["st-warm-know", "declare", "portrait"], ["st-warm-fam", "prebaby", "portrait"], ["st-warm-wide", "mythclaim", "landscape"]] as const) {
+    const lit = { ...pool, topic, size, art: "minimal", ground: "warm", cast: { hero: DEFAULT_CAST.hero.F, narrator: DEFAULT_CAST.narrator } };
+    const wScript = storyScript(lit as never, "", "F");
+    const wSecs = wScript.map((s) => secsOf(s.voice));
+    const wPlans = planScenes(wScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: wSecs[i], windows: clipWindows(s.key, lit as never, size), fps: MOTION_FPS })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), silentWav(clipLength(wPlans)));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(lit as never, size, "", "F", CONTACT, wPlans, wScript, wSecs, clipLength(wPlans), `audio/${name}.wav`, [])));
+  }
+
+  // ปากกาพล็อตเตอร์ (owner, 2026-11-12): อินโฟกราฟิก's scenes written by one pen on cream paper
+  for (const [name, topic, size] of [["st-plot", "mythclaim", "portrait"], ["st-plot-young", "fiverisks", "portrait"], ["st-plot-obj", "welfare", "portrait"], ["st-plot-wide", "declare", "landscape"]] as const) {
+    const pen = { ...pool, topic, size, art: "plot" };
+    const kScript = storyScript(pen as never, "", "F");
+    const kSecs = kScript.map((s) => secsOf(s.voice));
+    const kPlans = planScenes(kScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: kSecs[i], windows: clipWindows(s.key, pen as never, size), fps: MOTION_FPS })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), silentWav(clipLength(kPlans)));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(pen as never, size, "", "F", CONTACT, kPlans, kScript, kSecs, clipLength(kPlans), `audio/${name}.wav`, [])));
+  }
+
+  // การ์ตูนลายเส้น (owner, 2026-11-12): the inked dolls on white, a fourth look
+  for (const [name, topic, size] of [["st-line", "pool48", "portrait"], ["st-line-know", "pricey", "portrait"], ["st-line-fam", "prebaby", "portrait"], ["st-line-sq", "mythclaim", "square"]] as const) {
+    const ink = { ...pool, topic, size, art: "line", palette: "color" };
+    const lScript = storyScript(ink as never, "", "F");
+    const lSecs = lScript.map((s) => secsOf(s.voice));
+    const lPlans = planScenes(lScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: lSecs[i], windows: clipWindows(s.key, ink as never, size), fps: MOTION_FPS })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), silentWav(clipLength(lPlans)));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(ink as never, size, "", "F", CONTACT, lPlans, lScript, lSecs, clipLength(lPlans), `audio/${name}.wav`, [])));
+  }
+
   // the app's family photo, as it is and mirrored, in place of the painter's pictures (no one's personal details)
   const fam = join(APP, "public/card/family.jpg");
   await sharp(fam).jpeg({ quality: 88 }).toFile(join(PUB, "free/pic-0.jpg"));

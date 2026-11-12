@@ -11,7 +11,8 @@ import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
 import { BABY, CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, defaultPartner, FACE_PAPER, FACES, faceSrc, familyOf, type FaceTag } from "@/lib/story/faces";
-import { checkedLook, DEFAULT_CAST, Figure, FIGURE_GROUNDS, FIGURE_HAIRS, FIGURE_PANTS, FIGURE_SHIRTS, GROUNDS, HAIR_WORD, isGround, lookFromId, POSES, type FigureGround, type FigureLook } from "@/lib/story/figure";
+import { dollLook, PaperDoll } from "@/lib/story/paper-doll";
+import { checkedLook, DEFAULT_CAST, Figure, FIGURE_HAIRS, FIGURE_PANTS, FIGURE_SHIRTS, GROUNDS, HAIR_WORD, lookFromId, POSES, type FigureGround, type FigureLook } from "@/lib/story/figure";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryPension, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
@@ -65,8 +66,8 @@ const CAST_KEY = "story-cast";
  * `gemini`: one of Gemini's 30 voices by name, or "" for the narrator's own (owner, 2026-10-17);
  * `art`: the hand-drawn faces, or มินิมอล's whole people on one of three grounds (owner, 2026-10-20)
  */
-interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string; gemini: string; art: "faces" | "minimal" | "info"; ground: FigureGround }
-const DEFAULT_LOOK: Look = { size: "portrait", palette: "reveal", narrator: "F", voice: "", gemini: "", art: "faces", ground: "lav" };
+interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string; gemini: string; art: "paper" | "minimal" | "plot" | "line"; ground: FigureGround }
+const DEFAULT_LOOK: Look = { size: "portrait", palette: "reveal", narrator: "F", voice: "", gemini: "", art: "paper", ground: "warm" };
 /** มินิมอล's two the agent dresses: the hero as a woman and as a man (the step-2 choice picks one), and the agent */
 interface Cast { hero: Record<"M" | "F", FigureLook>; narrator: FigureLook }
 const DEFAULT_FORM_CAST: Cast = { hero: DEFAULT_CAST.hero, narrator: DEFAULT_CAST.narrator };
@@ -91,8 +92,9 @@ function readLook(): Look {
       narrator: raw.narrator === "M" ? "M" : "F",
       voice: typeof raw.voice === "string" ? raw.voice : "",
       gemini: geminiVoice(raw.gemini)?.name ?? "",
-      art: raw.art === "minimal" || raw.art === "info" ? raw.art : "faces",
-      ground: isGround(raw.ground) ? raw.ground : "lav",
+      art: raw.art === "minimal" || raw.art === "line" ? raw.art : (raw.art as string) === "info" || raw.art === "plot" ? "plot" : "paper",
+      // the old grounds left the form with มินิมอล (owner, 2026-11-12): every clip made now stands under the warm lamp
+      ground: "warm",
     };
   } catch {
     return DEFAULT_LOOK;
@@ -251,6 +253,52 @@ function MinimalPreview({ title, hero, crowd, ground, size, pose }: { title: str
   );
 }
 
+/** ปากกาพล็อตเตอร์'s opening as the clip draws it: the sheet and its frame, the title in the pen's outline, the rail and carriage */
+function PlotPreview({ title, size }: { title: string; size: VideoSize }) {
+  const C = STORY_CLIP_COLORS;
+  return (
+    <div className="rounded-[26px] p-2.5" style={{ background: C.bezel }}>
+      <div className="relative overflow-hidden rounded-[18px] p-[7%]" style={{ background: C.plotPaper, aspectRatio: size === "landscape" ? "16 / 9" : size === "square" ? "1 / 1" : "9 / 16" }}>
+        <div className="flex h-full flex-col items-center border px-[6%] pt-[14%]" style={{ borderColor: C.plotInk }}>
+          <p className="text-center text-2xl font-semibold leading-tight" style={{ color: "transparent", WebkitTextStroke: `1px ${C.plotInk}` }}>{title}</p>
+          <div className="mt-[18%] h-16 w-16 rounded-xl border-2" style={{ borderColor: C.plotInk, background: `repeating-linear-gradient(45deg, ${C.plotInk} 0px, ${C.plotInk} 1px, transparent 1px, transparent 6px)` }} />
+        </div>
+        <div className="absolute inset-x-[3%] bottom-[22%] h-1.5 rounded-full" style={{ background: C.plotRail }} />
+        <div className="absolute bottom-[20.5%] left-[38%] h-5 w-7 rounded" style={{ background: C.plotHead }} />
+      </div>
+    </div>
+  );
+}
+
+/** สต็อปโมชันกระดาษ's opening as the clip draws it: the sheet pinned on the table, the title's tile, the 48 dolls or the hero */
+function PaperPreview({ title, hero, crowd, size, pose, ink }: { title: string; hero: string; crowd?: string[]; size: VideoSize; pose: "stand" | "think" | "wave"; ink?: boolean }) {
+  const C = STORY_CLIP_COLORS;
+  // การ์ตูนลายเส้น: the same opening on its white ground, the title in its sign, the dolls inked
+  const sheet = ink ? { background: C.lineGround, color: C.ink } : { background: C.kraft, color: C.ink, boxShadow: `2px 3px 5px ${C.cutShadow}` };
+  const sign = ink ? { background: C.white, borderColor: C.ink, borderRadius: 8 } : { background: C.tiles[0], borderColor: C.cutEdge, boxShadow: `2px 3px 3px ${C.cutShadow}` };
+  const cols = size === "landscape" ? 12 : size === "square" ? 8 : 6;
+  return (
+    <div className="rounded-[26px] p-2.5" style={{ background: C.bezel }}>
+      <div className="overflow-hidden rounded-[18px] p-[3%]" style={{ background: ink ? C.lineGround : C.wood, aspectRatio: size === "landscape" ? "16 / 9" : size === "square" ? "1 / 1" : "9 / 16" }}>
+        <div className="flex h-full flex-col items-center px-[6%] pt-[8%]" style={sheet}>
+          <p className={`${ink ? "" : "-rotate-2 "}border-2 px-2 text-center text-lg font-semibold leading-tight`} style={sign}>{title}</p>
+          {crowd ? (
+            <div className="mt-3 grid w-full" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+              {crowd.map((id, i) => (
+                <div key={i} className="aspect-square w-full" style={i === CROWD_HERO ? { boxShadow: `0 0 0 2px ${C.red}`, borderRadius: 999 } : undefined}>
+                  <PaperDoll look={dollLook(id)} pose={POSES.stand(i * 0.37)} w={40} h={40} ink={ink} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-[14%]"><PaperDoll look={dollLook(hero)} pose={POSES[pose](0.6)} w={130} h={170} ink={ink} /></div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
   initial: VideoItem[] | null;
   cost: CostView | null;
@@ -306,7 +354,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [dressing, setDressing] = useState<"hero" | "narrator">("hero");
   const mini = look.art === "minimal";
   // อินโฟกราฟิก draws only the shelves told in points; on any other the faces stand in for it
-  const infoLook = look.art === "info" && INFO_SHELVES.includes(info.shelf);
+  const lineLook = look.art === "line";
+  const infoLook = look.art === "plot" && INFO_SHELVES.includes(info.shelf);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
   const [items, setItems] = useState<VideoItem[] | null>(initial);
@@ -461,7 +510,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
         topic, size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         faces: { narrator: narratorFace, hero: heroFace, ...(withPartner && partner && !mini ? { partner } : {}) },
         ...(mini ? { art: "minimal" as const, ground: look.ground, cast: { hero: cast.hero[heroSex], narrator: cast.narrator } } : {}),
-        ...(infoLook ? { art: "info" as const } : {}),
+        ...(infoLook ? { art: "plot" as const } : {}),
+        ...(!mini && !infoLook ? { art: lineLook ? "line" as const : "paper" as const } : {}),
         ...(showsFigure && info.figure === "plan" ? { figure: { plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht } } : {}),
         ...(showsFigure && info.figure === "ladder" ? { ladder: true } : {}),
         ...(showsFigure && info.figure === "pension" ? { pension: { sex: heroSex, age: Number(age), annuityAge: Number(annuityAge), pay, monthly: pensionBaht } } : {}),
@@ -746,27 +796,21 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             )}
           </Step>
 
-          <Step n={4} title="หน้าตาคลิป" summary={[mini ? `มินิมอล · ${GROUNDS[look.ground].name}` : infoLook ? "อินโฟกราฟิก" : "", episode ? "" : look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].filter(Boolean).join(" · ")}>
+          <Step n={4} title="หน้าตาคลิป" summary={[mini ? "ฉากกระดาษใต้แสงอุ่น" : infoLook ? "ปากกาพล็อตเตอร์" : lineLook ? "การ์ตูนลายเส้น" : "", episode ? "" : look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].filter(Boolean).join(" · ")}>
             <div>
               <span className={label}>สไตล์ภาพ</span>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={chip(!mini && !infoLook)} onClick={() => pickLook({ art: "faces" })}>การ์ตูนหน้าคน</button>
-                <button type="button" className={chip(mini)} onClick={() => pickLook({ art: "minimal" })}>มินิมอล</button>
-                {INFO_SHELVES.includes(info.shelf) && <button type="button" className={chip(infoLook)} onClick={() => pickLook({ art: "info" })}>อินโฟกราฟิก</button>}
+                <button type="button" className={chip(!mini && !infoLook && !lineLook)} onClick={() => pickLook({ art: "paper" })}>สต็อปโมชันกระดาษ</button>
+                <button type="button" className={chip(lineLook)} onClick={() => pickLook({ art: "line" })}>การ์ตูนลายเส้น</button>
+                <button type="button" className={chip(mini)} onClick={() => pickLook({ art: "minimal", ground: "warm" })}>ฉากกระดาษใต้แสงอุ่น</button>
+                {INFO_SHELVES.includes(info.shelf) && <button type="button" className={chip(infoLook)} onClick={() => pickLook({ art: "plot" })}>ปากกาพล็อตเตอร์</button>}
               </div>
-              {infoLook && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">พื้นกรมท่า ไอคอนสีทอง ทีละข้อตามเสียงพูด ไม่มีตัวละครในฉาก ราคาเท่าเดิม</p>}
+              {lineLook && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">ตัวการ์ตูนหัวกลม เส้นดำหนา บนพื้นขาว ซับตัวใหญ่ไม่มีแถบ ราคาเท่าเดิม</p>}
+              {!mini && !infoLook && !lineLook && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">ตัวละครกระดาษสีเต็มตัว วางบนโต๊ะไม้ ขยับ 12 ท่าต่อวินาทีแบบงานมือ ราคาเท่าเดิม</p>}
+              {mini && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">ตัวละครเต็มตัวที่คุณแต่งเอง บนฉากกระดาษใต้โคมไฟแสงอุ่น มีเงาตกจริง ราคาเท่าเดิม</p>}
+              {infoLook && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">กระดาษสีครีม ปากกาเขียนทีละเส้นตามเสียงพูด ไอคอนลายแรเงา ไม่มีตัวละครในฉาก ราคาเท่าเดิม</p>}
             </div>
             {mini && <>
-              <div>
-                <span className={label}>สีพื้น</span>
-                <div className="flex flex-wrap gap-2">
-                  {FIGURE_GROUNDS.map((g) => (
-                    <button key={g} type="button" className={chip(look.ground === g)} onClick={() => pickLook({ ground: g })}>
-                      <span aria-hidden className="mr-1.5 inline-block h-3 w-3 rounded-full border border-black/20 align-[-1px]" style={{ background: GROUNDS[g].bg }} />{GROUNDS[g].name}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div className="space-y-2">
                 <span className={label}>แต่งตัวละคร</span>
                 <div className="flex flex-wrap gap-2" role="group" aria-label="แต่งตัวละครไหน">
@@ -802,6 +846,13 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                     title={topic === "pool48" ? "48 คน" : topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name}
                     hero={topic === "festival" ? cast.narrator : cast.hero[heroSex]} ground={look.ground} size={look.size}
                     crowd={topic === "pool48" ? crowdOf(heroFace, narratorFace) : undefined} pose={afterSale ? "wave" : asks ? "think" : "stand"} />
+                : !infoLook
+                ? <PaperPreview ink={lineLook}
+                    title={topic === "pool48" ? "48 คน" : topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name}
+                    hero={topic === "festival" ? narratorFace : heroFace} size={look.size}
+                    crowd={topic === "pool48" ? crowdOf(heroFace, narratorFace) : undefined} pose={afterSale ? "wave" : asks ? "think" : "stand"} />
+                : infoLook
+                ? <PlotPreview title={info.name} size={look.size} />
                 : afterSale
                 ? <KnowPreview hero={topic === "festival" ? narratorFace : heroFace} title={topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name} size={look.size} ask={topic === "claimish"} />
                 : asks || (life && !lifeFamily)
