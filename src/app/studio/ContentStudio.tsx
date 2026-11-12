@@ -52,6 +52,7 @@ import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, Picture
 import { PainterOptions, paintPrice, usePrices } from "@/app/studio/ui/prices";
 import { pictureSatang } from "@/lib/wallet/prices";
 import { ToolLogo } from "@/components/shell/ToolLogo";
+import { PagePicker } from "./calendar/PagePicker";
 
 /**
  * The content workbench, laid out as the owner's Maryjane project lays out its run page:
@@ -84,6 +85,8 @@ interface Props {
   people: PersonOption[];
   /** the Page whose project this is (its card on /studio, else the first, 2026-09-30); null for an agent with no Pages */
   project: { pageId: string; pageName: string } | null;
+  /** the caller's Pages, for the header's switch (owner, 2026-11-12); one or none shows the name alone */
+  pages: { pageId: string; pageName: string }[];
   /** the agent may not post, and plans instead (owner, 2026-09-30) */
   planner: boolean;
   /** today's planned pieces not yet marked posted, for the banner */
@@ -261,7 +264,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
   );
 }
 
-export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, project, planner, todayPlan, clipEditing }: Props) {
+export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, project, pages: myPages, planner, todayPlan, clipEditing }: Props) {
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
@@ -1038,7 +1041,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   return (
     <div>
       <div>
-        <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="og" size="lg" /><span>Organic Studio{project?.pageName && <span className="font-normal text-[var(--ct-mute)]"> · {project.pageName}</span>}</span></h1>
+        <h1 className="flex flex-wrap items-center gap-2.5 text-xl font-semibold">
+          <ToolLogo id="og" size="lg" />
+          {project && myPages.length > 1 ? (
+            <>
+              <span>Organic Studio</span>
+              <PagePicker id="organic-page" pages={myPages} current={project.pageId} hrefs={Object.fromEntries(myPages.map((p) => [p.pageId, workbenchHref({ page: p.pageId })]))} />
+            </>
+          ) : (
+            <span>Organic Studio{project?.pageName && <span className="font-normal text-[var(--ct-mute)]"> · {project.pageName}</span>}</span>
+          )}
+        </h1>
         <p className="mt-1 text-sm text-[var(--ct-mute)]">AI เขียนจากข้อมูลจริงของแบบประกัน ตัวเลขทุกตัวมาจากตารางเบี้ย อ่านทวนก่อนโพสต์ทุกครั้ง</p>
       </div>
 

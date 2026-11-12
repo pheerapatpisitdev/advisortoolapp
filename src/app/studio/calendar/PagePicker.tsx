@@ -6,16 +6,18 @@ import { useTransition } from "react";
  * The calendar's Page switch (owner, 2026-10-15, option ก): still one Page at a time, but chosen
  * here rather than by going back to its card on /studio. `hrefs` keeps the month and the view.
  */
-export function PagePicker({ pages, current, hrefs }: {
+export function PagePicker({ pages, current, hrefs, id = "calendar-page" }: {
   pages: { pageId: string; pageName: string }[];
   current: string;
   hrefs: Record<string, string>;
+  /** Organic Studio's header uses the same switch (owner, 2026-11-12) */
+  id?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   return (
     <select
-      id="calendar-page"
+      id={id}
       aria-label="เลือกเพจ"
       value={current}
       disabled={pending}

@@ -57,6 +57,8 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
   ]);
   return (
     <ContentStudio
+      // another Page chosen in the header is another project: the lists, the form and the open editor start again
+      key={pageId ?? "none"}
       products={CONTENT_PRODUCTS.map((p) => ({ href: p.href, name: p.name }))}
       lengths={LENGTHS}
       hooks={hooks}
@@ -69,6 +71,7 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
       // nobody of a Page the caller does not look after (final review, 2026-09-29)
       people={peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set((mine ?? []).map((p) => p.pageId))), mine ?? [], pageId ?? "")}
       project={project ? { pageId: project.pageId, pageName: project.pageName } : null}
+      pages={(mine ?? []).map((p) => ({ pageId: p.pageId, pageName: p.pageName }))}
       planner={planner}
       clipEditing={clipEditing}
       todayPlan={planned.filter((i) => !i.plan?.doneAt).map((i) => ({ id: i.id, title: planTitle(i) }))}
