@@ -1,7 +1,8 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, Img, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { clipCrowd, clipFaces, clipFrame, freeFrame } from "@/lib/quote-video/story-frames";
-import { storyBackground, storyFrame, type StoryContext } from "@/lib/quote-video/story-motion";
+import { paperTime, storyBackground, storyFrame, type StoryContext } from "@/lib/quote-video/story-motion";
+import { freeLook } from "@/lib/prompt-story/frames";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import type { StoryClipProps } from "@/lib/quote-video/remotion";
@@ -78,13 +79,18 @@ export function StoryClip(p: StoryClipProps) {
   }
   const ready = useReady([...Object.values(faces), ...(p.contact.photo ? [p.contact.photo] : [])]);
   if (!ready) return null;
+  // คลิปตามโจทย์ in one of คลิปเล่าเรื่อง's looks (frames.tsx freeLook): its agent's card, its ground and its cards are that look's
+  const freeIn = p.kind === "free" ? (p.input as PromptStoryInput) : null;
+  const dress = freeIn ? freeLook(freeIn) : null;
+  const lookIn = (story ?? (dress?.art ? { ...freeIn, ...dress } : null)) as StoryVideoInput | null;
   const T = frame / fps;
   const crowd = story ? clipCrowd(story) : [];
   const layers = p.scenes.map((sc, s) => {
     if (T < sc.start || T >= sc.start + sc.dur) return null;
-    const t = T - sc.start;
+    // สต็อปโมชันกระดาษ holds a คลิปตามโจทย์ scene to its 12 poses a second too, the picture's push with it
+    const t = dress?.art === "paper" ? paperTime(T - sc.start) : T - sc.start;
     const c: StoryContext = {
-      input: p.input as StoryVideoInput, size: p.size, customer: p.customer, narrator: p.narrator, contact: p.contact,
+      input: (dress?.art ? lookIn : p.input) as StoryVideoInput, size: p.size, customer: p.customer, narrator: p.narrator, contact: p.contact,
       crowd, faces, words: sc.voice.split(" ").filter(Boolean), voiceSec: sc.voiceSec,
     };
     let style: CSSProperties = {};
@@ -97,7 +103,7 @@ export function StoryClip(p: StoryClipProps) {
       : freeFrame(free.scenes[s], Boolean(sc.picture), c as unknown as Parameters<typeof freeFrame>[2], t);
     return (
       <AbsoluteFill key={`${sc.key}-${s}`} style={{ overflow: "hidden", ...style }}>
-        <div style={{ position: "absolute", inset: 0, display: "flex" }}>{storyBackground(p.size, story ?? undefined)}</div>
+        <div style={{ position: "absolute", inset: 0, display: "flex" }}>{storyBackground(p.size, lookIn ?? undefined)}</div>
         {sc.picture ? (
           <Img src={asUrl(sc.picture)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1 + PUSH * Math.min(1, t / sc.dur)})` }} />
         ) : null}
@@ -106,7 +112,7 @@ export function StoryClip(p: StoryClipProps) {
     );
   });
   return (
-    <AbsoluteFill className={story?.art === "paper" ? "sat paper" : story?.art === "minimal" && story.ground === "warm" ? "sat warm" : "sat"} style={{ background: "#000" }}>
+    <AbsoluteFill className={lookIn?.art === "paper" ? "sat paper" : lookIn?.art === "minimal" && lookIn.ground === "warm" ? "sat warm" : "sat"} style={{ background: "#000" }}>
       <style>{SATORI_CSS}{PAPER_CSS}</style>
       {layers}
       <Audio src={asUrl(p.audio)} />

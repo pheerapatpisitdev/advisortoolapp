@@ -7,11 +7,11 @@ const SUFFIX = "no text, no numbers, no logos, no real person's likeness";
 const ok = () => vi.fn().mockResolvedValue({ bytes: Buffer.from("png"), mimeType: "image/png" });
 
 describe("prompt-story pictures", () => {
-  it("has three style prefixes", () => {
-    expect(Object.keys(STYLE_PREFIX).sort()).toEqual(["cartoon", "flat", "real"]);
+  it("has a prefix for every style: the four looks, real, and the two that left the form", () => {
+    expect(Object.keys(STYLE_PREFIX).sort()).toEqual(["cartoon", "flat", "line", "paper", "plot", "real", "warm"]);
   });
   it("prompt = prefix + note + no-text suffix", () => {
-    for (const s of ["cartoon", "real", "flat"] as const) {
+    for (const s of ["cartoon", "real", "flat", "paper", "warm", "plot", "line"] as const) {
       const p = picturePrompt(scene, s);
       expect(p.startsWith(STYLE_PREFIX[s])).toBe(true);
       expect(p).toContain(scene.picture);

@@ -12,7 +12,8 @@ import { BRIEF_MAX, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type
 /** scripts per agent per rolling hour, to cap the owner's model spend (spec, Money) */
 export const HOURLY_LIMIT = 20;
 export { BRIEF_MAX, SCENE_COUNTS };
-const STYLES: PictureStyle[] = ["cartoon", "real", "flat"];
+// "cartoon", "flat" and "real" left the form 2026-11-13; a page left open from before may still send one
+const STYLES: PictureStyle[] = ["paper", "warm", "plot", "line", "real", "cartoon", "flat"];
 const PAINTER_IDS: PromptStoryInput["painter"][] = ["standard", "sharp", "gemini"];
 const VOICE_MAX = 400;
 const PICTURE_MAX = 300;

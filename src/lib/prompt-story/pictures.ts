@@ -6,6 +6,10 @@ import type { PictureStyle, PromptScene, PromptStoryInput } from "./types";
 
 /** first drafts; tune on real output before release */
 export const STYLE_PREFIX: Record<PictureStyle, string> = {
+  paper: "Cut-paper collage in stop-motion style: every figure and object a flat piece of bright coloured paper with a thin white cut edge and a soft drop shadow, simple round-headed paper people, laid on a kraft paper sheet.",
+  warm: "Paper-craft diorama under one warm lamp: flat faceless paper-cut figures standing in a simple layered paper set, warm cream and brown palette, soft cinematic shadows, gentle vignette.",
+  plot: "Pen-plotter line drawing: a single thin black ink line on cream paper, cross-hatched shading only, no colour fill, one small red accent, technical and tidy, generous empty paper.",
+  line: "Doodle cartoon on a clean white background: round-headed stick-style characters with thick black outlines, white faces with dot eyes and pink cheeks, flat bright clothes, no background scenery.",
   cartoon: "Soft hand-drawn line cartoon illustration, muted colors on warm paper.",
   real: "Natural photographic scene, no identifiable real person.",
   flat: "Minimal flat vector illustration, few shapes, calm palette.",

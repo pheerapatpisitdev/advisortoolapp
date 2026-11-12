@@ -513,11 +513,14 @@ export function Subtitle({ c, t }: { c: StoryContext; t: number }) {
   const shown = captionShown(c.words, (maxWidth - 56) / (line(c.input) ? big * 1.08 : fontSize), wordAt(c.words, t, c.voiceSec, LEAD));
   if (line(c.input)) {
     // no band; big white words with a black edge all round, the one being spoken yellow
-    const e = Math.max(3, Math.round(big * 0.055));
+    // a line with no space in it cannot be broken: it is set smaller until it fits across
+    const wide = Math.max(...shown.map((i) => c.words[i].replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, "").length)) * big * 0.62;
+    const fit = wide > maxWidth ? Math.max(Math.round(big * 0.55), Math.floor(big * (maxWidth / wide))) : big;
+    const e = Math.max(3, Math.round(fit * 0.055));
     const edge = [[-e, 0], [e, 0], [0, -e], [0, e], [-e, -e], [e, -e], [-e, e], [e, e]].map(([x, y]) => `${x}px ${y}px 0 ${INK}`).join(", ");
     return (
       <div style={abs({ left: 60, width: w - 120, bottom: GEO[c.size].sub, justifyContent: "center" })}>
-        <div style={box({ flexWrap: "wrap", justifyContent: "center", fontSize: big, fontWeight: 700, lineHeight: 1.45, maxWidth, textShadow: edge })}>
+        <div style={box({ flexWrap: "wrap", justifyContent: "center", fontSize: fit, fontWeight: 700, lineHeight: 1.45, maxWidth, textShadow: edge })}>
           {shown.map((i, k) => <div key={i} style={box({ color: t >= times[i].from && t < times[i].to ? C.lineSpoken : C.white, marginRight: k < shown.length - 1 ? 14 : 0 })}>{c.words[i]}</div>)}
         </div>
       </div>

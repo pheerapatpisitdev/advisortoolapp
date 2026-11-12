@@ -2,7 +2,7 @@ import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { abs, box } from "@/lib/quote-video/motion";
 import { planName, termShort } from "@/lib/quote-video/story";
 import { Note } from "@/lib/quote-video/story-knowledge-motion";
-import { Subtitle, type StoryContext } from "@/lib/quote-video/story-motion";
+import { LineTitle, PaperTitle, Subtitle, type StoryContext } from "@/lib/quote-video/story-motion";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
 import type { PromptScene, PromptStoryInput } from "./types";
 
@@ -27,6 +27,21 @@ const GEO: Record<VideoSize, { top: number; side: number; size: number; note: { 
   square: { top: 50, side: 50, size: 60, note: { x: 420, y: 520, w: 610 }, text: 30 },
   landscape: { top: 50, side: 80, size: 66, note: { x: 1080, y: 440, w: 780 }, text: 36 },
 };
+
+/**
+ * The look of คลิปเล่าเรื่อง a picture style is dressed in (story-motion.tsx reads these off a clip's input): the
+ * words' band, the subtitle, the figure card and the agent's card are drawn as that look draws them. A style
+ * with none ("real", and the two that left the form) keeps the plain paper band.
+ */
+export function freeLook(input: Pick<PromptStoryInput, "style">): { art?: "paper" | "minimal" | "plot" | "line"; ground?: "warm" } {
+  switch (input.style) {
+    case "paper": return { art: "paper" };
+    case "warm": return { art: "minimal", ground: "warm" };
+    case "plot": return { art: "plot" };
+    case "line": return { art: "line" };
+    default: return {};
+  }
+}
 
 /** nothing in a frame moves between words (the picture's push-in is ffmpeg's): one frame per word */
 export const freeWindows = (): [number, number][] => [];
@@ -65,9 +80,27 @@ export function freeFrame(scene: PromptScene, picture: boolean, c: FreeContext, 
   const avail = w - g.side * 2 - 80;
   const len = [...scene.screen].length || 1;
   const size = scene.screen.includes(" ") ? g.size : Math.min(g.size, Math.floor(avail / (len * 0.52)));
+  const style = c.input.style;
+  const top = picture ? g.top : Math.round(h * 0.36);
+  const lit = { ...c, input: { ...c.input, ...freeLook(c.input) } } as unknown as StoryContext;
+  // the words as the style's look writes a title: paper tiles, a sign, a sheet lifted off the stage, the pen's sheet
+  const words = card ? null
+    : style === "paper" ? <PaperTitle w={w} top={top} size={Math.round(size * 1.65)} t={t} text={[scene.screen, ""]} />
+    : style === "line" ? <LineTitle w={w} top={top} size={Math.round(size * 1.6)} t={t} text={[scene.screen, ""]} />
+    : style === "warm" || style === "plot" ? (
+      <div style={abs({ left: g.side, width: w - g.side * 2, top, justifyContent: "center" })}>
+        <div className={style === "warm" ? "cut" : undefined} style={box({ justifyContent: "center", textAlign: "center", maxWidth: w - g.side * 2, padding: "20px 40px", fontFamily: HAND, fontWeight: 600, fontSize: size, lineHeight: 1.2, ...(style === "warm"
+          ? { background: C.note, color: C.ink, borderRadius: 22, border: "4px solid transparent" }
+          : { background: C.plotPaper, color: C.plotInk, border: `4px solid ${C.plotInk}`, transform: "rotate(-1deg)" }) })}>
+          {scene.screen}
+        </div>
+      </div>
+    ) : null;
+  const dressed = style === "paper" || style === "line" || style === "warm" || style === "plot";
   return (
     <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex", overflow: "hidden" }}>
-      {card ? null : (
+      {words}
+      {card || dressed ? null : (
         <div style={abs({ left: g.side, width: w - g.side * 2, top: picture ? g.top : Math.round(h * 0.36), justifyContent: "center" })}>
           <div style={box({ justifyContent: "center", textAlign: "center", background: picture ? "rgba(236,232,223,0.9)" : "transparent", borderRadius: 32, padding: picture ? "20px 36px" : "0 36px", maxWidth: w - g.side * 2, fontFamily: HAND, fontWeight: 600, fontSize: size, lineHeight: 1.2, color: C.ink })}>
             {scene.screen}
@@ -75,7 +108,7 @@ export function freeFrame(scene: PromptScene, picture: boolean, c: FreeContext, 
         </div>
       )}
       {card ? <Note g={{ text: g.text }} r={{ x: g.note.x, y: g.note.y, w: g.note.w, h: 0 }} t={t} lines={card} /> : null}
-      <Subtitle c={c as unknown as StoryContext} t={t} />
+      <Subtitle c={lit} t={t} />
     </div>
   );
 }

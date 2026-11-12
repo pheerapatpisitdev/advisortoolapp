@@ -4,7 +4,7 @@ import { useFreshLinks } from "../quote-video/fresh-links";
 import { useEffect, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import { totalLine } from "@/lib/prompt-story/total";
-import { BRIEF_MAX, SCENE_COUNTS, type PictureStyle, type PromptStoryInput, type SceneCount } from "@/lib/prompt-story/types";
+import { BRIEF_MAX, PICTURE_STYLES, SCENE_COUNTS, type PictureStyle, type PromptStoryInput, type SceneCount } from "@/lib/prompt-story/types";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
@@ -28,7 +28,7 @@ import { ScriptEditor, type Draft } from "./ScriptEditor";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
-const STYLES: { id: PictureStyle; name: string }[] = [{ id: "cartoon", name: "ลายเส้นการ์ตูน" }, { id: "real", name: "ภาพสมจริง" }, { id: "flat", name: "มินิมอลแบน" }];
+const STYLES = PICTURE_STYLES;
 const PAINTERS: { id: PromptStoryInput["painter"]; name: string }[] = [{ id: "standard", name: "มาตรฐาน" }, { id: "sharp", name: "คมชัด" }, { id: "gemini", name: "Gemini" }];
 const SCENES = SCENE_COUNTS;
 const LOOK_KEY = "prompt-story-look";
@@ -61,7 +61,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
 }) {
   const [brief, setBrief] = useState("");
   const [scenes, setScenes] = useState<SceneCount>(5);
-  const [style, setStyle] = useState<PictureStyle>("cartoon");
+  const [style, setStyle] = useState<PictureStyle>("paper");
   const [painter, setPainter] = useState<PromptStoryInput["painter"]>("standard");
   const [withFigure, setWithFigure] = useState(false);
   const [figure, setFigure] = useState<FigureChoice>(DEFAULT_FIGURE);

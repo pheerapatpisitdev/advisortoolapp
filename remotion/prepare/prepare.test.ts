@@ -266,6 +266,10 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
   const fPlans = planScenes(fScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: fSecs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS })));
   writeFileSync(join(PUB, "audio/st-free.wav"), silentWav(clipLength(fPlans)));
   writeFileSync(join(PUB, "props/st-free.json"), JSON.stringify(storyClipProps(free as never, "portrait", "", "M", CONTACT, fPlans, fScript, fSecs, clipLength(fPlans), "audio/st-free.wav", [...free.pictures])));
+  // the same clip in each of the four looks (owner, 2026-11-13): the photo stands in for the painter's picture
+  for (const style of ["paper", "warm", "plot", "line"] as const) {
+    writeFileSync(join(PUB, `props/st-free-${style}.json`), JSON.stringify(storyClipProps({ ...free, style } as never, "portrait", "", "M", CONTACT, fPlans, fScript, fSecs, clipLength(fPlans), "audio/st-free.wav", [...free.pictures])));
+  }
 });
 
 /**
