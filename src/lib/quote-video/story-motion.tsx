@@ -160,15 +160,28 @@ export const cutEdge = (w: number): React.CSSProperties => {
   return { border: `${b}px solid ${C.cutEdge}`, boxShadow: `${b}px ${Math.round(b * 1.6)}px ${Math.round(b * 1.4)}px ${C.cutShadow}` };
 };
 
+/** Thai marks set above or below a letter: they take no width of their own */
+const MARK = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/;
+/**
+ * the largest size, capped at `cap`, at which `text` in the handwriting face and `pad` ems of padding fit `room` px on
+ * one line: 0.7 em a letter that takes width (Mali's widest, ก; measured 2026-11-13), the marks over and under none
+ */
+export const fitHand = (text: string, room: number, cap: number, pad = 0) =>
+  Math.floor(Math.min(cap, room / (0.7 * Math.max(1, [...text].filter((x) => !MARK.test(x)).length) + pad)));
+
 /**
  * สต็อปโมชันกระดาษ's title: each word on its own coloured tile, laid down one after another from the title's
  * moment, the line under it on a strip of note paper. A tile is put down, not faded in.
  */
-export function PaperTitle({ w, top, size, an, t, text }: { w: number; top: number; size: number; an?: Anim; t: number; text: [string, string] }) {
+export function PaperTitle({ w, top, size, an, t, text, fit }: { w: number; top: number; size: number; an?: Anim; t: number; text: [string, string]; fit?: boolean }) {
   // a word a tile; ๆ stays on the tile of the word it repeats
   const words = text[0].split(" ").filter(Boolean).reduce<string[]>((all, x) => (x === "ๆ" && all.length ? [...all.slice(0, -1), `${all[all.length - 1]} ๆ`] : [...all, x]), []);
   const at = an?.at ?? 0;
-  const fontSize = Math.round(size * (text[0].length > 14 ? 0.6 : 0.78));
+  const own = Math.round(size * (text[0].length > 14 ? 0.6 : 0.78));
+  // fit (a title anyone may write, up to 40 letters): each tile, its padding and edge, no wider than the frame
+  const fontSize = fit ? Math.min(...words.map((x) => fitHand(x, w - 80 - 18, own, 0.75))) : own;
+  const second = Math.round(size * 0.42);
+  const secondSize = fit && text[1] ? fitHand(text[1], w - 80 - 52 - 2 * Math.max(3, Math.round(size * 1.2 * 0.035)), second) : second;
   const down = (i: number) => !an || t >= at + i * 0.25;
   return (
     <div style={abs({ left: 40, width: w - 80, top: top - 10, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: INK })}>
@@ -177,18 +190,23 @@ export function PaperTitle({ w, top, size, an, t, text }: { w: number; top: numb
           <div key={i} style={box({ margin: "0 9px 14px", padding: `${Math.round(fontSize * 0.08)}px ${Math.round(fontSize * 0.3)}px`, background: C.tiles[i % C.tiles.length], fontSize, fontWeight: 600, lineHeight: 1.25, opacity: down(i) ? 1 : 0, transform: `rotate(${[-2.5, 2, -1.2, 2.8][i % 4] + (t < at + i * 0.25 + 2 / PAPER_POSES ? 3 : 0)}deg)`, ...cutEdge(fontSize * 2.2) })}>{word}</div>
         ))}
       </div>
-      {text[1] ? <div style={box({ marginTop: 4, padding: "6px 26px", background: C.note, fontSize: Math.round(size * 0.42), textAlign: "center", opacity: down(words.length) ? 1 : 0, transform: "rotate(-0.8deg)", ...cutEdge(size * 1.2) })}>{text[1]}</div> : null}
+      {text[1] ? <div style={box({ marginTop: 4, padding: "6px 26px", background: C.note, fontSize: secondSize, textAlign: "center", opacity: down(words.length) ? 1 : 0, transform: "rotate(-0.8deg)", ...cutEdge(size * 1.2) })}>{text[1]}</div> : null}
     </div>
   );
 }
 
 /** การ์ตูนลายเส้น's title: the words in a round-cornered sign with a thick black edge, the line under it in red */
-export function LineTitle({ w, top, size, an, t, text }: { w: number; top: number; size: number; an?: Anim; t: number; text: [string, string] }) {
-  const fontSize = Math.round(size * (text[0].length > 14 ? 0.56 : 0.72));
+export function LineTitle({ w, top, size, an, t, text, fit }: { w: number; top: number; size: number; an?: Anim; t: number; text: [string, string]; fit?: boolean }) {
+  const own = Math.round(size * (text[0].length > 14 ? 0.56 : 0.72));
+  const edge = Math.max(4, Math.round(size * 0.055));
+  // fit (a title anyone may write, up to 40 letters): the sign, its padding and edge, on one line in the frame
+  const fontSize = fit ? fitHand(text[0], w - 80 - edge * 2, own, 1) : own;
+  const second = Math.round(size * 0.46);
+  const secondSize = fit && text[1] ? fitHand(text[1], w - 80, second) : second;
   return (
     <El an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: top - 6, flexDirection: "column", alignItems: "center", color: INK }}>
-      <div style={box({ background: C.white, border: `${Math.max(4, Math.round(size * 0.055))}px solid ${INK}`, borderRadius: Math.round(size * 0.3), padding: `${Math.round(fontSize * 0.1)}px ${Math.round(fontSize * 0.5)}px`, fontSize, fontWeight: 700, lineHeight: 1.3, textAlign: "center" })}>{text[0]}</div>
-      {text[1] ? <div style={box({ marginTop: Math.round(size * 0.14), fontSize: Math.round(size * 0.46), fontWeight: 700, color: RED, textAlign: "center" })}>{text[1]}</div> : null}
+      <div style={box({ background: C.white, border: `${edge}px solid ${INK}`, borderRadius: Math.round(size * 0.3), padding: `${Math.round(fontSize * 0.1)}px ${Math.round(fontSize * 0.5)}px`, fontSize, fontWeight: 700, lineHeight: 1.3, textAlign: "center" })}>{text[0]}</div>
+      {text[1] ? <div style={box({ marginTop: Math.round(size * 0.14), fontSize: secondSize, fontWeight: 700, color: RED, textAlign: "center" })}>{text[1]}</div> : null}
     </El>
   );
 }
