@@ -12,6 +12,9 @@ import { BRIEF_MAX, isPromptFormat, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type Pi
 
 /** scripts per agent per rolling hour, to cap the owner's model spend (spec, Money) */
 export const HOURLY_LIMIT = 20;
+/** เขียนฉากนี้ใหม่: free, so capped per written draft (owner, 2026-11-13); the count is kept in the draft's script */
+export const REWRITES_PER_DRAFT = 3;
+export const REWRITES_DONE = `เขียนฉากใหม่ครบ ${REWRITES_PER_DRAFT} ครั้งแล้ว`;
 export { BRIEF_MAX, SCENE_COUNTS };
 // "cartoon", "flat" and "real" left the form 2026-11-13; a page left open from before may still send one
 const STYLES: PictureStyle[] = ["paper", "warm", "plot", "line", "real", "cartoon", "flat"];

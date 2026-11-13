@@ -9,17 +9,17 @@ import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { geminiVoice } from "@/lib/voice/gemini";
 import { mayPromptStory, PROMPT_STORY_CLOSED } from "@/lib/prompt-story/access";
-import { BRIEF_MAX, checkedPromptStory, HOURLY_LIMIT, SCENE_COUNTS } from "@/lib/prompt-story/checked";
-import { isSceneCount, type SceneCount } from "@/lib/prompt-story/types";
-import { draftsUpTo, dropDraft, saveDraft, writeDraft } from "@/lib/prompt-story/drafts";
-import { writeStory } from "@/lib/prompt-story/writer";
+import { BRIEF_MAX, checkedPromptStory, HOURLY_LIMIT, REWRITES_PER_DRAFT, SCENE_COUNTS } from "@/lib/prompt-story/checked";
+import { isPromptFormat, isSceneCount, type SceneCount } from "@/lib/prompt-story/types";
+import { draftsUpTo, dropDraft, keepRewrite, saveDraft, takeRewrite, writeDraft } from "@/lib/prompt-story/drafts";
+import { rewriteScene, writeStory } from "@/lib/prompt-story/writer";
 import type { PromptScene } from "@/lib/prompt-story/types";
 import type { Made } from "@/app/studio/quote-video/actions";
 import { closedFor } from "@/lib/switches/store";
 
 /**
  * คลิปตามโจทย์: the agent's brief written into a script and kept as a draft, the clip made from
- * it, and one scene's picture drawn again. (A "use server" file exports async functions only: the
+ * it, one scene written again, and one scene's picture drawn again. (A "use server" file exports async functions only: the
  * limits live in prompt-story/checked.ts.)
  */
 
@@ -27,7 +27,7 @@ export type WrittenPromptStory =
   | { ok: true; id: string; title: string; caption: string; scenes: PromptScene[]; notes: number[] }
   | { ok: false; error: string };
 
-export async function writePromptStory(v: { brief: string; scenes: SceneCount; figure?: unknown }): Promise<WrittenPromptStory> {
+export async function writePromptStory(v: { brief: string; scenes: SceneCount; figure?: unknown; format?: unknown }): Promise<WrittenPromptStory> {
   const viewer = await requireMember();
   // the owner's alone since 2026-10-17 (prompt-story/access.ts)
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
@@ -45,7 +45,9 @@ export async function writePromptStory(v: { brief: string; scenes: SceneCount; f
     figure = f;
   }
 
-  const asked = { brief, scenes: v.scenes, figure: figure ?? null };
+  // ตามโจทย์ · ละครสั้น 3 ฉาก · รีวิวเคสเคลม; anything else is written as ตามโจทย์
+  const format = isPromptFormat(v.format) ? v.format : undefined;
+  const asked = { brief, scenes: v.scenes, figure: figure ?? null, ...(format ? { format } : {}) };
   // the draft's row is taken first and then counted, so presses at once each see the others
   // and the hour's cap holds (owner, 2026-10-18); one over the cap gives its row back
   const id = await saveDraft(viewer.agentId, asked, { pending: true });
@@ -54,7 +56,7 @@ export async function writePromptStory(v: { brief: string; scenes: SceneCount; f
     return { ok: false, error: `เขียนบทครบ ${HOURLY_LIMIT} ครั้งในชั่วโมงนี้แล้ว รอสักครู่แล้วลองใหม่นะครับ` };
   }
 
-  const w = await writeStory({ brief, scenes: v.scenes, figure });
+  const w = await writeStory({ brief, scenes: v.scenes, figure, format });
   // a refused brief cost a model call too: kept, marked refused, so the hour counts it
   if (!w.ok) {
     await writeDraft(id, { refused: true, refusal: w.refusal });
@@ -94,6 +96,39 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
   } catch (e) {
     console.error("prompt story not started:", e instanceof Error ? e.message : "unknown error");
     return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
+  }
+}
+
+/**
+ * เขียนฉากนี้ใหม่: `scene` from 0 of the agent's own written draft, free, REWRITES_PER_DRAFT times a
+ * draft (the count taken before the AI is asked, kept in the draft: prompt-story/drafts.ts). `left` is
+ * how many are left after this one.
+ */
+export async function rewritePromptScene(draftId: string, scene: number): Promise<{ ok: true; scene: PromptScene; left: number } | { ok: false; error: string }> {
+  const viewer = await requireMember();
+  if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
+  const closed = await closedFor(viewer, "prompt-story");
+  if (closed) return { ok: false, error: closed };
+  if (typeof draftId !== "string" || !/^[0-9a-f-]{36}$/i.test(draftId) || !Number.isInteger(scene) || scene < 0) return { ok: false, error: "ไม่พบฉากนี้" };
+  try {
+    const taken = await takeRewrite(viewer.agentId, draftId, scene);
+    if (!taken.ok) return taken;
+    const a = taken.asked;
+    const f = a.figure && typeof a.figure === "object" ? storyFigure(a.figure as Parameters<typeof storyFigure>[0]) : undefined;
+    const r = await rewriteScene({
+      brief: typeof a.brief === "string" ? a.brief : "",
+      scenes: taken.scenes,
+      scene,
+      figure: typeof f === "object" ? f : undefined,
+      format: isPromptFormat(a.format) ? a.format : undefined,
+    });
+    if (!r.ok) return r;
+    await keepRewrite(viewer.agentId, draftId, taken.n, scene, r.scene).catch((e) =>
+      console.error("rewritten scene not kept:", e instanceof Error ? e.message : "unknown error"));
+    return { ok: true, scene: r.scene, left: REWRITES_PER_DRAFT - taken.n };
+  } catch (e) {
+    console.error("prompt scene rewrite failed:", e instanceof Error ? e.message : "unknown error");
+    return { ok: false, error: "เขียนฉากใหม่ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
 
