@@ -29,12 +29,18 @@ export function FigurePicker({ value, onChange, onPremium }: {
   useEffect(() => {
     setPremium(null);
     onPremium(null);
+    // an answer for a figure since changed is dropped, so an older premium never lands after a newer one
+    let live = true;
     const t = setTimeout(() => {
       previewStoryFigure({ plan, variant, sex, age, sumAssured })
-        .then((r) => { setPremium(r); onPremium("error" in r ? null : { annual: r.annual, monthly: r.monthly }); })
-        .catch(() => setPremium({ error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
+        .then((r) => {
+          if (!live) return;
+          setPremium(r);
+          onPremium("error" in r ? null : { annual: r.annual, monthly: r.monthly });
+        })
+        .catch(() => { if (live) setPremium({ error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }); });
     }, 300);
-    return () => clearTimeout(t);
+    return () => { live = false; clearTimeout(t); };
     // onPremium is the board's setter: stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan, variant, sex, age, sumAssured]);

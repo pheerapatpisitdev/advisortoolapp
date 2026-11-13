@@ -23,8 +23,11 @@ import { closedFor } from "@/lib/switches/store";
  * limits live in prompt-story/checked.ts.)
  */
 
+/** the plan's figures a device may show, as the server works them out (storyFigure): the page checks devices with these */
+export type FigureNums = { age: number; sumAssured: number; annual: number; monthly: number };
+
 export type WrittenPromptStory =
-  | { ok: true; id: string; title: string; caption: string; scenes: PromptScene[]; notes: number[] }
+  | { ok: true; id: string; title: string; caption: string; scenes: PromptScene[]; notes: number[]; figureNums: FigureNums | null }
   | { ok: false; error: string };
 
 export async function writePromptStory(v: { brief: string; scenes: SceneCount; figure?: unknown; format?: unknown }): Promise<WrittenPromptStory> {
@@ -63,7 +66,8 @@ export async function writePromptStory(v: { brief: string; scenes: SceneCount; f
     return { ok: false, error: w.refusal };
   }
   await writeDraft(id, { title: w.title, caption: w.caption, scenes: w.scenes, notes: w.notes });
-  return { ok: true, id, title: w.title, caption: w.caption, scenes: w.scenes, notes: w.notes };
+  const figureNums = figure ? { age: figure.age, sumAssured: figure.sumAssured, annual: figure.annual, monthly: figure.monthly } : null;
+  return { ok: true, id, title: w.title, caption: w.caption, scenes: w.scenes, notes: w.notes, figureNums };
 }
 
 /**
@@ -110,9 +114,12 @@ export async function rewritePromptScene(draftId: string, scene: number): Promis
   const closed = await closedFor(viewer, "prompt-story");
   if (closed) return { ok: false, error: closed };
   if (typeof draftId !== "string" || !/^[0-9a-f-]{36}$/i.test(draftId) || !Number.isInteger(scene) || scene < 0) return { ok: false, error: "ไม่พบฉากนี้" };
+  // once one is taken, every answer says what is left, a throw too
+  let left: number | undefined;
   try {
     const taken = await takeRewrite(viewer.agentId, draftId, scene);
     if (!taken.ok) return taken;
+    left = REWRITES_PER_DRAFT - taken.n;
     const a = taken.asked;
     const f = a.figure && typeof a.figure === "object" ? storyFigure(a.figure as Parameters<typeof storyFigure>[0]) : undefined;
     const r = await rewriteScene({
@@ -122,13 +129,13 @@ export async function rewritePromptScene(draftId: string, scene: number): Promis
       figure: typeof f === "object" ? f : undefined,
       format: isPromptFormat(a.format) ? a.format : undefined,
     });
-    if (!r.ok) return { ...r, left: REWRITES_PER_DRAFT - taken.n };
+    if (!r.ok) return { ...r, left };
     await keepRewrite(viewer.agentId, draftId, taken.n, scene, r.scene).catch((e) =>
       console.error("rewritten scene not kept:", e instanceof Error ? e.message : "unknown error"));
     return { ok: true, scene: r.scene, left: REWRITES_PER_DRAFT - taken.n };
   } catch (e) {
     console.error("prompt scene rewrite failed:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "เขียนฉากใหม่ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
+    return { ok: false, error: "เขียนฉากใหม่ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ", ...(left === undefined ? {} : { left }) };
   }
 }
 

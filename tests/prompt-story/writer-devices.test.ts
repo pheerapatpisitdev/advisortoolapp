@@ -271,6 +271,14 @@ describe("rewritePromptScene", () => {
     expect(db.rows[0].script.rewrites).toBe(1);
   });
 
+  it("a rewrite that throws after taking one still says how many are left", async () => {
+    // a broken scene in the stored draft makes the writer throw before the AI is asked
+    (db.rows[0].script.scenes as unknown[])[0] = null;
+    const r = await rewritePromptScene(DRAFT, 1);
+    expect(r).toEqual({ ok: false, error: "เขียนฉากใหม่ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ", left: 2 });
+    expect(db.rows[0].script.rewrites).toBe(1);
+  });
+
   it("two presses at once take two of the three, never more than three", async () => {
     db.rows[0].script.rewrites = 2;
     const both = await Promise.all([rewritePromptScene(DRAFT, 0), rewritePromptScene(DRAFT, 2)]);

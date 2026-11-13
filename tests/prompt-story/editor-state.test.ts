@@ -36,6 +36,18 @@ describe("sceneKind and pictureCount", () => {
     expect(pictureScenes(checked as never)).toBe(pictureCount([...scenes, pic()], allowed));
   });
 
+  it("counts a device with a forbidden word as a picture, as the server does", () => {
+    const scenes = [pic({ device: { ...room, title: ["ค่าห้องจ่ายทันที", "ต่อคืน"] } }), pic(), pic()];
+    expect(sceneKind(scenes[0], allowed).kind).toBe("broken");
+    expect(pictureCount(scenes, allowed)).toBe(3);
+    const held = checkedPromptStory({
+      draftId: "5853e0d0-6fbf-4a38-91d5-474b108a4905", brief: BRIEF, title: "ค่าห้อง", caption: "", scenes,
+      style: "paper", painter: "standard",
+    }, "F");
+    expect(typeof held).toBe("object");
+    expect(pictureScenes(held as never)).toBe(3);
+  });
+
   it("reads the plan's figures too", () => {
     const limit: DeviceScene = { layout: "limit", title: ["วงเงิน", "ต่อปี"], limit: 45200, planName: "" };
     expect(sceneKind(pic({ device: limit }), deviceAllowed("แผนสุขภาพ")).kind).toBe("broken");

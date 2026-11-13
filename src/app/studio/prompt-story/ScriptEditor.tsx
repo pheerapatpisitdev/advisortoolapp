@@ -137,7 +137,7 @@ export function ScriptEditor({ draft, notes, onChange, forDevice }: {
                   </button>
                 </div>
                 <button
-                  type="button" onClick={() => rewrite(i)} disabled={busy !== null || left <= 0}
+                  type="button" onClick={() => rewrite(i)} disabled={busy !== null || left <= 0} aria-label={`เขียนฉาก ${i + 1} ใหม่ (เหลือ ${left})`}
                   className="ml-auto min-h-11 rounded-lg border border-[var(--ct-accent)] px-3 text-sm text-[var(--ct-accent)] hover:bg-[var(--ct-soft)] disabled:opacity-50"
                 >
                   {busy === i ? "กำลังเขียน…" : left <= 0 ? "เขียนฉากใหม่ครบแล้ว" : `เขียนฉากนี้ใหม่ (เหลือ ${left})`}
@@ -161,9 +161,9 @@ export function ScriptEditor({ draft, notes, onChange, forDevice }: {
                     </label>
                   ))}
                   {fields.numbers.length > 0 && (
-                    <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums text-[var(--ct-mute)]" aria-label={`ตัวเลขของอุปกรณ์ ฉาก ${i + 1}`}>
+                    <div role="group" aria-label={`ตัวเลขของอุปกรณ์ ฉาก ${i + 1} (แก้ไม่ได้)`} className="flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums text-[var(--ct-mute)]">
                       {fields.numbers.map((n, j) => <span key={j}>{n.label}{n.value ? ` ${n.value}` : ""}</span>)}
-                    </p>
+                    </div>
                   )}
                 </div>
               )}

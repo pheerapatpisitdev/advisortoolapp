@@ -76,7 +76,7 @@ describe("writePromptStory", () => {
   });
   it("returns the scenes and the saved draft id", async () => {
     const r = await writePromptStory({ brief: "ชวนวางแผน", scenes: 5 });
-    expect(r).toEqual({ ok: true, id: "draft-1", title: "t", caption: "c", scenes: OK.scenes, notes: [] });
+    expect(r).toEqual({ ok: true, id: "draft-1", title: "t", caption: "c", scenes: OK.scenes, notes: [], figureNums: null });
     expect(saved[0][0]).toBe("agent-1");
   });
 });
@@ -103,5 +103,49 @@ describe("migration", () => {
     // before the member row itself goes
     expect(mine.indexOf("ins_prompt_drafts")).toBeLessThan(mine.indexOf("delete from ins_members"));
     expect(sql).toMatch(/grant execute on function public\.ins_member_delete\(uuid\) to service_role/);
+  });
+});
+
+// ---- Task 10 fix 1: the page checks devices with the server's figure, never a stale preview ----
+import { checkedPromptStory } from "@/lib/prompt-story/checked";
+import { deviceAllowed } from "@/lib/prompt-story/check";
+import { pictureCount } from "@/lib/prompt-story/editor-state";
+import { pictureScenes, type PromptScene } from "@/lib/prompt-story/types";
+import { storyFigure } from "@/lib/quote-video/story";
+import { DEFAULT_FIGURE } from "@/app/studio/prompt-story/FigurePicker";
+
+describe("writePromptStory's figure numbers", () => {
+  it("returns the figure the server worked out, and none without a figure", async () => {
+    const f = storyFigure(DEFAULT_FIGURE);
+    if (typeof f === "string") throw new Error(f);
+    const r = await writePromptStory({ brief: "แผนสุขภาพ", scenes: 3, figure: DEFAULT_FIGURE });
+    expect(r.ok && r.figureNums).toEqual({ age: f.age, sumAssured: f.sumAssured, annual: f.annual, monthly: f.monthly });
+    const none = await writePromptStory({ brief: "แผนสุขภาพ", scenes: 3 });
+    expect(none.ok && none.figureNums).toBeNull();
+  });
+
+  it("counts pictures as checkedPromptStory charges, where a stale preview would not", async () => {
+    const f = storyFigure(DEFAULT_FIGURE);
+    if (typeof f === "string") throw new Error(f);
+    const brief = "แผนสุขภาพสำหรับพนักงาน";
+    // a device showing the plan's yearly figure: valid only with the server's own number
+    const scenes: PromptScene[] = [
+      { voice: "วงเงินต่อปี", screen: "วงเงินต่อปี", picture: "", device: { layout: "limit", title: ["วงเงิน", "ต่อปี"], limit: f.annual, planName: "" } },
+      { voice: "ทางออก", screen: "ทางออก", picture: "ตัวแทนยิ้ม" },
+      { voice: "ทักมา", screen: "ทักมา", picture: "โทรศัพท์" },
+    ];
+    written.mockResolvedValue({ ...OK, scenes });
+    const r = await writePromptStory({ brief, scenes: 3, figure: DEFAULT_FIGURE });
+    if (!r.ok) throw new Error(r.error);
+    const held = checkedPromptStory({
+      draftId: "5853e0d0-6fbf-4a38-91d5-474b108a4905", brief, title: "วงเงิน", caption: "", scenes: r.scenes,
+      style: "paper", painter: "standard", figure: DEFAULT_FIGURE,
+    }, "F");
+    if (typeof held === "string") throw new Error(held);
+    expect(pictureCount(r.scenes, deviceAllowed(brief, r.figureNums ?? undefined))).toBe(pictureScenes(held));
+    expect(pictureScenes(held)).toBe(2);
+    // an older preview's premium (another age, say) would have priced the device scene as a picture
+    const stale = { ...r.figureNums!, annual: f.annual + 1 };
+    expect(pictureCount(r.scenes, deviceAllowed(brief, stale))).toBe(3);
   });
 });

@@ -62,6 +62,8 @@ describe("ScriptEditor with devices", () => {
     expect(html).toContain("ภาพ AI 2 ฉาก · อุปกรณ์ 1 ฉาก");
     expect(html).toContain("เขียนฉากนี้ใหม่ได้อีก 1 ครั้ง (ฟรี นับแม้เขียนไม่สำเร็จ)");
     expect(html).toContain("เขียนฉากนี้ใหม่ (เหลือ 1)");
+    expect(html).toContain('aria-label="เขียนฉาก 3 ใหม่ (เหลือ 1)"');
+    expect(html).toMatch(/<div role="group" aria-label="ตัวเลขของอุปกรณ์ ฉาก 1 \(แก้ไม่ได้\)"/);
   });
 
   it("shuts เขียนฉากนี้ใหม่ when none are left", () => {

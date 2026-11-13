@@ -16,7 +16,7 @@ import { myCost, myVideos, voiceQuota, type VideoItem, type VoiceQuota } from ".
 import { useClipWatch } from "../quote-video/useClipWatch";
 import { ClipList } from "../quote-video/ClipList";
 import { Step } from "../quote-video/QuoteVideoBoard";
-import { makePromptStory, writePromptStory } from "./actions";
+import { makePromptStory, writePromptStory, type FigureNums } from "./actions";
 import { DEFAULT_FIGURE, FigurePicker, type FigureChoice } from "./FigurePicker";
 import { LookStep, type Look } from "./LookStep";
 import { geminiVoice } from "@/lib/voice/gemini";
@@ -56,8 +56,8 @@ interface Written {
   scenes: SceneCount;
   figure: FigureChoice | null;
   format: PromptFormat;
-  /** the figure's numbers a device may show (with its premium), null with no figure */
-  nums: { age: number; sumAssured: number; annual: number; monthly: number } | null;
+  /** the figure's numbers a device may show, as the server worked them out when writing; null with no figure */
+  nums: FigureNums | null;
 }
 
 export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
@@ -145,12 +145,12 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     setWriting(true);
     setError(null);
     try {
-      const nums = figureAsked && premium ? { age: figureAsked.age, sumAssured: figureAsked.sumAssured, ...premium } : null;
       const r = await writePromptStory({ brief, scenes, format, ...(figureAsked ? { figure: figureAsked } : {}) });
       if (!r.ok) { setError({ text: r.error }); return; }
       setDraft({ id: r.id, title: r.title, caption: r.caption, scenes: r.scenes, left: REWRITES_PER_DRAFT });
       setNotes(r.notes);
-      setWritten({ brief, scenes, figure: figureAsked, format, nums });
+      // the server's own figure, never the page's preview: devices are checked against what the clip will use
+      setWritten({ brief, scenes, figure: figureAsked, format, nums: r.figureNums });
     } catch {
       setError({ text: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" });
     } finally {
