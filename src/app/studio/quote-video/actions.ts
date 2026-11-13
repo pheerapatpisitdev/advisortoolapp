@@ -36,7 +36,7 @@ import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
 import { currentRiders, lifeProtectPriced } from "@/lib/lifeprotect-card";
 import { quoteCard } from "@/lib/quote-card";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
-import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
+import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, previewHealth, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
 import { getCustomer, listCustomers } from "@/lib/fhc/customers";
 import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
 import { checkedPension } from "@/lib/quote-video/pension";
@@ -434,11 +434,17 @@ export async function previewStoryPension(v: { sex?: string; age?: number; annui
   return typeof p === "string" ? { error: p } : { annual: p.annual, monthlyPension: p.monthlyPension, annuityAge: p.annuityAge };
 }
 
+/** the iHealthy plans for this age and the chosen plan's figures, worked out as คลิปเล่าเรื่อง's health form is filled (story.ts previewHealth) */
+export async function previewStoryHealth(v: { plan?: string; sex?: string; age?: number }): Promise<ReturnType<typeof previewHealth>> {
+  await requireMember();
+  return previewHealth(v ?? {});
+}
+
 /**
  * คลิปเล่าเรื่อง (owner, 2026-10-15): a cartoon story clip. The premium it shows, if any, is
  * worked out again here from the plan's table, never taken from the form.
  */
-export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "home"> & { figure?: unknown; ladder?: unknown; pension?: unknown; home?: unknown }, customer: string): Promise<Made> {
+export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "health" | "home"> & { figure?: unknown; ladder?: unknown; pension?: unknown; health?: unknown; home?: unknown }, customer: string): Promise<Made> {
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "story-clip");
   if (closed) return { ok: false, error: closed };

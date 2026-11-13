@@ -15,7 +15,7 @@ import { dollLook, PaperDoll } from "@/lib/story/paper-doll";
 import { checkedLook, DEFAULT_CAST, Figure, FIGURE_HAIRS, FIGURE_PANTS, FIGURE_SHIRTS, GROUNDS, HAIR_WORD, lookFromId, POSES, type FigureGround, type FigureLook } from "@/lib/story/figure";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
-import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryPension, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
+import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryHealth, previewStoryPension, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
 import { useClipWatch } from "../quote-video/useClipWatch";
 import { ChevronDownIcon } from "../ui/icons";
 import { ClipList } from "../quote-video/ClipList";
@@ -48,7 +48,7 @@ const label = "mb-1 block text-sm font-medium";
 const COMING = ["ซื้อตอนหนุ่มถูกกว่า", "ผู้หญิงมักอายุยืนกว่า", "ลดหย่อนภาษีปลายปี"];
 const SHELF_NAME = { story: "เล่าเรื่อง", knowledge: "ความรู้ประกัน 1 นาที", objection: "ตอบข้อโต้แย้ง", family: "ครอบครัว", life: "ช่วงชีวิต", after: "หลังการขาย", health: "ประกันสุขภาพ" } as const;
 /** the dropdown's order, as the mockup listed the shelves */
-const SHELVES = ["story", "knowledge", "family", "objection", "life", "after"] as const;
+const SHELVES = ["story", "knowledge", "family", "objection", "life", "after", "health"] as const;
 /** a date input's value, a month from today: the usual next due day is near */
 const inAMonth = () => { const d = new Date(Date.now() + 30 * 86_400_000); return d.toISOString().slice(0, 10); };
 /** the family topics that have the hero's partner in them */
@@ -344,6 +344,12 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [pension, setPension] = useState<{ annual: number; monthlyPension: number; annuityAge: number } | { error: string } | null>(null);
   const [withFigure, setWithFigure] = useState(false);
   const [ladder, setLadder] = useState<{ age: number; annual: number }[] | { error: string } | null>(null);
+  const [healthPlan, setHealthPlan] = useState("");
+  const [healthRoom, setHealthRoom] = useState("");
+  const [healthBill, setHealthBill] = useState("");
+  const [groupBill, setGroupBill] = useState("300,000");
+  const [groupSum, setGroupSum] = useState("50,000");
+  const [health, setHealth] = useState<Awaited<ReturnType<typeof previewStoryHealth>> | null>(null);
   const [plan, setPlan] = useState<StoryPlan>("ISHIELD");
   const [variant, setVariant] = useState(STORY_DEFAULT_TERM.ISHIELD);
   const [age, setAge] = useState("35");
@@ -413,7 +419,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
 
   // the premium, worked out as the form changes
   const sumBaht = Number(sum.replace(/[^\d]/g, "")) || 0;
-  const showsFigure = figureShown(info, withFigure);
+  // ประกันสุขภาพ's stories always draw the sheet, so its plan is never left out
+  const healthTopic = info.figure === "health";
+  const showsFigure = figureShown(info, withFigure) || healthTopic;
   useEffect(() => {
     if (!showsFigure || info.figure !== "plan") return;
     setFigure(null);
@@ -423,6 +431,19 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     }, 300);
     return () => clearTimeout(t);
   }, [showsFigure, info.figure, plan, variant, heroSex, age, sumBaht]);
+
+  // ประกันสุขภาพ: the iHealthy plans sold at this age, and the plan's figures
+  const healthPlans = health && "plans" in health ? health.plans : [];
+  // a plan the company does not sell at this age gives way to the first it does
+  const healthChosen = healthPlans.some((p) => p.code === healthPlan) ? healthPlan : healthPlans[0]?.code ?? "";
+  useEffect(() => {
+    if (!healthTopic) return;
+    const t = setTimeout(() => {
+      previewStoryHealth({ plan: healthChosen || undefined, sex: heroSex, age: Number(age) })
+        .then(setHealth).catch(() => setHealth({ error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [healthTopic, healthChosen, heroSex, age]);
 
   // ใกล้เกษียณ: บำนาญ 95's premium for the pension wanted
   const pensionBaht = Number(pensionMonthly.replace(/[^\d]/g, "")) || 0;
@@ -483,14 +504,17 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const showsHome = withHome && Boolean(info.home);
   // ใกล้เกษียณ counts from the age บำนาญ 95 starts paying, else from retiring at 60
   const retireYears = LIVE_TO - (pensionOk ? pensionOk.annuityAge : RETIRE_AGE);
-  const home = info.home === "spend" ? { monthly: num(monthly), years: num(years) }
+  const home = info.home === "group" ? { bill: num(groupBill), group: num(groupSum) }
+    : info.home === "spend" ? { monthly: num(monthly), years: num(years) }
     : info.home === "loan" ? { debt: num(debt), years: num(loanYears) }
       : info.home === "retire" ? { monthly: num(retireMonthly) }
         : { childAge: Number(childAge), tuition: num(tuition) };
-  const homeTotal = info.home === "spend" ? num(monthly) * 12 * num(years)
+  const homeTotal = info.home === "group" ? num(groupBill) : info.home === "spend" ? num(monthly) * 12 * num(years)
     : info.home === "retire" ? num(retireMonthly) * 12 * retireYears
       : info.home === "loan" ? num(debt) : num(tuition) * (GRADUATE_AGE - Number(childAge));
   const homeBad = !showsHome ? null
+    : info.home === "group"
+      ? num(groupBill) < 1 || num(groupBill) > 10_000_000 ? "ค่ารักษา 1 – 10,000,000 บาท" : num(groupSum) < 1 || num(groupSum) > 10_000_000 ? "วงเงินประกันกลุ่ม 1 – 10,000,000 บาท" : null
     : info.home === "spend"
       ? num(monthly) < 1_000 || num(monthly) > 1_000_000 ? "ค่าใช้จ่ายต่อเดือน 1,000 – 1,000,000 บาท" : num(years) < 1 || num(years) > 40 ? "จำนวนปีที่ลูกยังต้องพึ่ง 1 – 40 ปี" : null
       : info.home === "loan"
@@ -498,7 +522,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
         : info.home === "retire"
           ? num(retireMonthly) < 1_000 || num(retireMonthly) > 1_000_000 ? "ค่าใช้จ่ายหลังเกษียณต่อเดือน 1,000 – 1,000,000 บาท" : null
           : num(tuition) < 1_000 || num(tuition) > 2_000_000 ? "ค่าเรียนต่อปี 1,000 – 2,000,000 บาท" : null;
-  const figureReady = info.figure === "plan" ? figureOk : info.figure === "pension" ? pensionOk : ladderOk;
+  const healthOk = healthTopic && health && "figures" in health ? health.figures : null;
+  const figureReady = info.figure === "plan" ? figureOk : info.figure === "pension" ? pensionOk : info.figure === "health" ? healthOk : ladderOk;
   const ready = (!showsFigure || Boolean(figureReady)) && !homeBad && (info.ask !== "due" || Boolean(dueDate));
   const name = customer.trim();
 
@@ -515,6 +540,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
         ...(showsFigure && info.figure === "plan" ? { figure: { plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht } } : {}),
         ...(showsFigure && info.figure === "ladder" ? { ladder: true } : {}),
         ...(showsFigure && info.figure === "pension" ? { pension: { sex: heroSex, age: Number(age), annuityAge: Number(annuityAge), pay, monthly: pensionBaht } } : {}),
+        ...(showsFigure && info.figure === "health" ? { health: { plan: healthChosen, sex: heroSex, age: Number(age), ...(num(healthRoom) ? { room: num(healthRoom) } : {}), ...(num(healthBill) ? { bill: num(healthBill) } : {}) } } : {}),
         ...(showsHome ? { home } : {}),
         ...(info.ask === "due" ? { due: { date: dueDate, ...(num(dueAmount) ? { amount: num(dueAmount) } : {}) } } : {}),
         ...(info.ask === "festival" ? { festival } : {}),
@@ -614,7 +640,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             <p className="text-xs text-[var(--ct-mute)]">{afterSale ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในคลิปและบนการ์ดตัวแทน · ไม่ถามเลขกรมธรรม์ วันเกิด หรือเบอร์ลูกค้า" : asks ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในประโยคปิดท้ายและบนปุ่มของการ์ดตัวแทน" : life ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน · คู่ชีวิตและลูกในเรื่อง ระบบเลือกหน้าให้" : family ? "ลูก และพ่อแม่ของตัวเอก ระบบเลือกจากหน้าชุดเด็กและผู้สูงอายุให้ · ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน" : "อีก 47 คนในโหล ระบบเลือกจากคลัง ชายหญิงครึ่งต่อครึ่ง"}</p>
           </Step>
 
-          <Step n={3} title={info.figureRequired ? "แบบที่ลูกค้าซื้อ" : info.ask === "due" ? "วันครบกำหนดชำระเบี้ย" : info.ask === "festival" ? "เทศกาล" : info.home ? "ตัวเลขของบ้าน และเบี้ยจริง" : "ข้อมูลจากแบบประกัน"} summary={[showsHome ? "ตัวเลขของบ้าน" : "", !showsFigure ? "" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : info.figure === "pension" ? "ตัวเลขจริง · บำนาญ 95" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`].filter(Boolean).join(" · ") || "ไม่ใช้"}>
+          <Step n={3} title={info.figureRequired ? "แบบที่ลูกค้าซื้อ" : info.ask === "due" ? "วันครบกำหนดชำระเบี้ย" : info.ask === "festival" ? "เทศกาล" : info.home ? "ตัวเลขของบ้าน และเบี้ยจริง" : "ข้อมูลจากแบบประกัน"} summary={[showsHome ? "ตัวเลขของบ้าน" : "", !showsFigure ? "" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : info.figure === "pension" ? "ตัวเลขจริง · บำนาญ 95" : info.figure === "health" ? "ตัวเลขจริง · iHealthy" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`].filter(Boolean).join(" · ") || "ไม่ใช้"}>
             {info.home && (
               <div className="space-y-2 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
                 <span className={label}>ตัวเลขของบ้าน (ไม่ใส่ก็ได้)</span>
@@ -622,6 +648,18 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                   <button type="button" className={chip(!withHome)} onClick={() => setWithHome(false)}>ไม่ใส่ เล่าเป็นคำพูด</button>
                   <button type="button" className={chip(withHome)} onClick={() => setWithHome(true)}>ใส่ตัวเลขของบ้านลูกค้า</button>
                 </div>
+                {showsHome && info.home === "group" && (
+                  <div className="grid gap-3 @sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="sc-group-bill" className={label}>ค่ารักษาตัวอย่าง (บาท)</label>
+                      <input id="sc-group-bill" inputMode="numeric" className={field} value={groupBill} onChange={(e) => setGroupBill(digits(e.target.value, 8))} />
+                    </div>
+                    <div>
+                      <label htmlFor="sc-group-sum" className={label}>ประกันกลุ่มจ่าย (บาท)</label>
+                      <input id="sc-group-sum" inputMode="numeric" className={field} value={groupSum} onChange={(e) => setGroupSum(digits(e.target.value, 8))} />
+                    </div>
+                  </div>
+                )}
                 {showsHome && info.home === "spend" && (
                   <div className="grid gap-3 @sm:grid-cols-2">
                     <div>
@@ -668,7 +706,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 )}
                 {showsHome && (
                   <p className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
-                    {homeBad ?? (info.home === "spend"
+                    {homeBad ?? (info.home === "group"
+                      ? <>ค่ารักษา <b>{baht(num(groupBill))} บาท</b> ประกันกลุ่มจ่าย <b>{baht(num(groupSum))} บาท</b> <span className="text-[var(--ct-mute)]">· ส่วนที่เหลือ เราจ่ายเอง</span></>
+                      : info.home === "spend"
                       ? <>ครอบครัวต้องมีเงินราว <b>{baht(homeTotal)} บาท</b> <span className="text-[var(--ct-mute)]">· ขึ้นในฉากที่ 4</span></>
                       : info.home === "loan"
                       ? <>ทุนประกันชีวิตควรมีอย่างน้อย <b>{baht(homeTotal)} บาท</b> <span className="text-[var(--ct-mute)]">· ขึ้นในฉากที่ 1 และ 3</span></>
@@ -700,7 +740,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
               info.ask ? null : <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">{afterSale ? "ตัวเลขในคลิปมาจากสัญญาและเกณฑ์การเคลมในระบบ ไม่ต้องใส่อะไรเพิ่ม" : "ตอนนี้ไม่มีตัวเลขเบี้ย ใช้ได้กับลูกค้าทุกคนและลงเพจได้ทันที"}</p>
             ) : (
             <>
-            {!info.figureRequired && <div className="grid gap-2 @sm:grid-cols-3">
+            {!info.figureRequired && !healthTopic && <div className="grid gap-2 @sm:grid-cols-3">
               <button type="button" onClick={() => setWithFigure(false)} className={`rounded-xl border p-3 text-left ${!withFigure ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-hair)]"}`}>
                 <b className="block text-sm">ไม่ใช้</b><span className="text-xs text-[var(--ct-mute)]">เรื่องทั่วไป ไม่มีตัวเลขเบี้ย ลงเพจหรือทำแอดได้</span>
               </button>
@@ -753,6 +793,38 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                   {pensionOk
                     ? <p><b className="text-base">ออมปีละ {pensionOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">รับเดือนละ {pensionOk.monthlyPension.toLocaleString("en-US")} บาท ตั้งแต่อายุ {pensionOk.annuityAge} · ขึ้นในฉากที่ {figureAt}</span></p>
                     : <p className="text-[var(--ct-mute)]">{!pensionAges.length ? `อายุ ${age} เลือกรับบำนาญแบบนี้ไม่ได้ ลองเปลี่ยนอายุหรือวิธีชำระเบี้ย` : pension && "error" in pension ? pension.error : "กำลังคิดเบี้ย…"}</p>}
+                </div>
+              </div>
+            )}
+            {showsFigure && info.figure === "health" && (
+              <div className="space-y-3 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
+                <div>
+                  <span className={label}>แผน iHealthy ที่ใช้เป็นตัวอย่าง</span>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="แผน iHealthy">
+                    {healthPlans.map((p) => <button key={p.code} type="button" className={chip(healthChosen === p.code)} onClick={() => setHealthPlan(p.code)}>{p.name}</button>)}
+                  </div>
+                </div>
+                <div className="grid gap-3 @sm:grid-cols-3">
+                  <div>
+                    <label htmlFor="sc-h-age" className={label}>อายุ ({heroSex === "F" ? "หญิง" : "ชาย"})</label>
+                    <select id="sc-h-age" className={field} value={age} onChange={(e) => setAge(e.target.value)}>
+                      {Array.from({ length: 71 }, (_, i) => i).map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="sc-h-room" className={label}>ค่าห้องต่อคืนที่ใช้ (บาท)</label>
+                    <input id="sc-h-room" inputMode="numeric" className={field} value={healthRoom} placeholder="ไม่ใส่ก็ได้" onChange={(e) => setHealthRoom(digits(e.target.value, 8))} />
+                  </div>
+                  <div>
+                    <label htmlFor="sc-h-bill" className={label}>ค่ารักษาตัวอย่าง (บาท)</label>
+                    <input id="sc-h-bill" inputMode="numeric" className={field} value={healthBill} placeholder="ไม่ใส่ก็ได้" onChange={(e) => setHealthBill(digits(e.target.value, 8))} />
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--ct-mute)]">ไม่ใส่ก็ได้ ระบบใช้คำแทนตัวเลข</p>
+                <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
+                  {healthOk
+                    ? <p><b className="text-base">{healthOk.planName}</b> <span className="text-[var(--ct-mute)]">ค่าห้อง {healthOk.roomPerDay.toLocaleString("en-US")} บาท/คืน · วงเงินต่อปี {healthOk.annualMax.toLocaleString("en-US")} บาท · ตัวเลขมาจากแบบประกันในระบบ</span></p>
+                    : <p className="text-[var(--ct-mute)]">{health && "error" in health ? health.error : "กำลังดูแบบประกัน…"}</p>}
                 </div>
               </div>
             )}

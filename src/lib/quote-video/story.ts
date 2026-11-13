@@ -7,6 +7,9 @@ import { checkedLook, isGround, type FigureGround, type FigureLook } from "@/lib
 import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
 import { FESTIVALS, GRADUATE_AGE, INFO_SHELVES, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { PensionPay } from "@/calc/pension/engine";
+import { iHealthyTable } from "@/lib/ihealthy-table";
+import { planLabel } from "@/lib/ihealthy-facts";
+import { plansFor } from "@/lib/ihealthy-quote";
 import { healthFigures, type HealthFigures } from "@/lib/scene-library/health-figures";
 import { pensionPremium, PENSION_NAME } from "./pension";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
@@ -141,6 +144,21 @@ export function storyHealth(v: unknown): StoryHealth | string {
     typed[key] = x;
   }
   return { plan: figures.plan, sex: o.sex, age, ...typed, figures };
+}
+
+/** the iHealthy plans the company sells at this age, for the form's picker (the rate table stays on the server) */
+export function healthPlanChoices(age: number): { code: string; name: string }[] {
+  if (!Number.isInteger(age) || age < 0 || age > 99) return [];
+  return plansFor(iHealthyTable(), age).map((p) => ({ code: p.code, name: planLabel(p.code) }));
+}
+
+/** the form's live look at the health sheet: the plans for this age, and the plan's figures or the words for what is wrong */
+export function previewHealth(v: { plan?: string; sex?: string; age?: number }): { plans: { code: string; name: string }[]; figures: { planName: string; annualMax: number; roomPerDay: number } } | { plans: { code: string; name: string }[]; error: string } | { error: string } {
+  const plans = healthPlanChoices(Number(v?.age));
+  if (!plans.length) return { error: "ใส่อายุ" };
+  const h = storyHealth({ plan: v.plan, sex: v.sex, age: v.age });
+  if (typeof h === "string") return { plans, error: h };
+  return { plans, figures: { planName: h.figures.planName, annualMax: h.figures.annualMax, roomPerDay: h.figures.roomPerDay } };
 }
 
 export interface StoryLadder { sex: "M" | "F"; rows: { age: number; annual: number }[] }
