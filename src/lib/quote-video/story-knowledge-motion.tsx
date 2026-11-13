@@ -153,6 +153,7 @@ export function kspec(show: KnowShow): Record<string, Anim> {
         title: a(0.2, "up"), icon: a(0.5, "pop"),
         ...(show.face ? { face: a(0.9, "pop") } : {}), ...(show.note ? { note: a(1.3, "pop") } : {}), ...(show.hearts ? { hearts: a(1.3, "up") } : {}),
       };
+    default: return s; // health devices: drawn in a later task
   }
 }
 

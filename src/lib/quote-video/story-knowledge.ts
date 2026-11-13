@@ -52,7 +52,19 @@ export type KnowShow =
   /** the steps or years ahead, a mark (an age, a day, a number) and what it is, down a line */
   | { layout: "timeline"; title: [string, string]; rows: { at: string; label: string }[] }
   /** หลังการขาย: a drawn thing (the policy, a calendar with its day, a cake, a festival's sign), a face, a note */
-  | { layout: "pic"; title: [string, string]; icon: PicIcon; day?: string; face?: string; note?: NoteLine[]; hearts?: boolean };
+  | { layout: "pic"; title: [string, string]; icon: PicIcon; day?: string; face?: string; note?: NoteLine[]; hearts?: boolean }
+  /** health devices (scene library): drawn by the story looks, numbers sourced upstream */
+  | { layout: "split"; title: [string, string]; parts: string[]; whole: string }
+  | { layout: "limit"; title: [string, string]; limit: number; used?: number; planName: string }
+  | { layout: "room"; title: [string, string]; plan: number; real?: number; planName: string }
+  | { layout: "overflow"; title: [string, string]; bill?: number; limit?: number }
+  | { layout: "waiting"; title: [string, string]; rows: { at: string; label: string }[] }
+  | { layout: "cashless"; title: [string, string]; note: string }
+  | { layout: "groupgap"; title: [string, string]; bill?: number; group?: number }
+  | { layout: "agecost"; title: [string, string]; rows: { age: number; annual: number }[]; source: string };
+
+export const HEALTH_LAYOUTS = ["split", "limit", "room", "overflow", "waiting", "cashless", "groupgap", "agecost"] as const;
+export type HealthLayout = (typeof HEALTH_LAYOUTS)[number];
 
 export type PicIcon = "policy" | "calendar" | "cake" | "fireworks" | "lantern" | "water" | "jasmine" | "canna" | "gift" | "bag";
 
@@ -224,9 +236,10 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
 /** every word an episode puts on screen, for the handwriting face */
 export function knowText(e: KnowEpisode): string {
   const words: string[] = [e.cta];
+  let health = false;
   for (const { show } of e.scenes) {
     if ("title" in show) words.push(...show.title);
-    if ("note" in show && show.note) words.push(...show.note.map((l) => l.text));
+    if ("note" in show && show.note && typeof show.note !== "string") words.push(...show.note.map((l) => l.text));
     if (show.layout === "card") words.push(...show.lines.map((l) => l.text));
     if (show.layout === "myth") words.push(...show.quote, "ความเชื่อ");
     if (show.layout === "fact") words.push(show.crossed, "ความจริง");
@@ -236,6 +249,14 @@ export function knowText(e: KnowEpisode): string {
     if (show.layout === "kin" && show.tags) words.push(...show.tags.items);
     if (show.layout === "timeline") words.push(...show.rows.flatMap((r) => [r.at, r.label]));
     if (show.layout === "pic" && show.day) words.push(show.day);
+    if (show.layout === "split") words.push(...show.parts, show.whole);
+    if (show.layout === "cashless") words.push(show.note);
+    if (show.layout === "waiting") words.push(...show.rows.flatMap((r) => [r.at, r.label]));
+    if (show.layout === "limit" || show.layout === "room") words.push(show.planName);
+    if (show.layout === "agecost") words.push(show.source);
+    if ((HEALTH_LAYOUTS as readonly string[]).includes(show.layout)) health = true;
   }
+  // health devices draw their numbers with digits and "บาท"
+  if (health) words.push("0123456789,บาท");
   return words.join("");
 }
