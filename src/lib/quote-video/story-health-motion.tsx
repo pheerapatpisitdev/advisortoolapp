@@ -1,10 +1,10 @@
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type React from "react";
-import { a, abs, box, El, look, type Anim } from "./motion";
+import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import { fitSize } from "./recipe-blocks";
 import { HEALTH_WORDS as HW, n, type KnowShow } from "./story-knowledge";
 import { Note, Pointer, Title, type Geo, type Rect } from "./story-knowledge-motion";
-import { line, paper, type StoryContext } from "./story-motion";
+import { fitHand, line, paper, type StoryContext } from "./story-motion";
 import { countAt } from "./timeline";
 
 /**
@@ -47,7 +47,25 @@ export function healthSpec(show: HealthShow): Record<string, Anim> {
       return overflowBar(show)
         ? { title: a(0.2, "up"), paid: a(0.5, "grow"), bill: a(0.7, "left"), insurer: a(1.1, "left"), line: a(1.4, "fade"), over: a(1.8, "grow"), own: a(2.3, "pop"), count: a(2.3, "count"), foot: a(3.2, "fade") }
         : { title: a(0.2, "up"), card: a(0.6, "pop") };
-    default: return s;
+    case "waiting":
+      if (!show.rows.length) return { title: a(0.2, "up"), card: a(0.6, "pop") };
+      s.title = a(0.2, "up");
+      s.line = a(0.5, "stroke", 0.4 + show.rows.length * 0.35);
+      show.rows.forEach((_, i) => { s[`row${i}`] = a(0.6 + i * 0.35, "pop"); });
+      s.card = a(1.1 + show.rows.length * 0.35, "pop");
+      return s;
+    case "cashless":
+      return { title: a(0.2, "up"), hosp: a(0.5, "pop"), card: a(0.9, "left"), tick: a(1.4, "pop"), word: a(1.9, "up"), note: a(2.3, "fade") };
+    case "groupgap":
+      return groupBars(show)
+        ? { title: a(0.2, "up"), bill: a(0.5, "grow"), billFig: a(0.9, "fade"), group: a(1.2, "grow"), groupFig: a(1.6, "fade"), card: a(2.0, "pop"), count: a(2.0, "count") }
+        : { title: a(0.2, "up"), card: a(0.6, "pop") };
+    case "agecost":
+      if (show.rows.length < 2) return { card: a(0.3, "pop") };
+      s.title = a(0.2, "up");
+      ageRows(show).forEach((_, i) => { s[`bar${i}`] = a(0.6 + i * 0.35, "grow"); });
+      s.source = a(0.9 + ageRows(show).length * 0.35, "fade");
+      return s;
   }
 }
 
@@ -58,7 +76,10 @@ export function healthBody(show: HealthShow, d: Dev) {
     case "limit": return <Limit d={d} show={show} />;
     case "room": return <Room d={d} show={show} />;
     case "overflow": return <Overflow d={d} show={show} />;
-    default: return null; // the other health devices: drawn next
+    case "waiting": return <Waiting d={d} show={show} />;
+    case "cashless": return <Cashless d={d} show={show} />;
+    case "groupgap": return <GroupGap d={d} show={show} />;
+    case "agecost": return <AgeCost d={d} show={show} />;
   }
 }
 
@@ -337,3 +358,219 @@ function Overflow({ d, show }: { d: Dev; show: Show<"overflow"> }) {
   );
 }
 
+
+/** ระยะรอคอย: a line from today, a dot where each cover starts (the day above, what it covers under), the plan's conditions on a card */
+function Waiting({ d, show }: { d: Dev; show: Show<"waiting"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const r = g.dev;
+  const rows = show.rows;
+  const last = rows.length - 1;
+  const col = Math.round(r.w / Math.max(1, rows.length));
+  const dot = Math.round(g.text * 1.1);
+  const atSize = Math.min(...rows.map((x) => fitSize(x.at, col - 24, Math.round(g.text * 1.9))), Math.round(g.text * 1.9));
+  const atH = Math.round(atSize * 1.4);
+  const labelSize = Math.min(...rows.map((x) => fitWords(x.label, col - 24, Math.round(g.text * 1.4))), Math.round(g.text * 1.4));
+  const ly = r.y + Math.round(r.h * (c.size === "portrait" ? 0.3 : 0.32));
+  const x0 = r.x + Math.round(col / 2);
+  const len = Math.max(0, last) * col;
+  const pad = Math.round(g.text * 0.7);
+  // the card under the labels; alone in the room's middle with no rows yet
+  const card = rows.length
+    ? { x: r.x + Math.round(r.w * 0.12), y: c.size === "portrait" ? r.y + Math.round(r.h * 0.62) : ly + Math.round(dot / 2 + labelSize * 2.4), w: Math.round(r.w * 0.76), h: Math.round(g.text * 3) }
+    : { x: r.x + Math.round(r.w * 0.12), y: r.y, w: Math.round(r.w * 0.76), h: Math.round(r.h * 0.6) };
+  const dotColor = (i: number) => (i === 0 ? GREEN : i === last ? C.red : C.coin);
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      {len > 0 ? (
+        <div style={abs({ left: x0, top: ly - 6, width: len, height: 12 })}>
+          <svg width={len} height={12} viewBox={`0 0 ${len} 12`}>{stroke({ d: `M0 6 H${len}`, len, p: look(s.line, t).p, color: ink, width: 8 })}</svg>
+        </div>
+      ) : null}
+      {rows.map((row, i) => (
+        <El key={i} an={s[`row${i}`]} t={t} style={{ position: "absolute", left: r.x + i * col, top: ly - atH - Math.round(dot / 2), width: col, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: ink }}>
+          <div style={box({ height: atH, alignItems: "flex-end", fontSize: atSize, fontWeight: 700, lineHeight: 1.2, color: i === 0 ? GREEN : ink })}>{row.at}</div>
+          <div style={box({ width: dot, height: dot, borderRadius: dot, background: dotColor(i), border: `4px solid ${C.ink}`, flexShrink: 0 })} />
+          <div style={box({ marginTop: Math.round(g.text * 0.4), width: col - 24, justifyContent: "center", fontSize: labelSize, fontWeight: 600, lineHeight: 1.3, textAlign: "center" })}>{row.label}</div>
+        </El>
+      ))}
+      <Sheet r={card} an={s.card} t={t} tilt={0.8} pad={pad} middle>
+        <div style={box({ justifyContent: "center", fontSize: fitWords(HW.waitFoot, card.w - pad * 2 - 8, Math.round(g.text * 1.3)), fontWeight: 600, lineHeight: 1.3, textAlign: "center" })}>{HW.waitFoot}</div>
+      </Sheet>
+    </>
+  );
+}
+
+/** a hospital with a red cross, in a 100 × 100 box */
+const HOSPITAL = (r: Rect) => (
+  <svg width={r.w} height={r.h} viewBox="0 0 100 100">
+    <rect x={12} y={20} width={76} height={76} rx={5} fill={C.note} stroke={C.ink} strokeWidth={3.4} />
+    <rect x={6} y={10} width={88} height={14} rx={4} fill={C.jar} stroke={C.ink} strokeWidth={3.4} />
+    <path d="M45 32 h10 v10 h10 v10 h-10 v10 h-10 v-10 h-10 v-10 h10 Z" fill={C.red} stroke={C.ink} strokeWidth={2} />
+    <rect x={20} y={70} width={14} height={12} rx={2} fill={C.blanket} stroke={C.ink} strokeWidth={2.4} />
+    <rect x={66} y={70} width={14} height={12} rx={2} fill={C.blanket} stroke={C.ink} strokeWidth={2.4} />
+    <rect x={42} y={72} width={16} height={24} rx={2} fill={C.jar} stroke={C.ink} strokeWidth={2.4} />
+  </svg>
+);
+/** the insurance card handed over, in a 160 × 100 box */
+const CARD = (r: Rect) => (
+  <svg width={r.w} height={r.h} viewBox="0 0 160 100">
+    <rect x={4} y={4} width={152} height={92} rx={12} fill={C.navy} stroke={C.ink} strokeWidth={4} />
+    <rect x={20} y={28} width={30} height={22} rx={4} fill={C.coin} stroke={C.ink} strokeWidth={2} />
+    <path d="M20 70 H112 M20 82 H80" stroke={C.white} strokeWidth={5} strokeLinecap="round" />
+  </svg>
+);
+/** a green tick in a circle, in a 100 × 100 box */
+const TICK = (r: Rect) => (
+  <svg width={r.w} height={r.h} viewBox="0 0 100 100">
+    <circle cx={50} cy={50} r={45} fill={GREEN} stroke={C.ink} strokeWidth={4} />
+    <path d="M28 52 L44 67 L73 35" fill="none" stroke={C.white} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** เคลมไม่ต้องสำรองจ่าย: the network hospital, the card handed over, a green tick, รพ. ในเครือ and the show's note */
+function Cashless({ d, show }: { d: Dev; show: Show<"cashless"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const r = g.dev;
+  const portrait = c.size === "portrait";
+  // portrait: the hospital and card over the tick and the words; the wider shapes: they on the left, the rest on the right
+  const hs = portrait ? 420 : Math.round(r.h * (c.size === "square" ? 0.55 : 0.62));
+  const hosp = portrait ? { x: r.x + 160, y: r.y, w: hs, h: hs } : { x: r.x + Math.round(r.w * 0.06), y: r.y + Math.round(r.h * 0.08), w: hs, h: hs };
+  const card = { x: hosp.x + Math.round(hs * 0.72), y: hosp.y + Math.round(hs * 0.55), w: Math.round(hs * 0.72), h: Math.round(hs * 0.45) };
+  // the right side starts past the card (square is narrow: the hospital smaller, the side further right)
+  const right = c.size === "square" ? 0.6 : 0.5;
+  const side = portrait ? { x: r.x, y: r.y + 480, w: r.w } : { x: r.x + Math.round(r.w * right), y: r.y + Math.round(r.h * 0.04), w: Math.round(r.w * (1 - right)) };
+  const tick = Math.round(portrait ? 200 : r.h * 0.36);
+  const pop = (an: Anim | undefined, rect: Rect, body: React.ReactNode, cls?: string) => {
+    const l = look(an, t);
+    return <div className={cls} style={abs({ left: rect.x, top: rect.y, width: rect.w, height: rect.h, opacity: l.opacity, ...(l.transform ? { transform: l.transform } : {}) })}>{body}</div>;
+  };
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      {pop(s.hosp, hosp, HOSPITAL({ x: 0, y: 0, w: hosp.w, h: hosp.h }), "piece")}
+      {pop(s.card, card, <div style={box({ transform: "rotate(-8deg)" })}>{CARD({ x: 0, y: 0, w: card.w, h: card.h })}</div>, "piece")}
+      {pop(s.tick, { x: side.x + Math.round((side.w - tick) / 2), y: side.y, w: tick, h: tick }, TICK({ x: 0, y: 0, w: tick, h: tick }))}
+      <El an={s.word} t={t} style={{ position: "absolute", left: side.x, top: side.y + tick + Math.round(g.text * 0.5), width: side.w, justifyContent: "center", fontFamily: HAND, fontSize: fitSize(HW.network, side.w - 40, Math.round(g.text * 1.6)), fontWeight: 700, color: ink }}>{HW.network}</El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: side.x + 20, top: side.y + tick + Math.round(g.text * 2.9), width: side.w - 40, justifyContent: "center", fontFamily: HAND, fontSize: fitWords(show.note, side.w - 40, Math.round(g.text * 1.05)), fontWeight: 500, lineHeight: 1.35, textAlign: "center", color: ink, opacity: 0.85 }}>{show.note}</El>
+    </>
+  );
+}
+
+/** groupgap draws its bars when it has the bill and what the group plan pays, and the bill is above nothing */
+const groupBars = (show: Show<"groupgap">) => show.bill !== undefined && show.group !== undefined && show.bill > 0;
+
+/** ประกันกลุ่มไม่พอ: the bill a long bar, what the group plan pays a short green one, what is still short on a card; words only without both */
+function GroupGap({ d, show }: { d: Dev; show: Show<"groupgap"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const title = <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />;
+  if (!groupBars(show) || show.bill === undefined || show.group === undefined) {
+    return (
+      <>
+        {title}
+        <Note g={g} r={{ ...g.card, y: g.card.y + Math.round(g.card.h * 0.1) }} an={s.card} t={t} lines={[{ text: HW.groupMaybe, big: true }]} tilt={0.8} scale={Math.min(1.35, fitHand(HW.groupMaybe, g.card.w - 64, 999) / (g.text * 1.4))} />
+        <Pointer c={c} t={t} an={s.card} />
+      </>
+    );
+  }
+  const r = g.dev;
+  const bill = show.bill;
+  const group = Math.max(0, show.group);
+  const wide = c.size === "landscape";
+  const labelSize = Math.round(g.text * 1.15);
+  const barH = Math.round(g.text * 1.6);
+  const block = Math.round(labelSize * 1.3) + barH + Math.round(g.text * 1.1);
+  const bars = wide ? { x: r.x, y: r.y + Math.round((r.h - block * 2) / 2), w: Math.round(r.w * 0.6) } : { x: r.x, y: r.y + (c.size === "portrait" ? 60 : 0), w: r.w };
+  const figW = Math.round(bars.w * 0.34);
+  const track = bars.w - figW - 24;
+  const most = Math.max(bill, group);
+  const card = wide
+    ? { x: r.x + Math.round(r.w * 0.66), y: r.y, w: Math.round(r.w * 0.34), h: r.h }
+    : { x: r.x + Math.round(r.w * 0.15), y: bars.y + block * 2 + Math.round(g.text * 0.4), w: Math.round(r.w * 0.7), h: r.y + r.h - (bars.y + block * 2 + Math.round(g.text * 0.4)) };
+  const pad = Math.round(g.text * 0.7);
+  const inner = card.w - pad * 2 - 8;
+  const row = (i: number, label: string, value: number, color: string, an: string) => {
+    const p = look(s[an], t).p;
+    const len = Math.max(12, Math.round((track * value) / most));
+    return (
+      <div style={abs({ left: bars.x, top: bars.y + i * block, width: bars.w, flexDirection: "column", fontFamily: HAND, color: ink })}>
+        <div style={box({ fontSize: labelSize, fontWeight: 600, lineHeight: 1.3 })}>{label}</div>
+        <div style={box({ alignItems: "center" })}>
+          <div style={box({ width: track, height: barH, flexShrink: 0 })}>
+            <div style={box({ width: Math.round(len * p), height: barH, background: color, border: `4px solid ${C.ink}`, borderRadius: 10, opacity: p > 0 ? 1 : 0 })} />
+          </div>
+          <El an={s[`${an}Fig`]} t={t} style={{ marginLeft: 24, width: figW, fontSize: fitSize(n(value), figW, Math.round(g.text * 1.5)), fontWeight: 700, color: color === GREEN ? GREEN : ink }}>{n(value)}</El>
+        </div>
+      </div>
+    );
+  };
+  return (
+    <>
+      {title}
+      {row(0, HW.realBill, bill, C.coin, "bill")}
+      {row(1, HW.groupPays, group, GREEN, "group")}
+      <Sheet r={card} an={s.card} t={t} tilt={-0.8} pad={pad} middle>
+        {/* what the group plan pays covers the bill: nothing short, never a negative */}
+        {bill > group ? (
+          <div style={box({ flexDirection: "column", alignItems: "center" })}>
+            <div style={box({ fontSize: Math.round(g.text * 1.2), fontWeight: 600, lineHeight: 1.3 })}>{HW.short}</div>
+            <div style={box({ fontSize: fitSize(baht(bill - group), inner, Math.round(g.text * 2)), fontWeight: 700, lineHeight: 1.25, color: C.red })}>{baht(countAt(bill - group, look(s.count, t).p))}</div>
+          </div>
+        ) : <div style={box({ justifyContent: "center", fontSize: fitSize(HW.groupEnough, inner, Math.round(g.text * 1.6)), fontWeight: 700, color: GREEN })}>{HW.groupEnough}</div>}
+      </Sheet>
+    </>
+  );
+}
+
+/** เบี้ยขึ้นตามอายุ's bars: six at most, as the chart has room for */
+const ageRows = (show: Show<"agecost">) => show.rows.slice(0, 6);
+
+/** เบี้ยขึ้นตามอายุ: a bar of the year's premium at each age, rising, the last in red, where the figures come from under them */
+function AgeCost({ d, show }: { d: Dev; show: Show<"agecost"> }) {
+  const { c, t, s, g, w, ink } = d;
+  // one age is no rise to show: the title on a card (the episode should not build one; this is its guard)
+  if (show.rows.length < 2) {
+    return (
+      <>
+        <Note g={g} r={{ ...g.card, y: g.card.y + Math.round(g.card.h * 0.1) }} an={s.card} t={t} lines={[{ text: show.title[0], big: true }, ...(show.title[1] ? [{ text: show.title[1] }] : [])]} tilt={0.8} scale={1.35} />
+        <Pointer c={c} t={t} an={s.card} />
+      </>
+    );
+  }
+  const r = g.dev;
+  const rows = ageRows(show);
+  const last = rows.length - 1;
+  const chart = c.size === "landscape" ? { x: r.x + 200, w: r.w - 400 } : { x: r.x + 40, w: r.w - 80 };
+  const slot = Math.round(chart.w / rows.length);
+  const barW = Math.min(Math.round(slot * 0.62), 200);
+  const figSize = Math.min(...rows.map((x) => fitSize(n(x.annual), slot - 12, Math.round(g.text * 1.1))));
+  const labels = rows.map((x) => `${x.age} ${HW.years}`);
+  const labelSize = Math.min(...labels.map((x) => fitSize(x, slot - 12, Math.round(g.text * 1.2))));
+  const sourceSize = fitWords(show.source, r.w - 40, Math.round(g.text * 0.75));
+  const foot = Math.round(labelSize * 1.6) + Math.round(sourceSize * 3.2);
+  const top = r.y + Math.round(figSize * 1.5);
+  const base = r.y + r.h - foot;
+  const room = base - top;
+  const most = Math.max(1, ...rows.map((x) => x.annual));
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      {rows.map((row, i) => {
+        const p = look(s[`bar${i}`], t).p;
+        const h = Math.max(8, Math.round((room * Math.max(0, row.annual)) / most));
+        const x = chart.x + i * slot;
+        return (
+          <div key={i} style={abs({ left: x, top: base - Math.round(h * p) - Math.round(figSize * 1.4), width: slot, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: ink })}>
+            <div style={box({ height: Math.round(figSize * 1.4), alignItems: "flex-end", fontSize: figSize, fontWeight: 700, opacity: p > 0.6 ? 1 : 0, color: i === last ? C.red : ink })}>{n(row.annual)}</div>
+            <div style={box({ width: barW, height: Math.round(h * p), background: i === last ? C.red : C.coin, border: `4px solid ${C.ink}`, borderBottom: "none", borderRadius: "10px 10px 0 0", opacity: p > 0 ? 1 : 0 })} />
+          </div>
+        );
+      })}
+      <div style={abs({ left: chart.x - 20, top: base - 3, width: chart.w + 40, height: 6, background: ink, borderRadius: 3 })} />
+      {labels.map((label, i) => (
+        <div key={i} style={abs({ left: chart.x + i * slot, top: base + Math.round(labelSize * 0.25), width: slot, justifyContent: "center", fontFamily: HAND, fontSize: labelSize, fontWeight: 700, color: i === last ? C.red : ink })}>{label}</div>
+      ))}
+      <El an={s.source} t={t} style={{ position: "absolute", left: r.x + 20, width: r.w - 40, top: base + Math.round(labelSize * 1.7), justifyContent: "center", fontFamily: HAND, fontSize: sourceSize, lineHeight: 1.35, textAlign: "center", color: ink, opacity: 0.85 }}>{show.source}</El>
+    </>
+  );
+}

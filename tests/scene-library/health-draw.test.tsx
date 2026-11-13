@@ -7,7 +7,7 @@ import { kspec, showBody } from "@/lib/quote-video/story-knowledge-motion";
 import { fitHand, type StoryContext } from "@/lib/quote-video/story-motion";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 
-/** ชุดประกันสุขภาพ (scene library phase 1): split, limit, room and overflow, drawn in paper, warm and line */
+/** ชุดประกันสุขภาพ (scene library phase 1): the eight devices, drawn in paper, warm and line */
 const SIZES: VideoSize[] = ["portrait", "square", "landscape"];
 const ARTS: Partial<StoryVideoInput>[] = [{ art: "paper" }, { art: "minimal", ground: "warm" }, { art: "line" }];
 
@@ -24,7 +24,14 @@ const SHOWS: KnowShow[] = [
   { layout: "room", title: ["ค่าห้องเดี่ยว", "ต่อคืน"], plan: 4000, planName: "iHealthy Smart" },
   { layout: "overflow", title: ["บิลเกินวงเงิน", "ใครจ่าย?"], bill: 300_000, limit: 200_000 },
   { layout: "overflow", title: ["บิลเกินวงเงิน", "ใครจ่าย?"] },
+  { layout: "waiting", title: ["สมัครวันนี้", "คุ้มครองเมื่อไหร่"], rows: [{ at: "วันนี้", label: "อุบัติเหตุ" }, { at: "30 วัน", label: "ป่วยทั่วไป" }, { at: "120 วัน", label: "บางโรค" }] },
+  { layout: "cashless", title: ["ยื่นบัตร", "ไม่ต้องสำรองจ่าย"], note: "ตามเงื่อนไขการเคลม" },
+  { layout: "groupgap", title: ["ประกันกลุ่ม", "จ่ายได้แค่ไหน"], bill: 325_000, group: 50_000 },
+  { layout: "groupgap", title: ["ประกันกลุ่ม", "จ่ายได้แค่ไหน"] },
+  { layout: "agecost", title: ["เบี้ยสุขภาพ", "ขึ้นตามอายุ"], rows: [{ age: 30, annual: 18_000 }, { age: 40, annual: 24_500 }, { age: 50, annual: 39_000 }, { age: 60, annual: 61_000 }], source: "เบี้ยสัญญาเพิ่มเติมสุขภาพต่อปี ไม่รวมสัญญาหลัก" },
+  { layout: "agecost", title: ["เบี้ยสุขภาพ", "ขึ้นตามอายุ"], rows: [{ age: 35, annual: 20_000 }], source: "ตัวอย่าง" },
 ];
+const show = (layout: KnowShow["layout"], i = 0) => SHOWS.filter((x) => x.layout === layout)[i];
 
 const html = (show: KnowShow, t = 6, size: VideoSize = "portrait", art?: Partial<StoryVideoInput>) => renderToStaticMarkup(showBody(show, ctx(size, art), t));
 /** the words a frame shows, its tags and styles left out */
@@ -32,7 +39,7 @@ const words = (markup: string) => markup.replace(/<[^>]+>/g, " ");
 /** the first font size in a frame's markup: its title's first line */
 const firstSize = (markup: string) => Number(markup.match(/font-size:(\d+)px/)![1]);
 
-describe("kspec for the four health layouts", () => {
+describe("kspec for the health layouts", () => {
   it("returns a record of movements that are all over within 6 s", () => {
     for (const show of SHOWS) {
       const s = kspec(show);
@@ -153,6 +160,56 @@ describe("showBody", () => {
       expect(words(zero)).toContain("เลือกวงเงินให้พอ");
       expect(words(zero)).not.toContain("ค่ารักษา");
     }
+  });
+});
+
+describe("waiting, cashless, groupgap and agecost", () => {
+  it("waiting: each row on the line, what it covers under it, the plan's conditions on a card", () => {
+    const out = words(html(show("waiting")));
+    for (const w of ["วันนี้", "อุบัติเหตุ", "30 วัน", "ป่วยทั่วไป", "120 วัน", "บางโรค", "ตามเงื่อนไขของแต่ละแผน"]) expect(out).toContain(w);
+    // no rows yet: the card alone
+    expect(words(html({ layout: "waiting", title: ["ระยะรอคอย", ""], rows: [] }))).toContain("ตามเงื่อนไขของแต่ละแผน");
+  });
+
+  it("cashless: the network hospital and the show's note", () => {
+    const out = words(html(show("cashless")));
+    expect(out).toContain("รพ. ในเครือ");
+    expect(out).toContain("ตามเงื่อนไขการเคลม");
+  });
+
+  it("groupgap: the bill, what the group plan pays, and what is still short", () => {
+    const out = words(html(show("groupgap")));
+    for (const w of ["ค่ารักษาจริง", "325,000", "ประกันกลุ่มจ่าย", "50,000", "ขาดอีก", "275,000"]) expect(out).toContain(w);
+    expect(out).not.toContain("-");
+  });
+
+  it("groupgap: words only when a number is missing; a group plan that covers the bill shows no negative", () => {
+    for (const x of [{}, { bill: 325_000 }, { group: 50_000 }, { bill: 0, group: 0 }]) {
+      const out = html({ layout: "groupgap", title: ["ประกันกลุ่ม", ""], ...x });
+      expect(words(out)).toContain("ประกันกลุ่มอาจไม่พอ");
+      expect(words(out)).not.toContain("ขาดอีก");
+      expect(out).not.toContain("NaN");
+    }
+    const covered = words(html({ layout: "groupgap", title: ["ประกันกลุ่ม", ""], bill: 40_000, group: 50_000 }));
+    expect(covered).toContain("ประกันกลุ่มจ่ายพอ");
+    expect(covered).not.toContain("ขาดอีก");
+    expect(covered).not.toContain("-");
+  });
+
+  it("agecost: a bar for each age, its premium on it, the source under them", () => {
+    const out = words(html(show("agecost")));
+    for (const w of ["30 ปี", "40 ปี", "50 ปี", "60 ปี", "18,000", "61,000", "เบี้ยสัญญาเพิ่มเติมสุขภาพต่อปี ไม่รวมสัญญาหลัก"]) expect(out).toContain(w);
+    const age = show("agecost") as Extract<KnowShow, { layout: "agecost" }>;
+    const two = words(html({ ...age, rows: age.rows.slice(0, 2) }));
+    expect(two.match(/\d+ ปี/g)).toHaveLength(2);
+  });
+
+  it("agecost: fewer than two rows is a words-only card with the title, no bars", () => {
+    const out = words(html(show("agecost", 1)));
+    expect(out).toContain("เบี้ยสุขภาพ");
+    expect(out).toContain("ขึ้นตามอายุ");
+    expect(out).not.toContain("35 ปี");
+    expect(out).not.toContain("20,000");
   });
 });
 

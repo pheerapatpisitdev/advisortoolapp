@@ -92,6 +92,14 @@ export const HEALTH_WORDS = {
   choose: "เลือกวงเงินให้พอ",
   chooseFoot: "กับ รพ. ที่ใช้",
   baht: "บาท",
+  waitFoot: "ตามเงื่อนไขของแต่ละแผน",
+  network: "รพ. ในเครือ",
+  realBill: "ค่ารักษาจริง",
+  groupPays: "ประกันกลุ่มจ่าย",
+  short: "ขาดอีก",
+  groupEnough: "ประกันกลุ่มจ่ายพอ",
+  groupMaybe: "ประกันกลุ่มอาจไม่พอ",
+  years: "ปี",
 } as const;
 
 export type PicIcon = "policy" | "calendar" | "cake" | "fireworks" | "lantern" | "water" | "jasmine" | "canna" | "gift" | "bag";
