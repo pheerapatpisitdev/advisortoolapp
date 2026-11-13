@@ -46,7 +46,7 @@ const label = "mb-1 block text-sm font-medium";
 
 /** the stories still to come, as the mockup listed them */
 const COMING = ["ซื้อตอนหนุ่มถูกกว่า", "ผู้หญิงมักอายุยืนกว่า", "ลดหย่อนภาษีปลายปี"];
-const SHELF_NAME = { story: "เล่าเรื่อง", knowledge: "ความรู้ประกัน 1 นาที", objection: "ตอบข้อโต้แย้ง", family: "ครอบครัว", life: "ช่วงชีวิต", after: "หลังการขาย" } as const;
+const SHELF_NAME = { story: "เล่าเรื่อง", knowledge: "ความรู้ประกัน 1 นาที", objection: "ตอบข้อโต้แย้ง", family: "ครอบครัว", life: "ช่วงชีวิต", after: "หลังการขาย", health: "ประกันสุขภาพ" } as const;
 /** the dropdown's order, as the mockup listed the shelves */
 const SHELVES = ["story", "knowledge", "family", "objection", "life", "after"] as const;
 /** a date input's value, a month from today: the usual next due day is near */

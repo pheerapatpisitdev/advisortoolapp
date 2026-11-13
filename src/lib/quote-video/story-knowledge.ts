@@ -4,6 +4,7 @@ import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
 import type { StoryVideoInput } from "./story";
 import { AFTER_CLOSE, afterScenes, type AfterTopic } from "./story-after";
 import { familyScenes, FAMILY_CLOSE, type FamilyTopic } from "./story-family";
+import { healthScenes, HEALTH_CLOSE, type HealthTopic } from "./story-health";
 import { lifeScenes, LIFE_CLOSE, type LifeTopic } from "./story-life";
 import { objectionScenes, OBJECTION_CLOSE, type ObjectionTopic } from "./story-objection";
 
@@ -209,7 +210,7 @@ const fiveRisks = (): KnowScene[] => [
 ];
 
 /** each episode's closing: what the card's button says, and the voice under it */
-const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | AfterTopic | ObjectionTopic | LifeTopic>, string> = {
+const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | AfterTopic | ObjectionTopic | LifeTopic | HealthTopic>, string> = {
   sumvspremium: "อยากรู้ว่าทุนเท่าไรถึงพอ ทักมาได้เลย",
   declare: "ไม่แน่ใจว่าต้องแถลงอะไร ทักมาถามได้เลย",
   mythclaim: "อยากให้ช่วยดูเงื่อนไข ทักมาได้เลย",
@@ -225,6 +226,7 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
   const family = () => familyScenes(input.topic as FamilyTopic, input, name);
   const afterSale = () => afterScenes(input.topic as AfterTopic, input, name);
   const objection = () => objectionScenes(input.topic as ObjectionTopic, input);
+  const health = () => healthScenes(input.topic as HealthTopic, input, name);
   const life = () => lifeScenes(input.topic as LifeTopic, input, name);
   const scenes = {
     sumvspremium: () => sumVsPremium(input),
@@ -254,13 +256,18 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
     mortgage: life,
     selfemployed: life,
     preretire: life,
+    lumpsum: health,
+    roomcost: health,
+    waiting: health,
+    agecost: health,
   }[input.topic]();
   // story-family.ts and story-after.ts import this file's helpers, so their words are looked up here, at call time
   const after = input.topic in AFTER_CLOSE ? AFTER_CLOSE[input.topic as AfterTopic] : null;
   const close = after ? after.cta
     : input.topic in FAMILY_CLOSE ? FAMILY_CLOSE[input.topic as FamilyTopic]
       : input.topic in OBJECTION_CLOSE ? OBJECTION_CLOSE[input.topic as ObjectionTopic]
-        : input.topic in LIFE_CLOSE ? LIFE_CLOSE[input.topic as LifeTopic] : CLOSE[input.topic as keyof typeof CLOSE];
+        : input.topic in LIFE_CLOSE ? LIFE_CLOSE[input.topic as LifeTopic]
+          : input.topic in HEALTH_CLOSE ? HEALTH_CLOSE[input.topic as HealthTopic] : CLOSE[input.topic as keyof typeof CLOSE];
   const said = (s: string) => spokenBy(s.replace(/\s+/g, " ").trim(), narrator);
   return {
     scenes: scenes.map((s) => ({ ...s, voice: said(s.voice) })),

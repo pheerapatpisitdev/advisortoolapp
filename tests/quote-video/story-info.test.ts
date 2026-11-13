@@ -6,6 +6,7 @@ import { fitSize } from "@/lib/quote-video/story-info-motion";
 import { INFO_GROUND, paperInk, storyBackground, type StoryContext } from "@/lib/quote-video/story-motion";
 import { INFO_SHELVES, STORY_TOPICS } from "@/lib/story/topics";
 
+const HEALTH = { plan: "SILVER", sex: "M", age: 35 };
 const LIFE30 = { plan: "LIFEPROTECT", variant: "WLF99H", sex: "M", age: 30, sumAssured: 1_000_000 };
 const info = (over: Record<string, unknown> = {}): StoryVideoInput => {
   const s = checkedStory({ topic: "fiverisks", faces: { narrator: "w26", hero: "m09" }, art: "info", ...over } as never, "F");
@@ -14,10 +15,10 @@ const info = (over: Record<string, unknown> = {}): StoryVideoInput => {
 };
 
 describe("อินโฟกราฟิก's input (story.ts checkedStory)", () => {
-  it("keeps the look on ความรู้ประกัน and ตอบข้อโต้แย้ง, and on no other shelf", () => {
-    expect(INFO_SHELVES).toEqual(["knowledge", "objection"]);
+  it("keeps the look on ความรู้ประกัน, ตอบข้อโต้แย้ง and ประกันสุขภาพ, and on no other shelf", () => {
+    expect(INFO_SHELVES).toEqual(["knowledge", "objection", "health"]);
     for (const t of STORY_TOPICS) {
-      const s = checkedStory({ topic: t.key, faces: { narrator: "w26", hero: "m09" }, art: "info", festival: "newyear", due: { date: "2026-12-01" } } as never, "F");
+      const s = checkedStory({ topic: t.key, faces: { narrator: "w26", hero: "m09" }, art: "info", health: HEALTH, festival: "newyear", due: { date: "2026-12-01" } } as never, "F");
       if (typeof s === "string") continue;
       expect(s.art, t.key).toBe(INFO_SHELVES.includes(t.shelf) ? "info" : undefined);
     }
@@ -38,7 +39,7 @@ describe("อินโฟกราฟิก on screen (story-info-motion.tsx)", 
   it("draws every scene of every episode it is offered for, in every shape, with no one's face", () => {
     for (const t of STORY_TOPICS.filter((x) => INFO_SHELVES.includes(x.shelf))) for (const size of ["portrait", "square", "landscape"] as const) {
       for (const over of [{}, t.key === "bank" || t.key === "pricey" ? { figure: LIFE30 } : t.figure === "ladder" ? { ladder: true } : {}]) {
-        const input = info({ topic: t.key, size, ...over });
+        const input = info({ topic: t.key, size, ...(t.figure === "health" ? { health: HEALTH } : {}), ...over });
         for (const s of storyScript(input)) {
           const html = renderToStaticMarkup(clipFrame(s.key, ctx(input, size, s.voice), 7));
           expect(html.length, `${t.key} ${size} ${s.key}`).toBeGreaterThan(400);

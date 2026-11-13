@@ -52,7 +52,19 @@ function thinkFirst(input: StoryVideoInput): KnowScene[] {
   ];
 }
 
-const groupIns = (): KnowScene[] => [
+const groupIns = (input: StoryVideoInput): KnowScene[] => {
+  const scenes = groupInsWords();
+  const bill = input.health?.bill, group = input.health?.group;
+  if (bill === undefined || group === undefined) return scenes;
+  // an episode has five scenes: the gap, worked out on the agent's two numbers, stands where the note on applying alone stood
+  const gap = Math.max(bill - group, 0);
+  const voice = gap > 0
+    ? `ลองดูตัวเลขจริงนะคะ ค่ารักษา ${withBaht(bill)} ประกันกลุ่มจ่ายได้ ${withBaht(group)} ส่วนที่เหลือ ${withBaht(gap)} เราต้องจ่ายเองค่ะ`
+    : `ลองดูตัวเลขจริงนะคะ ค่ารักษา ${withBaht(bill)} ประกันกลุ่มจ่ายได้ ${withBaht(group)} ครั้งนี้ยังครอบคลุมค่ะ แต่ถ้าบิลสูงกว่านี้ ส่วนที่เหลือก็เป็นของเรา`;
+  return scenes.map((s) => s.key === "knowThree" ? scene("knowThree", { layout: "groupgap", title: ["ประกันกลุ่ม", "จ่ายได้แค่ไหน"], bill, group }, voice) : s);
+};
+
+const groupInsWords = (): KnowScene[] => [
   scene("knowAsk", { layout: "myth", quote: ["“มีประกันกลุ่ม", "บริษัทแล้ว”"] }, "มีประกันกลุ่มของบริษัทแล้ว ไม่ต้องทำเพิ่มหรอก จริงไหมคะ"),
   scene("knowOne", { layout: "fact", crossed: "พอแล้ว", note: [small("ประกันกลุ่มดีจริง"), big("แต่ผูกกับงาน")] }, "ประกันกลุ่มดีจริงค่ะ แต่เป็นสวัสดิการของบริษัท ผูกอยู่กับงานที่เราทำ"),
   scene("knowTwo", { layout: "list", title: ["ความคุ้มครองหายไป", "เมื่อ"], mark: "warn", items: ["ลาออก หรือเปลี่ยนงาน", "เกษียณ", "บริษัทปรับสวัสดิการ"] },

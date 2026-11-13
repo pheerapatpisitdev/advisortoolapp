@@ -7,6 +7,7 @@ import { checkedLook, isGround, type FigureGround, type FigureLook } from "@/lib
 import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
 import { FESTIVALS, GRADUATE_AGE, INFO_SHELVES, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { PensionPay } from "@/calc/pension/engine";
+import { healthFigures, type HealthFigures } from "@/lib/scene-library/health-figures";
 import { pensionPremium, PENSION_NAME } from "./pension";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
 import { festivalGreeting } from "./story-after";
@@ -68,6 +69,8 @@ export interface StoryVideoInput {
   ladder?: StoryLadder;
   /** ใกล้เกษียณ: บำนาญ 95's premium for a monthly pension, worked out when the clip was ordered */
   pension?: StoryPension;
+  /** ประกันสุขภาพ: an iHealthy plan's figures off the sheet, and the numbers the agent typed */
+  health?: StoryHealth;
   /** เสาหลักหายไป, ค่าเรียนลูก, ผ่อนบ้าน and ใกล้เกษียณ: the household's own numbers, as the agent typed them */
   home?: StoryHome;
   /** เตือนชำระเบี้ย: the day the premium falls due (YYYY-MM-DD), and how much if the agent said */
@@ -111,6 +114,32 @@ export function storyPension(v: unknown): StoryPension | string {
   const p = pensionPremium({ sex: o.sex, age: Number(o.age), annuityAge: Number(o.annuityAge), pay: o.pay, monthly });
   if (typeof p === "string") return p;
   return { sex: o.sex, age: Number(o.age), annuityAge: p.start, pay: o.pay, sumAssured: p.sumAssured, monthlyPension: p.monthlyPension, annual: p.annual, payYears: p.payYears };
+}
+
+/** ประกันสุขภาพ: the plan, who, the sheet's figures, and the optional room, bill and group sum the agent typed */
+export interface StoryHealth { plan: string; sex: "M" | "F"; age: number; room?: number; bill?: number; group?: number; figures: HealthFigures }
+
+const TYPED: [keyof Pick<StoryHealth, "room" | "bill" | "group">, string][] = [
+  ["room", "ค่าห้องต่อคืน 1 – 10,000,000 บาท"], ["bill", "ค่ารักษา 1 – 10,000,000 บาท"], ["group", "วงเงินประกันกลุ่ม 1 – 10,000,000 บาท"],
+];
+
+/** the iHealthy figures for the plan asked, with the typed numbers, or the words for what is wrong */
+export function storyHealth(v: unknown): StoryHealth | string {
+  const o = (v ?? {}) as Record<string, unknown>;
+  if (o.sex !== "M" && o.sex !== "F") return "เลือกเพศ";
+  const age = Number(o.age);
+  if (!Number.isInteger(age) || age < 0 || age > 99) return "ใส่อายุ";
+  const figures = healthFigures({ plan: String(o.plan ?? ""), sex: o.sex, age });
+  if (typeof figures === "string") return figures;
+  const typed: Partial<Record<"room" | "bill" | "group", number>> = {};
+  for (const [key, error] of TYPED) {
+    const raw = o[key];
+    if (raw === undefined || raw === null || raw === "") continue;
+    const x = Number(raw);
+    if (!Number.isInteger(x) || x < 1 || x > 10_000_000) return error;
+    typed[key] = x;
+  }
+  return { plan: figures.plan, sex: o.sex, age, ...typed, figures };
 }
 
 export interface StoryLadder { sex: "M" | "F"; rows: { age: number; annual: number }[] }
@@ -221,7 +250,7 @@ export function storyDue(v: unknown): { date: string; amount?: number } | string
 }
 
 export function checkedStory(
-  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "home" | "due" | "festival"> & { figure?: unknown; ladder?: unknown; pension?: unknown; home?: unknown; due?: unknown; festival?: unknown },
+  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "health" | "home" | "due" | "festival"> & { figure?: unknown; ladder?: unknown; pension?: unknown; health?: unknown; home?: unknown; due?: unknown; festival?: unknown },
   narrator: "F" | "M", voice?: string,
 ): StoryVideoInput | string {
   const topic = topicOf(String(v.topic ?? ""));
@@ -249,6 +278,13 @@ export function checkedStory(
     const p = storyPension(v.pension);
     if (typeof p === "string") return p;
     pension = p;
+  }
+  let health: StoryHealth | undefined;
+  // groupins is not a health topic, but may carry a bill and the group's sum for its gap scene
+  if (topic.figure === "health" || (topic.key === "groupins" && v.health)) {
+    const h = storyHealth(v.health);
+    if (typeof h === "string") return h;
+    health = h;
   }
   let due: { date: string; amount?: number } | undefined;
   if (topic.ask === "due") {
@@ -295,7 +331,7 @@ export function checkedStory(
   return {
     product: "STORY", topic: topic.key, narrator, ...(voice ? { voice } : {}), style: "story", length: "full",
     size: sizeOf(v), palette: v.palette === "color" ? "color" : "reveal",
-    faces: { narrator: narratorFace, hero, ...(partner ? { partner } : {}) }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}), ...(pension ? { pension } : {}), ...(home ? { home } : {}),
+    faces: { narrator: narratorFace, hero, ...(partner ? { partner } : {}) }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}), ...(pension ? { pension } : {}), ...(health ? { health } : {}), ...(home ? { home } : {}),
     ...(due ? { due } : {}), ...(festival ? { festival } : {}), ...minimal,
   };
 }
@@ -377,6 +413,10 @@ const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
   mortgage: ["ผ่อนบ้านอยู่ ถ้าคนผ่อนไม่อยู่ บ้านจะเป็นของใคร?", "ทุนประกันชีวิตอย่างน้อยเท่าหนี้บ้านที่เหลือ บ้านยังเป็นของครอบครัว"],
   selfemployed: ["ฟรีแลนซ์ เจ้าของกิจการ สวัสดิการอยู่ไหน?", "ไม่มีเจ้านาย ก็ไม่มีสวัสดิการ สวัสดิการของเรา เราสร้างเองได้"],
   preretire: ["เกษียณแล้ว เงินพอไหม?", "เงินเดือนหยุดตอนเกษียณ แต่ชีวิตยังไปต่ออีกหลายสิบปี เริ่มเตรียมก่อนวันเกษียณ"],
+  lumpsum: ["ประกันสุขภาพ เหมาจ่าย กับ แยกจ่าย ต่างกันยังไง?", "แยกจ่ายมีเพดานแต่ละรายการ เหมาจ่ายรวมเป็นก้อนเดียว ตามเงื่อนไขของแต่ละแผน"],
+  roomcost: ["ค่าห้องแพงกว่าที่แผนจ่าย ส่วนต่างใครจ่าย?", "ส่วนต่างเราจ่ายเอง เลือกค่าห้องและวงเงินให้พอกับที่ใช้จริง"],
+  waiting: ["สมัครประกันสุขภาพวันนี้ คุ้มครองเมื่อไหร่?", "อุบัติเหตุคุ้มครองทันที ป่วยทั่วไปและบางโรคมีช่วงรอ โรคที่เป็นมาก่อนสมัครไม่คุ้มครอง แถลงสุขภาพให้ครบ"],
+  agecost: ["ทำประกันสุขภาพตอนอายุน้อย เบี้ยถูกกว่าจริงไหม?", "เบี้ยสุขภาพขึ้นตามอายุ ยิ่งเริ่มเร็ว ยิ่งเริ่มต้นที่เบี้ยต่ำกว่า"],
 };
 
 /** the caption a story clip goes up on a Page with: no customer, no premium of anyone's */

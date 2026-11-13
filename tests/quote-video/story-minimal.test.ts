@@ -80,6 +80,7 @@ describe("มินิมอล on screen (story-frames.tsx)", () => {
       const input = minimal({
         topic: topic.key, size, ground, ...(topic.heroSex ? { faces: { narrator: "w26", hero: "w15" }, cast: { hero: DEFAULT_CAST.hero.F, narrator: AGENT } } : {}),
         ...(topic.figureRequired ? { figure: { plan: topic.plans?.[0] ?? "ISHIELD", variant: topic.plans?.[0] === "LIFEPROTECT" ? "WLF19H" : "WLCI20", sex: topic.heroSex ?? "M", age: 35, sumAssured: 1_000_000 } } : {}),
+        ...(topic.figure === "health" ? { health: { plan: "SILVER", sex: "M", age: 35 } } : {}),
         ...(topic.ask === "due" ? { due: { date: "2026-12-01" } } : {}), ...(topic.ask === "festival" ? { festival: "newyear" } : {}),
       });
       const c = { ...ctx(input, size, ""), crowd: clipCrowd(input) };

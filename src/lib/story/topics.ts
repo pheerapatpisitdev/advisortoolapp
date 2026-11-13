@@ -32,15 +32,16 @@ export type StoryTopic =
   | "pillar" | "mompillar" | "tuition" | "prebaby" | "eldercare"
   | "deliver" | "claimish" | "remind" | "birthday" | "festival"
   | "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey" | "orphan"
-  | "firstjob" | "wedding" | "mortgage" | "selfemployed" | "preretire";
-export type StoryShelf = "story" | "knowledge" | "objection" | "family" | "life" | "after";
+  | "firstjob" | "wedding" | "mortgage" | "selfemployed" | "preretire"
+  | "lumpsum" | "roomcost" | "waiting" | "agecost";
+export type StoryShelf = "story" | "knowledge" | "objection" | "family" | "life" | "after" | "health";
 
 export interface StoryTopicInfo {
   key: StoryTopic;
   name: string;
   shelf: StoryShelf;
   blurb: string;
-  figure: "plan" | "ladder" | "pension" | null;
+  figure: "plan" | "ladder" | "pension" | "health" | null;
   /** the plans a "plan" figure may come from; every plan when unset */
   plans?: StoryPlan[];
   home?: "spend" | "school" | "loan" | "retire";
@@ -78,6 +79,10 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "mortgage", name: "ผ่อนบ้าน", shelf: "life", blurb: "บ้านยังผ่อนไม่หมด ถ้าคนผ่อนไม่อยู่ บ้านจะเป็นของใคร", figure: "plan", plans: ["LIFEPROTECT"], home: "loan", figureAt: 4 },
   { key: "selfemployed", name: "ฟรีแลนซ์ · เจ้าของกิจการ", shelf: "life", blurb: "ไม่มีเจ้านาย ก็ไม่มีสวัสดิการ ต้องสร้างเอง", figure: "plan", plans: ["ISHIELD"], figureAt: 4 },
   { key: "preretire", name: "ใกล้เกษียณ", shelf: "life", blurb: "เงินเดือนหยุดที่เกษียณ แต่ชีวิตยังไปต่ออีกหลายสิบปี", figure: "pension", home: "retire", figureAt: 4 },
+  { key: "lumpsum", name: "เหมาจ่าย กับ แยกจ่าย", shelf: "health", blurb: "สองแบบจ่ายค่ารักษา ต่างกันยังไง", figure: "health" },
+  { key: "roomcost", name: "ค่าห้องเกิน ใครจ่าย", shelf: "health", blurb: "ห้องแพงกว่าที่แผนจ่าย ส่วนต่างเป็นของเรา", figure: "health" },
+  { key: "waiting", name: "สมัครวันนี้ คุ้มครองเมื่อไหร่", shelf: "health", blurb: "ช่วงรอคอยของอุบัติเหตุ ป่วยทั่วไป และบางโรค", figure: "health" },
+  { key: "agecost", name: "ทำตอนอายุน้อย เบี้ยถูกกว่า", shelf: "health", blurb: "เบี้ยสุขภาพขึ้นตามอายุ ยิ่งเริ่มเร็วยิ่งเริ่มต้นต่ำ", figure: "health" },
   { key: "deliver", name: "ส่งมอบกรมธรรม์", shelf: "after", blurb: "ขอบคุณ สรุปสิ่งที่ได้ เบี้ย เริ่มคุ้มครองเมื่อไร", figure: "plan", figureRequired: true },
   { key: "claimish", name: "วิธีเคลม · โรคร้ายแรง", shelf: "after", blurb: "iShield: จ่ายตามระยะของโรค ยื่นเคลมยังไง", figure: "plan", plans: ["ISHIELD"] },
   { key: "remind", name: "เตือนชำระเบี้ย", shelf: "after", blurb: "วันครบกำหนด และยอด", figure: null, ask: "due", short: true },
@@ -94,7 +99,7 @@ export const FESTIVALS: { key: Festival; name: string }[] = [
 export const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
 /** the shelves อินโฟกราฟิก draws (owner chose ข, 2026-11-01): the ones told in points, not through a family */
-export const INFO_SHELVES: StoryShelf[] = ["knowledge", "objection"];
+export const INFO_SHELVES: StoryShelf[] = ["knowledge", "objection", "health"];
 
 export const topicOf = (key: string): StoryTopicInfo | undefined => STORY_TOPICS.find((t) => t.key === key);
 
