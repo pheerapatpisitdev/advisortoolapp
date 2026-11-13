@@ -3,7 +3,7 @@ import { abs, box } from "@/lib/quote-video/motion";
 import { planName, termShort, type StoryVideoInput } from "@/lib/quote-video/story";
 import { showText } from "@/lib/quote-video/story-knowledge";
 import { infoDrawn } from "@/lib/quote-video/story-info-motion";
-import { Note, showBody } from "@/lib/quote-video/story-knowledge-motion";
+import { deviceTail, Note, showBody } from "@/lib/quote-video/story-knowledge-motion";
 import { info, LineTitle, PaperTitle, Subtitle, type StoryContext } from "@/lib/quote-video/story-motion";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
 import type { DeviceScene, PromptScene, PromptStoryInput } from "./types";
@@ -49,6 +49,12 @@ export function freeLook(input: Pick<PromptStoryInput, "style">): { art?: "paper
 /** nothing in a frame moves between words (the picture's push-in is ffmpeg's): one frame per word */
 export const freeWindows = (): [number, number][] => [];
 
+/** a scene's silence after its voice when not TAIL: a device's, held whole before the next scene (deviceTail) */
+export function freeTail(scene: Pick<PromptScene, "device">, voiceSec: number): { tail?: number } {
+  const tail = scene.device ? deviceTail(scene.device, voiceSec) : undefined;
+  return tail === undefined ? {} : { tail };
+}
+
 const n = (v: number) => Math.round(v).toLocaleString("en-US");
 const sumWord = (v: number) => (v >= 1_000_000 && v % 100_000 === 0 ? `${(v / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 1 })} ล้าน` : n(v));
 
@@ -78,12 +84,13 @@ export function freeHandText(input: PromptStoryInput): string {
 
 /**
  * The story clip a device scene is drawn as: the clip's look (freeLook) on a story input that carries only what
- * the device drawers read, its art and ground. The topic is never read: infoShow without a key draws the
- * layout's own icon, and a device draws no face.
+ * the device drawers read, its art and ground.
  */
-export function deviceContext(c: FreeContext): StoryContext {
+function deviceContext(c: FreeContext): StoryContext {
   const i = c.input;
   const input: StoryVideoInput = {
+    // a placeholder the type asks for: a device's drawers must never read the topic (infoShow without a key
+    // draws the layout's own icon, and a device draws no face), or a prompt clip would draw this topic's things
     product: "STORY", topic: "lumpsum", style: "story", length: "full", palette: "color", size: c.size,
     ...(i.narrator ? { narrator: i.narrator } : {}), faces: { narrator: i.faces.narrator, hero: i.faces.narrator }, ...freeLook(i),
   };

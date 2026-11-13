@@ -30,11 +30,11 @@ import { isPromptStory, pictureScenes, promptFreePrice, promptPicturePrice, prom
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
 import { claimDraft, releaseDraft } from "@/lib/prompt-story/drafts";
-import { freeWindows } from "@/lib/prompt-story/frames";
+import { freeTail, freeWindows } from "@/lib/prompt-story/frames";
 import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { contactSpec } from "./story-motion";
-import { clipWindows } from "./story-frames";
+import { clipTail, clipWindows } from "./story-frames";
 import { jarFits, motionWindows, MOTION_FPS, roadFits } from "./motion";
 import { readTheme } from "./theme-keys";
 import { festivalGreeting, readFestival } from "./festival";
@@ -354,14 +354,18 @@ function freeScript(input: PromptStoryInput, customer: string, narrator: "F" | "
 
 /**
  * A คลิปตามโจทย์'s parts: its lines and scenes as planned (StoryClip draws them with prompt-story/frames.tsx),
- * each scene's picture linked where it was filed (cutStoryWithRemotion).
+ * each scene's picture linked where it was filed (cutStoryWithRemotion). A device scene stays on screen until
+ * its drawing is whole and held (freeTail), however short its voice.
  */
-function freeParts(row: VideoRow & { input: PromptStoryInput }, secs: number[]): ClipParts {
+export function freeParts(row: Pick<VideoRow, "customer_name"> & { input: PromptStoryInput }, secs: number[]): ClipParts {
   const input = row.input;
   const script = freeScript(input, row.customer_name, narratorOf(input));
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const card = Object.values(contactSpec()).map((x): [number, number] => [x.at, x.at + x.dur]);
-  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS })));
+  const plans = planScenes(script.map((s, i) => ({
+    key: s.key, voice: s.voice, voiceSec: secs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS,
+    ...(s.key === "storyContact" ? {} : freeTail(input.scenes[i], secs[i])),
+  })));
   return { size: clipSize(input), script, motion: true, plans };
 }
 
@@ -392,13 +396,13 @@ function festivalOf(theme: string | undefined, kept: unknown): { festival?: { ke
   return key ? { festival: { key, greeting: festivalGreeting(key, new Date()) } } : {};
 }
 
-/** A story clip's parts: its lines and scenes as planned (StoryClip draws them with story-frames.tsx). */
-function storyParts(row: VideoRow & { input: StoryVideoInput }, secs: number[]): ClipParts {
+/** A story clip's parts: its lines and scenes as planned (StoryClip draws them with story-frames.tsx); a health device held whole (clipTail). */
+export function storyParts(row: Pick<VideoRow, "customer_name"> & { input: StoryVideoInput }, secs: number[]): ClipParts {
   const input = row.input;
   const size = clipSize(input);
   const script = storyScript(input, row.customer_name, narratorOf(input));
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
-  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: clipWindows(s.key, input, size), fps: MOTION_FPS })));
+  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: clipWindows(s.key, input, size), fps: MOTION_FPS, ...clipTail(s.key, input, secs[i]) })));
   return { size, script, motion: true, plans };
 }
 

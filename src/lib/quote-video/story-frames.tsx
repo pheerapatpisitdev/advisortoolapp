@@ -2,7 +2,7 @@ import { CROWD_HERO, crowdOf } from "@/lib/story/faces";
 import { abs } from "./motion";
 import { type StorySceneKey, type StoryVideoInput } from "./story";
 import { knowEpisode, knowText, type KnowSceneKey } from "./story-knowledge";
-import { knowBody, knowFaces, knowWindows } from "./story-knowledge-motion";
+import { knowBody, knowFaces, knowTail, knowWindows } from "./story-knowledge-motion";
 import { infoBody } from "./story-info-motion";
 import { info, paper, paperInk, paperTime, storyFrame, storyHandText, storyWindows, Subtitle, type PoolSceneKey, type StoryContext } from "./story-motion";
 import { SIZES, type VideoSize } from "./timeline";
@@ -17,6 +17,12 @@ const pool = (input: StoryVideoInput) => input.topic === "pool48";
 /** when a scene's things move, in scene seconds */
 export function clipWindows(key: StorySceneKey, input: StoryVideoInput, size: VideoSize): [number, number][] {
   return pool(input) ? storyWindows(key as PoolSceneKey, input, size) : knowWindows(key as KnowSceneKey | "storyContact", input);
+}
+
+/** a scene's silence after its voice when not TAIL: a health device's, held whole before the next scene (knowTail) */
+export function clipTail(key: StorySceneKey, input: StoryVideoInput, voiceSec: number): { tail?: number } {
+  const tail = pool(input) ? undefined : knowTail(key as KnowSceneKey | "storyContact", input, voiceSec);
+  return tail === undefined ? {} : { tail };
 }
 
 /** the faces a clip draws, in colour and grey (story-faces.ts loads them) */

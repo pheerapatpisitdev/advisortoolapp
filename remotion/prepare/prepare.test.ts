@@ -191,6 +191,7 @@ function silentWav(sec: number): Buffer {
 it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", async () => {
   const { storyScript } = await import("@/lib/quote-video/story");
   const { clipWindows, freeWindows } = await import("@/lib/quote-video/story-frames");
+  const { freeTail } = await import("@/lib/prompt-story/frames");
   const { contactSpec } = await import("@/lib/quote-video/story-motion");
   const { planScenes, clipLength } = await import("@/lib/quote-video/timeline");
   const { MOTION_FPS } = await import("@/lib/quote-video/motion");
@@ -282,7 +283,8 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
   } as const;
   const dScript = [...devices.scenes.map((s) => ({ key: "freeScene" as const, voice: s.voice })), fScript[fScript.length - 1]];
   const dSecs = dScript.map((s) => secsOf(s.voice));
-  const dPlans = planScenes(dScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: dSecs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS })));
+  // as make.ts freeParts: a device scene held whole before the next comes in
+  const dPlans = planScenes(dScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: dSecs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS, ...(s.key === "storyContact" ? {} : freeTail(devices.scenes[i], dSecs[i])) })));
   writeFileSync(join(PUB, "audio/st-free-device.wav"), silentWav(clipLength(dPlans)));
   for (const style of ["paper", "warm", "plot", "line"] as const) {
     writeFileSync(join(PUB, `props/st-free-device-${style}.json`), JSON.stringify(storyClipProps({ ...devices, style } as never, "portrait", "", "M", CONTACT, dPlans, dScript, dSecs, clipLength(dPlans), "audio/st-free-device.wav", [undefined, undefined])));
