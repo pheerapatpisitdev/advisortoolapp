@@ -66,6 +66,34 @@ export type KnowShow =
 export const HEALTH_LAYOUTS = ["split", "limit", "room", "overflow", "waiting", "cashless", "groupgap", "agecost"] as const;
 export type HealthLayout = (typeof HEALTH_LAYOUTS)[number];
 
+/**
+ * The words the health devices draw themselves, beside the fields they are given (story-knowledge-motion.tsx):
+ * kept here so knowText hands them to the hand font with the rest.
+ */
+export const HEALTH_WORDS = {
+  apart: "แยกจ่าย",
+  lump: "เหมาจ่าย",
+  splitFoot: "ตัวอย่าง ตามเงื่อนไขแต่ละแผน",
+  perYear: "ต่อปี",
+  used: "ใช้ไป",
+  left: "เหลืออีก",
+  full: "ใช้ครบวงเงินแล้ว",
+  realRoom: "ค่าห้องจริง",
+  planPays: "แผนจ่าย",
+  planNight: "แผนจ่ายต่อคืน",
+  ownNight: "จ่ายเองต่อคืน",
+  enough: "แผนนี้จ่ายพอ",
+  roomWords: "ค่าห้อง รพ. เอกชนมักเกินวงเงินของแผนเล็ก",
+  example: "ตัวอย่าง",
+  bill: "ค่ารักษา",
+  insurerPays: "ประกันจ่าย",
+  own: "จ่ายเอง",
+  limit: "วงเงิน",
+  choose: "เลือกวงเงินให้พอ",
+  chooseFoot: "กับ รพ. ที่ใช้",
+  baht: "บาท",
+} as const;
+
 export type PicIcon = "policy" | "calendar" | "cake" | "fireworks" | "lantern" | "water" | "jasmine" | "canna" | "gift" | "bag";
 
 /**
@@ -256,7 +284,7 @@ export function knowText(e: KnowEpisode): string {
     if (show.layout === "agecost") words.push(show.source);
     if ((HEALTH_LAYOUTS as readonly string[]).includes(show.layout)) health = true;
   }
-  // health devices draw their numbers with digits and "บาท"
-  if (health) words.push("0123456789,บาท");
+  // health devices draw their numbers with digits and "บาท", and words of their own
+  if (health) words.push("0123456789,บาท", ...Object.values(HEALTH_WORDS));
   return words.join("");
 }

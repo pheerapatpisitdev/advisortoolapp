@@ -329,6 +329,8 @@ export const STORY_CLIP_COLORS = {
   cake: "#f3c9c0",
   water: "#cfe3ea",
   waterInk: "#3b7ea1",
+  /* ชุดประกันสุขภาพ (story-knowledge-motion.tsx): the hospital bed's blanket */
+  blanket: "#9cc3df",
   /* สต็อปโมชันกระดาษ (story-motion.tsx paper): the wooden table and its grain, the kraft sheet pinned to it,
      the white edge and the shadow of a cut piece, and the coloured tiles a title's words sit on */
   wood: "#6e4a30",
