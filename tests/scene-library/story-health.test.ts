@@ -145,3 +145,25 @@ describe("มีประกันกลุ่มบริษัทแล้ว 
     expect(checkedStory({ topic: "groupins", home: { bill: 5, group: 10_000_001 } } as never, "F")).toMatch(/[ก-๙]/);
   });
 });
+
+describe("what the customer pays over a limit is said with its conditions", () => {
+  const recapLines = (show: KnowShow) => (show as { lines: { text: string }[] }).lines.map((l) => l.text);
+  it("roomcost: the recap's red line and every overflow voice say ตามเงื่อนไข", () => {
+    for (const extra of [{}, { bill: 3_000_000 }, { bill: 100_000 }]) {
+      const scenes = healthScenes("roomcost", withHealth("roomcost", { room: 6000, ...extra }), "");
+      expect(recapLines(scenes[4].show).find((l) => l.includes("เราจ่ายเอง"))).toMatch(/ตามเงื่อนไข/);
+      const over = scenes.find((s) => s.show.layout === "overflow")!;
+      expect(over.voice).toMatch(/ตามเงื่อนไขของแผน/);
+    }
+  });
+  it("groupgap: the voice that leaves a part to the customer says ตามเงื่อนไขของแผน", () => {
+    const grouped = (home: Record<string, unknown>) => {
+      const s = checkedStory({ topic: "groupins", faces: { narrator: "w26", hero: "w15" }, home } as never, "F");
+      if (typeof s === "string") throw new Error(s);
+      return s;
+    };
+    for (const home of [{ bill: 325_000, group: 50_000 }, { bill: 40_000, group: 50_000 }]) {
+      expect(objectionScenes("groupins", grouped(home))[3].voice).toMatch(/ตามเงื่อนไขของแผน/);
+    }
+  });
+});

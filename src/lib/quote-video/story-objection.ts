@@ -59,8 +59,8 @@ const groupIns = (input: StoryVideoInput): KnowScene[] => {
   // an episode has five scenes: the gap, worked out on the agent's two numbers, stands where the note on applying alone stood
   const gap = Math.max(bill - group, 0);
   const voice = gap > 0
-    ? `ลองดูตัวเลขจริงนะคะ ค่ารักษา ${withBaht(bill)} ประกันกลุ่มจ่ายได้ ${withBaht(group)} ส่วนที่เหลือ ${withBaht(gap)} เราต้องจ่ายเองค่ะ`
-    : `ลองดูตัวเลขจริงนะคะ ค่ารักษา ${withBaht(bill)} ประกันกลุ่มจ่ายได้ ${withBaht(group)} ครั้งนี้ยังครอบคลุมค่ะ แต่ถ้าบิลสูงกว่านี้ ส่วนที่เหลือก็เป็นของเรา`;
+    ? `ลองดูตัวเลขจริงนะคะ ค่ารักษา ${withBaht(bill)} ประกันกลุ่มจ่ายได้ ${withBaht(group)} ส่วนที่เหลือ ${withBaht(gap)} เราต้องจ่ายเอง ตามเงื่อนไขของแผนค่ะ`
+    : `ลองดูตัวเลขจริงนะคะ ค่ารักษา ${withBaht(bill)} ประกันกลุ่มจ่ายได้ ${withBaht(group)} ครั้งนี้ยังครอบคลุมค่ะ แต่ถ้าบิลสูงกว่านี้ ส่วนที่เหลือก็เป็นของเรา ตามเงื่อนไขของแผน`;
   return scenes.map((s) => s.key === "knowThree" ? scene("knowThree", { layout: "groupgap", title: ["ประกันกลุ่ม", "จ่ายได้แค่ไหน"], bill, group }, voice) : s);
 };
 

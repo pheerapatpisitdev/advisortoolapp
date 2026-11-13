@@ -3,7 +3,7 @@ import type { StoryTopic } from "@/lib/story/topics";
 import type React from "react";
 import { abs, box, El, look, type Anim } from "./motion";
 import { HEALTH_WORDS as HW, n, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine } from "./story-knowledge";
-import { ageRows, baht, groupBars, limitFigs, overflowBar, PART_FILL, roomFigs, splitParts } from "./story-health-motion";
+import { ageRows, baht, groupBars, limitFigs, overflowBar, PART_FILL, roomFigs, splitParts, wrapLines } from "./story-health-motion";
 import { kspec } from "./story-knowledge-motion";
 import { infoIcon, type InfoIcon } from "./story-info-icons";
 import { Contact, INFO_GROUND, plot, type StoryContext } from "./story-motion";
@@ -76,7 +76,11 @@ const OWN: Partial<Record<KnowShow["layout"], InfoIcon>> = {
   split: "doc", limit: "shield", room: "bed", overflow: "warn", waiting: "clock", cashless: "hospital", groupgap: "briefcase", agecost: "chart",
 };
 
-function iconOf(topic: StoryTopic, key: KnowSceneKey, show: KnowShow): InfoIcon | undefined {
+const HEALTH_LAYOUTS: ReadonlySet<KnowShow["layout"]> = new Set(["split", "limit", "room", "overflow", "waiting", "cashless", "groupgap", "agecost"]);
+
+/** a scene's tile: a health device's own icon first (its words-only card is about the device, not the episode), else the episode's, else the layout's */
+export function iconOf(topic: StoryTopic, key: KnowSceneKey, show: KnowShow): InfoIcon | undefined {
+  if (HEALTH_LAYOUTS.has(show.layout)) return OWN[show.layout];
   const named = ICONS[topic]?.[key];
   return typeof named === "string" ? named : OWN[show.layout];
 }
@@ -466,10 +470,29 @@ function wordsCard(d: Dev, an: Anim | undefined, lines: NoteLine[], title?: [str
   );
 }
 
+/**
+ * แยกจ่าย's column of items, each a label over its capped bar: the sizes, what four of them need and the room under the
+ * card's heading. In the landscape row the card is short, so they are a tenth smaller there and fit (with room to spare).
+ */
+export function splitRows(size: VideoSize, parts = 4) {
+  const g = GEO[size];
+  const k = g.k;
+  const r = g.row ? 0.9 : 1;
+  const label = Math.round(50 * k * r);
+  const bar = Math.round(46 * k * r);
+  const gap = Math.round(22 * k * r);
+  // the card: the device's room (infoShow's a.h) less the foot; inside, its padding, its heading and its border
+  const ch = g.bottom - g.top - Math.round(70 * k) - Math.round(70 * k);
+  const room = ch - Math.round(32 * k) * 2 - Math.round(Math.round(64 * k) * 1.25) - 6;
+  const need = parts * (Math.round(label * 1.3) + bar) + Math.max(0, parts - 1) * gap;
+  return { label, bar, gap, need, room };
+}
+
 /** เหมาจ่าย vs แยกจ่าย: a card of items each under its own dashed ceiling, beside one tall green bar paying as billed */
 function split(d: Dev, show: Show<"split">) {
   const { t, s, g, w, k, a } = d;
   const parts = splitParts(show);
+  const rows = splitRows(d.c.size, parts.length);
   const gap = Math.round(40 * k);
   const foot = Math.round(70 * k);
   const cw = Math.round((a.w - gap) / 2);
@@ -477,7 +500,7 @@ function split(d: Dev, show: Show<"split">) {
   const pad = Math.round(32 * k);
   const head = Math.round(64 * k);
   const inner = cw - pad * 2 - 8;
-  const barH = Math.round(46 * k);
+  const barH = rows.bar;
   const wl = look(s.whole, t);
   const lumpW = Math.round(inner * 0.72);
   const lumpH = ch - pad * 2 - Math.round(head * 1.8);
@@ -492,8 +515,8 @@ function split(d: Dev, show: Show<"split">) {
           {parts.map((part, i) => {
             const p = look(s[`part${i}`], t).p;
             return (
-              <div key={i} style={box({ flexDirection: "column", marginTop: i ? Math.round(22 * k) : 0 })}>
-                <div style={box({ fontSize: fitSize(part, Math.round(50 * k), inner), color: K.white, lineHeight: 1.3 })}>{part}</div>
+              <div key={i} style={box({ flexDirection: "column", marginTop: i ? rows.gap : 0 })}>
+                <div style={box({ fontSize: fitSize(part, rows.label, inner), color: K.white, lineHeight: 1.3 })}>{part}</div>
                 {/* the dashed box is the most the plan pays for the item; the bar what it was billed */}
                 <div style={box({ width: inner, height: barH, border: `3px dashed ${K.soft}`, borderRadius: Math.round(10 * k), padding: 4 })}>
                   <div style={box({ width: Math.round((inner - 14) * PART_FILL[i] * p), height: barH - 14, opacity: p > 0 ? 1 : 0, ...fill(K.gold, Math.round(8 * k)) })} />
@@ -654,23 +677,41 @@ function overflow(d: Dev, show: Show<"overflow">) {
   );
 }
 
+/**
+ * where ระยะรอคอย stands in plot and info: the line, the days and dots, the labels under them (as many lines as the
+ * longest wraps to) and the card's top below the lowest label — in portrait no higher than its own place
+ */
+export function waitingInfoGeo(size: VideoSize, rows: { at: string; label: string }[]) {
+  const g = GEO[size];
+  const k = g.k;
+  const { w } = SIZES[size];
+  // infoShow's room under the title
+  const a = { x: g.side, y: g.top, w: w - g.side * 2, h: g.bottom - g.top - Math.round(70 * k) };
+  const col = Math.round(a.w / Math.max(1, rows.length));
+  const dot = Math.round(56 * k);
+  const atSize = Math.min(...rows.map((x) => fitSize(x.at, Math.round(80 * k), col - 24)));
+  const atH = Math.round(atSize * 1.4);
+  const labelSize = Math.min(...rows.map((x) => fitWords(x.label, Math.round(56 * k), col - 24)));
+  const ly = a.y + Math.round(a.h * 0.3);
+  const margin = Math.round(18 * k);
+  const lines = Math.max(1, ...rows.map((x) => wrapLines(x.label, labelSize, col - 24)));
+  const labelBottom = ly + Math.round(dot / 2) + margin + Math.ceil(lines * labelSize * 1.3);
+  const below = labelBottom + Math.round(30 * k);
+  const cardY = size === "portrait" ? Math.max(a.y + Math.round(a.h * 0.62), below) : below;
+  return { col, dot, atSize, atH, labelSize, ly, margin, lines, labelBottom, cardY };
+}
+
 /** ระยะรอคอย: a line from today, a dot where each cover starts (the day above, what it covers under), the plan's conditions on a card */
 function waiting(d: Dev, show: Show<"waiting">) {
   const { c, t, s, g, w, k, a } = d;
   const rows = show.rows;
   if (!rows.length) return wordsCard(d, s.card, [{ text: HW.waitFoot, big: true }], show.title);
   const last = rows.length - 1;
-  const col = Math.round(a.w / rows.length);
-  const dot = Math.round(56 * k);
-  const atSize = Math.min(...rows.map((x) => fitSize(x.at, Math.round(80 * k), col - 24)));
-  const atH = Math.round(atSize * 1.4);
-  const labelSize = Math.min(...rows.map((x) => fitWords(x.label, Math.round(56 * k), col - 24)));
-  const ly = a.y + Math.round(a.h * (c.size === "portrait" ? 0.3 : 0.3));
+  const { col, dot, atSize, atH, labelSize, ly, margin, cardY } = waitingInfoGeo(c.size, rows);
   const x0 = a.x + Math.round(col / 2);
   const len = last * col;
   const lp = look(s.line, t).p;
   const dotColor = (i: number) => (i === 0 ? K.green : i === last ? K.red : K.gold);
-  const cardY = c.size === "portrait" ? a.y + Math.round(a.h * 0.62) : ly + Math.round(dot / 2 + labelSize * 2.9);
   return (
     <>
       <Title text={show.title} an={s.title} t={t} w={w} g={g} />
@@ -679,7 +720,7 @@ function waiting(d: Dev, show: Show<"waiting">) {
         <E key={i} an={s[`row${i}`]} t={t} style={{ position: "absolute", left: a.x + i * col, top: ly - atH - Math.round(dot / 2), width: col, flexDirection: "column", alignItems: "center" }}>
           <div style={box({ height: atH, alignItems: "flex-end", fontSize: atSize, fontWeight: 600, lineHeight: 1.2, color: i === 0 ? K.green : K.gold })}>{row.at}</div>
           <div style={box({ width: dot, height: dot, borderRadius: dot, flexShrink: 0, background: K.plot ? S.plotPaper : dotColor(i), border: `${Math.max(4, Math.round(7 * k))}px solid ${dotColor(i)}` })} />
-          <div style={box({ marginTop: Math.round(18 * k), width: col - 24, justifyContent: "center", fontSize: labelSize, fontWeight: 600, color: K.white, lineHeight: 1.3, textAlign: "center" })}>{row.label}</div>
+          <div style={box({ marginTop: margin, width: col - 24, justifyContent: "center", fontSize: labelSize, fontWeight: 600, color: K.white, lineHeight: 1.3, textAlign: "center" })}>{row.label}</div>
         </E>
       ))}
       <div style={abs({ left: a.x, top: cardY, width: a.w, justifyContent: "center" })}>

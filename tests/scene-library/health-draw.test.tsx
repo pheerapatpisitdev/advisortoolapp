@@ -288,3 +288,44 @@ describe("negative figures (a clamp shared by every look)", () => {
     }
   });
 });
+
+describe("Task 12 fit fixes", () => {
+  it("split in plot and info: four items fit their card under its heading in every shape", async () => {
+    const { splitRows } = await import("@/lib/quote-video/story-info-motion");
+    for (const size of SIZES) {
+      const r = splitRows(size);
+      expect(r.need, size).toBeLessThanOrEqual(r.room);
+    }
+  });
+
+  it("overflow on paper: the limit's own figure under its word, apart from the bill's", () => {
+    for (const size of SIZES) for (const art of ARTS) {
+      const say = words(html({ layout: "overflow", title: ["บิล", ""], bill: 300_000, limit: 250_000 }, 6, size, art));
+      expect(say, `${size} ${art.art}`).toMatch(/วงเงิน\s+250,000\s+(?!บาท)/);
+      const within = words(html({ layout: "overflow", title: ["บิล", ""], bill: 150_000, limit: 200_000 }, 6, size, art));
+      expect(within, `${size} ${art.art}`).toMatch(/วงเงิน\s+200,000\s+(?!บาท)/);
+    }
+  });
+
+  it("a health device's words-only card in plot shows its own icon, not the episode's", async () => {
+    const { iconOf } = await import("@/lib/quote-video/story-info-motion");
+    expect(iconOf("groupins", "knowThree", { layout: "groupgap", title: ["ประกันกลุ่ม", ""] })).toBe("briefcase");
+    expect(iconOf("groupins", "knowThree", { layout: "note", title: ["x", ""], note: [] } as unknown as KnowShow)).toBe("warn");
+  });
+
+  it("waiting: the card sits below the tallest label, a long two-word label too, in every shape and look", async () => {
+    const { wrapLines, waitingGeo } = await import("@/lib/quote-video/story-health-motion");
+    const { waitingInfoGeo } = await import("@/lib/quote-video/story-info-motion");
+    const GEOS = { portrait: { text: 46, dev: { x: 90, y: 440, w: 900, h: 900 } }, square: { text: 32, dev: { x: 90, y: 225, w: 900, h: 580 } }, landscape: { text: 38, dev: { x: 240, y: 230, w: 1440, h: 580 } } };
+    const rows = [{ at: "วันนี้", label: "กรมธรรม์มีผลบังคับ ตั้งแต่วันแรก" }, { at: "30 วัน", label: "ป่วยทั่วไป" }, { at: "120 วัน", label: "โรคบางโรค ตามที่ระบุไว้" }];
+    for (const size of SIZES) {
+      for (const geo of [waitingGeo(size, GEOS[size], rows), waitingInfoGeo(size, rows)]) {
+        expect(geo.lines, size).toBeGreaterThanOrEqual(2);
+        expect(geo.cardY, size).toBeGreaterThan(geo.labelBottom);
+        expect(geo.labelBottom, size).toBe(geo.ly + Math.round(geo.dot / 2) + geo.margin + Math.ceil(geo.lines * geo.labelSize * 1.3));
+      }
+    }
+    expect(wrapLines("ป่วยทั่วไป", 40, 300)).toBe(1);
+    expect(wrapLines("กรมธรรม์มีผลบังคับ ตั้งแต่วันแรก", 40, 500)).toBe(2);
+  });
+});

@@ -5,7 +5,7 @@ import { fitSize } from "./recipe-blocks";
 import { HEALTH_WORDS as HW, n, type KnowShow } from "./story-knowledge";
 import { Note, Pointer, Title, type Geo, type Rect } from "./story-knowledge-motion";
 import { fitHand, line, paper, type StoryContext } from "./story-motion";
-import { countAt } from "./timeline";
+import { countAt, type VideoSize } from "./timeline";
 
 /**
  * ชุดประกันสุขภาพ (scene library, mockup https://claude.ai/artifact/JdWaEEaNLGbjUU3SZbPa5T): the health devices
@@ -343,9 +343,10 @@ function Overflow({ d, show }: { d: Dev; show: Show<"overflow"> }) {
   const foot = Math.round(g.text * 1.6);
   const barW = Math.round(Math.min(r.w * 0.24, 260));
   const bx = r.x + (c.size === "landscape" ? 200 : 40);
-  // room over the bar for the limit's word, when the limit is the top
-  const top = r.y + Math.round(g.text * 1.4);
-  const barH = r.h - foot - Math.round(g.text * 1.4);
+  // room over the bar for the limit's word and its figure, when the limit is the top
+  const over = Math.round(g.text * 2.4);
+  const top = r.y + over;
+  const barH = r.h - foot - over;
   const base = top + barH;
   const most = Math.max(bill, limit);
   const paidH = Math.round((barH * Math.min(bill, limit)) / most);
@@ -353,7 +354,12 @@ function Overflow({ d, show }: { d: Dev; show: Show<"overflow"> }) {
   const overH = bill > limit ? limitY - top : 0;
   const pp = look(s.paid, t).p;
   const op = look(s.over, t).p;
-  const lineEnd = bx + barW + Math.round(g.text * 3.4);
+  const lineEnd = bx + barW + Math.round(g.text * 4.4);
+  // the limit's word with its own figure under it (as plot has it), so the dashed line is never read as the bill
+  const wordSize = Math.round(g.text * 0.8);
+  const capRoom = lineEnd - bx - barW - 18;
+  const capSize = fitSize(n(limit), capRoom, Math.round(g.text * 0.9));
+  const capTop = limitY - Math.round(wordSize * 1.2) - Math.round(capSize * 1.2) - 6;
   const lx = lineEnd + Math.round(g.text * 0.6);
   const lw = r.x + r.w - lx;
   const part = (y: number, h: number, color: string) => <div style={abs({ left: bx, top: y, width: barW, height: h, background: color, border: `4px solid ${C.ink}`, borderRadius: 10, opacity: h > 0 ? 1 : 0 })} />;
@@ -363,7 +369,10 @@ function Overflow({ d, show }: { d: Dev; show: Show<"overflow"> }) {
       {part(base - Math.round(paidH * pp), Math.round(paidH * pp), GREEN)}
       {overH ? part(limitY - Math.round(overH * op), Math.round(overH * op), C.red) : null}
       <El an={s.line} t={t} style={{ position: "absolute", left: bx - 30, top: limitY - 3, width: lineEnd - bx + 30, height: 0, borderTop: `6px dashed ${C.red}` }} />
-      <El an={s.line} t={t} style={{ position: "absolute", left: bx + barW + 14, top: limitY - Math.round(g.text * 1.15), fontFamily: HAND, fontSize: Math.round(g.text * 0.8), fontWeight: 700, color: C.red }}>{HW.limit}</El>
+      <El an={s.line} t={t} style={{ position: "absolute", left: bx + barW + 14, top: capTop, flexDirection: "column", fontFamily: HAND, fontWeight: 700, color: C.red }}>
+        <div style={box({ fontSize: wordSize, lineHeight: 1.2 })}>{HW.limit}</div>
+        <div style={box({ fontSize: capSize, lineHeight: 1.2 })}>{n(limit)}</div>
+      </El>
       <div style={abs({ left: lx, top, width: lw, height: barH, flexDirection: "column", justifyContent: "center", fontFamily: HAND })}>
         <El an={s.bill} t={t} style={{ flexDirection: "column" }}><Amount label={HW.bill} labelColor={ink} value={baht(bill)} color={ink} g={g} room={lw} /></El>
         <El an={s.insurer} t={t} style={{ flexDirection: "column", marginTop: Math.round(g.text * 0.5) }}><Amount label={HW.insurerPays} labelColor={ink} value={baht(Math.min(bill, limit))} color={GREEN} g={g} room={lw} /></El>
@@ -380,24 +389,54 @@ function Overflow({ d, show }: { d: Dev; show: Show<"overflow"> }) {
 }
 
 
+/**
+ * how many lines a label wrapped at its spaces takes in `room` px at `size` (a letter 0.6 of the size, as fitSize
+ * counts it, so it never says fewer lines than are drawn)
+ */
+export function wrapLines(text: string, size: number, room: number): number {
+  const width = (x: string) => [...x].length * 0.6 * size;
+  let lines = 1;
+  let used = 0;
+  for (const word of text.split(" ").filter(Boolean)) {
+    const add = used ? width(` ${word}`) : width(word);
+    if (used && used + add > room) { lines += 1; used = width(word); } else used += add;
+  }
+  return lines;
+}
+
+/**
+ * where ระยะรอคอย stands on paper: the line, the days and dots on it, the labels under them (as many lines as the
+ * longest wraps to) and the card's top below the lowest label — in portrait no higher than its own place
+ */
+export function waitingGeo(size: VideoSize, g: Pick<Geo, "text" | "dev">, rows: { at: string; label: string }[]) {
+  const r = g.dev;
+  const col = Math.round(r.w / Math.max(1, rows.length));
+  const dot = Math.round(g.text * 1.1);
+  const atSize = Math.min(...rows.map((x) => fitSize(x.at, col - 24, Math.round(g.text * 1.9))), Math.round(g.text * 1.9));
+  const atH = Math.round(atSize * 1.4);
+  const labelSize = Math.min(...rows.map((x) => fitWords(x.label, col - 24, Math.round(g.text * 1.4))), Math.round(g.text * 1.4));
+  const ly = r.y + Math.round(r.h * (size === "portrait" ? 0.3 : 0.32));
+  const margin = Math.round(g.text * 0.4);
+  const lines = Math.max(1, ...rows.map((x) => wrapLines(x.label, labelSize, col - 24)));
+  const labelBottom = ly + Math.round(dot / 2) + margin + Math.ceil(lines * labelSize * 1.3);
+  const below = labelBottom + Math.round(g.text * 0.6);
+  const cardY = size === "portrait" ? Math.max(r.y + Math.round(r.h * 0.62), below) : below;
+  return { col, dot, atSize, atH, labelSize, ly, margin, lines, labelBottom, cardY };
+}
+
 /** ระยะรอคอย: a line from today, a dot where each cover starts (the day above, what it covers under), the plan's conditions on a card */
 function Waiting({ d, show }: { d: Dev; show: Show<"waiting"> }) {
   const { c, t, s, g, w, ink } = d;
   const r = g.dev;
   const rows = show.rows;
   const last = rows.length - 1;
-  const col = Math.round(r.w / Math.max(1, rows.length));
-  const dot = Math.round(g.text * 1.1);
-  const atSize = Math.min(...rows.map((x) => fitSize(x.at, col - 24, Math.round(g.text * 1.9))), Math.round(g.text * 1.9));
-  const atH = Math.round(atSize * 1.4);
-  const labelSize = Math.min(...rows.map((x) => fitWords(x.label, col - 24, Math.round(g.text * 1.4))), Math.round(g.text * 1.4));
-  const ly = r.y + Math.round(r.h * (c.size === "portrait" ? 0.3 : 0.32));
+  const { col, dot, atSize, atH, labelSize, ly, margin, cardY } = waitingGeo(c.size, g, rows);
   const x0 = r.x + Math.round(col / 2);
   const len = Math.max(0, last) * col;
   const pad = Math.round(g.text * 0.7);
-  // the card under the labels; alone in the room's middle with no rows yet
+  // the card under the labels, below the lowest; alone in the room's middle with no rows yet
   const card = rows.length
-    ? { x: r.x + Math.round(r.w * 0.12), y: c.size === "portrait" ? r.y + Math.round(r.h * 0.62) : ly + Math.round(dot / 2 + labelSize * 2.4), w: Math.round(r.w * 0.76), h: Math.round(g.text * 3) }
+    ? { x: r.x + Math.round(r.w * 0.12), y: cardY, w: Math.round(r.w * 0.76), h: Math.round(g.text * 3) }
     : { x: r.x + Math.round(r.w * 0.12), y: r.y, w: Math.round(r.w * 0.76), h: Math.round(r.h * 0.6) };
   const dotColor = (i: number) => (i === 0 ? GREEN : i === last ? C.red : C.coin);
   return (
@@ -412,7 +451,7 @@ function Waiting({ d, show }: { d: Dev; show: Show<"waiting"> }) {
         <El key={i} an={s[`row${i}`]} t={t} style={{ position: "absolute", left: r.x + i * col, top: ly - atH - Math.round(dot / 2), width: col, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: ink }}>
           <div style={box({ height: atH, alignItems: "flex-end", fontSize: atSize, fontWeight: 700, lineHeight: 1.2, color: i === 0 ? GREEN : ink })}>{row.at}</div>
           <div style={box({ width: dot, height: dot, borderRadius: dot, background: dotColor(i), border: `4px solid ${C.ink}`, flexShrink: 0 })} />
-          <div style={box({ marginTop: Math.round(g.text * 0.4), width: col - 24, justifyContent: "center", fontSize: labelSize, fontWeight: 600, lineHeight: 1.3, textAlign: "center" })}>{row.label}</div>
+          <div style={box({ marginTop: margin, width: col - 24, justifyContent: "center", fontSize: labelSize, fontWeight: 600, lineHeight: 1.3, textAlign: "center" })}>{row.label}</div>
         </El>
       ))}
       <Sheet r={card} an={s.card} t={t} tilt={0.8} pad={pad} middle>
