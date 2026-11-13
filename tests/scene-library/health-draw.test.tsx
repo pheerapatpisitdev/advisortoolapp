@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { StoryVideoInput } from "@/lib/quote-video/story";
 import { HEALTH_WORDS, knowText, type KnowShow } from "@/lib/quote-video/story-knowledge";
+import { infoShow } from "@/lib/quote-video/story-info-motion";
 import { kspec, showBody } from "@/lib/quote-video/story-knowledge-motion";
 import { fitHand, type StoryContext } from "@/lib/quote-video/story-motion";
 import type { VideoSize } from "@/lib/quote-video/timeline";
@@ -216,4 +217,74 @@ describe("waiting, cashless, groupgap and agecost", () => {
 it("hands the words the devices draw themselves to the hand font", () => {
   const text = knowText({ scenes: SHOWS.map((show) => ({ key: "knowOne", show, voice: "" })), cta: "", contactVoice: "" });
   for (const w of Object.values(HEALTH_WORDS)) expect(text).toContain(w);
+});
+
+describe("ปากกาพล็อตเตอร์ and อินโฟกราฟิก (infoShow)", () => {
+  const LAYOUTS = ["split", "limit", "room", "overflow", "waiting", "cashless", "groupgap", "agecost"] as const;
+  const draw = (show: KnowShow, t = 6, size: VideoSize = "portrait", art: Partial<StoryVideoInput> = { art: "plot" }) => {
+    const out = infoShow(show, ctx(size, art), t);
+    return out === null ? "" : renderToStaticMarkup(out);
+  };
+
+  it("draws every health layout in every size in the plotter look", () => {
+    for (const layout of LAYOUTS) for (const size of SIZES) {
+      expect(infoShow(show(layout), ctx(size, { art: "plot" }), 3), `${layout} ${size}`).not.toBeNull();
+      expect(draw(show(layout), 3, size).length, `${layout} ${size}`).toBeGreaterThan(200);
+    }
+  });
+
+  it("draws each show in plot and info, in every size, at the start, the middle and the end, with no NaN and no shared id", () => {
+    for (const x of SHOWS) for (const size of SIZES) for (const art of [{ art: "plot" }, { art: "info" }] as Partial<StoryVideoInput>[]) for (const t of [0, 2, 6]) {
+      const out = draw(x, t, size, art);
+      expect(out, `${x.layout} ${size} ${art.art} ${t}`).not.toContain("NaN");
+      expect(out).not.toMatch(/ id="/);
+    }
+  });
+
+  it("says what the paper says: the figures, and never a negative one", () => {
+    const say = (x: KnowShow) => words(draw(x));
+    for (const w of ["เหมาจ่าย", "แยกจ่าย", "ห้อง", "ผ่าตัด", "จ่ายตามจริง", "ตัวอย่าง ตามเงื่อนไขแต่ละแผน"]) expect(say(show("split"))).toContain(w);
+    for (const w of ["5,000,000", "ต่อปี", "325,000", "4,675,000", "iHealthy Silver"]) expect(say(show("limit"))).toContain(w);
+    expect(say(show("limit", 1))).not.toContain("ใช้ไป");
+    expect(say({ layout: "limit", title: ["วงเงิน", ""], limit: 1_000_000, used: 1_200_000, planName: "iHealthy Smart" })).toContain("ใช้ครบวงเงินแล้ว");
+    for (const w of ["6,000", "4,000", "2,000", "จ่ายเองต่อคืน"]) expect(say(show("room"))).toContain(w);
+    expect(say({ layout: "room", title: ["ค่าห้อง", ""], real: 1200, plan: 1500, planName: "iHealthy Smart" })).toContain("แผนนี้จ่ายพอ");
+    expect(say(show("room", 1))).toContain("ค่าห้อง รพ. เอกชนมักเกินวงเงินของแผนเล็ก");
+    for (const w of ["300,000", "200,000", "100,000", "จ่ายเอง", "วงเงิน"]) expect(say(show("overflow"))).toContain(w);
+    expect(say({ layout: "overflow", title: ["บิล", ""], bill: 150_000, limit: 200_000 })).toContain("แผนนี้จ่ายพอ");
+    expect(say(show("overflow", 1))).toContain("เลือกวงเงินให้พอ");
+    for (const w of ["วันนี้", "อุบัติเหตุ", "120 วัน", "บางโรค", "ตามเงื่อนไขของแต่ละแผน"]) expect(say(show("waiting"))).toContain(w);
+    expect(say({ layout: "waiting", title: ["ระยะรอคอย", ""], rows: [] })).toContain("ตามเงื่อนไขของแต่ละแผน");
+    for (const w of ["รพ. ในเครือ", "ตามเงื่อนไขการเคลม"]) expect(say(show("cashless"))).toContain(w);
+    for (const w of ["ค่ารักษาจริง", "325,000", "ประกันกลุ่มจ่าย", "50,000", "ขาดอีก", "275,000"]) expect(say(show("groupgap"))).toContain(w);
+    expect(say({ layout: "groupgap", title: ["ประกันกลุ่ม", ""], bill: 40_000, group: 50_000 })).toContain("ประกันกลุ่มจ่ายพอ");
+    expect(say(show("groupgap", 1))).toContain("ประกันกลุ่มอาจไม่พอ");
+    for (const w of ["30 ปี", "60 ปี", "18,000", "61,000", "เบี้ยสัญญาเพิ่มเติมสุขภาพต่อปี ไม่รวมสัญญาหลัก"]) expect(say(show("agecost"))).toContain(w);
+    const one = say(show("agecost", 1));
+    expect(one).toContain("เบี้ยสุขภาพ");
+    expect(one).not.toContain("35 ปี");
+    for (const x of SHOWS) expect(words(draw(x)), x.layout).not.toMatch(/-\d/);
+  });
+
+  it("writes each piece with the pen: before its moment nothing of the device shows", () => {
+    // at the very start only the pieces that begin at once could show; a figure written later is hidden
+    expect(draw(show("groupgap"), 0)).toContain("opacity:0");
+  });
+});
+
+describe("negative figures (a clamp shared by every look)", () => {
+  const BAD: KnowShow[] = [
+    { layout: "limit", title: ["วงเงิน", ""], limit: -5, used: -3, planName: "x" },
+    { layout: "room", title: ["ห้อง", ""], plan: -4000, real: -100, planName: "x" },
+    { layout: "overflow", title: ["บิล", ""], bill: -300, limit: 200 },
+    { layout: "groupgap", title: ["กลุ่ม", ""], bill: 300, group: -50 },
+    { layout: "agecost", title: ["เบี้ย", ""], rows: [{ age: 30, annual: -10 }, { age: 40, annual: 20 }], source: "x" },
+  ];
+  it("never shows a negative number, in paper or plot", () => {
+    for (const x of BAD) for (const size of SIZES) {
+      expect(words(html(x, 6, size)), `${x.layout} paper`).not.toMatch(/-\d/);
+      const plotted = infoShow(x, ctx(size, { art: "plot" }), 6);
+      expect(words(renderToStaticMarkup(plotted)), `${x.layout} plot`).not.toMatch(/-\d/);
+    }
+  });
 });

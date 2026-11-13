@@ -87,10 +87,33 @@ type Show<L extends KnowShow["layout"]> = Extract<KnowShow, { layout: L }>;
 /** what each device draws with: the frame and its time, its movements, where things stand, the width and the ink */
 export interface Dev { c: StoryContext; t: number; s: Record<string, Anim>; g: Geo; w: number; ink: string }
 
+/**
+ * What each device draws, shared by every look (story-info-motion.tsx's plot draws the same): its figures never below
+ * nothing — a negative one is a mistake upstream, drawn as nothing rather than as "-5 บาท".
+ */
+const pos = (v: number) => Math.max(0, v);
 /** แยกจ่าย's items: four at most, as its card has room for */
-const splitParts = (show: Show<"split">) => show.parts.slice(0, 4);
+export const splitParts = (show: Show<"split">) => show.parts.slice(0, 4);
 /** how full each of แยกจ่าย's bars is under its ceiling */
-const PART_FILL = [0.92, 0.58, 0.78, 0.46];
+export const PART_FILL = [0.92, 0.58, 0.78, 0.46];
+/** the year's limit and what was used of it (none: nothing used, the tube stands empty) */
+export const limitFigs = (show: Show<"limit">) => ({ limit: pos(show.limit), used: show.used === undefined ? undefined : pos(show.used) });
+/** what the plan pays a night, and the room's own price when it was given */
+export const roomFigs = (show: Show<"room">) => ({ plan: pos(show.plan), real: show.real === undefined ? undefined : pos(show.real) });
+/** overflow draws its bar when it has a bill and a limit and either is above nothing; a words card otherwise (null) */
+export function overflowBar(show: Show<"overflow">): { bill: number; limit: number } | null {
+  if (show.bill === undefined || show.limit === undefined) return null;
+  const bill = pos(show.bill);
+  const limit = pos(show.limit);
+  return Math.max(bill, limit) > 0 ? { bill, limit } : null;
+}
+/** groupgap draws its bars when it has the bill and what the group plan pays, and the bill is above nothing; words only otherwise (null) */
+export function groupBars(show: Show<"groupgap">): { bill: number; group: number } | null {
+  if (show.bill === undefined || show.group === undefined || show.bill <= 0) return null;
+  return { bill: show.bill, group: pos(show.group) };
+}
+/** เบี้ยขึ้นตามอายุ's bars: six at most, as the chart has room for */
+export const ageRows = (show: Show<"agecost">) => show.rows.slice(0, 6).map((x) => ({ ...x, annual: pos(x.annual) }));
 
 /**
  * a card on paper, as the list's is (each look restyles `cut`), turned a little, popping in. `r.h` is its height;
@@ -116,7 +139,7 @@ function Amount({ label, value, color, labelColor, g, room }: { label?: string; 
   );
 }
 
-const baht = (v: number) => `${n(v)} ${HW.baht}`;
+export const baht = (v: number) => `${n(v)} ${HW.baht}`;
 /** the size a line wrapped at its spaces is set in so its longest piece fits the width (Thai breaks only at a space) */
 const fitWords = (text: string, room: number, cap: number) => Math.min(...text.split(" ").map((x) => fitSize(x, room, cap)));
 
@@ -180,9 +203,9 @@ function Limit({ d, show }: { d: Dev; show: Show<"limit"> }) {
   const ty = r.y + Math.round((r.h - tubeH) / 2);
   const pad = Math.round(tubeW * 0.09);
   const inside = tubeH - pad * 2;
-  const used = show.used;
+  const { limit, used } = limitFigs(show);
   // what was used, at least a sliver so it shows; never more than the tube. Nothing used: the tube stands empty
-  const share = used === undefined ? 0 : show.limit <= 0 ? 1 : Math.min(1, Math.max(0.04, used / show.limit));
+  const share = used === undefined ? 0 : limit <= 0 ? 1 : Math.min(1, Math.max(0.04, used / limit));
   const fill = Math.round(inside * share * look(s.fill, t).p);
   const tl = look(s.tube, t);
   const lx = tx + tubeW + Math.round(g.text * 1.2);
@@ -202,16 +225,16 @@ function Limit({ d, show }: { d: Dev; show: Show<"limit"> }) {
         </svg>
       </div>
       <El an={s.top} t={t} style={{ position: "absolute", left: lx, top: ty, width: lw, flexDirection: "column", fontFamily: HAND, color: ink }}>
-        <Amount value={baht(show.limit)} color={ink} g={g} room={lw} />
+        <Amount value={baht(limit)} color={ink} g={g} room={lw} />
         <div style={box({ fontSize: Math.round(g.text * 1.1), fontWeight: 600, lineHeight: 1.3 })}>{HW.perYear}</div>
         <div style={box({ fontSize: Math.round(g.text * 0.8), lineHeight: 1.3, opacity: 0.8 })}>{show.planName}</div>
       </El>
       {used !== undefined ? (
         <>
           <El an={s.left} t={t} style={{ position: "absolute", left: lx, top: ty + Math.round(g.text * 4.5), width: lw, flexDirection: "column", fontFamily: HAND }}>
-            {used >= show.limit
+            {used >= limit
               ? <Amount value={HW.full} color={C.red} g={g} room={lw} />
-              : <Amount label={HW.left} labelColor={ink} value={baht(show.limit - used)} color={GREEN} g={g} room={lw} />}
+              : <Amount label={HW.left} labelColor={ink} value={baht(limit - used)} color={GREEN} g={g} room={lw} />}
           </El>
           <El an={s.used} t={t} style={{ position: "absolute", left: lx, top: usedTop, width: lw, flexDirection: "column", fontFamily: HAND, color: ink }}>
             <Amount label={HW.used} value={baht(countAt(used, look(s.count, t).p))} color={ink} g={g} room={lw} />
@@ -271,7 +294,7 @@ function Room({ d, show }: { d: Dev; show: Show<"room"> }) {
     </El>
   );
   const rule = <div style={box({ height: 0, borderTop: `3px dashed ${C.ink}`, marginTop: Math.round(g.text * 0.5) })} />;
-  const real = show.real;
+  const { plan, real } = roomFigs(show);
   return (
     <>
       <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
@@ -281,17 +304,17 @@ function Room({ d, show }: { d: Dev; show: Show<"room"> }) {
         {real !== undefined ? (
           <div style={box({ flexDirection: "column" })}>
             {row(s.real, HW.realRoom, n(real), C.ink, Math.round(g.text * 1.45))}
-            {row(s.plan, HW.planPays, n(show.plan), GREEN, Math.round(g.text * 1.45))}
+            {row(s.plan, HW.planPays, n(plan), GREEN, Math.round(g.text * 1.45))}
             {rule}
             {/* a room within what the plan pays is paid: no difference to show, never a negative one */}
-            {real > show.plan
-              ? row(s.own, HW.ownNight, n(countAt(real - show.plan, look(s.count, t).p)), C.red, Math.round(g.text * 1.8))
+            {real > plan
+              ? row(s.own, HW.ownNight, n(countAt(real - plan, look(s.count, t).p)), C.red, Math.round(g.text * 1.8))
               : <El an={s.own} t={t} style={{ justifyContent: "center", marginTop: Math.round(g.text * 0.4), fontSize: fitSize(HW.enough, inner, Math.round(g.text * 1.7)), fontWeight: 700, color: GREEN }}>{HW.enough}</El>}
             <div style={box({ justifyContent: "flex-end", marginTop: Math.round(g.text * 0.3), fontSize: Math.round(g.text * 0.6), opacity: 0.7 })}>{HW.example}</div>
           </div>
         ) : (
           <div style={box({ flexDirection: "column" })}>
-            {row(s.plan, HW.planNight, n(show.plan), GREEN, Math.round(g.text * 1.6))}
+            {row(s.plan, HW.planNight, n(plan), GREEN, Math.round(g.text * 1.6))}
             {rule}
             <El an={s.words} t={t} style={{ justifyContent: "center", marginTop: Math.round(g.text * 0.5), fontSize: fitWords(HW.roomWords, inner, Math.round(g.text * 1.2)), fontWeight: 600, lineHeight: 1.35, textAlign: "center" }}>{HW.roomWords}</El>
           </div>
@@ -301,15 +324,12 @@ function Room({ d, show }: { d: Dev; show: Show<"room"> }) {
   );
 }
 
-/** overflow draws its bar when it has a bill and a limit and either is above nothing; a words card otherwise */
-const overflowBar = (show: Show<"overflow">) => show.bill !== undefined && show.limit !== undefined && Math.max(show.bill, show.limit) > 0;
-
 /** ส่วนต่างที่จ่ายเอง: the bill a bar, green up to the dashed limit and red above it, what each side pays beside it; a words card with no bill */
 function Overflow({ d, show }: { d: Dev; show: Show<"overflow"> }) {
   const { c, t, s, g, w, ink } = d;
-  const { bill, limit } = show;
+  const bar = overflowBar(show);
   const title = <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />;
-  if (!overflowBar(show) || bill === undefined || limit === undefined) {
+  if (!bar) {
     return (
       <>
         {title}
@@ -318,6 +338,7 @@ function Overflow({ d, show }: { d: Dev; show: Show<"overflow"> }) {
       </>
     );
   }
+  const { bill, limit } = bar;
   const r = g.dev;
   const foot = Math.round(g.text * 1.6);
   const barW = Math.round(Math.min(r.w * 0.24, 260));
@@ -457,14 +478,12 @@ function Cashless({ d, show }: { d: Dev; show: Show<"cashless"> }) {
   );
 }
 
-/** groupgap draws its bars when it has the bill and what the group plan pays, and the bill is above nothing */
-const groupBars = (show: Show<"groupgap">) => show.bill !== undefined && show.group !== undefined && show.bill > 0;
-
 /** ประกันกลุ่มไม่พอ: the bill a long bar, what the group plan pays a short green one, what is still short on a card; words only without both */
 function GroupGap({ d, show }: { d: Dev; show: Show<"groupgap"> }) {
   const { c, t, s, g, w, ink } = d;
   const title = <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />;
-  if (!groupBars(show) || show.bill === undefined || show.group === undefined) {
+  const figs = groupBars(show);
+  if (!figs) {
     return (
       <>
         {title}
@@ -474,8 +493,7 @@ function GroupGap({ d, show }: { d: Dev; show: Show<"groupgap"> }) {
     );
   }
   const r = g.dev;
-  const bill = show.bill;
-  const group = Math.max(0, show.group);
+  const { bill, group } = figs;
   const wide = c.size === "landscape";
   const labelSize = Math.round(g.text * 1.15);
   const barH = Math.round(g.text * 1.6);
@@ -522,9 +540,6 @@ function GroupGap({ d, show }: { d: Dev; show: Show<"groupgap"> }) {
   );
 }
 
-/** เบี้ยขึ้นตามอายุ's bars: six at most, as the chart has room for */
-const ageRows = (show: Show<"agecost">) => show.rows.slice(0, 6);
-
 /** เบี้ยขึ้นตามอายุ: a bar of the year's premium at each age, rising, the last in red, where the figures come from under them */
 function AgeCost({ d, show }: { d: Dev; show: Show<"agecost"> }) {
   const { c, t, s, g, w, ink } = d;
@@ -557,7 +572,7 @@ function AgeCost({ d, show }: { d: Dev; show: Show<"agecost"> }) {
       <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
       {rows.map((row, i) => {
         const p = look(s[`bar${i}`], t).p;
-        const h = Math.max(8, Math.round((room * Math.max(0, row.annual)) / most));
+        const h = Math.max(8, Math.round((room * row.annual) / most));
         const x = chart.x + i * slot;
         return (
           <div key={i} style={abs({ left: x, top: base - Math.round(h * p) - Math.round(figSize * 1.4), width: slot, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: ink })}>
