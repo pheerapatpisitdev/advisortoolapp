@@ -1,10 +1,12 @@
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { abs, box } from "@/lib/quote-video/motion";
-import { planName, termShort } from "@/lib/quote-video/story";
-import { Note } from "@/lib/quote-video/story-knowledge-motion";
-import { LineTitle, PaperTitle, Subtitle, type StoryContext } from "@/lib/quote-video/story-motion";
+import { planName, termShort, type StoryVideoInput } from "@/lib/quote-video/story";
+import { showText } from "@/lib/quote-video/story-knowledge";
+import { infoDrawn } from "@/lib/quote-video/story-info-motion";
+import { Note, showBody } from "@/lib/quote-video/story-knowledge-motion";
+import { info, LineTitle, PaperTitle, Subtitle, type StoryContext } from "@/lib/quote-video/story-motion";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
-import type { PromptScene, PromptStoryInput } from "./types";
+import type { DeviceScene, PromptScene, PromptStoryInput } from "./types";
 
 /**
  * คลิปตามโจทย์'s scene: the screen words in the handwriting face over a soft paper band, subtitles as
@@ -12,7 +14,8 @@ import type { PromptScene, PromptStoryInput } from "./types";
  * filed once as the scene's own layer, full bleed, and ffmpeg pushes it in (make.ts freeParts, job.ts
  * buildJob), so a frame is drawn only when a word lights up. A scene with no picture sits on the
  * paper base with its words centred. The figure card is drawn by the system, never by the painter,
- * on the scene marked `showFigure`.
+ * on the scene marked `showFigure`. A scene with a health device has no picture: the device is drawn as
+ * คลิปเล่าเรื่อง draws it in the clip's look, its own title in place of the screen words (deviceFrame).
  */
 
 const C = STORY_CLIP_COLORS;
@@ -63,16 +66,45 @@ export function figureLines(input: PromptStoryInput) {
 /**
  * Whether a scene shows the figure card, which takes the place of its words: the page shows the
  * agent "การ์ดเบี้ยจริง (ระบบวาด)" there, so no word they cannot see goes into the clip.
+ * A device scene shows its device, never the card (the device wins).
  */
-const carded = (scene: PromptScene, input: PromptStoryInput) => Boolean(scene.showFigure && figureLines(input));
+const carded = (scene: PromptScene, input: PromptStoryInput) => Boolean(!scene.device && scene.showFigure && figureLines(input));
 
-/** every letter the handwriting face is cut to: the title, each scene's words as drawn, and the figure card */
+/** every letter the handwriting face is cut to: the title, each scene's words or device as drawn, and the figure card */
 export function freeHandText(input: PromptStoryInput): string {
-  return [input.title, ...input.scenes.filter((s) => !carded(s, input)).map((s) => s.screen), ...(figureLines(input) ?? []).map((l) => l.text), "0123456789,.·"].join("");
+  const drawn = input.scenes.filter((s) => !carded(s, input)).map((s) => (s.device ? showText(s.device) : s.screen));
+  return [input.title, ...drawn, ...(figureLines(input) ?? []).map((l) => l.text), "0123456789,.·"].join("");
 }
 
-/** One frame of a scene at scene time t: the words over the scene's picture layer (`picture`), or over the paper. */
+/**
+ * The story clip a device scene is drawn as: the clip's look (freeLook) on a story input that carries only what
+ * the device drawers read, its art and ground. The topic is never read: infoShow without a key draws the
+ * layout's own icon, and a device draws no face.
+ */
+export function deviceContext(c: FreeContext): StoryContext {
+  const i = c.input;
+  const input: StoryVideoInput = {
+    product: "STORY", topic: "lumpsum", style: "story", length: "full", palette: "color", size: c.size,
+    ...(i.narrator ? { narrator: i.narrator } : {}), faces: { narrator: i.faces.narrator, hero: i.faces.narrator }, ...freeLook(i),
+  };
+  return { ...c, input };
+}
+
+/** A device scene at scene time t: the device in the clip's look on the look's ground (StoryClip), the subtitle under it. */
+function deviceFrame(device: DeviceScene, c: FreeContext, t: number) {
+  const { w, h } = SIZES[c.size];
+  const dc = deviceContext(c);
+  return (
+    <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex", overflow: "hidden" }}>
+      {info(dc.input) ? infoDrawn(device, dc, t) : showBody(device, dc, t)}
+      <Subtitle c={dc} t={t} />
+    </div>
+  );
+}
+
+/** One frame of a scene at scene time t: the words over the scene's picture layer (`picture`), or over the paper; a device in its look. */
 export function freeFrame(scene: PromptScene, picture: boolean, c: FreeContext, t: number) {
+  if (scene.device) return deviceFrame(scene.device, c, t);
   const { w, h } = SIZES[c.size];
   const g = GEO[c.size];
   const card = carded(scene, c.input) ? figureLines(c.input) : null;

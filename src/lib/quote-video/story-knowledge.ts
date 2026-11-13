@@ -276,30 +276,42 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
   };
 }
 
+/** a health device (scene library): drawn with digits and "บาท", and words of its own (HEALTH_WORDS) */
+export const isHealth = (show: KnowShow): boolean => (HEALTH_LAYOUTS as readonly string[]).includes(show.layout);
+
+/** the words one show puts on screen from its own fields (a device's own words and digits are showText's) */
+function showWords(show: KnowShow): string[] {
+  const words: string[] = [];
+  if ("title" in show) words.push(...show.title);
+  if ("note" in show && show.note && typeof show.note !== "string") words.push(...show.note.map((l) => l.text));
+  if (show.layout === "card") words.push(...show.lines.map((l) => l.text));
+  if (show.layout === "myth") words.push(...show.quote, "ความเชื่อ");
+  if (show.layout === "fact") words.push(show.crossed, "ความจริง");
+  if (show.layout === "list") words.push(...show.items);
+  if (show.layout === "recap") words.push(...show.lines.map((l) => l.text), "จำง่าย ๆ");
+  if (show.layout === "bars") words.push(...show.lead, ...show.rows.flatMap((r) => [r.label, r.text]));
+  if (show.layout === "kin" && show.tags) words.push(...show.tags.items);
+  if (show.layout === "timeline") words.push(...show.rows.flatMap((r) => [r.at, r.label]));
+  if (show.layout === "pic" && show.day) words.push(show.day);
+  if (show.layout === "split") words.push(...show.parts, show.whole);
+  if (show.layout === "cashless") words.push(show.note);
+  if (show.layout === "waiting") words.push(...show.rows.flatMap((r) => [r.at, r.label]));
+  if (show.layout === "limit" || show.layout === "room") words.push(show.planName);
+  if (show.layout === "agecost") words.push(show.source);
+  return words;
+}
+
+/** health devices draw their numbers with digits and "บาท", and words of their own */
+const HEALTH_TEXT = ["0123456789,บาท", ...Object.values(HEALTH_WORDS)];
+
+/** every word one show puts on screen, for the handwriting face: a knowledge scene's, or a คลิปตามโจทย์ device scene's */
+export function showText(show: KnowShow): string {
+  return [...showWords(show), ...(isHealth(show) ? HEALTH_TEXT : [])].join("");
+}
+
 /** every word an episode puts on screen, for the handwriting face */
 export function knowText(e: KnowEpisode): string {
-  const words: string[] = [e.cta];
-  let health = false;
-  for (const { show } of e.scenes) {
-    if ("title" in show) words.push(...show.title);
-    if ("note" in show && show.note && typeof show.note !== "string") words.push(...show.note.map((l) => l.text));
-    if (show.layout === "card") words.push(...show.lines.map((l) => l.text));
-    if (show.layout === "myth") words.push(...show.quote, "ความเชื่อ");
-    if (show.layout === "fact") words.push(show.crossed, "ความจริง");
-    if (show.layout === "list") words.push(...show.items);
-    if (show.layout === "recap") words.push(...show.lines.map((l) => l.text), "จำง่าย ๆ");
-    if (show.layout === "bars") words.push(...show.lead, ...show.rows.flatMap((r) => [r.label, r.text]));
-    if (show.layout === "kin" && show.tags) words.push(...show.tags.items);
-    if (show.layout === "timeline") words.push(...show.rows.flatMap((r) => [r.at, r.label]));
-    if (show.layout === "pic" && show.day) words.push(show.day);
-    if (show.layout === "split") words.push(...show.parts, show.whole);
-    if (show.layout === "cashless") words.push(show.note);
-    if (show.layout === "waiting") words.push(...show.rows.flatMap((r) => [r.at, r.label]));
-    if (show.layout === "limit" || show.layout === "room") words.push(show.planName);
-    if (show.layout === "agecost") words.push(show.source);
-    if ((HEALTH_LAYOUTS as readonly string[]).includes(show.layout)) health = true;
-  }
-  // health devices draw their numbers with digits and "บาท", and words of their own
-  if (health) words.push("0123456789,บาท", ...Object.values(HEALTH_WORDS));
+  const words: string[] = [e.cta, ...e.scenes.flatMap(({ show }) => showWords(show))];
+  if (e.scenes.some(({ show }) => isHealth(show))) words.push(...HEALTH_TEXT);
   return words.join("");
 }

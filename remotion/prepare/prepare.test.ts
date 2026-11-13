@@ -270,6 +270,23 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
   for (const style of ["paper", "warm", "plot", "line"] as const) {
     writeFileSync(join(PUB, `props/st-free-${style}.json`), JSON.stringify(storyClipProps({ ...free, style } as never, "portrait", "", "M", CONTACT, fPlans, fScript, fSecs, clipLength(fPlans), "audio/st-free.wav", [...free.pictures])));
   }
+
+  // health devices in place of the painter's pictures (scene library, 2026-11-13): a clip of two device scenes in
+  // each of the four looks, drawn by the system on the look's ground, no picture filed for them
+  const devices = {
+    ...free, title: "ประกันสุขภาพ", pictures: [null, null],
+    scenes: [
+      { voice: "เหมาจ่ายกับแยกจ่าย ต่างกันตรงที่แยกจ่ายมีวงเงินของแต่ละหมวด", screen: "", picture: "", device: { layout: "split", title: ["เหมาจ่าย", "ต่างจากแยกจ่ายยังไง"], parts: ["ห้อง", "ยา", "ผ่าตัด", "แพทย์"], whole: "จ่ายตามจริง" } },
+      { voice: "วงเงินห้าล้านต่อปี ใช้ไปสามแสนกว่า ยังเหลืออีกมาก", screen: "", picture: "", device: { layout: "limit", title: ["วงเงินต่อปี", "ใช้ไปเท่าไหร่"], limit: 5_000_000, used: 325_000, planName: "iHealthy Silver" } },
+    ],
+  } as const;
+  const dScript = [...devices.scenes.map((s) => ({ key: "freeScene" as const, voice: s.voice })), fScript[fScript.length - 1]];
+  const dSecs = dScript.map((s) => secsOf(s.voice));
+  const dPlans = planScenes(dScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: dSecs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS })));
+  writeFileSync(join(PUB, "audio/st-free-device.wav"), silentWav(clipLength(dPlans)));
+  for (const style of ["paper", "warm", "plot", "line"] as const) {
+    writeFileSync(join(PUB, `props/st-free-device-${style}.json`), JSON.stringify(storyClipProps({ ...devices, style } as never, "portrait", "", "M", CONTACT, dPlans, dScript, dSecs, clipLength(dPlans), "audio/st-free-device.wav", [undefined, undefined])));
+  }
 });
 
 /**

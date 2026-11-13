@@ -162,11 +162,19 @@ function itemParts(text: string, i: number, mark: "check" | "cross" | "box" | "w
 export function infoBody(key: KnowSceneKey | "storyContact", c: StoryContext, t: number, episode: KnowEpisode) {
   K = plot(c.input) ? PLOT_KIT : INFO_KIT;
   if (key === "storyContact") return <Contact c={c} t={t} />;
-  if (!K.plot) return infoScene(key, c, t, episode);
+  return infoDrawn(episode.scenes.find((x) => x.key === key)!.show, c, t, key);
+}
+
+/**
+ * One show at scene time t in อินโฟกราฟิก, or in ปากกาพล็อตเตอร์ with the machine over the sheet: a knowledge
+ * scene's (infoBody), or a คลิปตามโจทย์ device scene's (prompt-story/frames.tsx).
+ */
+export function infoDrawn(shown: KnowShow, c: StoryContext, t: number, key?: KnowSceneKey) {
+  K = plot(c.input) ? PLOT_KIT : INFO_KIT;
+  if (!K.plot) return infoShow(shown, c, t, key);
   // ปากกาพล็อตเตอร์: the same scene in the pen's hand, with the machine's rail and carriage over the sheet; the
   // carriage rides with the piece being written, and waits at the right when nothing is
   const { w: fw, h: fh } = SIZES[c.size];
-  const shown = episode.scenes.find((x) => x.key === key)!.show;
   const live = Object.values(kspec(shown)).filter((x) => t >= x.at && t < x.at + x.dur).sort((x, y) => y.at - x.at)[0];
   const p = live ? (t - live.at) / live.dur : 1;
   const gk = GEO[c.size].k;
@@ -175,7 +183,7 @@ export function infoBody(key: KnowSceneKey | "storyContact", c: StoryContext, t:
   const x = side + Math.round((fw - side * 2 - 110 * gk) * p);
   return (
     <div style={abs({ left: 0, top: 0, width: fw, height: fh, fontFamily: HAND })}>
-      {infoScene(key, c, t, episode)}
+      {infoShow(shown, c, t, key)}
       <div style={abs({ left: Math.round(side * 0.3), top: railY, width: fw - Math.round(side * 0.6), height: Math.round(22 * gk), borderRadius: 999, background: S.plotRail, border: `2px solid ${S.plotRailEdge}` })} />
       <div style={abs({ left: x, top: railY - Math.round(26 * gk), width: Math.round(110 * gk), height: Math.round(74 * gk), borderRadius: Math.round(12 * gk), background: S.plotHead })} />
       <div style={abs({ left: x + Math.round(40 * gk), top: railY + Math.round(48 * gk), width: Math.round(30 * gk), height: Math.round((live ? 34 : 20) * gk), background: S.plotPaper, border: `3px solid ${S.plotHead}` })} />
@@ -195,13 +203,10 @@ function E({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSP
   return <div style={{ display: "flex", ...style, ...(p < 1 ? { clipPath: `inset(-40% ${((1 - p) * 100).toFixed(1)}% -40% -10%)` } : {}) }}>{children}</div>;
 }
 
-function infoScene(key: KnowSceneKey, c: StoryContext, t: number, episode: KnowEpisode) {
-  return infoShow(episode.scenes.find((s) => s.key === key)!.show, c, t, key);
-}
-
 /**
  * One show drawn in อินโฟกราฟิก or ปากกาพล็อตเตอร์ at scene time t, with no episode around it: a knowledge scene's
- * (its key names the episode's own icons), or a prompt clip's device scene (the layout's own icon).
+ * (its key names the episode's own icons), or a prompt clip's device scene (the layout's own icon). infoDrawn puts
+ * ปากกาพล็อตเตอร์'s machine over it.
  */
 export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowSceneKey) {
   K = plot(c.input) ? PLOT_KIT : INFO_KIT;

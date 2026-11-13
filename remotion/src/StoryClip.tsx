@@ -16,7 +16,8 @@ import { KeepWords } from "./KeepWords";
 /**
  * คลิปเล่าเรื่อง and คลิปตามโจทย์ drawn by Remotion (src/lib/quote-video/remotion.ts StoryClipProps). The frames are
  * the app's own clipFrame / freeFrame at the scene's time, over the story paper; a คลิปตามโจทย์ scene's picture
- * fills the frame and is pushed in 1.00 → 1.12 over its scene, as buildJob's zoompan does; the cross-fades are
+ * fills the frame and is pushed in 1.00 → 1.12 over its scene, as buildJob's zoompan does (a health device scene has
+ * none: freeFrame draws the device on the look's ground); the cross-fades are
  * job.ts's, at every one of the 30 frames a second.
  */
 
@@ -98,14 +99,16 @@ export function StoryClip(p: StoryClipProps) {
     if (t < XFADE && s > 0) style = crossing(transitionOf(sc.key, Boolean(p.fx), TRANSITIONS), t / XFADE, w).in;
     else if (next && T >= next.start) style = crossing(transitionOf(next.key, Boolean(p.fx), TRANSITIONS), (T - next.start) / XFADE, w).out;
     const free = p.kind === "free" ? (p.input as PromptStoryInput) : null;
+    // a health device is drawn by the system in the clip's look, on the same ground as a scene with no picture
+    const picture = sc.picture && !(free && sc.key !== "storyContact" && free.scenes[s]?.device) ? sc.picture : undefined;
     const body = !free ? clipFrame(sc.key as StorySceneKey, c, t)
       : sc.key === "storyContact" ? storyFrame("storyContact", c, t)
-      : freeFrame(free.scenes[s], Boolean(sc.picture), c as unknown as Parameters<typeof freeFrame>[2], t);
+      : freeFrame(free.scenes[s], Boolean(picture), c as unknown as Parameters<typeof freeFrame>[2], t);
     return (
       <AbsoluteFill key={`${sc.key}-${s}`} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", inset: 0, display: "flex" }}>{storyBackground(p.size, lookIn ?? undefined)}</div>
-        {sc.picture ? (
-          <Img src={asUrl(sc.picture)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1 + PUSH * Math.min(1, t / sc.dur)})` }} />
+        {picture ? (
+          <Img src={asUrl(picture)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1 + PUSH * Math.min(1, t / sc.dur)})` }} />
         ) : null}
         <div className="piece" style={{ position: "absolute", inset: 0, display: "flex" }}><KeepWords>{body}</KeepWords></div>
       </AbsoluteFill>
