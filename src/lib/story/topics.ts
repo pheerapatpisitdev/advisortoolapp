@@ -44,7 +44,7 @@ export interface StoryTopicInfo {
   figure: "plan" | "ladder" | "pension" | "health" | null;
   /** the plans a "plan" figure may come from; every plan when unset */
   plans?: StoryPlan[];
-  home?: "spend" | "school" | "loan" | "retire";
+  home?: "spend" | "school" | "loan" | "retire" | "group";
   /** the hero is the children's mother, so a woman */
   heroSex?: "F";
   /** the clip cannot be told without the plan's figure (the policy handed over) */
@@ -69,7 +69,7 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "prebaby", name: "ก่อนมีลูก ต้องเตรียมอะไร", shelf: "family", blurb: "คู่รักกับคนตัวเล็กที่กำลังจะมา", figure: null },
   { key: "eldercare", name: "ใครดูแลพ่อแม่ตอนแก่", shelf: "family", blurb: "ถ้าคนที่ดูแลพ่อแม่ ล้มป่วยเสียเอง", figure: "plan", plans: ["ISHIELD"] },
   { key: "thinkfirst", name: "“ขอคิดดูก่อน”", shelf: "objection", blurb: "คิดก่อนดีแล้ว แต่ระหว่างคิด อายุกับสุขภาพไม่รอ", figure: "ladder", figureAt: 3 },
-  { key: "groupins", name: "“มีประกันกลุ่มบริษัทแล้ว”", shelf: "objection", blurb: "ประกันกลุ่มดี แต่ผูกกับงาน", figure: null },
+  { key: "groupins", name: "“มีประกันกลุ่มบริษัทแล้ว”", shelf: "objection", blurb: "ประกันกลุ่มดี แต่ผูกกับงาน", figure: null, home: "group" },
   { key: "welfare", name: "“มีบัตรทอง ประกันสังคมแล้ว”", shelf: "objection", blurb: "สิทธิรักษามีจริง แต่รายได้ระหว่างป่วยใครจ่าย", figure: "plan", plans: ["ISHIELD"] },
   { key: "bank", name: "“เอาเงินไปฝากธนาคารดีกว่า”", shelf: "objection", blurb: "ออมไว้ใช้ ประกันไว้กันเรื่องใหญ่ ควรมีทั้งสอง", figure: "plan", plans: ["LIFEPROTECT"], figureAt: 2 },
   { key: "pricey", name: "“เบี้ยแพง ไม่มีงบ”", shelf: "objection", blurb: "เริ่มเท่าที่ไหว ดีกว่าไม่เริ่ม", figure: "plan", plans: ["LIFEPROTECT"], figureAt: 2 },

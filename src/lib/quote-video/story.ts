@@ -99,7 +99,8 @@ export interface StoryVideoInput {
  */
 export type StoryHome =
   | { kind: "spend"; monthly: number; years: number } | { kind: "school"; childAge: number; tuition: number }
-  | { kind: "loan"; debt: number; years: number } | { kind: "retire"; monthly: number };
+  | { kind: "loan"; debt: number; years: number } | { kind: "retire"; monthly: number }
+  | { kind: "group"; bill: number; group: number };
 
 /** บำนาญ 95 for ใกล้เกษียณ: who, from what age, and the engine's pension and premium */
 export interface StoryPension { sex: "M" | "F"; age: number; annuityAge: number; pay: PensionPay; sumAssured: number; monthlyPension: number; annual: number; payYears: number }
@@ -225,6 +226,13 @@ export function storyHome(topic: StoryTopicInfo, v: unknown): StoryHome | string
     if (monthly === null) return "ค่าใช้จ่ายหลังเกษียณต่อเดือน 1,000 – 1,000,000 บาท";
     return { kind: "retire", monthly };
   }
+  if (topic.home === "group") {
+    const bill = int(o.bill, 1, 10_000_000);
+    if (bill === null) return "ค่ารักษา 1 – 10,000,000 บาท";
+    const group = int(o.group, 1, 10_000_000);
+    if (group === null) return "วงเงินประกันกลุ่ม 1 – 10,000,000 บาท";
+    return { kind: "group", bill, group };
+  }
   return "เรื่องนี้ไม่ใช้ตัวเลขของบ้าน";
 }
 
@@ -280,8 +288,7 @@ export function checkedStory(
     pension = p;
   }
   let health: StoryHealth | undefined;
-  // groupins is not a health topic, but may carry a bill and the group's sum for its gap scene
-  if (topic.figure === "health" || (topic.key === "groupins" && v.health)) {
+  if (topic.figure === "health") {
     const h = storyHealth(v.health);
     if (typeof h === "string") return h;
     health = h;
@@ -413,9 +420,9 @@ const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
   mortgage: ["ผ่อนบ้านอยู่ ถ้าคนผ่อนไม่อยู่ บ้านจะเป็นของใคร?", "ทุนประกันชีวิตอย่างน้อยเท่าหนี้บ้านที่เหลือ บ้านยังเป็นของครอบครัว"],
   selfemployed: ["ฟรีแลนซ์ เจ้าของกิจการ สวัสดิการอยู่ไหน?", "ไม่มีเจ้านาย ก็ไม่มีสวัสดิการ สวัสดิการของเรา เราสร้างเองได้"],
   preretire: ["เกษียณแล้ว เงินพอไหม?", "เงินเดือนหยุดตอนเกษียณ แต่ชีวิตยังไปต่ออีกหลายสิบปี เริ่มเตรียมก่อนวันเกษียณ"],
-  lumpsum: ["ประกันสุขภาพ เหมาจ่าย กับ แยกจ่าย ต่างกันยังไง?", "แยกจ่ายมีเพดานแต่ละรายการ เหมาจ่ายรวมเป็นก้อนเดียว ตามเงื่อนไขของแต่ละแผน"],
-  roomcost: ["ค่าห้องแพงกว่าที่แผนจ่าย ส่วนต่างใครจ่าย?", "ส่วนต่างเราจ่ายเอง เลือกค่าห้องและวงเงินให้พอกับที่ใช้จริง"],
-  waiting: ["สมัครประกันสุขภาพวันนี้ คุ้มครองเมื่อไหร่?", "อุบัติเหตุคุ้มครองทันที ป่วยทั่วไปและบางโรคมีช่วงรอ โรคที่เป็นมาก่อนสมัครไม่คุ้มครอง แถลงสุขภาพให้ครบ"],
+  lumpsum: ["ประกันสุขภาพ เหมาจ่าย กับ แยกจ่าย ต่างกันยังไง?", "แยกจ่ายคือแต่ละรายการมีเพดานของตัวเอง เหมาจ่ายคือจ่ายตามจริงภายในวงเงินต่อปี ตามเงื่อนไขของแต่ละแผน"],
+  roomcost: ["ค่าห้องแพงกว่าที่แผนจ่าย ส่วนต่างใครจ่าย?", "ส่วนที่เกินวงเงินค่าห้อง เราจ่ายเอง ตามเงื่อนไขของแผน เลือกค่าห้องและวงเงินให้พอกับที่ใช้จริง"],
+  waiting: ["สมัครประกันสุขภาพวันนี้ คุ้มครองเมื่อไหร่?", "นับช่วงรอจากวันที่กรมธรรม์มีผล ป่วยทั่วไปและบางโรคมีช่วงรอ โรคที่เป็นมาก่อนสมัครปกติไม่คุ้มครอง ตามเงื่อนไข แถลงสุขภาพให้ครบ"],
   agecost: ["ทำประกันสุขภาพตอนอายุน้อย เบี้ยถูกกว่าจริงไหม?", "เบี้ยสุขภาพขึ้นตามอายุ ยิ่งเริ่มเร็ว ยิ่งเริ่มต้นที่เบี้ยต่ำกว่า"],
 };
 
@@ -429,7 +436,7 @@ export function storyCaption(input: StoryVideoInput): string {
     return [
       ...EPISODE_CAPTION[input.topic],
       "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
-      ...(input.figure || input.ladder || input.pension ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : input.pension ? PENSION_NAME : planName(input.figure!.plan)} เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท`] : []),
+      ...(input.figure || input.ladder || input.pension || input.health ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : input.pension ? PENSION_NAME : input.health ? `iHealthy ${input.health.figures.planName}` : planName(input.figure!.plan)} เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท`] : []),
       "",
       { family: "#ครอบครัว #ประกันชีวิต", after: "#ดูแลหลังการขาย #ประกันชีวิต", objection: "#ตอบข้อสงสัย #ประกันชีวิต", life: "#ช่วงชีวิต #ประกันชีวิต" }[topicOf(input.topic)?.shelf as string] ?? "#ความรู้ประกัน #ประกันชีวิต",
     ].join("\n");

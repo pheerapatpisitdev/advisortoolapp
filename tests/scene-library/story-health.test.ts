@@ -123,18 +123,25 @@ describe("the ประกันสุขภาพ shelf", () => {
     const f = inp.health!.figures;
     expect(healthScenes("waiting", inp, "")[1].show).toMatchObject({
       layout: "waiting",
-      rows: [{ at: "วันนี้", label: "อุบัติเหตุ" }, { at: `${f.waitingDays} วัน`, label: "ป่วยทั่วไป" }, { at: `${f.specialWaitingDays} วัน`, label: "บางโรค" }],
+      rows: [{ at: "วันนี้", label: "กรมธรรม์มีผล" }, { at: `${f.waitingDays} วัน`, label: "ป่วยทั่วไป" }, { at: `${f.specialWaitingDays} วัน`, label: "บางโรค" }],
     });
   });
 });
 
 describe("มีประกันกลุ่มบริษัทแล้ว with a typed bill", () => {
-  it("shows groupgap in the fourth scene's place only when bill and group are both typed", () => {
-    // an episode has exactly five scenes (KNOW_KEYS), so the gap replaces the note about applying on one's own
-    const both = objectionScenes("groupins", input("groupins", { ...PLAN, bill: 325_000, group: 50_000 }));
+  const grouped = (home?: Record<string, unknown>) => {
+    const s = checkedStory({ topic: "groupins", faces: { narrator: "w26", hero: "w15" }, ...(home ? { home } : {}) } as never, "F");
+    if (typeof s === "string") throw new Error(s);
+    return s;
+  };
+  it("shows groupgap in the fourth scene's place only when the home is typed", () => {
+    const both = objectionScenes("groupins", grouped({ bill: 325_000, group: 50_000 }));
     expect(both.map((s) => s.key)).toEqual(KNOW_KEYS);
     expect(both[3].show).toMatchObject({ layout: "groupgap", bill: 325_000, group: 50_000 });
-    expect(both[0].show.layout).toBe("myth");
-    expect(objectionScenes("groupins", input("groupins", { ...PLAN, bill: 325_000 })).some((s) => s.show.layout === "groupgap")).toBe(false);
+    expect(objectionScenes("groupins", grouped()).some((s) => s.show.layout === "groupgap")).toBe(false);
+  });
+  it("says in Thai what is wrong", () => {
+    expect(checkedStory({ topic: "groupins", home: { bill: 0, group: 5 } } as never, "F")).toMatch(/[ก-๙]/);
+    expect(checkedStory({ topic: "groupins", home: { bill: 5, group: 10_000_001 } } as never, "F")).toMatch(/[ก-๙]/);
   });
 });

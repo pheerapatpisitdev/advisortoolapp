@@ -54,8 +54,8 @@ function thinkFirst(input: StoryVideoInput): KnowScene[] {
 
 const groupIns = (input: StoryVideoInput): KnowScene[] => {
   const scenes = groupInsWords();
-  const bill = input.health?.bill, group = input.health?.group;
-  if (bill === undefined || group === undefined) return scenes;
+  if (input.home?.kind !== "group") return scenes;
+  const { bill, group } = input.home;
   // an episode has five scenes: the gap, worked out on the agent's two numbers, stands where the note on applying alone stood
   const gap = Math.max(bill - group, 0);
   const voice = gap > 0
