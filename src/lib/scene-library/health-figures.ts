@@ -1,5 +1,5 @@
 import type { Sex } from "@/calc/types";
-import { arrangementFor } from "@/lib/assistant/ihealthy/quote";
+import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
 import { iHealthyFacts, isHeading, planLabel } from "@/lib/ihealthy-facts";
 import { iHealthyPricing, plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -8,7 +8,8 @@ import { iHealthyTable } from "@/lib/ihealthy-table";
  * The figures the health scenes draw, every one read from the iHealthy sheet or its rate table:
  * nothing here is typed in. The premium at each age is the health rider's own annual premium
  * for the plan (what the plan costs), priced by the same path the iHealthy page and the bot use,
- * on the standard arrangement (`arrangementFor`: default territory and coverage).
+ * on the standard arrangement (IHEALTHY_OPENING's base, sum, territory and coverage, as the bot's
+ * `arrangementFor` opens with), read from ihealthy-choice so no bot code goes into the Remotion bundle.
  */
 export interface HealthFigures {
   plan: string;
@@ -38,10 +39,10 @@ export function healthFigures(v: { plan: string; sex: Sex; age: number }): Healt
   const ages: HealthFigures["ages"] = [];
   for (const age of AGES) {
     if (!plansFor(table, age).some((p) => p.code === v.plan)) continue;
-    const a = arrangementFor({ age, sex: v.sex, plan: v.plan });
+    const a = IHEALTHY_OPENING;
     const priced = iHealthyPricing(table, {
       base: a.base, sex: v.sex, age, sumAssured: a.sumAssured,
-      plan: a.plan, territory: a.territory, coverage: a.coverage,
+      plan: v.plan, territory: a.territory, coverage: a.coverage,
     });
     const annual = priced?.rider.find((m) => m.mode === "annual");
     if (annual) ages.push({ age, annual: Math.round(annual.total) / 100 });

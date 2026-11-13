@@ -81,7 +81,7 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "preretire", name: "ใกล้เกษียณ", shelf: "life", blurb: "เงินเดือนหยุดที่เกษียณ แต่ชีวิตยังไปต่ออีกหลายสิบปี", figure: "pension", home: "retire", figureAt: 4 },
   { key: "lumpsum", name: "เหมาจ่าย กับ แยกจ่าย", shelf: "health", blurb: "สองแบบจ่ายค่ารักษา ต่างกันยังไง", figure: "health" },
   { key: "roomcost", name: "ค่าห้องเกิน ใครจ่าย", shelf: "health", blurb: "ห้องแพงกว่าที่แผนจ่าย ส่วนต่างเป็นของเรา", figure: "health" },
-  { key: "waiting", name: "สมัครวันนี้ คุ้มครองเมื่อไหร่", shelf: "health", blurb: "ช่วงรอคอยของอุบัติเหตุ ป่วยทั่วไป และบางโรค", figure: "health" },
+  { key: "waiting", name: "สมัครวันนี้ คุ้มครองเมื่อไหร่", shelf: "health", blurb: "ช่วงรอคอยของการป่วยทั่วไป และบางโรค", figure: "health" },
   { key: "agecost", name: "ทำตอนอายุน้อย เบี้ยถูกกว่า", shelf: "health", blurb: "เบี้ยสุขภาพขึ้นตามอายุ ยิ่งเริ่มเร็วยิ่งเริ่มต้นต่ำ", figure: "health" },
   { key: "deliver", name: "ส่งมอบกรมธรรม์", shelf: "after", blurb: "ขอบคุณ สรุปสิ่งที่ได้ เบี้ย เริ่มคุ้มครองเมื่อไร", figure: "plan", figureRequired: true },
   { key: "claimish", name: "วิธีเคลม · โรคร้ายแรง", shelf: "after", blurb: "iShield: จ่ายตามระยะของโรค ยื่นเคลมยังไง", figure: "plan", plans: ["ISHIELD"] },

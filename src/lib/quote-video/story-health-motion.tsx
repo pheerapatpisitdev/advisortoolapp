@@ -382,8 +382,10 @@ function Overflow({ d, show }: { d: Dev; show: Show<"overflow"> }) {
         <El an={s.own} t={t} style={{ flexDirection: "column", marginTop: Math.round(g.text * 0.5) }}>
           {bill > limit
             ? <Amount label={HW.own} labelColor={C.red} value={baht(countAt(bill - limit, look(s.count, t).p))} color={C.red} g={g} room={lw} />
-            : <Amount value={HW.enough} color={GREEN} g={g} room={lw} />}
+            : <Amount value={HW.withinYear} color={GREEN} g={g} room={lw} />}
         </El>
+        {/* what the insurer pays is an example within the plan's conditions, as the room's card says (ruling R12) */}
+        <El an={s.insurer} t={t} style={{ marginTop: Math.round(g.text * 0.45), fontSize: Math.round(g.text * 0.6), color: ink, opacity: 0.7 }}>{`${HW.example} ${HW.terms}`}</El>
       </div>
       <El an={s.foot} t={t} style={{ position: "absolute", left: r.x, width: r.w, top: base + Math.round(g.text * 0.45), justifyContent: "center", fontFamily: HAND, fontSize: Math.round(g.text * 0.8), fontWeight: 600, color: ink }}>{`${HW.choose}${HW.chooseFoot}`}</El>
     </>
@@ -603,7 +605,9 @@ function AgeCost({ d, show }: { d: Dev; show: Show<"agecost"> }) {
   const labels = rows.map((x) => `${x.age} ${HW.years}`);
   const labelSize = Math.min(...labels.map((x) => fitSize(x, slot - 12, Math.round(g.text * 1.2))));
   const sourceSize = fitWords(show.source, r.w - 40, Math.round(g.text * 0.75));
-  const foot = Math.round(labelSize * 1.6) + Math.round(sourceSize * 3.2);
+  // room under the labels for the source as many lines as it wraps to (two at the least)
+  const sourceLines = Math.max(2, wrapLines(show.source, sourceSize, r.w - 40));
+  const foot = Math.round(labelSize * 1.6) + Math.round(sourceSize * (sourceLines * 1.35 + 0.5));
   const top = r.y + Math.round(figSize * 1.5);
   const base = r.y + r.h - foot;
   const room = base - top;

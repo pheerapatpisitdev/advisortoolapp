@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkedStory, storyHealth, type StoryVideoInput } from "@/lib/quote-video/story";
+import { checkedStory, storyCaption, storyHealth, type StoryVideoInput } from "@/lib/quote-video/story";
 import { KNOW_KEYS, knowEpisode, knowText, type KnowShow } from "@/lib/quote-video/story-knowledge";
 import { healthScenes, HEALTH_CLOSE, type HealthTopic } from "@/lib/quote-video/story-health";
 import { objectionScenes } from "@/lib/quote-video/story-objection";
@@ -118,6 +118,33 @@ describe("the ประกันสุขภาพ shelf", () => {
     expect(healthScenes("agecost", one, "")[1].show.layout).toBe("note");
   });
 
+  it("agecost never says or implies the premium stays: it renews yearly by age, and joining young is told for what it gives", () => {
+    const shown = (show: KnowShow): string[] => {
+      const o = show as { title?: string[]; note?: { text: string }[]; lines?: { text: string }[]; items?: string[]; source?: string };
+      return [...(o.title ?? []), ...(o.note ?? []).map((l) => l.text), ...(o.lines ?? []).map((l) => l.text), ...(o.items ?? []), ...(o.source ? [o.source] : [])];
+    };
+    const inp = withHealth("agecost");
+    const one = { ...inp, health: { ...inp.health!, figures: { ...inp.health!.figures, ages: inp.health!.figures.ages.slice(0, 1) } } };
+    for (const v of [inp, one]) {
+      const scenes = healthScenes("agecost", v, "");
+      const all = scenes.flatMap((s) => [...shown(s.show), s.voice]).join(" | ");
+      for (const fixed of ["ตามอายุที่สมัคร", "เริ่มต้นถูกกว่า", "เริ่มต้นที่เบี้ยต่ำกว่า", "เบี้ยเริ่มต้นต่ำกว่า", "ดีกว่าทำทีหลัง", "ล็อก", "คงที่", "ตลอดสัญญา", "ไม่ขึ้น"]) {
+        expect(all, fixed).not.toContain(fixed);
+      }
+      expect(shown(scenes[4].show)).toContain("เบี้ยปรับตามอายุ ทุกปีที่ต่อสัญญา");
+      expect(all).toContain("ยังไม่มีโรคเดิมให้ยกเว้น");
+      expect(scenes[4].voice).toContain("ปรับตามอายุทุกปีที่ต่อสัญญา");
+    }
+    const ages = healthScenes("agecost", inp, "")[1];
+    expect((ages.show as { source: string }).source).toMatch(/อัตราปัจจุบัน เบี้ยปีต่ออายุอาจเปลี่ยนแปลง$/);
+    expect(ages.voice).toContain("เบี้ยปีต่ออายุอาจเปลี่ยนแปลง");
+    expect(healthScenes("agecost", one, "")[1].voice).toContain("ปรับตามอายุทุกปีที่ต่อสัญญา");
+  });
+
+  it("waiting's blurb names no accident waiting (the sheet states none)", () => {
+    expect(STORY_TOPICS.find((t) => t.key === "waiting")!.blurb).not.toContain("อุบัติเหตุ");
+  });
+
   it("waiting reads the days off the sheet", () => {
     const inp = withHealth("waiting");
     const f = inp.health!.figures;
@@ -126,6 +153,24 @@ describe("the ประกันสุขภาพ shelf", () => {
       rows: [{ at: "วันนี้", label: "กรมธรรม์มีผล" }, { at: `${f.waitingDays} วัน`, label: "ป่วยทั่วไป" }, { at: `${f.specialWaitingDays} วัน`, label: "บางโรค" }],
     });
   });
+});
+
+describe("a health clip's caption", () => {
+  const plan = "Silver";
+  for (const topic of TOPICS) {
+    it(`${topic}: says the numbers are the iHealthy sheet's example under the policy's terms, with the health hashtag`, () => {
+      const c = storyCaption(withHealth(topic));
+      expect(c).toContain(`*ตัวเลขในคลิปเป็นตัวอย่างจาก iHealthy ${plan} ความคุ้มครองและเงื่อนไขเป็นไปตามกรมธรรม์`);
+      expect(c).not.toContain("*เบี้ยในคลิปเป็นตัวอย่าง");
+      expect(c).toContain("#ประกันสุขภาพ");
+      expect(c).not.toContain("#ประกันชีวิต");
+      if (topic === "agecost") {
+        expect(c).toContain("เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท เบี้ยปีต่ออายุอาจเปลี่ยนแปลง");
+      } else {
+        expect(c).not.toContain("เบี้ย");
+      }
+    });
+  }
 });
 
 describe("มีประกันกลุ่มบริษัทแล้ว with a typed bill", () => {

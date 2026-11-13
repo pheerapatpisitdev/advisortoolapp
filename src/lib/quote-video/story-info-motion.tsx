@@ -680,8 +680,10 @@ function overflow(d: Dev, show: Show<"overflow">) {
         <E an={s.insurer} t={t} style={{ flexDirection: "column", marginTop: Math.round(24 * k) }}><Figure label={HW.insurerPays} value={baht(Math.min(bill, cap))} color={K.green} k={k} room={lw} /></E>
         {/* a bill within the limit is paid: no part the customer pays, never a negative one */}
         <E an={s.own} t={t} style={{ flexDirection: "column", marginTop: Math.round(24 * k) }}>
-          {bill > cap ? <Figure label={HW.own} value={baht(countAt(bill - cap, look(s.count, t).p))} color={K.red} k={k} room={lw} /> : <Figure value={HW.enough} color={K.green} k={k} room={lw} size={68} />}
+          {bill > cap ? <Figure label={HW.own} value={baht(countAt(bill - cap, look(s.count, t).p))} color={K.red} k={k} room={lw} /> : <Figure value={HW.withinYear} color={K.green} k={k} room={lw - Math.round(40 * k)} size={60} />}
         </E>
+        {/* what the insurer pays is an example within the plan's conditions, as the room's card says (ruling R12) */}
+        <E an={s.insurer} t={t} style={{ marginTop: Math.round(18 * k), fontSize: Math.round(30 * k), color: K.soft }}>{`${HW.example} ${HW.terms}`}</E>
       </div>
       <E an={s.foot} t={t} style={{ position: "absolute", left: a.x, width: a.w, top: base + Math.round(20 * k), justifyContent: "center", fontSize: Math.round(40 * k), fontWeight: 600, color: K.soft }}>{`${HW.choose}${HW.chooseFoot}`}</E>
     </>
@@ -834,7 +836,9 @@ function agecost(d: Dev, show: Show<"agecost">) {
   const labels = rows.map((x) => `${x.age} ${HW.years}`);
   const labelSize = Math.min(...labels.map((x) => fitSize(x, Math.round(52 * k), slot - 12)));
   const sourceSize = fitWords(show.source, Math.round(36 * k), a.w - 40);
-  const base = a.y + a.h - Math.round(labelSize * 1.6) - Math.round(sourceSize * 3.2);
+  // room under the labels for the source as many lines as it wraps to (two at the least)
+  const sourceLines = Math.max(2, wrapLines(show.source, sourceSize, a.w - 40));
+  const base = a.y + a.h - Math.round(labelSize * 1.6) - Math.round(sourceSize * (sourceLines * 1.35 + 0.5));
   const room = base - (a.y + Math.round(figSize * 1.6));
   const most = Math.max(1, ...rows.map((x) => x.annual));
   return (

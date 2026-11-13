@@ -441,8 +441,19 @@ const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
   lumpsum: ["ประกันสุขภาพ เหมาจ่าย กับ แยกจ่าย ต่างกันยังไง?", "แยกจ่ายคือแต่ละรายการมีเพดานของตัวเอง เหมาจ่ายคือจ่ายตามจริงภายในวงเงินต่อปี ตามเงื่อนไขของแต่ละแผน"],
   roomcost: ["ค่าห้องแพงกว่าที่แผนจ่าย ส่วนต่างใครจ่าย?", "ส่วนที่เกินวงเงินค่าห้อง เราจ่ายเอง ตามเงื่อนไขของแผน เลือกค่าห้องและวงเงินให้พอกับที่ใช้จริง"],
   waiting: ["สมัครประกันสุขภาพวันนี้ คุ้มครองเมื่อไหร่?", "นับช่วงรอจากวันที่กรมธรรม์มีผล ป่วยทั่วไปและบางโรคมีช่วงรอ โรคที่เป็นมาก่อนสมัครปกติไม่คุ้มครอง ตามเงื่อนไข แถลงสุขภาพให้ครบ"],
-  agecost: ["ทำประกันสุขภาพตอนอายุน้อย เบี้ยถูกกว่าจริงไหม?", "เบี้ยสุขภาพขึ้นตามอายุ ยิ่งเริ่มเร็ว ยิ่งเริ่มต้นที่เบี้ยต่ำกว่า"],
+  agecost: ["ทำประกันสุขภาพตอนอายุน้อย เบี้ยถูกกว่าจริงไหม?", "สมัครตอนสุขภาพดี ยังไม่มีโรคเดิมให้ยกเว้น เบี้ยสุขภาพปรับตามอายุทุกปีที่ต่อสัญญา ช่วงอายุน้อยจึงจ่ายในอัตราที่ต่ำกว่า"],
 };
+
+const PREMIUM_REAL = "เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท";
+
+/**
+ * a ประกันสุขภาพ clip's footnote: its figures (limits, room, waiting days) are the iHealthy sheet's, so it says
+ * numbers, not premiums; only agecost shows a premium, and that rider's premium is renewed each year (ruling R11)
+ */
+function healthFootnote(topic: StoryTopic, plan: string): string {
+  const head = `*ตัวเลขในคลิปเป็นตัวอย่างจาก iHealthy ${plan} ความคุ้มครองและเงื่อนไขเป็นไปตามกรมธรรม์`;
+  return topic === "agecost" ? `${head} ${PREMIUM_REAL} เบี้ยปีต่ออายุอาจเปลี่ยนแปลง` : head;
+}
 
 /** the caption a story clip goes up on a Page with: no customer, no premium of anyone's */
 export function storyCaption(input: StoryVideoInput): string {
@@ -454,9 +465,10 @@ export function storyCaption(input: StoryVideoInput): string {
     return [
       ...EPISODE_CAPTION[input.topic],
       "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
-      ...(input.figure || input.ladder || input.pension || input.health ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : input.pension ? PENSION_NAME : input.health ? `iHealthy ${input.health.figures.planName}` : planName(input.figure!.plan)} เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท`] : []),
+      ...(input.health ? ["", healthFootnote(input.topic, input.health.figures.planName)]
+        : input.figure || input.ladder || input.pension ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : input.pension ? PENSION_NAME : planName(input.figure!.plan)} ${PREMIUM_REAL}`] : []),
       "",
-      { family: "#ครอบครัว #ประกันชีวิต", after: "#ดูแลหลังการขาย #ประกันชีวิต", objection: "#ตอบข้อสงสัย #ประกันชีวิต", life: "#ช่วงชีวิต #ประกันชีวิต" }[topicOf(input.topic)?.shelf as string] ?? "#ความรู้ประกัน #ประกันชีวิต",
+      { family: "#ครอบครัว #ประกันชีวิต", after: "#ดูแลหลังการขาย #ประกันชีวิต", objection: "#ตอบข้อสงสัย #ประกันชีวิต", life: "#ช่วงชีวิต #ประกันชีวิต", health: "#ความรู้ประกัน #ประกันสุขภาพ" }[topicOf(input.topic)?.shelf as string] ?? "#ความรู้ประกัน #ประกันชีวิต",
     ].join("\n");
   }
   return [

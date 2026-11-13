@@ -97,10 +97,19 @@ describe("showBody", () => {
     expect(words(html({ layout: "overflow", title: ["บิล", ""], bill: 300_000 }))).toContain("เลือกวงเงินให้พอ");
   });
 
-  it("overflow: a bill within the limit says the plan pays it, never a negative number", () => {
+  it("overflow: a bill within the limit says it is within the year's limit, never a negative number", () => {
     const out = words(html({ layout: "overflow", title: ["บิล", ""], bill: 150_000, limit: 200_000 }));
-    expect(out).toContain("แผนนี้จ่ายพอ");
+    expect(out).toContain("อยู่ในวงเงินต่อปี");
+    expect(out).not.toContain("แผนนี้จ่ายพอ");
     expect(out).not.toContain("-");
+  });
+
+  it("overflow: what the insurer pays is said as an example under the plan's conditions, over the limit and within it", () => {
+    for (const size of SIZES) for (const art of ARTS) for (const bill of [300_000, 150_000]) {
+      const out = words(html({ layout: "overflow", title: ["บิล", ""], bill, limit: 200_000 }, 6, size, art));
+      expect(out, `${size} ${art.art} ${bill}`).toContain("ประกันจ่าย");
+      expect(out, `${size} ${art.art} ${bill}`).toContain("ตัวอย่าง ตามเงื่อนไข");
+    }
   });
 
   it("shrinks a 40-letter title to fit the frame, in landscape below the portrait title's size", () => {
@@ -153,7 +162,7 @@ describe("showBody", () => {
 
   it("overflow: a bill equal to the limit shows no negative; nothing to draw shows the words card", () => {
     const even = words(html({ layout: "overflow", title: ["บิล", ""], bill: 200_000, limit: 200_000 }));
-    expect(even).toContain("แผนนี้จ่ายพอ");
+    expect(even).toContain("อยู่ในวงเงินต่อปี");
     expect(even).not.toContain("-");
     for (const size of SIZES) {
       const zero = html({ layout: "overflow", title: ["บิล", ""], bill: 0, limit: 0 }, 6, size);
@@ -251,7 +260,11 @@ describe("ปากกาพล็อตเตอร์ and อินโฟก�
     expect(say({ layout: "room", title: ["ค่าห้อง", ""], real: 1200, plan: 1500, planName: "iHealthy Smart" })).toContain("แผนนี้จ่ายพอ");
     expect(say(show("room", 1))).toContain("ค่าห้อง รพ. เอกชนมักเกินวงเงินของแผนเล็ก");
     for (const w of ["300,000", "200,000", "100,000", "จ่ายเอง", "วงเงิน"]) expect(say(show("overflow"))).toContain(w);
-    expect(say({ layout: "overflow", title: ["บิล", ""], bill: 150_000, limit: 200_000 })).toContain("แผนนี้จ่ายพอ");
+    expect(say({ layout: "overflow", title: ["บิล", ""], bill: 150_000, limit: 200_000 })).toContain("อยู่ในวงเงินต่อปี");
+    expect(say({ layout: "overflow", title: ["บิล", ""], bill: 150_000, limit: 200_000 })).not.toContain("แผนนี้จ่ายพอ");
+    for (const bill of [300_000, 150_000]) for (const art of [{ art: "plot" }, { art: "info" }] as Partial<StoryVideoInput>[]) {
+      expect(words(draw({ layout: "overflow", title: ["บิล", ""], bill, limit: 200_000 }, 6, "portrait", art)), `${art.art} ${bill}`).toContain("ตัวอย่าง ตามเงื่อนไข");
+    }
     expect(say(show("overflow", 1))).toContain("เลือกวงเงินให้พอ");
     for (const w of ["วันนี้", "อุบัติเหตุ", "120 วัน", "บางโรค", "ตามเงื่อนไขของแต่ละแผน"]) expect(say(show("waiting"))).toContain(w);
     expect(say({ layout: "waiting", title: ["ระยะรอคอย", ""], rows: [] })).toContain("ตามเงื่อนไขของแต่ละแผน");
