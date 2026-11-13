@@ -1,7 +1,8 @@
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
-import { BRIEF_MAX, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
+import { allowedFor, checkDevice } from "./check";
+import { BRIEF_MAX, isPromptFormat, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
  * คลิปตามโจทย์'s form, checked on the server before anything is held: the brief and the script as
@@ -44,12 +45,18 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
   }
   const scenes: PromptScene[] = [];
   let shown = false;
+  // a device's numbers come from the brief or the plan, as the script's do
+  const allowed = allowedFor(brief, figure);
   for (const [i, raw] of (v.scenes as unknown[]).entries()) {
     const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-    const sc: PromptScene = { voice: text(o.voice), screen: text(o.screen), picture: text(o.picture) };
+    // a device that fails its check is dropped: the scene is a picture scene, and is priced as one
+    const device = o.device === undefined || o.device === null ? undefined : checkDevice(o.device, allowed);
+    const sc: PromptScene = { voice: text(o.voice), screen: text(o.screen), picture: text(o.picture), ...(typeof device === "object" ? { device } : {}) };
     if (!sc.voice || len(sc.voice) > VOICE_MAX) return `ฉากที่ ${i + 1}: ใส่คำพูด ไม่เกิน ${VOICE_MAX} ตัวอักษร`;
     if (!sc.screen || len(sc.screen) > SCREEN_MAX) return `ฉากที่ ${i + 1}: ใส่ข้อความบนจอ ไม่เกิน ${SCREEN_MAX} ตัวอักษร`;
-    if (!sc.picture || len(sc.picture) > PICTURE_MAX) return `ฉากที่ ${i + 1}: ใส่ภาพที่อยากได้ ไม่เกิน ${PICTURE_MAX} ตัวอักษร`;
+    // a picture scene needs its words for the painter; a device scene is drawn by the system
+    if (!sc.device && !sc.picture) return `ใส่คำบรรยายภาพของฉากที่ ${i + 1}`;
+    if (len(sc.picture) > PICTURE_MAX) return `ฉากที่ ${i + 1}: ใส่ภาพที่อยากได้ ไม่เกิน ${PICTURE_MAX} ตัวอักษร`;
     // the figure card is drawn on one scene at most, and only when a plan was priced
     if (o.showFigure === true && figure && !shown) {
       sc.showFigure = true;
@@ -60,6 +67,7 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
   const face = v.faces && typeof v.faces === "object" ? (v.faces as Record<string, unknown>).narrator : undefined;
   return {
     product: "FREESTORY", draftId: v.draftId, brief, title, caption, scenes,
+    ...(isPromptFormat(v.format) ? { format: v.format } : {}),
     style: v.style as PictureStyle, painter: v.painter as PromptStoryInput["painter"],
     size: sizeOf(v), narrator, ...(voice ? { voice } : {}),
     faces: { narrator: typeof face === "string" && FACES.some((f) => f.id === face) ? face : DEFAULT_NARRATOR_FACE },

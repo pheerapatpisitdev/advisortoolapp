@@ -1,4 +1,5 @@
 import type { StoryFigure } from "@/lib/quote-video/story";
+import type { HealthLayout, KnowShow } from "@/lib/quote-video/story-knowledge";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { pictureSatang, type Prices } from "@/lib/wallet/prices";
 
@@ -24,7 +25,22 @@ export const PICTURE_STYLES: { id: PictureStyle; name: string }[] = [
   { id: "line", name: "การ์ตูนลายเส้น" },
 ];
 
-export type PromptScene = { voice: string; screen: string; picture: string; showFigure?: boolean };
+/**
+ * A system-drawn health device (scene library, 2026-11-13) in place of a scene's AI picture: drawn by the
+ * story looks, never painted, never charged as a picture. Its numbers pass checkDevice (check.ts).
+ */
+export type DeviceScene = Extract<KnowShow, { layout: HealthLayout }>;
+
+/** a scene: its picture words are drawn by the painter, unless it carries a device (then they may be empty) */
+export type PromptScene = { voice: string; screen: string; picture: string; showFigure?: boolean; device?: DeviceScene };
+
+/** how the writer shapes the script (owner, 2026-11-13, 2ก): none on a row means ตามโจทย์ */
+export type PromptFormat = "free" | "drama3" | "claimreview";
+/** the formats the form offers, in its order */
+export const PROMPT_FORMATS: { id: PromptFormat; name: string }[] = [
+  { id: "free", name: "ตามโจทย์" }, { id: "drama3", name: "ละครสั้น 3 ฉาก" }, { id: "claimreview", name: "รีวิวเคสเคลม" },
+];
+export const isPromptFormat = (v: unknown): v is PromptFormat => PROMPT_FORMATS.some((f) => f.id === v);
 
 /** a คลิปตามโจทย์: the agent's own brief turned into a script, pictures and a clip */
 export interface PromptStoryInput {
@@ -36,6 +52,8 @@ export interface PromptStoryInput {
   title: string;
   caption: string;
   scenes: PromptScene[];
+  /** the writer's structure; none on rows made before 2026-11-13 */
+  format?: PromptFormat;
   style: PictureStyle;
   painter: "standard" | "sharp" | "gemini";
   size?: VideoSize;
@@ -45,7 +63,7 @@ export interface PromptStoryInput {
   gemini?: string;
   faces: { narrator: string };
   figure?: StoryFigure;
-  /** each scene's picture in the clip's folder ("<id>/pic-<n>.png", n from 0), null where it fell back to paper */
+  /** each scene's picture in the clip's folder ("<id>/pic-<n>.png", n from 0), null where it fell back to paper or the scene is a device */
   pictures?: (string | null)[];
   /** the written draft this clip was made from: a second press of the same draft is refused */
   draftId?: string;
@@ -60,12 +78,15 @@ export const isPromptStory = (v: { product?: string }): v is PromptStoryInput =>
 /** one of the clip's pictures, at its painter's price (a redraw costs this) */
 export const promptPicturePrice = (v: Pick<PromptStoryInput, "painter">, prices: Prices): number => pictureSatang(prices, v.painter) ?? 0;
 
-/** every scene's picture */
-export const promptPicturesPrice = (v: PromptStoryInput, prices: Prices): number => v.scenes.length * promptPicturePrice(v, prices);
+/** the scenes the painter draws: every scene but a device's */
+export const pictureScenes = (v: Pick<PromptStoryInput, "scenes">): number => v.scenes.filter((s) => !s.device).length;
+
+/** every picture scene's picture (a device scene is drawn by the system, at no charge) */
+export const promptPicturesPrice = (v: PromptStoryInput, prices: Prices): number => pictureScenes(v) * promptPicturePrice(v, prices);
 
 /** what a free clip still pays from the wallet (spec, Money): its pictures */
 export const promptFreePrice = (v: PromptStoryInput, prices: Prices): number => promptPicturesPrice(v, prices);
 
-/** the clip, a picture per scene, and the ElevenLabs extra when a voice is chosen */
+/** the clip, a picture per picture scene, and the ElevenLabs extra when a voice is chosen */
 export const promptStoryPrice = (v: PromptStoryInput, prices: Prices): number =>
   prices.videoPrompt + promptPicturesPrice(v, prices) + (v.voice ? prices.elevenExtra : 0);

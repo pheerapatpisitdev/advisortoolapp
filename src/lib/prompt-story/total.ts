@@ -7,6 +7,8 @@ import { promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStory
  */
 export function totalLine(v: {
   scenes: number;
+  /** the scenes drawn by the painter (pictureScenes); a device scene is not charged. None given: every scene */
+  pictures?: number;
   painter: PromptStoryInput["painter"];
   voice?: string;
   prices: Prices;
@@ -17,10 +19,12 @@ export function totalLine(v: {
   /** the บัญชีสาธิต (CostView's demo, 2026-11-11) */
   demo?: boolean;
 }): { text: string; baht: string; blocked?: true } {
-  // only scenes.length, painter and voice are read by the price functions
-  const shell = { scenes: Array.from({ length: v.scenes }), painter: v.painter, ...(v.voice ? { voice: v.voice } : {}) } as unknown as PromptStoryInput;
+  // only the scenes (which carry a device), painter and voice are read by the price functions
+  const drawn = Math.min(v.scenes, Math.max(0, v.pictures ?? v.scenes));
+  const scenes = Array.from({ length: v.scenes }, (_, i) => (i < drawn ? {} : { device: true }));
+  const shell = { scenes, painter: v.painter, ...(v.voice ? { voice: v.voice } : {}) } as unknown as PromptStoryInput;
   const each = priceBaht(promptPicturePrice(shell, v.prices));
-  const pictures = `รูป ${v.scenes} × ฿${each}`;
+  const pictures = `รูป ${drawn} × ฿${each}`;
   if (v.kind === "staff") return { text: v.demo ? "บัญชีทดลอง ใช้ฟรี" : "เจ้าของใช้ฟรี", baht: "0" };
   // owner, 2026-10-16: the button is shut and says why, rather than refusing after the press
   if (v.kind === "free" && v.walletOff) return { text: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้ จึงยังสร้างคลิปตามโจทย์ไม่ได้", baht: "0", blocked: true };

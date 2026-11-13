@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 import { DEFAULT_PRICES, pictureSatang } from "@/lib/wallet/prices";
+import { PAINTERS } from "@/lib/content/models";
 import { promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 
 /**
@@ -568,5 +569,79 @@ describe("ดีไซน์พิเศษ removed (Shotstack, owner 2026-11-11
     expect(row.held_satang).toBe(DEFAULT_PRICES.videoPrompt + 3 * DEFAULT_PRICES.drawStandard);
     expect((row.input as PromptStoryInput).engine).toBe("remotion");
     expect(row.input).not.toHaveProperty("design");
+  });
+});
+
+describe("device scenes (health devices): never drawn as a picture, never charged as one", () => {
+  const cashless = { layout: "cashless" as const, title: ["เคลม", "ง่าย"] as [string, string], note: "ไม่ต้องสำรองจ่าย" };
+  /** five scenes, the 2nd and 4th a device */
+  const mixed = (over: Partial<PromptStoryInput> = {}) => {
+    const v = input(over);
+    const s = v.scenes;
+    v.scenes = [s[0], { voice: "เคลมง่าย", screen: "เคลมง่าย", picture: "", device: cashless }, s[1], { voice: "ไม่ต้องสำรองจ่าย", screen: "ไม่สำรองจ่าย", picture: "", device: cashless }, s[2]];
+    return v;
+  };
+  const each = () => pictureSatang(DEFAULT_PRICES, "standard")!;
+
+  it("holds the clip and the three picture scenes only", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, mixed(), "");
+    const row = rowOf((made as { id: string }).id);
+    expect(row.held_satang).toBe(DEFAULT_PRICES.videoPrompt + 3 * each());
+    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", DEFAULT_PRICES.videoPrompt + 3 * each(), "quote-video-prompt");
+  });
+
+  it("a free clip holds the three pictures only", async () => {
+    const made = await createPromptStory(taster, mixed(), "");
+    expect(rowOf((made as { id: string }).id).held_satang).toBe(3 * each());
+  });
+
+  it("draws three pictures for five scenes and files none for a device", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, mixed(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect(ai.draw).toHaveBeenCalledTimes(3);
+    expect((row.input as PromptStoryInput).pictures).toEqual([`${id}/pic-0.png`, null, `${id}/pic-2.png`, null, `${id}/pic-4.png`]);
+    expect(db.files.has(`${id}/pic-1.png`)).toBe(false);
+    expect(db.files.has(`${id}/pic-3.png`)).toBe(false);
+    // the device scenes were never held, so nothing comes off for them
+    expect(row.held_satang).toBe(DEFAULT_PRICES.videoPrompt + 3 * each());
+    expect(db.notes.filter((n) => n.step === "pictures").map((n) => [n.done, n.of])).toEqual([[0, 3], [1, 3], [2, 3], [3, 3]]);
+    expect((row.cost_parts as { pictures: number }).pictures).toBeCloseTo(3 * (PAINTERS.find((p) => p.id === "standard")?.thb ?? 0));
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as { scenes: { picture?: string }[] };
+    expect(props.scenes[1].picture).toBeUndefined();
+    expect(props.scenes[3].picture).toBeUndefined();
+    expect(props.scenes[4].picture).toContain(`${id}/pic-4.png`);
+  });
+
+  it("a picture that fails comes off the hold once; the devices never do", async () => {
+    freeUsedUp();
+    ai.draw.mockImplementation(async (a: { prompt: string }) => {
+      if (a.prompt.includes("bills on a table")) throw new Error("painter down");
+      return { bytes: picture(++drawn) };
+    });
+    const made = await createPromptStory(agent, mixed(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect((row.input as PromptStoryInput).pictures).toEqual([`${id}/pic-0.png`, null, null, null, `${id}/pic-4.png`]);
+    expect(row.held_satang).toBe(DEFAULT_PRICES.videoPrompt + 2 * each());
+  });
+
+  it("refuses to redraw a device scene, and takes nothing", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, mixed(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
+    wallet.holdWallet.mockClear();
+    ai.draw.mockClear();
+    const r = await redrawPicture(agent, id, 1);
+    expect(r.ok).toBe(false);
+    expect(wallet.holdWallet).not.toHaveBeenCalled();
+    expect(ai.draw).not.toHaveBeenCalled();
+    expect(rowOf(id).status).toBe("done");
   });
 });

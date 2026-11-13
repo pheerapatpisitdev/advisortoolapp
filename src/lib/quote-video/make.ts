@@ -26,7 +26,7 @@ import { mixNarration, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcSceneKey, type FhcVideoInput } from "./fhc";
 import { fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
-import { isPromptStory, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { isPromptStory, pictureScenes, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
 import { claimDraft, releaseDraft } from "@/lib/prompt-story/drafts";
@@ -530,15 +530,17 @@ const pictureThb = (painter: string) => PAINTERS.find((p) => p.id === painter)?.
 /**
  * A คลิปตามโจทย์'s pictures, three at a time, each filed as "<id>/pic-<n>.png" and named on the
  * row's input. A picture that fails twice leaves its scene on paper, and is not charged: the
- * clip's hold settles that much less (redrawing it later is one picture's price).
+ * clip's hold settles that much less (redrawing it later is one picture's price). A device scene
+ * is drawn by the system: never painted, its picture null, never held for so never given back.
  */
 async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Bar): Promise<{ input: PromptStoryInput; costThb: number }> {
   const { id, input } = row;
   const size = clipSize(input);
-  const of = input.scenes.length;
+  const of = pictureScenes(input);
   let done = 0;
   bar.note({ step: "pictures", done: 0, of });
   const pictures = await pool(input.scenes, 3, async (scene, s): Promise<string | null> => {
+    if (scene.device) return null;
     const png = await drawScenePicture(scene, input.style, input.painter, size);
     bar.note({ step: "pictures", done: ++done, of });
     if (!png) return null;
@@ -546,7 +548,8 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
     return `${id}/${picName(s)}`;
   });
   const next: PromptStoryInput = { ...input, pictures };
-  const missing = pictures.filter((p) => p === null).length;
+  // only a picture scene was held for, so only a picture scene that failed comes off
+  const missing = input.scenes.filter((sc, s) => !sc.device && pictures[s] === null).length;
   const patch: Partial<VideoRow> = { input: next };
   if (missing && row.hold_id && row.held_satang) {
     patch.held_satang = Math.max(0, Number(row.held_satang) - missing * promptPicturePrice(input, await walletPrices()));
@@ -817,8 +820,8 @@ async function cutStoryWithRemotion(
 const renderKeyOf = (): Promise<string | null> => providerKey("gcp");
 
 /** the script's fields as the agent knows them */
-const FIELD: Record<string, string> = { voice: "คำพูด", screen: "ข้อความบนจอ", picture: "ภาพ" };
-const reasonWords = (r: string) => r.replace(/^(voice|screen|picture): /, (_, f: string) => `${FIELD[f]}: `);
+const FIELD: Record<string, string> = { voice: "คำพูด", screen: "ข้อความบนจอ", picture: "ภาพ", device: "อุปกรณ์" };
+const reasonWords = (r: string) => r.replace(/^(voice|screen|picture|device): /, (_, f: string) => `${FIELD[f]}: `);
 
 /**
  * Starts a คลิปตามโจทย์ (spec 2026-10-16, Money): the script, as the agent may have edited it, is
@@ -869,6 +872,8 @@ export async function redrawPicture(
   if (row.status !== "done" || !row.video_path) return { ok: false, error: "วาดใหม่ได้เฉพาะคลิปที่ทำเสร็จแล้ว" };
   const input = row.input;
   if (!Number.isInteger(scene) || scene < 0 || scene >= input.scenes.length) return { ok: false, error: "ไม่พบฉากนี้" };
+  // a device scene has no picture to draw, and is never charged as one
+  if (input.scenes[scene].device) return { ok: false, error: "ฉากนี้เป็นภาพจากระบบ ไม่มีภาพ AI ให้วาดใหม่" };
   const gcpKey = await renderKeyOf();
   if (!gcpKey) return { ok: false, error: FAILED };
   const pcms = await keptVoice(id, input.scenes.length + 1);
@@ -934,6 +939,8 @@ export async function redrawScene({ id, scene, agentName, hold, price }: RedrawJ
     const { data: row, error } = await rows().select("*").eq("id", id).single<VideoRow>();
     if (error || !row || !isPromptStory(row.input)) throw new Error("row not read");
     const input = row.input;
+    // redrawPicture refuses a device scene: one reaching here is drawn by the system, never painted
+    if (input.scenes[scene]?.device) throw new Error("device scene has no picture");
     const gcpKey = await renderKeyOf();
     if (!gcpKey) throw new Error("no render key");
     const pcms = await keptVoice(id, input.scenes.length + 1);
