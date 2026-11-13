@@ -32,8 +32,40 @@ export function allowedFor(brief: string, figure?: StoryFigure): Set<number> {
   return out;
 }
 
-/** why a scene cannot go in the clip (empty when fine): voice, screen and picture are all held to the same rules */
-export function checkScene(scene: PromptScene, allowed: Set<number>): string[] {
+/**
+ * The figures a device may show, and the figures inside its words: the brief's and the plan's as
+ * written. Not allowedFor's spoken millions ("3" for 3,000,000): a device's "3" would draw 3 baht.
+ */
+export function deviceAllowed(brief: string, figure?: StoryFigure): Set<number> {
+  const out = new Set<number>();
+  for (const m of brief.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(ล้าน)?/g)) {
+    const n = Number(m[1].replace(/,/g, ""));
+    if (Number.isFinite(n)) out.add(m[2] ? n * 1_000_000 : n);
+  }
+  if (figure) for (const n of [figure.age, figure.sumAssured, figure.annual, figure.monthly]) if (Number.isFinite(n) && n > 0) out.add(n);
+  return out;
+}
+
+/**
+ * What no word of a คลิปตามโจทย์ may say, told to the writer: built from the same lists checkScene
+ * holds the words to, so the prompt and the check cannot drift. A rule that is a plain list of words
+ * gives its words; any other (greetings, Thai digits, links, emoji…) gives its reason as "ห้าม…".
+ */
+export function forbiddenForPrompt(): { words: string[]; rules: string[] } {
+  const words: string[] = [];
+  const rules: string[] = [];
+  for (const x of [...FORBIDDEN, ...FREE_FORBIDDEN]) {
+    if (/^[\p{L}\p{M}\d% |]+$/u.test(x.re.source)) words.push(...x.re.source.split("|"));
+    else rules.push(`ห้าม${x.why}`);
+  }
+  return { words, rules };
+}
+
+/**
+ * why a scene cannot go in the clip (empty when fine): voice, screen and picture are all held to the
+ * same rules; a device's numbers to `forDevice` (deviceAllowed), else to `allowed`
+ */
+export function checkScene(scene: PromptScene, allowed: Set<number>, forDevice: Set<number> = allowed): string[] {
   const reasons: string[] = [];
   for (const field of ["voice", "screen", "picture"] as const) {
     const t = scene[field] ?? "";
@@ -44,7 +76,7 @@ export function checkScene(scene: PromptScene, allowed: Set<number>): string[] {
     if (stray !== undefined) reasons.push(`${field}: ตัวเลข ${stray} ไม่อยู่ในโจทย์หรือแผน`);
   }
   if (scene.device) {
-    const d = checkDevice(scene.device, allowed);
+    const d = checkDevice(scene.device, forDevice);
     if (typeof d === "string") reasons.push(`device: ${d}`);
   }
   return reasons;
@@ -62,7 +94,7 @@ function wordReasons(field: string, t: string, allowed: Set<number>): string[] {
 /**
  * A scene's health device, as the writer or the agent left it, made fit to draw: only the device's own
  * fields are kept; every word at most SCREEN_MAX and held to the script's rules; a list (parts, rows) at
- * most four; every number a whole number above nought that the brief or the plan gave (allowedFor), the
+ * most four; every number a whole number above nought that the brief or the plan gave (deviceAllowed), the
  * figures inside words too. Anything else is the first reason, naming its field.
  */
 export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | string {
@@ -150,8 +182,9 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
 /** the scenes (0-based) that fail, with their reasons */
 export function checkScript(scenes: PromptScene[], brief: string, figure?: StoryFigure): { scene: number; reasons: string[] }[] {
   const allowed = allowedFor(brief, figure);
+  const forDevice = deviceAllowed(brief, figure);
   return scenes.flatMap((s, scene) => {
-    const reasons = checkScene(s, allowed);
+    const reasons = checkScene(s, allowed, forDevice);
     return reasons.length ? [{ scene, reasons }] : [];
   });
 }

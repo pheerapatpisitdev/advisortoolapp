@@ -1,7 +1,7 @@
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
-import { allowedFor, checkDevice } from "./check";
+import { checkDevice, deviceAllowed } from "./check";
 import { BRIEF_MAX, isPromptFormat, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
@@ -48,8 +48,8 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
   }
   const scenes: PromptScene[] = [];
   let shown = false;
-  // a device's numbers come from the brief or the plan, as the script's do
-  const allowed = allowedFor(brief, figure);
+  // a device's figures as the brief and plan write them, never the spoken millions
+  const allowed = deviceAllowed(brief, figure);
   for (const [i, raw] of (v.scenes as unknown[]).entries()) {
     const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
     // a device that fails its check is dropped: the scene is a picture scene, and is priced as one

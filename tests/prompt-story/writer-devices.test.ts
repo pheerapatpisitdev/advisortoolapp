@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { rewriteScene, writeStory } from "@/lib/prompt-story/writer";
-import { REWRITES_DONE, REWRITES_PER_DRAFT } from "@/lib/prompt-story/checked";
+import { promptDeviceName, rewriteScene, writeStory } from "@/lib/prompt-story/writer";
+import { checkedPromptStory, REWRITES_DONE, REWRITES_PER_DRAFT } from "@/lib/prompt-story/checked";
+import { checkDevice, checkScript, deviceAllowed } from "@/lib/prompt-story/check";
+import { FORBIDDEN } from "@/lib/quote-video/brief";
 import { DEVICES } from "@/lib/scene-library/devices";
 
 /** health devices picked by the writer, its formats, and one scene written again (Task 9) */
@@ -68,14 +70,36 @@ describe("writeStory picks devices", () => {
     await writeStory({ brief: BRIEF, scenes: 8, ask });
     const system = ask.mock.calls[0][0] as string;
     for (const d of DEVICES) {
-      expect(system).toContain(`${d.key} (${d.name})`);
+      expect(system).toContain(`${d.key} (${promptDeviceName(d)})`);
       expect(system).toContain(d.when);
       expect(system).toContain(`"layout":"${d.key}"`);
       for (const f of [...d.numberFields, ...d.wordFields]) expect(system).toContain(`"${f}"`);
     }
     expect(system).toContain("ไม่เกิน 4 ฉาก");
+    // every device line the model reads is free of the words no script may say (agecost's own name has เบี้ย)
+    const deviceLines = system.split("\n").filter((l) => DEVICES.some((d) => l.startsWith(`- ${d.key} (`)));
+    expect(deviceLines).toHaveLength(DEVICES.length);
+    for (const l of deviceLines) for (const x of FORBIDDEN) expect(x.re.test(l), `${x.why}: ${l}`).toBe(false);
+    expect(system).toContain("ค่าประกันสุขภาพต่อปีสูงขึ้นตามช่วงอายุ");
+    expect(system).not.toContain("อายุน้อยยิ่งดี");
+    expect(system).toMatch(/agecost: ทุกช่องข้อความ \(title และ source\) ห้ามใช้คำว่า เบี้ย/);
+    // planName's shape reads as JSON
+    expect(system).toContain(`"planName":"ชื่อแผน (ไม่มีให้ใส่ว่าง)"`);
+    expect(system).not.toContain(`หรือ ""`);
     expect(system).toContain("ค่าประกันสุขภาพ");
     expect(system).toMatch(/ตัวเลขที่ใช้ในอุปกรณ์ได้: .*4000.*6000|ตัวเลขที่ใช้ในอุปกรณ์ได้: .*6000.*4000/);
+  });
+
+  it("the forbidden words, generated from the check's own lists, are told once for every word and the device words", async () => {
+    const ask = vi.fn().mockResolvedValue(reply([sc(), sc(), sc()]));
+    await writeStory({ brief: BRIEF, scenes: 3, ask });
+    const system = ask.mock.calls[0][0] as string;
+    const line = system.split("\n").find((l) => l.includes("ห้ามมีคำเหล่านี้"));
+    expect(line).toBeTruthy();
+    for (const w of ["เบี้ย", "เสียชีวิต", "ตาย", "เวนคืน", "%", "ผลตอบแทน", "ดอกเบี้ย", "กำไร", "ปันผล", "การันตี", "ไม่มีความเสี่ยง", "ทันที", "Allianz"]) expect(line).toContain(w);
+    for (const r of ["ห้ามมีคำทักทาย", "ห้ามใช้เลขไทย", "ห้ามเขียนตัวเลขเป็นคำ", "ห้ามมีลิงก์", "ห้ามมีอีโมจิ", "ห้ามสัญญาว่าไม่ต้องตรวจสุขภาพ"]) expect(line).toContain(r);
+    expect(system.split("\n").filter((l) => l.includes("ห้ามมีคำเหล่านี้"))).toHaveLength(1);
+    expect(system).toContain("ทำตามกฎเดียวกับคำพูดข้างบนทุกข้อ");
   });
 
   it("the format's structure: รีวิวเคสเคลม has the five beats and no customer name; ตามโจทย์ neither", async () => {
@@ -94,6 +118,35 @@ describe("writeStory picks devices", () => {
       expect(s).not.toContain("ชีวิตปกติ → เหตุไม่คาดฝัน → ทางออก");
     }
     expect(await sys("drama3")).toContain("ชีวิตปกติ → เหตุไม่คาดฝัน → ทางออก");
+    // fewer scenes than its five beats: neighbouring beats merged
+    expect(claim).toContain("ถ้าฉากน้อยกว่า 5 ให้รวมช่วงที่ติดกัน");
+  });
+
+  it("a device's numbers never take the spoken millions: ทุน 3,000,000 allows 3000000, not 3", async () => {
+    const brief = "ทุน 3,000,000";
+    const limit = (n: number) => ({ layout: "limit", title: ["วงเงินต่อปี", ""], limit: n, planName: "" });
+    expect(typeof checkDevice(limit(3), deviceAllowed(brief))).toBe("string");
+    expect(checkDevice(limit(3_000_000), deviceAllowed(brief))).toMatchObject({ limit: 3_000_000 });
+    // "3 ล้าน" written in the brief: the device takes 3000000 only; a word may still say "3 ล้าน"
+    expect(typeof checkDevice(limit(3), deviceAllowed("ทุน 3 ล้าน"))).toBe("string");
+    expect(checkDevice(limit(3_000_000), deviceAllowed("ทุน 3 ล้าน"))).toMatchObject({ limit: 3_000_000 });
+    expect(checkDevice({ ...limit(3_000_000), planName: "ทุน 3 ล้าน" }, deviceAllowed(brief))).toMatchObject({ planName: "ทุน 3 ล้าน" });
+    // the writer, the script check and the form all hold devices to it; the voice still may say "3 ล้าน"
+    const r = await writeStory({ brief, scenes: 3, ask: vi.fn().mockResolvedValue(reply([sc({ voice: "ทุน 3 ล้านค่ะ", device: limit(3) }), sc({ device: limit(3_000_000) }), sc()])) });
+    if (!r.ok) throw new Error("not ok");
+    expect(r.scenes[0].device).toBeUndefined();
+    expect(r.scenes[0].voice).toBe("ทุน 3 ล้านค่ะ");
+    expect(r.notes).toEqual([]);
+    const bad = [sc({ device: limit(3) }), sc(), sc()] as Parameters<typeof checkScript>[0];
+    expect(checkScript(bad, brief).map((p) => p.scene)).toEqual([0]);
+    const form = checkedPromptStory({ draftId: "5853e0d0-6fbf-4a38-91d5-474b108a4905", brief, title: "t", caption: "c", scenes: [sc({ device: limit(3) }), sc({ device: limit(3_000_000) }), sc()], style: "paper", painter: "standard" }, "F");
+    if (typeof form === "string") throw new Error(form);
+    expect(form.scenes[0].device).toBeUndefined();
+    expect(form.scenes[1].device).toMatchObject({ limit: 3_000_000 });
+    // the model is shown the figures as written
+    const ask = vi.fn().mockResolvedValue(reply([sc(), sc(), sc()]));
+    await writeStory({ brief, scenes: 3, ask });
+    expect((ask.mock.calls[0][0] as string).split("\n")).toContain("- ตัวเลขที่ใช้ในอุปกรณ์ได้: 3000000");
   });
 });
 
@@ -115,6 +168,24 @@ describe("rewriteScene", () => {
     expect(stray.ok && stray.scene.device).toBeFalsy();
     expect(stray.ok && stray.scene.picture).toBe("ค่าห้องแพงขึ้นทุกปี");
   });
+  it("tells the model whether THIS scene may hold a device, and keeps its figure card", async () => {
+    const said = async (scenes: Record<string, unknown>[], scene: number, figure?: unknown) => {
+      const ask = vi.fn().mockResolvedValue(JSON.stringify({ scene: sc() }));
+      const r = await rewriteScene({ brief: BRIEF, scenes: scenes as never, scene, figure: figure as never, ask });
+      return { user: ask.mock.calls[0][1] as string, r };
+    };
+    expect((await said(draft, 0)).user).toContain("ฉากนี้ห้ามใช้อุปกรณ์");
+    expect((await said(draft, 1)).user).toContain("ฉากนี้ใช้อุปกรณ์ได้");
+    const figure = { plan: "LIFEPROTECT", variant: "x", sex: "M", age: 40, sumAssured: 3_000_000, annual: 99_999, monthly: 8_400 };
+    const withCard = [sc(), sc({ showFigure: true }), sc()];
+    const kept = await said(withCard, 1, figure);
+    expect(kept.user).toContain("ฉากนี้เป็นฉากที่โชว์ตัวเลขแผน ให้ showFigure เป็น true");
+    expect(kept.r.ok && kept.r.scene.showFigure).toBe(true);
+    const other = await said(withCard, 0, figure);
+    expect(other.user).toContain("showFigure เป็น false");
+    expect(other.r.ok && other.r.scene.showFigure).toBeFalsy();
+  });
+
   it("a scene breaking the rules twice is refused in Thai; the AI down too", async () => {
     const bad = vi.fn().mockResolvedValue(JSON.stringify({ scene: sc({ voice: "รับประกันผลตอบแทน" }) }));
     const r = await rewriteScene({ brief: BRIEF, scenes: draft, scene: 0, ask: bad });
