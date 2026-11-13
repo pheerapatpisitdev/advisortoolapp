@@ -33,6 +33,26 @@ function PremiumOnly() {
   );
 }
 
+/** the eye beside the agent's code: open to show it, struck through (`off`) to hide it again */
+function EyeIcon({ off }: { off: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {off ? (
+        <>
+          <path d="M3 3l18 18" />
+          <path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.7 0 3.2-.5 4.5-1.1" />
+          <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+        </>
+      ) : (
+        <>
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+          <circle cx="12" cy="12" r="3" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export function LoginForm({ next, signupOpen, error: googleError, notice = null, premium = false, signupHint = SIGNUP_HINT, prices = null }: {
   next: string; signupOpen: boolean; error: string | null;
   /** the line under the Google button for somebody new: the trial, from the back office (door.tsx) */
@@ -50,6 +70,8 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
   const [error, setError] = useState<string>();
   // the code typed was a basic agent's: the Premium box takes the error's place
   const [locked, setLocked] = useState(false);
+  // the agent's code shown as typed, after a tap on the eye
+  const [shown, setShown] = useState(false);
   const [pending, start] = useTransition();
   const clear = () => {
     setError(undefined);
@@ -103,11 +125,22 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
         <form method="post" className="mt-5 space-y-4" onSubmit={submit(signIn)}>
           <input type="hidden" name="next" value={next} />
           <Field id="login-code" label="รหัสตัวแทน 6 หลัก">
-            <input
-              id="login-code" name="code" inputMode="numeric" autoComplete="username" maxLength={6} autoFocus
-              pattern="\d{6}" placeholder="••••••" onChange={clear}
-              className={`${INPUT} tracking-[0.3em] tabular-nums placeholder:tracking-[0.2em]`}
-            />
+            {/* dots, not the digits, so a person beside them cannot read the code; the eye shows
+                it to check a typo (owner chose ข, 2026-11-12). inputMode keeps the number pad */}
+            <div className="relative">
+              <input
+                id="login-code" name="code" type={shown ? "text" : "password"} inputMode="numeric" autoComplete="current-password"
+                maxLength={6} autoFocus pattern="\d{6}" placeholder="••••••" onChange={clear}
+                className={`${INPUT} pr-12 tracking-[0.3em] tabular-nums placeholder:tracking-[0.2em]`}
+              />
+              <button
+                type="button" onClick={() => setShown((s) => !s)}
+                aria-label={shown ? "ซ่อนรหัส" : "แสดงรหัส"} aria-pressed={shown} aria-controls="login-code"
+                className="absolute right-1.5 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-md text-[var(--bot-ink-mute)] hover:bg-[var(--bot-band)] hover:text-[var(--bot-ink)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--bot-navy)]"
+              >
+                <EyeIcon off={shown} />
+              </button>
+            </div>
           </Field>
           {locked && !premium && <PremiumOnly />}
           {error && <FormError>{error}</FormError>}
