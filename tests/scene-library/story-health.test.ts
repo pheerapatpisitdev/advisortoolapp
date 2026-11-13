@@ -167,3 +167,14 @@ describe("what the customer pays over a limit is said with its conditions", () =
     }
   });
 });
+
+it("every big word on a health episode's note or recap card fits the card (Thai wraps only at a space)", () => {
+  // the card's big line is about 87 px in portrait on an 824 px line: 15 letters that take width, at Mali's widest
+  const MARK = /[ัิ-ฺ็-๎]/;
+  const letters = (w: string) => [...w].filter((x) => !MARK.test(x)).length;
+  for (const topic of TOPICS) for (const s of healthScenes(topic, withHealth(topic, { room: 6000, bill: 800_000 }), "")) {
+    const shown = s.show as { lines?: unknown; note?: unknown };
+    const lines = Array.isArray(shown.lines) ? shown.lines : Array.isArray(shown.note) ? shown.note : [];
+    for (const l of lines as { text: string; big?: boolean }[]) if (l.big) for (const w of l.text.split(" ")) expect(letters(w), `${topic}: ${w}`).toBeLessThanOrEqual(15);
+  }
+});

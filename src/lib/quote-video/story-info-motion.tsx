@@ -393,7 +393,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
     }
     case "split": case "limit": case "room": case "overflow": case "waiting": case "cashless": case "groupgap": case "agecost":
       // the room under the title, above the plotter's rail and carriage
-      return healthInfo({ c, t, s, g, w, k, a: { x: g.side, y: g.top, w: w - g.side * 2, h: g.bottom - g.top - Math.round(70 * k) }, icon: icon ?? "doc" }, show);
+      return healthInfo({ c, t, s, g, w, k, a: devArea(c.size), icon: icon ?? "doc" }, show);
     default:
       // the shelves that tell a family's story (kin, timeline, pic) are not offered in this look
       return null;
@@ -471,6 +471,17 @@ function wordsCard(d: Dev, an: Anim | undefined, lines: NoteLine[], title?: [str
 }
 
 /**
+ * a health device's room under the title, above the plotter's rail and carriage; in the square a little in from the
+ * sides, so a bar or card that starts at the room's edge stands clear of the plotter's frame line
+ */
+function devArea(size: VideoSize): Box {
+  const g = GEO[size];
+  const { w } = SIZES[size];
+  const side = g.side + (size === "square" ? 24 : 0);
+  return { x: side, y: g.top, w: w - side * 2, h: g.bottom - g.top - Math.round(70 * g.k) };
+}
+
+/**
  * แยกจ่าย's column of items, each a label over its capped bar: the sizes, what four of them need and the room under the
  * card's heading. In the landscape row the card is short, so they are a tenth smaller there and fit (with room to spare).
  */
@@ -502,7 +513,7 @@ function split(d: Dev, show: Show<"split">) {
   const inner = cw - pad * 2 - 8;
   const barH = rows.bar;
   const wl = look(s.whole, t);
-  const lumpW = Math.round(inner * 0.72);
+  const lumpW = Math.round(inner * 0.85);
   const lumpH = ch - pad * 2 - Math.round(head * 1.8);
   const heading = (text: string) => <div style={box({ fontSize: head, fontWeight: 600, color: K.gold, lineHeight: 1.25 })}>{text}</div>;
   const card: React.CSSProperties = { position: "absolute", top: a.y, width: cw, height: ch, padding: pad, justifyContent: "flex-start" };
@@ -530,7 +541,7 @@ function split(d: Dev, show: Show<"split">) {
         {heading(HW.lump)}
         <div style={box({ flexGrow: 1, justifyContent: "center", alignItems: "flex-end" })}>
           <div style={box({ width: lumpW, height: Math.round(lumpH * wl.p), opacity: wl.opacity, justifyContent: "center", alignItems: "center", ...fill(K.green, Math.round(14 * k)) })}>
-            <div style={box({ fontSize: fitSize(show.whole, Math.round(52 * k), lumpW - 20), fontWeight: 600, color: K.plot ? K.green : K.white, background: K.plot ? S.plotPaper : "transparent", padding: `0 ${Math.round(10 * k)}px`, opacity: wl.p > 0.5 ? 1 : 0 })}>{show.whole}</div>
+            <div style={box({ fontSize: fitWords(show.whole, Math.round(52 * k), lumpW - 40), fontWeight: 600, lineHeight: 1.25, textAlign: "center", justifyContent: "center", color: K.plot ? K.green : K.white, background: K.plot ? S.plotPaper : "transparent", padding: `0 ${Math.round(10 * k)}px`, opacity: wl.p > 0.5 ? 1 : 0 })}>{show.whole}</div>
           </div>
         </div>
       </Card>
@@ -684,9 +695,7 @@ function overflow(d: Dev, show: Show<"overflow">) {
 export function waitingInfoGeo(size: VideoSize, rows: { at: string; label: string }[]) {
   const g = GEO[size];
   const k = g.k;
-  const { w } = SIZES[size];
-  // infoShow's room under the title
-  const a = { x: g.side, y: g.top, w: w - g.side * 2, h: g.bottom - g.top - Math.round(70 * k) };
+  const a = devArea(size);
   const col = Math.round(a.w / Math.max(1, rows.length));
   const dot = Math.round(56 * k);
   const atSize = Math.min(...rows.map((x) => fitSize(x.at, Math.round(80 * k), col - 24)));

@@ -272,6 +272,23 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
     writeFileSync(join(PUB, `props/st-free-${style}.json`), JSON.stringify(storyClipProps({ ...free, style } as never, "portrait", "", "M", CONTACT, fPlans, fScript, fSecs, clipLength(fPlans), "audio/st-free.wav", [...free.pictures])));
   }
 
+  // ประกันสุขภาพ (scene library, 2026-11-13): each of the four episodes in paper, and roomcost in plot, for iHealthy
+  // Silver, a man of 35, a 6,000-baht room and an 800,000-baht bill where the episode uses them; each device held
+  // whole before the next scene (make.ts storyParts' clipTail). props/st-health-roomcost.json is a ship.sh smoke render
+  const { clipTail } = await import("@/lib/quote-video/story-frames");
+  const { checkedStory } = await import("@/lib/quote-video/story");
+  const health = { plan: "SILVER", sex: "M", age: 35, room: 6000, bill: 800_000 };
+  for (const [name, topic, art] of [["st-health-lumpsum", "lumpsum", "paper"], ["st-health-roomcost", "roomcost", "paper"], ["st-health-waiting", "waiting", "paper"],
+    ["st-health-agecost", "agecost", "paper"], ["st-health-plot", "roomcost", "plot"]] as const) {
+    const h = checkedStory({ topic, faces: { narrator: "w26", hero: "m09" }, art, health } as never, "F");
+    if (typeof h === "string") throw new Error(`${name}: ${h}`);
+    const hScript = storyScript(h, "", "F");
+    const hSecs = hScript.map((s) => secsOf(s.voice));
+    const hPlans = planScenes(hScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: hSecs[i], windows: clipWindows(s.key, h, "portrait"), fps: MOTION_FPS, ...clipTail(s.key, h, hSecs[i]) })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), silentWav(clipLength(hPlans)));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(h, "portrait", "", "F", CONTACT, hPlans, hScript, hSecs, clipLength(hPlans), `audio/${name}.wav`, [])));
+  }
+
   // health devices in place of the painter's pictures (scene library, 2026-11-13): a clip of two device scenes in
   // each of the four looks, drawn by the system on the look's ground, no picture filed for them
   const devices = {

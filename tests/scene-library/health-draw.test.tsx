@@ -329,3 +329,15 @@ describe("Task 12 fit fixes", () => {
     expect(wrapLines("กรมธรรม์มีผลบังคับ ตั้งแต่วันแรก", 40, 500)).toBe(2);
   });
 });
+
+it("split: a long เหมาจ่าย line wraps at its spaces in a readable size, in every look and shape", () => {
+  const long: KnowShow = { layout: "split", title: ["เหมาจ่าย", "ต่างจากแยกจ่าย"], parts: ["ค่ายา", "ค่าผ่าตัด", "ค่าแพทย์", "ค่าตรวจ"], whole: "จ่ายตามจริง ภายใน วงเงินต่อปี" };
+  const sizeOf = (markup: string) => Number(markup.match(/font-size:(\d+)px[^>]*>จ่ายตามจริง ภายใน วงเงินต่อปี</)![1]);
+  const FLOOR: Record<VideoSize, number> = { portrait: 36, square: 26, landscape: 28 };
+  for (const size of SIZES) {
+    for (const art of ARTS) expect(sizeOf(html(long, 6, size, art)), `${size} ${art.art}`).toBeGreaterThanOrEqual(FLOOR[size]);
+    for (const art of [{ art: "plot" }, { art: "info" }] as Partial<StoryVideoInput>[]) {
+      expect(sizeOf(renderToStaticMarkup(infoShow(long, ctx(size, art), 6))), `${size} ${art.art}`).toBeGreaterThanOrEqual(FLOOR[size]);
+    }
+  }
+});

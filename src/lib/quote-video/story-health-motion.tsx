@@ -156,7 +156,8 @@ function Split({ d, show }: { d: Dev; show: Show<"split"> }) {
   const head = Math.round(g.text * 1.3);
   const inner = cw - pad * 2 - 8;
   const barH = Math.round(g.text * 0.95);
-  const lumpW = Math.round(inner * 0.78);
+  // wide enough for its words in a large size, wrapped at their spaces
+  const lumpW = Math.round(inner * 0.9);
   const lumpH = ch - pad * 2 - 8 - Math.round(head * 1.6);
   const wl = look(s.whole, t);
   const heading = (text: string) => <div style={box({ justifyContent: "center", fontSize: head, fontWeight: 700, lineHeight: 1.25 })}>{text}</div>;
@@ -184,7 +185,8 @@ function Split({ d, show }: { d: Dev; show: Show<"split"> }) {
         {heading(HW.lump)}
         <div style={box({ flexGrow: 1, justifyContent: "center", alignItems: "flex-end" })}>
           <div style={box({ width: lumpW, height: Math.round(lumpH * wl.p), background: GREEN, border: `4px solid ${C.ink}`, borderRadius: 12, justifyContent: "center", alignItems: "center", opacity: wl.opacity })}>
-            <div style={box({ fontSize: fitSize(show.whole, lumpW - 24, Math.round(g.text * 1.3)), fontWeight: 700, color: C.white, opacity: wl.p > 0.5 ? 1 : 0 })}>{show.whole}</div>
+            {/* wrapped at its spaces, so a long one (จ่ายตามจริง ภายในวงเงินต่อปี) stays readable in the narrow bar */}
+            <div style={box({ justifyContent: "center", padding: `0 ${Math.round(g.text * 0.25)}px`, fontSize: fitWords(show.whole, lumpW - 24 - Math.round(g.text * 0.5), Math.round(g.text * 1.3)), fontWeight: 700, lineHeight: 1.25, textAlign: "center", color: C.white, opacity: wl.p > 0.5 ? 1 : 0 })}>{show.whole}</div>
           </div>
         </div>
       </Sheet>
