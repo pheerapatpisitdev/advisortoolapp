@@ -103,7 +103,8 @@ export const preShare = (e: Estimate) => Math.min(0.6, Math.max(0.15, e.pre / Ma
 function stepText(n: ProgressNote | null): string {
   if (!n) return "เริ่มทำ…";
   switch (n.step) {
-    case "pictures": return `วาดรูปประกอบ ${n.done}/${n.of}`;
+    // no picture to paint (every scene a device) is no picture step to show
+    case "pictures": return n.of > 0 ? `วาดรูปประกอบ ${n.done}/${n.of}` : "เริ่มทำ…";
     case "voice": return `ทำเสียงแล้ว ${n.done}/${n.of} ประโยค`;
     case "files": return "เตรียมไฟล์";
     case "draw": return `วาดภาพแล้ว ${n.done}/${n.of} ฉาก`;

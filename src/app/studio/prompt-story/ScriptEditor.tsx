@@ -144,10 +144,15 @@ export function ScriptEditor({ draft, notes, onChange, forDevice }: {
                 </button>
               </div>
               <textarea aria-label={`บทพูดฉาก ${i + 1}`} className={field} rows={2} maxLength={VOICE_MAX} value={s.voice} onChange={(e) => setScene(i, { voice: e.target.value })} />
-              <input
-                aria-label={`คำบนจอฉาก ${i + 1}`} className={field} maxLength={SCREEN_MAX} disabled={s.showFigure}
-                value={s.showFigure ? "การ์ดเบี้ยจริง (ระบบวาด)" : s.screen} onChange={(e) => setScene(i, { screen: e.target.value })}
-              />
+              {/* a device draws its own heading, never the screen words nor the premium card */}
+              {isDevice ? (
+                <p className="text-xs text-[var(--ct-mute)]">ฉากนี้ใช้หัวข้อของอุปกรณ์แทนคำบนจอ</p>
+              ) : (
+                <input
+                  aria-label={`คำบนจอฉาก ${i + 1}`} className={field} maxLength={SCREEN_MAX} disabled={s.showFigure}
+                  value={s.showFigure ? "การ์ดเบี้ยจริง (ระบบวาด)" : s.screen} onChange={(e) => setScene(i, { screen: e.target.value })}
+                />
+              )}
               {s.device && fields && (
                 <div className="space-y-1.5 rounded-lg border border-dashed border-[var(--ct-line)] p-2">
                   <p className="text-xs font-medium text-[var(--ct-accent)]">อุปกรณ์ที่ระบบวาด{k.kind !== "picture" ? `: ${k.name}` : ""} · แก้คำได้ ตัวเลขมาจากโจทย์หรือแผน</p>

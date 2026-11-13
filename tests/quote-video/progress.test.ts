@@ -101,6 +101,9 @@ describe("คลิปตามโจทย์'s pictures", () => {
     expect(progressView(drawing({ step: "draw", done: 2, of: 5 })).text).toBe("วาดภาพแล้ว 2/5 ฉาก");
     expect(readNote({ step: "pictures", done: 1, of: 3 })).toEqual({ step: "pictures", done: 1, of: 3 });
   });
+  it("never says วาดรูปประกอบ 0/0 for a clip with no picture to paint", () => {
+    expect(progressView(drawing({ step: "pictures", done: 0, of: 0 })).text).toBe("เริ่มทำ…");
+  });
   it("comes before the voice on the bar and never goes back while drawing", () => {
     const pcts = [0, 3, 5].map((done) => progressView(drawing({ step: "pictures", done, of: 5 })).pct);
     expect([...pcts].sort((a, b) => a - b)).toEqual(pcts);

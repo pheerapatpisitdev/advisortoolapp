@@ -616,6 +616,18 @@ describe("device scenes (health devices): never drawn as a picture, never charge
     expect(props.scenes[4].picture).toContain(`${id}/pic-4.png`);
   });
 
+  it("a clip of device scenes only paints nothing and shows no picture step on the bar", async () => {
+    freeUsedUp();
+    const v = mixed();
+    v.scenes = v.scenes.map((sc) => ({ ...sc, picture: "", device: cashless }));
+    const made = await createPromptStory(agent, v, "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    expect(ai.draw).not.toHaveBeenCalled();
+    expect(db.notes.some((n) => n.step === "pictures")).toBe(false);
+    expect(db.notes.some((n) => n.step === "voice")).toBe(true);
+  });
+
   it("a picture that fails comes off the hold once; the devices never do", async () => {
     freeUsedUp();
     ai.draw.mockImplementation(async (a: { prompt: string }) => {

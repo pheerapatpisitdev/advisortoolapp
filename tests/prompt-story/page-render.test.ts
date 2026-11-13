@@ -51,6 +51,19 @@ describe("ScriptEditor with devices", () => {
     expect(html).not.toContain("aria-label=\"ภาพฉาก 1\"");
   });
 
+  it("hides the screen words of a device scene (the device draws its heading), even one that showed the premium", () => {
+    const shown = renderToStaticMarkup(createElement(ScriptEditor, {
+      draft: { ...draft, scenes: [{ ...draft.scenes[0], showFigure: true }, ...draft.scenes.slice(1)] }, notes: [], onChange: () => {}, forDevice: new Set([5500, 6000]),
+    }));
+    for (const out of [html, shown]) {
+      expect(out).not.toContain("aria-label=\"คำบนจอฉาก 1\"");
+      expect(out).toContain("ฉากนี้ใช้หัวข้อของอุปกรณ์แทนคำบนจอ");
+      expect(out).not.toContain("การ์ดเบี้ยจริง (ระบบวาด)");
+      // a device that fails is drawn as a picture: its screen words stay
+      expect(out).toContain("aria-label=\"คำบนจอฉาก 2\"");
+    }
+  });
+
   it("says why a device fails, and that the scene will be a picture", () => {
     expect(html).toContain("อุปกรณ์นี้ใช้ไม่ได้: ค่าห้องจริง ตัวเลข 7,000 ไม่อยู่ในโจทย์หรือแผน, ฉากนี้จะใช้ภาพ AI");
     expect(html).toContain("aria-label=\"ภาพฉาก 2\"");

@@ -542,7 +542,8 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
   const size = clipSize(input);
   const of = pictureScenes(input);
   let done = 0;
-  bar.note({ step: "pictures", done: 0, of });
+  // a clip of device scenes only paints nothing: no "วาดรูปประกอบ 0/0" step, the bar goes straight to the voice
+  if (of > 0) bar.note({ step: "pictures", done: 0, of });
   const pictures = await pool(input.scenes, 3, async (scene, s): Promise<string | null> => {
     if (scene.device) return null;
     const png = await drawScenePicture(scene, input.style, input.painter, size);
