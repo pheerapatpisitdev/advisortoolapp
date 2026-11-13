@@ -42,6 +42,10 @@ export const PROMPT_FORMATS: { id: PromptFormat; name: string }[] = [
 ];
 export const isPromptFormat = (v: unknown): v is PromptFormat => PROMPT_FORMATS.some((f) => f.id === v);
 
+/** เขียนฉากนี้ใหม่: free, so capped per written draft (owner, 2026-11-13); the count is kept in the draft's script. Here, not in checked.ts, so the editor may read it */
+export const REWRITES_PER_DRAFT = 3;
+export const REWRITES_DONE = `เขียนฉากใหม่ครบ ${REWRITES_PER_DRAFT} ครั้งแล้ว`;
+
 /** a คลิปตามโจทย์: the agent's own brief turned into a script, pictures and a clip */
 export interface PromptStoryInput {
   product: "FREESTORY";

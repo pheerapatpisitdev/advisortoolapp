@@ -263,6 +263,14 @@ describe("rewritePromptScene", () => {
     expect(String(chat.mock.calls[0][0].messages[0].content)).toContain("ห้ามใส่ชื่อลูกค้า");
   });
 
+  it("a failed AI rewrite still uses one, and says how many are left", async () => {
+    chat.mockImplementation(async () => ({ text: "not json" }));
+    const r = await rewritePromptScene(DRAFT, 1);
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.left).toBe(2);
+    expect(db.rows[0].script.rewrites).toBe(1);
+  });
+
   it("two presses at once take two of the three, never more than three", async () => {
     db.rows[0].script.rewrites = 2;
     const both = await Promise.all([rewritePromptScene(DRAFT, 0), rewritePromptScene(DRAFT, 2)]);

@@ -1,10 +1,12 @@
 "use client";
 import Link from "next/link";
 import { useFreshLinks } from "../quote-video/fresh-links";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import { totalLine } from "@/lib/prompt-story/total";
-import { BRIEF_MAX, PICTURE_STYLES, SCENE_COUNTS, type PictureStyle, type PromptStoryInput, type SceneCount } from "@/lib/prompt-story/types";
+import { BRIEF_MAX, PICTURE_STYLES, PROMPT_FORMATS, REWRITES_PER_DRAFT, SCENE_COUNTS, type PictureStyle, type PromptFormat, type PromptStoryInput, type SceneCount } from "@/lib/prompt-story/types";
+import { deviceAllowed } from "@/lib/prompt-story/check";
+import { missingPicture, needPictureWords, pictureCount } from "@/lib/prompt-story/editor-state";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
@@ -49,7 +51,14 @@ function readLook(): Look {
 }
 
 /** what the script was written from: the clip is made from these, not from a form edited since */
-interface Written { brief: string; scenes: SceneCount; figure: FigureChoice | null }
+interface Written {
+  brief: string;
+  scenes: SceneCount;
+  figure: FigureChoice | null;
+  format: PromptFormat;
+  /** the figure's numbers a device may show (with its premium), null with no figure */
+  nums: { age: number; sumAssured: number; annual: number; monthly: number } | null;
+}
 
 export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
   initial: VideoItem[] | null;
@@ -65,7 +74,8 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const [painter, setPainter] = useState<PromptStoryInput["painter"]>("standard");
   const [withFigure, setWithFigure] = useState(false);
   const [figure, setFigure] = useState<FigureChoice>(DEFAULT_FIGURE);
-  const [premium, setPremium] = useState<number | null>(null);
+  const [premium, setPremium] = useState<{ annual: number; monthly: number } | null>(null);
+  const [format, setFormat] = useState<PromptFormat>("free");
   const [look, setLook] = useState<Look>(DEFAULT_LOOK);
   const [face, setFace] = useState(DEFAULT_NARRATOR_FACE);
   const [customer, setCustomer] = useState("");
@@ -119,22 +129,28 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
 
   const figureAsked = withFigure ? figure : null;
   const briefOk = brief.trim().length > 0 && brief.length <= BRIEF_MAX;
-  const stale = Boolean(written) && (written!.brief !== brief || written!.scenes !== scenes || JSON.stringify(written!.figure) !== JSON.stringify(figureAsked));
+  const stale = Boolean(written) && (written!.brief !== brief || written!.scenes !== scenes || written!.format !== format || JSON.stringify(written!.figure) !== JSON.stringify(figureAsked));
+  // the figures a device may show, from what the script was written from: the server's very test (checkedPromptStory)
+  const forDevice = useMemo(() => (written ? deviceAllowed(written.brief, written.nums ?? undefined) : new Set<number>()), [written]);
+  // a device that fails is a picture scene to the server, and is charged as one
+  const pictures = draft ? pictureCount(draft.scenes, forDevice) : undefined;
+  const missing = draft ? missingPicture(draft.scenes, forDevice) : null;
   const elevenIsOff = useElevenOff(eleven.length > 0);
   const notice = look.voice && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && !look.voice ? voiceNotice(quota, true) : null;
   const voiceBlocked = Boolean(notice?.blocked);
-  const total = totalLine({ scenes: draft?.scenes.length ?? scenes, painter, voice: look.voice || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff, demo: cost?.kind === "staff" && cost.demo === true });
+  const total = totalLine({ scenes: draft?.scenes.length ?? scenes, pictures, painter, voice: look.voice || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff, demo: cost?.kind === "staff" && cost.demo === true });
   const closed = cost?.kind === "closed";
 
   async function write() {
     setWriting(true);
     setError(null);
     try {
-      const r = await writePromptStory({ brief, scenes, ...(figureAsked ? { figure: figureAsked } : {}) });
+      const nums = figureAsked && premium ? { age: figureAsked.age, sumAssured: figureAsked.sumAssured, ...premium } : null;
+      const r = await writePromptStory({ brief, scenes, format, ...(figureAsked ? { figure: figureAsked } : {}) });
       if (!r.ok) { setError({ text: r.error }); return; }
-      setDraft({ id: r.id, title: r.title, caption: r.caption, scenes: r.scenes });
+      setDraft({ id: r.id, title: r.title, caption: r.caption, scenes: r.scenes, left: REWRITES_PER_DRAFT });
       setNotes(r.notes);
-      setWritten({ brief, scenes, figure: figureAsked });
+      setWritten({ brief, scenes, figure: figureAsked, format, nums });
     } catch {
       setError({ text: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" });
     } finally {
@@ -148,7 +164,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     setError(null);
     try {
       const r = await makePromptStory({
-        draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption, scenes: draft.scenes,
+        draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption, scenes: draft.scenes, format: written.format,
         style, painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         faces: { narrator: face }, ...(written.figure ? { figure: written.figure } : {}),
       }, customer);
@@ -179,13 +195,17 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           <h2 className="font-semibold">เครื่องมือ</h2>
           <p className="mt-0.5 text-xs text-[var(--ct-mute)]">พิมพ์โจทย์ → เขียนบท (ฟรี) → แก้บท → สร้างคลิป</p>
         </div>
-        <Step n={1} title="โจทย์" summary={`${brief.length.toLocaleString("en-US")}/${BRIEF_MAX.toLocaleString("en-US")}`} first>
+        <Step n={1} title="โจทย์" summary={`${PROMPT_FORMATS.find((f) => f.id === format)?.name ?? ""} · ${brief.length.toLocaleString("en-US")}/${BRIEF_MAX.toLocaleString("en-US")}`} first>
           <textarea
             aria-label="โจทย์" value={brief} maxLength={BRIEF_MAX} rows={10} onChange={(e) => setBrief(e.target.value)}
             placeholder="เช่น ลูกค้าเป็นพ่อค้าออนไลน์ อายุ 40 ไม่มีประกันกลุ่ม กลัวป่วยแล้วร้านต้องหยุด อยากเล่าให้เห็นว่าเงินก้อนช่วยร้านได้ยังไง"
             className="min-h-[220px] w-full resize-y rounded-lg border border-[var(--ct-line)] bg-[var(--ct-ground)] px-3 py-2 text-sm"
           />
           <p className="text-xs text-[var(--ct-mute)]">เรื่องประกันและการเงินครอบครัวเท่านั้น · {brief.length.toLocaleString("en-US")}/{BRIEF_MAX.toLocaleString("en-US")} ตัวอักษร</p>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="รูปแบบบท">
+            {PROMPT_FORMATS.map((f) => <button key={f.id} type="button" role="radio" aria-checked={format === f.id} className={chip(format === f.id)} onClick={() => setFormat(f.id)}>{f.name}</button>)}
+          </div>
+          {format === "claimreview" && <p className="text-xs text-[var(--ct-warn-ink)]">ไม่ใส่ชื่อลูกค้า ตัวเลขตามที่คุณพิมพ์</p>}
         </Step>
         <Step n={2} title="จำนวนฉาก และสไตล์รูป" summary={`${scenes} ฉาก`}>
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="จำนวนฉาก">
@@ -224,12 +244,13 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           {draft && (
             <>
               {stale && <p role="status" className="text-xs text-[var(--ct-warn-ink)]">แก้โจทย์หรือตัวเลือกหลังเขียนบทแล้ว คลิปจะทำจากบทนี้ กด “เขียนใหม่” ถ้าอยากให้เขียนตามที่แก้</p>}
+              {missing !== null && <p role="status" className="text-xs text-[var(--ct-alert)]">{needPictureWords(missing + 1)}</p>}
               <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm tabular-nums">
                 <b>ยอดตอนกดสร้างคลิป</b><br />{total.text}
                 {cost?.kind === "wallet" && <><br /><span className="text-xs text-[var(--ct-mute)]">ยอดคงเหลือ {cost.balance}</span></>}
               </p>
               <button
-                type="button" onClick={make} disabled={making || writing || closed || voiceBlocked || Boolean(total.blocked)}
+                type="button" onClick={make} disabled={making || writing || closed || voiceBlocked || Boolean(total.blocked) || missing !== null}
                 className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
               >
                 {making ? "กำลังเริ่ม…" : total.baht === "0" || total.blocked ? "สร้างคลิป" : `สร้างคลิป ฿${total.baht}`}
@@ -248,7 +269,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       </aside>
 
       <section aria-label="บทและวิดีโอ" className="studio-desk min-w-0 space-y-4 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
-        {draft && <ScriptEditor draft={draft} notes={notes} onChange={setDraft} />}
+        {draft && <ScriptEditor draft={draft} notes={notes} onChange={setDraft} forDevice={forDevice} />}
         <ClipList items={items} setItems={setItems} pages={pages} />
       </section>
     </div>

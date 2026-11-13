@@ -2,7 +2,7 @@ import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
 import { checkDevice, deviceAllowed } from "./check";
-import { BRIEF_MAX, isPromptFormat, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
+import { BRIEF_MAX, isPromptFormat, REWRITES_DONE, REWRITES_PER_DRAFT, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
  * คลิปตามโจทย์'s form, checked on the server before anything is held: the brief and the script as
@@ -12,10 +12,7 @@ import { BRIEF_MAX, isPromptFormat, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type Pi
 
 /** scripts per agent per rolling hour, to cap the owner's model spend (spec, Money) */
 export const HOURLY_LIMIT = 20;
-/** เขียนฉากนี้ใหม่: free, so capped per written draft (owner, 2026-11-13); the count is kept in the draft's script */
-export const REWRITES_PER_DRAFT = 3;
-export const REWRITES_DONE = `เขียนฉากใหม่ครบ ${REWRITES_PER_DRAFT} ครั้งแล้ว`;
-export { BRIEF_MAX, SCENE_COUNTS };
+export { BRIEF_MAX, SCENE_COUNTS, REWRITES_DONE, REWRITES_PER_DRAFT };
 // "cartoon", "flat" and "real" left the form 2026-11-13; a page left open from before may still send one
 const STYLES: PictureStyle[] = ["paper", "warm", "plot", "line", "real", "cartoon", "flat"];
 const PAINTER_IDS: PromptStoryInput["painter"][] = ["standard", "sharp", "gemini"];

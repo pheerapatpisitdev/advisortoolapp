@@ -102,9 +102,9 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
 /**
  * เขียนฉากนี้ใหม่: `scene` from 0 of the agent's own written draft, free, REWRITES_PER_DRAFT times a
  * draft (the count taken before the AI is asked, kept in the draft: prompt-story/drafts.ts). `left` is
- * how many are left after this one.
+ * how many are left after this one; a failed AI rewrite used one too, and says what is left.
  */
-export async function rewritePromptScene(draftId: string, scene: number): Promise<{ ok: true; scene: PromptScene; left: number } | { ok: false; error: string }> {
+export async function rewritePromptScene(draftId: string, scene: number): Promise<{ ok: true; scene: PromptScene; left: number } | { ok: false; error: string; left?: number }> {
   const viewer = await requireMember();
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
   const closed = await closedFor(viewer, "prompt-story");
@@ -122,7 +122,7 @@ export async function rewritePromptScene(draftId: string, scene: number): Promis
       figure: typeof f === "object" ? f : undefined,
       format: isPromptFormat(a.format) ? a.format : undefined,
     });
-    if (!r.ok) return r;
+    if (!r.ok) return { ...r, left: REWRITES_PER_DRAFT - taken.n };
     await keepRewrite(viewer.agentId, draftId, taken.n, scene, r.scene).catch((e) =>
       console.error("rewritten scene not kept:", e instanceof Error ? e.message : "unknown error"));
     return { ok: true, scene: r.scene, left: REWRITES_PER_DRAFT - taken.n };

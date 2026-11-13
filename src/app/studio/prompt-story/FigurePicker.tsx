@@ -21,8 +21,8 @@ export const DEFAULT_FIGURE: FigureChoice = { plan: "ISHIELD", variant: STORY_DE
 export function FigurePicker({ value, onChange, onPremium }: {
   value: FigureChoice;
   onChange: (v: FigureChoice) => void;
-  /** the premium once worked out, null while it is being or cannot be */
-  onPremium: (annual: number | null) => void;
+  /** the premium once worked out (a year and a month), null while it is being or cannot be */
+  onPremium: (premium: { annual: number; monthly: number } | null) => void;
 }) {
   const [premium, setPremium] = useState<Premium>(null);
   const { plan, variant, sex, age, sumAssured } = value;
@@ -31,7 +31,7 @@ export function FigurePicker({ value, onChange, onPremium }: {
     onPremium(null);
     const t = setTimeout(() => {
       previewStoryFigure({ plan, variant, sex, age, sumAssured })
-        .then((r) => { setPremium(r); onPremium("error" in r ? null : r.annual); })
+        .then((r) => { setPremium(r); onPremium("error" in r ? null : { annual: r.annual, monthly: r.monthly }); })
         .catch(() => setPremium({ error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
     }, 300);
     return () => clearTimeout(t);

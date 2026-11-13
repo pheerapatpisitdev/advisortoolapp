@@ -36,7 +36,7 @@ export function allowedFor(brief: string, figure?: StoryFigure): Set<number> {
  * The figures a device may show, and the figures inside its words: the brief's and the plan's as
  * written. Not allowedFor's spoken millions ("3" for 3,000,000): a device's "3" would draw 3 baht.
  */
-export function deviceAllowed(brief: string, figure?: StoryFigure): Set<number> {
+export function deviceAllowed(brief: string, figure?: Pick<StoryFigure, "age" | "sumAssured" | "annual" | "monthly">): Set<number> {
   const out = new Set<number>();
   for (const m of brief.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(ล้าน)?/g)) {
     const n = Number(m[1].replace(/,/g, ""));

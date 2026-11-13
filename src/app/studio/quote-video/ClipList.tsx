@@ -146,7 +146,7 @@ export function ClipList({ items, setItems, pages }: {
             </button>
           )}
           {v.status === "done" && v.redraw && (
-            <RedrawScenes id={v.id} scenes={v.redraw.scenes} price={v.redraw.price} onStarted={refreshPrompt} />
+            <RedrawScenes id={v.id} scenes={v.redraw.scenes} devices={v.redraw.devices} price={v.redraw.price} onStarted={refreshPrompt} />
           )}
           {writing === v.id && (
             <PostPanel id={v.id} post={v.post} customer={v.named || v.personal} onPost={(p) => gotPost(v.id, p)} onClose={() => setWriting(null)} />
