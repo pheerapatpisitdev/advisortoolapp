@@ -171,8 +171,28 @@ const layer = (geo: MetaGeo, body: ReactNode, opacity = 1) => (
 
 /** a doll's box: 100 wide to 130 tall */
 const TALL = 1.3;
-/** how tall someone's box is to its width: a doll's; มินิมอล's slim whole person stands taller in the same width */
-const tallOf = (c: StoryContext) => (minimal(c.input) ? 1.5 : TALL);
+/**
+ * someone's box on the sheet, `w` a doll's width: as tall as a doll's in every look, so a head never rises past what
+ * stands over it (the umbrella's rim, the sheet's top); มินิมอล's slim whole person stands in a narrower box, which it
+ * fills from head to foot
+ */
+const boxOf = (c: StoryContext, w: number) => ({ w: minimal(c.input) ? r1((w * TALL) / 1.5) : w, h: r1(w * TALL) });
+
+/** someone on the sheet: the middle of their feet, and their box (sheet units) */
+export interface MetaFigure { x: number; foot: number; w: number; h: number }
+
+/** where everyone a metaphor draws stands at scene time t (the drawers place them from here; the tests check it) */
+export function metaFigures(show: MetaShow, c: StoryContext, t: number): MetaFigure[] {
+  const at = (x: number, foot: number, w: number): MetaFigure => ({ x, foot, ...boxOf(c, w) });
+  switch (show.layout) {
+    case "umbrella": return UMB_PEOPLE.map(([x, w]) => at(x, GROUND, w));
+    case "housepillar": return pillarPeople(!!show.spare).map(([x, w]) => at(x, FLOOR, w));
+    // the sea up to their chest: a doll's under its big head; มินิมอล's higher up its slim body
+    case "lifering": return [at(SWIM_X, SEA + (1 - (minimal(c.input) ? 0.36 : 0.62)) * SWIM_W * TALL + bobAt(t), SWIM_W)];
+    case "safetynet": return [at(WALK_X, walkerAt(metaSpec(show), t).foot, WALK_W)];
+    default: return [];
+  }
+}
 
 /** turned `rot` degrees about the foot of a box `h` px tall: turned about its middle, then moved back so the feet stay put */
 const aboutFeet = (rot: number, h: number) => {
@@ -180,13 +200,13 @@ const aboutFeet = (rot: number, h: number) => {
   return `translate(${r1((h / 2) * Math.sin(th))}px, ${r1((h / 2) * (1 - Math.cos(th)))}px) rotate(${r1(rot)}deg)`;
 };
 
-/** someone standing with their feet at (`x`, `foot`) on the sheet, `w` wide, in `pose`; popping in on `an` */
-function Who({ c, k, id, x, foot, w, pose, t, an }: { c: StoryContext; k: number; id: string; x: number; foot: number; w: number; pose: PoseName | Pose; t: number; an?: Anim }) {
-  const W = Math.round(w * k);
-  const H = Math.round(w * tallOf(c) * k);
+/** someone standing in their box `f` on the sheet, in `pose`; popping in on `an` */
+function Who({ c, k, id, f, pose, t, an }: { c: StoryContext; k: number; id: string; f: MetaFigure; pose: PoseName | Pose; t: number; an?: Anim }) {
+  const W = Math.round(f.w * k);
+  const H = Math.round(f.h * k);
   const p = prog(an, t);
   return (
-    <div style={abs({ left: Math.round((x - w / 2) * k), top: Math.round(foot * k) - H, width: W, height: H, opacity: an && p <= 0 ? 0 : 1, ...(p < 1 ? { transform: `scale(${popScale(p).toFixed(3)})` } : {}) })}>
+    <div style={abs({ left: Math.round((f.x - f.w / 2) * k), top: Math.round(f.foot * k) - H, width: W, height: H, opacity: an && p <= 0 ? 0 : 1, ...(p < 1 ? { transform: `scale(${popScale(p).toFixed(3)})` } : {}) })}>
       <Pic c={c} id={id} r={{ x: 0, y: 0, w: W, h: H }} pose={pose} t={t} />
     </div>
   );
@@ -204,6 +224,10 @@ const worried = (t: number): Pose => ({ ...POSES.sad(t), smile: false });
 
 /** the umbrella's canopy, about its tip at (200, 62), 150 to each side, its rim at 150 */
 const UMB = { x: 200, top: 62, rim: 150, half: 150 };
+/** the canopy's rim: every head under the umbrella stays below it */
+export const UMBRELLA_RIM = UMB.rim;
+/** the family under it, each a doll's width (the right one holds the umbrella: its stick comes down between the child and them) */
+const UMB_PEOPLE: [number, number][] = [[106, 82], [162, 60], [252, 82]];
 /** a number from 0 to 1 that looks random but is the same for the same `i` every frame */
 const scatter = (i: number) => { const v = Math.sin(i * 12.9898) * 43758.5453; return v - Math.floor(v); };
 /** the rain's drops: where each falls and how far down it starts, scattered */
@@ -255,8 +279,7 @@ function Umbrella({ d, show }: { d: Dev; show: MetaShow<"umbrella"> }) {
   const [left, kid, right] = family(c);
   const sad = rain > 0 && open < 0.6;
   const glad = open >= 0.6;
-  // the right one holds the umbrella: its stick comes down between the child and them
-  const people: [string, number, number, number][] = [[left, 106, 82, 0], [kid, 162, 60, 1], [right, 252, 82, 2]];
+  const figs = metaFigures(show, c, t);
   // the dome, and its rim in four scallops from right to left
   const canopy = `M${UMB.x - UMB.half} ${UMB.rim} C${UMB.x - UMB.half} 90 ${UMB.x - 82} ${UMB.top} ${UMB.x} ${UMB.top} C${UMB.x + 82} ${UMB.top} ${UMB.x + UMB.half} 90 ${UMB.x + UMB.half} ${UMB.rim}`
     + [1, 0, -1, -2].map((i) => ` Q${UMB.x + i * 75 + 37.5} ${UMB.rim - 18} ${UMB.x + i * 75} ${UMB.rim}`).join("") + " Z";
@@ -272,8 +295,8 @@ function Umbrella({ d, show }: { d: Dev; show: MetaShow<"umbrella"> }) {
             <ellipse cx={356} cy={GROUND + 6} rx={r1(26 * rain)} ry={r1(4.5 * rain)} fill={C.blanket} stroke={C.waterInk} strokeWidth={1.6} />
           </>
         ), rain > 0 ? easeOut(rain) : 0)}
-        {people.map(([id, x, w, i]) => (
-          <Who key={i} c={c} k={geo.k} id={id} x={x} foot={GROUND} w={w} t={t + i * 0.4} an={s.set}
+        {[left, kid, right].map((id, i) => (
+          <Who key={i} c={c} k={geo.k} id={id} f={figs[i]} t={t + i * 0.4} an={s.set}
             pose={sad ? worried(t + i * 0.4) : glad && i === 1 ? "wave" : smiling(POSES.stand(t + i * 0.4), glad)} />
         ))}
         {layer(geo, (
@@ -313,6 +336,8 @@ const PLAQUE_W = 144;
 const PLAQUE_TOP = 128;
 const MAIN_RIGHT = 263;
 const SPARE_LEFT = 269;
+/** the family in the house, each a doll's width: the right one stands between the pillars when a spare comes, as far from the pillar as the left two otherwise */
+const pillarPeople = (spare: boolean): [number, number][] => [[72, 80], [132, 60], [spare ? 262 : 300, 80]];
 
 /**
  * where เสาหลักของบ้าน's words stand: each pillar's plaque (in the frame's px) with its word set in the largest size,
@@ -383,8 +408,7 @@ function HousePillar({ d, show }: { d: Dev; show: MetaShow<"housepillar"> }) {
   const [left, kid, right] = family(c);
   const safe = !!spare && spareIn > 0.7;
   const pose = (i: number): PoseName | Pose => (shaking ? worried(t + i * 0.4) : safe ? (i === 1 ? "wave" : smiling(POSES.stand(t + i * 0.4), true)) : POSES.stand(t + i * 0.4));
-  // the right one stands between the pillars when a spare comes; as far from the pillar as the left two otherwise
-  const people: [string, number, number, number][] = [[left, 72, 80, 0], [kid, 132, 60, 1], [right, pg.spare ? 262 : 300, 80, 2]];
+  const figs = metaFigures(show, c, t);
   // the plaque rocks with the pillar: turned as it is, carried sideways as far as its height up the pillar
   const plaqueDx = Math.sin((rot * Math.PI) / 180) * (FLOOR - PLAQUE_TOP - 18) * geo.k;
   return (
@@ -419,7 +443,7 @@ function HousePillar({ d, show }: { d: Dev; show: MetaShow<"housepillar"> }) {
           <Plaque p={pg.main} at={geo.art} rot={rot} dx={plaqueDx} />
           {spare ? <Plaque p={spare} at={geo.art} dx={slide * geo.k} /> : null}
         </div>
-        {people.map(([id, x, w, i]) => <Who key={i} c={c} k={geo.k} id={id} x={x} foot={FLOOR} w={w} t={t + i * 0.4} an={s.set} pose={pose(i)} />)}
+        {[left, kid, right].map((id, i) => <Who key={i} c={c} k={geo.k} id={id} f={figs[i]} t={t + i * 0.4} an={s.set} pose={pose(i)} />)}
       </Sheet>
       <MetaNote d={d} geo={geo} />
     </>
@@ -435,6 +459,8 @@ const SWIM_W = 116;
 const RING = { rx: 70, ry: 21 };
 /** the ring's flight: from the jetty, up over, down onto the one in the water */
 const THROW = { x0: 356, y0: 102, cx: 276, cy: -30, x1: SWIM_X, y1: SEA + 2 };
+/** how the one in the water bobs at time t */
+const bobAt = (t: number) => 3 * Math.sin(t * 3.4);
 const along = (q: number) => ({
   x: (1 - q) ** 2 * THROW.x0 + 2 * (1 - q) * q * THROW.cx + q * q * THROW.x1,
   y: (1 - q) ** 2 * THROW.y0 + 2 * (1 - q) * q * THROW.cy + q * q * THROW.y1,
@@ -475,14 +501,12 @@ function LifeRing({ d, show }: { d: Dev; show: MetaShow<"lifering"> }) {
   const thrown = !!s.protect && t >= s.protect.at;
   const landed = thrown && q >= 1;
   const amp = 3.5 + 3.5 * rough * (landed ? 0.5 : 1);
-  const bob = 3 * Math.sin(t * 3.4);
+  const bob = bobAt(t);
   // the throw's path, dashed, as far as the ring has come
   const trail: string[] = [];
   for (let i = 0; i <= 24; i += 1) { const p = along((q * i) / 24); trail.push(`${r1(p.x)} ${r1(p.y)}`); }
   const at = along(q);
   const help = rough > 0 && !landed;
-  // how far down their box the water comes: to a doll's chest under its big head; to มินิมอล's, higher up its slim body
-  const chest = minimal(c.input) ? 0.36 : 0.62;
   const pose: Pose = landed ? { ...POSES.hand(t), ua: [-60, 60], fa: [-80, 80] } : help ? { ...POSES.wave(t), smile: false, h: 18 } : worried(t);
   return (
     <>
@@ -498,7 +522,7 @@ function LifeRing({ d, show }: { d: Dev; show: MetaShow<"lifering"> }) {
           </>
         ), set > 0 ? 1 : 0)}
         {/* the one in the water, the sea up to their chest */}
-        <Who c={c} k={geo.k} id={c.input.faces.hero} x={SWIM_X} foot={SEA + (1 - chest) * SWIM_W * tallOf(c) + bob} w={SWIM_W} t={t} an={s.set} pose={pose} />
+        <Who c={c} k={geo.k} id={c.input.faces.hero} f={metaFigures(show, c, t)[0]} t={t} an={s.set} pose={pose} />
         {layer(geo, (
           <>
             <path d={`${wave(SEA, amp, t)} L${SHEET.w} ${SHEET.h - 12} Q${SHEET.w} ${SHEET.h} ${SHEET.w - 12} ${SHEET.h} L12 ${SHEET.h} Q0 ${SHEET.h} 0 ${SHEET.h - 12} Z`} fill={C.blanket} stroke={C.waterInk} strokeWidth={2.6} strokeLinejoin="round" />
@@ -537,18 +561,13 @@ const SINK = 12;
 const netAt = (x: number, sag: number) => NET_Y + sag * (1 - ((x - WALK_X) / (POSTS[1] - WALK_X)) ** 2);
 
 /**
- * ตาข่ายนิรภัย: someone walking the high line with a pole; they slip and fall along the dashed line; a green net is
- * strung below from both posts; it catches them and they bounce, glad
+ * the walker at time t: on the line, wobbling as they slip; then down to the net in the fall's first part, gathering
+ * speed; then the net gives and springs back, dying away, with them in it
  */
-function SafetyNet({ d, show }: { d: Dev; show: MetaShow<"safetynet"> }) {
-  const { c, t, s } = d;
-  const geo = metaGeo(c.size, show.note);
-  const set = prog(s.set, t);
+function walkerAt(s: Record<string, Anim>, t: number) {
   const slip = prog(s.trouble, t);
-  const strung = easeOut(prog(s.protect, t));
   const fall = prog(s.fall, t);
   const falling = !!s.fall && t >= s.fall.at;
-  // the fall: down to the net in its first part, gathering speed; then the net gives and springs back, dying away
   const DROP = 0.32;
   const rest = 26;
   const tau = Math.max(0, (fall - DROP) * (s.fall?.dur ?? 1));
@@ -556,7 +575,20 @@ function SafetyNet({ d, show }: { d: Dev; show: MetaShow<"safetynet"> }) {
   const sag = rest * (falling ? 1 : 0.7) + give;
   const foot = !falling ? HIGH : fall < DROP ? HIGH + (netAt(WALK_X, rest) + SINK - HIGH) * (fall / DROP) ** 2 : netAt(WALK_X, sag) + SINK;
   const rot = !falling ? (slip > 0 ? 16 * Math.sin(slip * Math.PI * 2.5) : 0) : fall < DROP ? 24 * Math.sin((fall / DROP) * Math.PI) : 0;
-  const caught = falling && fall >= DROP;
+  return { slip, sag, foot, rot, caught: falling && fall >= DROP };
+}
+
+/**
+ * ตาข่ายนิรภัย: someone walking the high line with a pole; they slip and fall along the dashed line; a green net is
+ * strung below from both posts; it catches them and they bounce, glad
+ */
+function SafetyNet({ d, show }: { d: Dev; show: MetaShow<"safetynet"> }) {
+  const { c, t, s } = d;
+  const geo = metaGeo(c.size, show.note);
+  const set = prog(s.set, t);
+  const strung = easeOut(prog(s.protect, t));
+  const { slip, sag, rot, caught } = walkerAt(s, t);
+  const f = metaFigures(show, c, t)[0];
   const pose: Pose = caught ? POSES.cheer(t) : slip > 0 ? { ...POSES.cheer(t), smile: false, h: 18 } : POSES.stand(t);
   const reach = (POSTS[1] - WALK_X) * strung;
   // the net strung from the posts inward: only the part strung so far is drawn
@@ -577,12 +609,12 @@ function SafetyNet({ d, show }: { d: Dev; show: MetaShow<"safetynet"> }) {
   const rope = (pts: [number, string][], key: string, width: number) => (strung >= 1
     ? run(pts, key, width)
     : [run(pts.filter((p) => p[0] <= WALK_X), `${key}l`, width), run(pts.filter((p) => p[0] >= WALK_X), `${key}r`, width)]);
-  const W = Math.round(WALK_W * geo.k);
-  const H = Math.round(WALK_W * tallOf(c) * geo.k);
+  const W = Math.round(f.w * geo.k);
+  const H = Math.round(f.h * geo.k);
   // the walker's pole, held across at their hands
   const poleW = Math.round((WALK_W + 64) * geo.k);
   const pole = (
-    <div style={abs({ left: Math.round(-32 * geo.k), top: Math.round(H * 0.52), width: poleW, height: Math.round(14 * geo.k) })}>
+    <div style={abs({ left: Math.round(((f.w - WALK_W - 64) / 2) * geo.k), top: Math.round(H * 0.52), width: poleW, height: Math.round(14 * geo.k) })}>
       <svg width={poleW} height={Math.round(14 * geo.k)} viewBox={`0 0 ${WALK_W + 64} 14`}><path d={`M3 11 Q${(WALK_W + 64) / 2} 2 ${WALK_W + 61} 11`} fill="none" stroke={C.ink} strokeWidth={3.6} strokeLinecap="round" /></svg>
     </div>
   );
@@ -600,7 +632,7 @@ function SafetyNet({ d, show }: { d: Dev; show: MetaShow<"safetynet"> }) {
             {slip > 0 ? <path d={`M${WALK_X} ${HIGH + 8} V${NET_Y + 16}`} stroke={C.ink} strokeWidth={2} strokeDasharray="5 7" strokeLinecap="round" opacity={r1(0.65 * easeOut(slip))} /> : null}
           </>
         ), set > 0 ? 1 : 0)}
-        <div style={abs({ left: Math.round((WALK_X - WALK_W / 2) * geo.k), top: Math.round(foot * geo.k) - H, width: W, height: H, opacity: set > 0 ? 1 : 0, ...(transform ? { transform } : {}) })}>
+        <div style={abs({ left: Math.round((f.x - f.w / 2) * geo.k), top: Math.round(f.foot * geo.k) - H, width: W, height: H, opacity: set > 0 ? 1 : 0, ...(transform ? { transform } : {}) })}>
           <Pic c={c} id={c.input.faces.hero} r={{ x: 0, y: 0, w: W, h: H }} pose={pose} t={t} />
           {/* the pole is let go of as they land */}
           {caught ? null : pole}

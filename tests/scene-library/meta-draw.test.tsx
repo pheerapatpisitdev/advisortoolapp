@@ -9,7 +9,7 @@ import type { StoryVideoInput } from "@/lib/quote-video/story";
 import { knowText, META_DEFAULTS, META_LIMITS, type KnowShow, type MetaShow } from "@/lib/quote-video/story-knowledge";
 import { kspec, showBody } from "@/lib/quote-video/story-knowledge-motion";
 import { handWidth } from "@/lib/quote-video/story-life-motion";
-import { metaGeo, pillarGeo } from "@/lib/quote-video/story-meta-motion";
+import { metaFigures, metaGeo, pillarGeo, UMBRELLA_RIM } from "@/lib/quote-video/story-meta-motion";
 import type { StoryContext } from "@/lib/quote-video/story-motion";
 import { SIZES as FRAME, type VideoSize } from "@/lib/quote-video/timeline";
 
@@ -101,6 +101,42 @@ describe("the four metaphors draw", () => {
     each((size, art, label) => {
       for (const show of SHOWS) expect(words(html(show, end(show), size, art)), `${show.layout} ${label}`).not.toMatch(/[\d๐-๙]/);
     });
+  });
+});
+
+describe("the people", () => {
+  const times = (show: KnowShow) => [0, 0.8, ...Array.from({ length: 61 }, (_, i) => i * 0.1), end(show) + 3];
+  it("every head stays on the sheet (no head sliced at its top edge), every foot on it, in every look and size, all through", () => {
+    each((size, art, label) => {
+      for (const show of SHOWS as MetaShow[]) for (const t of times(show)) {
+        const figs = metaFigures(show, ctx(size, art), t);
+        expect(figs.length, `${show.layout} ${label}`).toBeGreaterThan(0);
+        for (const f of figs) {
+          const at = `${show.layout} ${label} t=${t.toFixed(1)}`;
+          expect(f.foot - f.h, `${at}: the head inside the sheet`).toBeGreaterThanOrEqual(0);
+          expect(f.foot, at).toBeLessThanOrEqual(300);
+          expect(f.x - f.w / 2, at).toBeGreaterThanOrEqual(0);
+          expect(f.x + f.w / 2, at).toBeLessThanOrEqual(400);
+        }
+      }
+    });
+  });
+
+  it("under the umbrella every head is below the canopy's rim, in every look", () => {
+    each((size, art, label) => {
+      for (const show of [SHOWS[0], SHOWS[1], SHOWS[2]] as MetaShow[]) for (const f of metaFigures(show, ctx(size, art), end(show))) {
+        expect(f.foot - f.h, `${label}: a head clear of the canopy`).toBeGreaterThan(UMBRELLA_RIM + 6);
+      }
+    });
+  });
+
+  it("the people are drawn where metaFigures puts them", () => {
+    const show = SHOWS[13] as MetaShow<"safetynet">;
+    for (const art of ARTS) {
+      const f = metaFigures(show, ctx("portrait", art), 0.6)[0];
+      const k = metaGeo("portrait").k;
+      expect(html(show, 0.6, "portrait", art), art.art).toContain(`height:${Math.round(f.h * k)}px`);
+    }
   });
 });
 
