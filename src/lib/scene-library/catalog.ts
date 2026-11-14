@@ -1,9 +1,9 @@
-import { DEVICES, isHealthDevice } from "./devices";
+import { DEVICES } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
-import type { DeviceLayout, HealthLayout } from "@/lib/quote-video/story-knowledge";
+import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { INFO_SHELVES, infoArt, topicOf, type StoryTopic } from "@/lib/story/topics";
 
 /**
@@ -65,7 +65,7 @@ const DEVICE_TOPIC: Record<DeviceLayout, StoryTopic> = {
 };
 
 /** what a viewer reads under each device (the DEVICES `when` lines are for the script writer) */
-const DEVICE_TELLS: Record<HealthLayout, string> = {
+const DEVICE_TELLS: Record<DeviceLayout, string> = {
   split: "เทียบแผนเหมาจ่ายกับแผนแยกจ่ายที่มีเพดานแต่ละหมวด",
   limit: "วงเงินค่ารักษาต่อปีเป็นหลอดที่ค่อยๆ ลดลงตามที่ใช้",
   room: "ค่าห้องจริงต่อคืนเทียบกับที่แผนจ่าย",
@@ -74,14 +74,23 @@ const DEVICE_TELLS: Record<HealthLayout, string> = {
   cashless: "เข้าโรงพยาบาลในเครือข่ายแล้วไม่ต้องสำรองจ่าย ตามเงื่อนไขของแผน",
   groupgap: "สวัสดิการประกันกลุ่มจากที่ทำงานที่จ่ายได้ไม่พอ",
   agecost: "เบี้ยสุขภาพต่อปีที่สูงขึ้นตามช่วงอายุ",
+  // ชีวิต ภาษี มรดก (round 2, spec 2026-11-14-devices-life-tax-design): the lines their unbuilt entries had, made exact
+  lifeneed: "รวมหนี้ ค่าใช้จ่ายครอบครัว และค่าเรียนลูก เป็นทุนชีวิตที่ควรมี เทียบกับทุนที่มีอยู่",
+  beneficiary: "ใครได้รับเงินเมื่อเกิดเหตุ และสัดส่วนของแต่ละคน",
+  cilump: "เงินก้อนเข้ามาเมื่อแพทย์วินิจฉัยตามเงื่อนไขกรมธรรม์",
+  incomestop: "รายได้หายไประหว่างพักรักษาตัว",
+  taxback: "ภาษีที่ได้คืนตามฐานภาษีของลูกค้า",
+  taxcap: "เพดานลดหย่อนภาษีของเบี้ยประกันชีวิต สุขภาพ และบำนาญ",
+  moneysplit: "เงินก้อนแบ่งไปถึงคนในครอบครัว",
+  threegen: "ส่งต่อเงินจากรุ่นสู่รุ่นสามรุ่น",
 };
 /** whether คลิปเล่าเรื่อง keeps this look on this topic: the info-route looks (INFO_ARTS) only on the shelves told in points */
 const lookFits = (topic: StoryTopic, look: string): boolean => !infoArt(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
-// Task 7: the ชีวิต ภาษี มรดก devices become ready (stills, topics); until then their unbuilt entries below stand
-const readyDevices: LibraryItem[] = DEVICES.filter(isHealthDevice).map((d) => {
+/** all sixteen devices, health and ชีวิต ภาษี มรดก, each with a still in every look */
+const readyDevices: LibraryItem[] = DEVICES.map((d) => {
   const topic = DEVICE_TOPIC[d.key];
   return {
-    id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: "health", ready: true,
+    id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: d.product, ready: true,
     uses: [storyUse("ทำคลิปเล่าเรื่อง", { topic }), promptUse("ทำคลิปตามโจทย์")],
     preview: `/library/${d.key}-paper.jpg`,
     // the look shown in the detail goes with its links; a look the topic cannot keep is left out of the link, not sent to be dropped
@@ -205,25 +214,16 @@ const unbuilt: LibraryItem[] = [
   dev("health", "hospital-map", "แผนที่ รพ. ในเครือ", "แผนที่โรงพยาบาลในเครือข่าย"),
   dev("health", "tax-health-premium", "ลดหย่อนภาษีค่าเบี้ยสุขภาพ", "เบี้ยที่จ่ายแล้วนำไปลดหย่อนภาษีได้เท่าไร"),
   dev("health", "health-for-parents", "ประกันสุขภาพให้พ่อแม่", "ซื้อประกันสุขภาพให้พ่อแม่ ลูกเป็นผู้จ่าย"),
-  dev("health", "ci-lump-sum", "เงินก้อนตอนวินิจฉัย", "เงินก้อนเข้ามาทันทีที่แพทย์วินิจฉัย"),
-  dev("health", "ci-income-stops", "รายได้หยุดระหว่างรักษา", "รายได้หายไประหว่างพักรักษาตัว"),
   dev("health", "ci-uncovered-costs", "ค่าใช้จ่ายที่ประกันสุขภาพไม่จ่าย", "ค่าใช้จ่ายนอกบิลโรงพยาบาลที่ประกันสุขภาพไม่จ่าย"),
   dev("health", "group-cost-per-head", "ต้นทุนต่อหัวต่อเดือน", "ต้นทุนประกันกลุ่มต่อพนักงานต่อเดือน"),
   dev("health", "pa-cost-per-visit", "ค่ารักษาอุบัติเหตุต่อครั้ง", "ค่ารักษาอุบัติเหตุแต่ละครั้งที่ PA จ่าย"),
   dev("health", "pa-daily-benefit", "ชดเชยรายวัน", "เงินชดเชยรายวันระหว่างนอนโรงพยาบาล"),
-  // devices: life
-  dev("life", "beneficiary", "ผู้รับประโยชน์", "ใครได้รับเงินเมื่อเกิดเหตุ"),
-  dev("life", "life-sum-needed", "ทุนชีวิตที่ควรมี (หนี้ + ค่าใช้จ่าย)", "รวมหนี้และค่าใช้จ่ายครอบครัวเป็นทุนที่ควรมี"),
   // devices: saving
-  dev("saving", "split-money-home", "แบ่งเงินให้คนในบ้าน", "เงินก้อนแบ่งไปถึงคนในครอบครัว"),
-  dev("saving", "three-generations", "ส่งต่อสามรุ่น", "ส่งต่อเงินจากรุ่นสู่รุ่นสามรุ่น"),
   dev("saving", "pension-inflation", "เงินเฟ้อกับเงินบำนาญ", "บำนาญเท่าเดิมซื้อของได้น้อยลง"),
   dev("saving", "irr-per-year", "ผลตอบแทนเฉลี่ยต่อปี (IRR)", "ผลตอบแทนเฉลี่ยต่อปีของแผน เทียบกับฝากธนาคาร"),
   dev("saving", "past-returns-chart", "กราฟผลตอบแทนย้อนหลัง", "เส้นกราฟผลตอบแทนของกองทุนในอดีต"),
   dev("saving", "fund-risk-1-8", "ระดับความเสี่ยงกองทุน 1–8", "สเกลความเสี่ยงกองทุนตั้งแต่ 1 ถึง 8"),
   dev("saving", "portfolio-mix", "สัดส่วนการลงทุน", "วงกลมสัดส่วนการลงทุนในแต่ละกอง"),
-  dev("saving", "tax-cap-total", "เพดานลดหย่อนรวม", "เพดานลดหย่อนภาษีรวมของเบี้ยประกัน"),
-  dev("saving", "tax-refund-by-bracket", "ภาษีที่ได้คืนตามฐาน", "ภาษีที่ได้คืนตามฐานภาษีของลูกค้า"),
   // fx
   n("fx", "all", "fx-transition-circle", "ทรานสิชัน วงกลมขยาย", "เปลี่ยนฉากด้วยวงกลมที่ขยายออก"),
   n("fx", "all", "fx-transition-flip", "ทรานสิชัน พลิกการ์ด", "ฉากพลิกเหมือนการ์ด"),

@@ -8,7 +8,8 @@
 #   1. the prepare step (both runs: the four themes, then iHealthy's languages) and the bundle
 #   2. the image, :drawing-<fingerprint> (skipped when a stopped run built it already)
 #   3. smoke renders of it on the trial job remotion-port (a paper วิดีโอนำเสนอ, กองกลาง 48 คน, a คลิปตามโจทย์, a แบบปกติ,
-#      a สูตรคลิป Motion เปิดด้วยคำถาม, ประกันสุขภาพ ค่าห้องเกิน ใครจ่าย, นีออน's waiting episode), which must end in clips
+#      a สูตรคลิป Motion เปิดด้วยคำถาม, ประกันสุขภาพ ค่าห้องเกิน ใครจ่าย, นีออน's waiting episode, ทุนชีวิตเท่าไหร่ถึงพอ),
+#      which must end in clips
 #   4. the job remotion-<fingerprint> (8 vCPU / 8 GiB, as clip-runner), startable by clip-render
 #   5. the drawing jobs past the newest three deleted (no app still deployed names them)
 set -euo pipefail
@@ -45,11 +46,12 @@ else
 fi
 
 # 3. clips from it before anyone gets it: a วิดีโอนำเสนอ (paper), กองกลาง 48 คน, a คลิปตามโจทย์, a แบบปกติ, a
-#    สูตรคลิป Motion (เปิดด้วยคำถาม), ประกันสุขภาพ's ค่าห้องเกิน ใครจ่าย (its room and bill devices) and the นีออน
-#    look's waiting episode (its glow and Sriracha in the image's Chrome), at once
+#    สูตรคลิป Motion (เปิดด้วยคำถาม), ประกันสุขภาพ's ค่าห้องเกิน ใครจ่าย (its room and bill devices), the นีออน
+#    look's waiting episode (its glow and Sriracha in the image's Chrome) and ทุนชีวิตเท่าไหร่ถึงพอ (round 2's
+#    lifeneed, beneficiary and moneysplit on typed figures), at once
 g run jobs update remotion-port --region "$REGION" --image "$IMAGE"
 pids=()
-for theme in paper st-pool48 st-free c-lp r-ask st-health-roomcost st-neon-health; do
+for theme in paper st-pool48 st-free c-lp r-ask st-health-roomcost st-neon-health st-money-lifeneed; do
   g run jobs execute remotion-port --region "$REGION" --wait --args=node,cloudrun/smoke.mjs \
     --update-env-vars "THEME=$theme,PUBLIC=build/public,PREFIX=ship" >/dev/null 2>&1 &
   pids+=("$!:$theme")

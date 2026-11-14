@@ -305,6 +305,59 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
     writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(n, size, "", "F", CONTACT, nPlans, nScript, nSecs, clipLength(nPlans), `audio/${name}.wav`, [])));
   }
 
+  // ทุนชีวิต ภาษี มรดก (device round 2, 2026-11-14, spec 2026-11-14-devices-life-tax-design): each new topic in paper and one
+  // other look, on numbers an agent types on the form, checked as the form checks them so the look and the figures are kept.
+  // props/st-money-lifeneed.json is a ship.sh smoke render
+  const money = {
+    lifeneed: { debts: 2_000_000, expenses: 300_000, years: 10, education: 800_000, have: 3_000_000 },
+    ciincome: { monthly: 30_000, months: 6, ciSum: 1_000_000 },
+    taxback: { premium: 50_000, bracket: 20 },
+  } as const;
+  for (const [name, topic, art] of [["st-money-lifeneed", "lifeneed", "paper"], ["st-money-lifeneed-board", "lifeneed", "board"],
+    ["st-money-ciincome", "ciincome", "paper"], ["st-money-ciincome-neon", "ciincome", "neon"],
+    ["st-money-taxback", "taxback", "paper"], ["st-money-taxback-blueprint", "taxback", "blueprint"]] as const) {
+    const m = checkedStory({ topic, faces: { narrator: "w26", hero: "m09" }, art, money: money[topic] } as never, "F");
+    if (typeof m === "string") throw new Error(`${name}: ${m}`);
+    if (m.art !== art) throw new Error(`${name}: drawn in ${m.art}, not ${art}`);
+    if (JSON.stringify(m.money) !== JSON.stringify(money[topic])) throw new Error(`${name}: figures left off: ${JSON.stringify(m.money)}`);
+    const mScript = storyScript(m, "", "F");
+    const mSecs = mScript.map((s) => secsOf(s.voice));
+    const mPlans = planScenes(mScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: mSecs[i], windows: clipWindows(s.key, m, "portrait"), fps: MOTION_FPS, ...clipTail(s.key, m, mSecs[i]) })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), silentWav(clipLength(mPlans)));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(m, "portrait", "", "F", CONTACT, mPlans, mScript, mSecs, clipLength(mPlans), `audio/${name}.wav`, [])));
+  }
+
+  // the same in คลิปตามโจทย์ (device round 2): three of the new devices in place of the painter's pictures, every figure
+  // from the brief, each device held to the brief by the app's own check (a device it drops would be a picture scene)
+  const { checkDevice, deviceAllowed, checkScript } = await import("@/lib/prompt-story/check");
+  const lifeBrief = "หนี้บ้านคงเหลือ 2,000,000 บาท ค่าใช้จ่ายครอบครัวปีละ 300,000 บาท ต้องดูแลอีก 10 ปี ค่าการศึกษาลูก 800,000 บาท "
+    + "มีทุนประกันอยู่แล้ว 3,000,000 บาท จ่ายค่าประกันชีวิตปีละ 50,000 บาท ฐานภาษี 20% อยากส่งต่อเงินก้อนให้ลูกหลาน";
+  const life = {
+    ...free, brief: lifeBrief, title: "ทุนชีวิต ภาษี มรดก", narrator: "F", faces: { narrator: "w26" }, pictures: [null, null, null],
+    scenes: [
+      { voice: "หนี้บ้าน 2,000,000 บาท ค่าใช้จ่ายครอบครัวปีละ 300,000 บาท อีก 10 ปี ค่าเรียนลูก 800,000 บาท รวมกันคือทุนที่ควรมีค่ะ", screen: "", picture: "",
+        device: { layout: "lifeneed", title: ["ทุนชีวิต", "ควรมีเท่าไหร่"], debts: 2_000_000, expenses: 300_000, years: 10, education: 800_000, have: 3_000_000 } },
+      { voice: "จ่ายค่าประกันชีวิตปีละ 50,000 บาท นำไปลดหย่อนภาษีได้ ได้ภาษีคืนมากน้อยตามฐานภาษีค่ะ", screen: "", picture: "",
+        device: { layout: "taxback", title: ["ลดหย่อนภาษี", "ได้คืนเท่าไหร่"], premium: 50_000, bracket: 20 } },
+      { voice: "และเงินก้อนจากประกันชีวิต ส่งต่อให้ลูกหลานได้อีกรุ่นค่ะ", screen: "", picture: "",
+        device: { layout: "threegen", title: ["ส่งต่อ", "สามรุ่น"], rows: ["รุ่นปู่ย่า", "รุ่นพ่อแม่", "รุ่นลูก"], note: "ส่งต่อเงินก้อนให้ลูกหลาน" } },
+    ],
+  } as const;
+  const bad = checkScript(life.scenes as never, lifeBrief);
+  if (bad.length) throw new Error(`st-free-life: ${JSON.stringify(bad)}`);
+  const allowed = deviceAllowed(lifeBrief);
+  for (const s of life.scenes) {
+    const d = checkDevice(s.device, allowed);
+    if (typeof d === "string" || JSON.stringify(d) !== JSON.stringify(s.device)) throw new Error(`st-free-life ${s.device.layout}: ${typeof d === "string" ? d : "changed"}`);
+  }
+  const lScript = [...life.scenes.map((s) => ({ key: "freeScene" as const, voice: s.voice })), { key: "storyContact" as const, voice: "สนใจรายละเอียดเพิ่มเติม ทักมาได้เลยนะคะ" }];
+  const lSecs = lScript.map((s) => secsOf(s.voice));
+  const lPlans = planScenes(lScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: lSecs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS, ...(s.key === "storyContact" ? {} : freeTail(life.scenes[i], lSecs[i])) })));
+  writeFileSync(join(PUB, "audio/st-free-life.wav"), silentWav(clipLength(lPlans)));
+  for (const style of ["paper", "neon"] as const) {
+    writeFileSync(join(PUB, `props/st-free-life-${style}.json`), JSON.stringify(storyClipProps({ ...life, style } as never, "portrait", "", "F", CONTACT, lPlans, lScript, lSecs, clipLength(lPlans), "audio/st-free-life.wav", [undefined, undefined, undefined])));
+  }
+
   // health devices in place of the painter's pictures (scene library, 2026-11-13): a clip of two device scenes in
   // each look, drawn by the system on the look's ground, no picture filed for them
   const devices = {
