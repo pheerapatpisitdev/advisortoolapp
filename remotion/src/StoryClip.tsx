@@ -39,6 +39,9 @@ const PAPER_CSS = [
   ".warm .cut svg, .warm .cut-card svg { filter: none; }",
 ].join("\n");
 
+/** the looks that draw no cartoon face: their own people (มินิมอล, the dolls), or none at all (the info route's own looks) */
+const NO_FACES: ReadonlySet<string> = new Set(["minimal", "paper", "line", "board", "neon", "blueprint"]);
+
 /** the zoompan's push: 1.00 at the scene's start to 1.12 at its end */
 export const PUSH = 0.12;
 
@@ -71,10 +74,11 @@ function useReady(pictures: string[]): boolean {
 export function StoryClip(p: StoryClipProps) {
   const frame = useCurrentFrame();
   const { fps, width: w } = useVideoConfig();
-  // the cartoon faces, colour and grey, from the bundle's story/faces as story-faces.ts reads them; มินิมอล draws its people instead
+  // the cartoon faces, colour and grey, from the bundle's story/faces as story-faces.ts reads them; มินิมอล draws its people
+  // instead, and ไวต์บอร์ด นีออน บลูพริ้นท์ draw none
   const story = p.kind === "story" ? (p.input as StoryVideoInput) : null;
   const faces: Record<string, string> = {};
-  for (const id of story && story.art !== "minimal" && story.art !== "paper" && story.art !== "line" ? clipFaces(story) : []) {
+  for (const id of story && !NO_FACES.has(story.art ?? "") ? clipFaces(story) : []) {
     faces[id] = staticFile(`story/faces/${id}.jpg`);
     faces[`${id}-g`] = staticFile(`story/faces/${id}-g.jpg`);
   }

@@ -220,6 +220,10 @@ describe("assetPicture", () => {
     expect(await ground("plot")).toBe(STORY_CLIP_COLORS.plotPaper);
     expect(await ground("line")).toBe(STORY_CLIP_COLORS.lineGround);
     expect(await ground("real")).toBe(STORY_CLIP_COLORS.paper);
+    // ไวต์บอร์ด นีออน บลูพริ้นท์: the board's white, the neon's violet at its centre, the blueprint blue
+    expect(await ground("board")).toBe(STORY_CLIP_COLORS.boardBoard);
+    expect(await ground("neon")).toBe(STORY_CLIP_COLORS.neonCentre);
+    expect(await ground("blueprint")).toBe(STORY_CLIP_COLORS.bpGround);
   });
 
   it("draws nothing else: no words, and only IBM Plex handed to the drawing", async () => {
@@ -296,4 +300,74 @@ describe("ScriptEditor's ภาพจากคลัง", () => {
     expect(html({ assets: [] })).toContain("ยังไม่มีภาพในคลัง อัปโหลดได้ที่เมนูคลังแอนิเมชัน");
     expect(html()).not.toContain("ยังไม่มีภาพในคลัง");
   });
+});
+
+/**
+ * Review Focus 3 (spec 2026-11-14-story-looks-board-neon-blueprint): a คลิปตามโจทย์ in each new look with a picture
+ * scene, a health device scene and a library part scene draws every frame as StoryClip lays them — the look's
+ * background, the scene's picture over it (a painted one, or the part on the look's ground), the frame on top — and
+ * the screen words can be read off the sign they stand on.
+ */
+describe("a คลิปตามโจทย์ in ไวต์บอร์ด นีออน บลูพริ้นท์", async () => {
+  const { readFileSync } = await import("node:fs");
+  const path = await import("node:path");
+  const { drawPngHere } = await import("@/lib/draw/core");
+  const { freeFrame } = await import("@/lib/prompt-story/frames");
+  const { storyBackground } = await import("@/lib/quote-video/story-motion");
+  const { SIZES } = await import("@/lib/quote-video/timeline");
+  const face = (f: string) => readFileSync(path.join(process.cwd(), "remotion/public/fonts", f));
+  const FONTS = [
+    ["Plex", "IBMPlexSansThai-Regular.ttf", 400], ["Plex", "IBMPlexSansThai-SemiBold.ttf", 600], ["Mali", "Mali-400.ttf", 400],
+    ["Mali", "Mali-600.ttf", 600], ["Sriracha", "Sriracha-400.ttf", 400], ["Symbols", "NotoSansSymbols2-400.ttf", 400],
+  ].map(([name, file, weight]) => ({ name: name as string, data: face(file as string), weight: weight as 400 | 600, style: "normal" as const }));
+  const rgbOf = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const lum = (p: number[]) => {
+    const f = (v: number) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(p[0]) + 0.7152 * f(p[1]) + 0.0722 * f(p[2]);
+  };
+  const contrast = (a: number[], b: number[]) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  /** a painted picture stand-in: busy, mid-grey and white stripes, so a sign that does not mask it is caught */
+  const painted = async (w: number, h: number) => `data:image/png;base64,${(await sharp({ create: { width: w, height: h, channels: 3, background: "#8a8f99" } })
+    .composite(Array.from({ length: 12 }, (_, i) => ({ input: { create: { width: w, height: Math.round(h / 48), channels: 3 as const, background: "#ffffff" } }, left: 0, top: Math.round((i * h) / 12) })))
+    .png().toBuffer()).toString("base64")}`;
+  const SIGN: Record<string, string> = { board: STORY_CLIP_COLORS.boardBoard, neon: STORY_CLIP_COLORS.neonSub, blueprint: STORY_CLIP_COLORS.bpGround };
+
+  for (const style of ["board", "neon", "blueprint"] as const) {
+    it(`${style}: the picture, device and part scenes all draw, the words readable on their sign`, async () => {
+      const clip: PromptStoryInput = {
+        product: "FREESTORY", brief: "b", title: "ค่าห้องเกินใครจ่าย", caption: "c", style, painter: "standard", faces: { narrator: "w26" },
+        scenes: [pic({ screen: "ห้องเดี่ยวคืนละหกพัน" }), { voice: "อุปกรณ์ค่ะ", screen: "", picture: "", device: room }, pic({ screen: "บ้านอุ่นใจ", picture: "", asset: U1 })],
+      };
+      for (const size of ["portrait", "square", "landscape"] as const) {
+        const { w, h } = SIZES[size];
+        const c = { input: clip, size, customer: "", narrator: "F" as const, contact: { name: "เอก", phone: "081" }, crowd: [], faces: {}, words: ["ห้อง", "เดี่ยว"], voiceSec: 3 };
+        const lookIn = { ...clip, ...freeLook(clip) } as never;
+        const red = { bytes: await sharp({ create: { width: 400, height: 100, channels: 4, background: "#ff0000" } }).png().toBuffer(), type: "image/png" };
+        const part = `data:image/png;base64,${(await assetPicture(red, freeLook(clip), size)).toString("base64")}`;
+        const pictures = [await painted(w, h), undefined, part];
+        for (const [i, scene] of clip.scenes.entries()) {
+          const picture = pictures[i];
+          const el = createElement("div", { style: { display: "flex", position: "relative", width: w, height: h } },
+            createElement("div", { style: { position: "absolute", left: 0, top: 0, display: "flex" } }, storyBackground(size, lookIn)),
+            picture ? createElement("img", { src: picture, width: w, height: h, style: { position: "absolute", left: 0, top: 0 } }) : null,
+            createElement("div", { style: { position: "absolute", left: 0, top: 0, display: "flex" } }, freeFrame(scene, Boolean(picture), c, 3)));
+          const png = await drawPngHere(el, { width: w, height: h }, FONTS);
+          expect(png.length, `${style} ${size} scene ${i}`).toBeGreaterThan(1000);
+          if (i === 0 && size === "portrait") {
+            // the words' sign masks the picture under it, and the words stand 3:1 off it
+            const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
+            const at = (x: number, y: number) => { const j = (y * info.width + x) * info.channels; return [data[j], data[j + 1], data[j + 2]]; };
+            let sign = 0, words = 0;
+            for (let y = 150; y < 320; y += 2) for (let x = 80; x < w - 80; x += 2) {
+              const p = at(x, y);
+              if (contrast(p, rgbOf(SIGN[style])) < 1.1) sign++;
+              else if (contrast(p, rgbOf(SIGN[style])) >= 3) words++;
+            }
+            expect(sign, `${style} sign`).toBeGreaterThan(3000);
+            expect(words, `${style} words`).toBeGreaterThan(300);
+          }
+        }
+      }
+    }, 120_000);
+  }
 });

@@ -1,3 +1,4 @@
+import type React from "react";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { abs, box } from "@/lib/quote-video/motion";
 import { planName, termShort, type StoryVideoInput } from "@/lib/quote-video/story";
@@ -21,6 +22,17 @@ import type { DeviceScene, PromptScene, PromptStoryInput } from "./types";
 
 const C = STORY_CLIP_COLORS;
 const HAND = "Mali";
+
+/**
+ * ไวต์บอร์ด นีออน บลูพริ้นท์'s screen words over a picture (owner, 2026-11-14): a sheet of the white board written on in
+ * dark marker; a dark rounded sign, its words a glowing cyan tube at Sriracha's one weight; a blueprint-blue plate with
+ * white words and a thin white border
+ */
+const SIGNS: Record<"board" | "neon" | "blueprint", React.CSSProperties> = {
+  board: { background: C.boardBoard, color: C.boardInk, fontFamily: HAND, fontWeight: 600, borderRadius: 18, border: `6px solid ${C.boardFrame}`, transform: "rotate(-1deg)" },
+  neon: { background: C.neonSub, color: C.neonCyan, fontFamily: "Sriracha", fontWeight: 400, borderRadius: 36, border: `4px solid ${C.neonPink}`, textShadow: `0 0 8px ${C.neonCyan}, 0 0 20px ${C.neonCyan}`, boxShadow: `0 0 10px ${C.neonPink}, 0 0 22px ${C.neonPink}` },
+  blueprint: { background: C.bpGround, color: C.bpInk, fontFamily: "Plex", fontWeight: 600, border: `3px solid ${C.bpInk}` },
+};
 
 /** the context a scene is drawn with: a story clip's, with a คลิปตามโจทย์ input */
 export type FreeContext = Omit<StoryContext, "input"> & { input: PromptStoryInput };
@@ -137,8 +149,14 @@ export function freeFrame(scene: PromptScene, picture: boolean, c: FreeContext, 
           {scene.screen}
         </div>
       </div>
+    ) : style === "board" || style === "neon" || style === "blueprint" ? (
+      <div style={abs({ left: g.side, width: w - g.side * 2, top, justifyContent: "center" })}>
+        <div style={box({ justifyContent: "center", textAlign: "center", maxWidth: w - g.side * 2, padding: "20px 40px", fontSize: size, lineHeight: 1.25, ...SIGNS[style] })}>
+          {scene.screen}
+        </div>
+      </div>
     ) : null;
-  const dressed = style === "paper" || style === "line" || style === "warm" || style === "plot";
+  const dressed = style === "paper" || style === "line" || style === "warm" || style === "plot" || style === "board" || style === "neon" || style === "blueprint";
   return (
     <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex", overflow: "hidden" }}>
       {words}

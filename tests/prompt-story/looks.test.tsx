@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { freeFrame, freeLook, type FreeContext } from "@/lib/prompt-story/frames";
 import { checkedPromptStory } from "@/lib/prompt-story/checked";
 import { PICTURE_STYLES, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { STORY_CLIP_COLORS as S } from "@/lib/card-theme";
 
 /** คลิปตามโจทย์ in คลิปเล่าเรื่อง's four looks (owner, 2026-11-13, ก ก) */
 const scene = { voice: "ทดสอบ เสียง", screen: "ดูแลคนที่เรารัก", picture: "ครอบครัว" };
@@ -47,5 +48,32 @@ describe("คลิปตามโจทย์'s looks", () => {
     const sent = (style: string) => checkedPromptStory({ draftId: "00000000-0000-0000-0000-000000000000", brief: "โจทย์", title: "ชื่อ", caption: "", scenes: [scene, scene, scene], style, painter: "sharp" }, "F");
     for (const s of ["paper", "warm", "plot", "line", "board", "neon", "blueprint", "real", "cartoon", "flat"]) expect(typeof sent(s), s).toBe("object");
     expect(sent("oil")).toBe("เลือกแบบภาพ");
+  });
+
+  it("writes ไวต์บอร์ด นีออน บลูพริ้นท์'s words over a picture on a marker sheet, a glowing sign, a white-on-blue plate", () => {
+    for (const s of ["board", "neon", "blueprint"] as const) {
+      expect(frame(s).split("ดูแลคนที่เรารัก").length - 1, s).toBe(1);
+      expect(frame(s), s).not.toContain("rgba(236,232,223,0.9)");
+    }
+    const sign = (s: string) => /<div style="([^"]*)">ดูแลคนที่เรารัก</.exec(frame(s as PromptStoryInput["style"]))?.[1] ?? "";
+    expect(sign("board")).toContain(`background:${S.boardBoard}`);
+    expect(sign("board")).toContain(`color:${S.boardInk}`);
+    expect(sign("board")).toContain("font-family:Mali");
+    expect(sign("neon")).toContain(`background:${S.neonSub}`);
+    expect(sign("neon")).toContain(`color:${S.neonCyan}`);
+    expect(sign("neon")).toMatch(new RegExp(`text-shadow:0 0 \\d+px ${S.neonCyan}`));
+    expect(sign("neon")).toContain("font-family:Sriracha");
+    expect(sign("neon")).toContain("font-weight:400");
+    expect(sign("blueprint")).toContain(`background:${S.bpGround}`);
+    expect(sign("blueprint")).toContain(`color:${S.bpInk}`);
+    expect(sign("blueprint")).toContain(`solid ${S.bpInk}`);
+    expect(sign("blueprint")).toContain("font-family:Plex");
+  });
+
+  it("gives ไวต์บอร์ด นีออน บลูพริ้นท์ their own subtitle band", () => {
+    expect(frame("board")).toContain(`background:${S.boardSub}`);
+    expect(frame("neon")).toContain(`background:${S.neonSub}`);
+    expect(frame("blueprint")).toContain(`background:${S.bpSub}`);
+    for (const s of ["board", "neon", "blueprint"] as const) expect(frame(s), s).not.toContain("rgba(20,22,26,0.82)");
   });
 });

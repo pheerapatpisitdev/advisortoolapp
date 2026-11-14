@@ -376,6 +376,8 @@ export const STORY_CLIP_COLORS = {
   boardMuted: "#5a6580",
   boardSub: "#1d2b44",
   boardFooter: "#4b5668",
+  /** the shine of the light on the board's face, top right (the mockup's sketch) */
+  boardShine: "#e9edf2",
   /* นีออน: the dark violet ground from its centre to its edges, lavender for plain words, the cyan and pink tubes,
      neon red for bad news, the tick's green, muted words, the subtitle's band and the footer */
   neonCentre: "#1c1236",
@@ -388,6 +390,8 @@ export const STORY_CLIP_COLORS = {
   neonMuted: "#8f86b8",
   neonSub: "#1a1230",
   neonFooter: "#6f6699",
+  /** the faint horizontal lines low down on the ground */
+  neonLine: "#2a1f4d",
   /* บลูพริ้นท์: the blueprint blue, its fine and coarse grid, the white ink, the light cyan of a heading and a tick,
      amber for the agent's share, muted words (the footer's too) and the subtitle's band */
   bpGround: "#1f5aa6",

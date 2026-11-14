@@ -1,4 +1,4 @@
-import { QUOTE_VIDEO_COLORS, STORY_CLIP_COLORS } from "@/lib/card-theme";
+import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { StoryTopic } from "@/lib/story/topics";
 import type React from "react";
 import { abs, box, El, look, type Anim } from "./motion";
@@ -6,8 +6,8 @@ import { HEALTH_WORDS as HW, n, type KnowEpisode, type KnowSceneKey, type KnowSh
 import { ageRows, baht, groupBars, limitFigs, overflowBar, PART_FILL, roomFigs, splitParts, wrapLines } from "./story-health-motion";
 import { kspec } from "./story-knowledge-motion";
 import { infoIcon, type InfoIcon } from "./story-info-icons";
-import type { StoryVideoInput } from "./story";
-import { Contact, INFO_GROUND, type StoryContext } from "./story-motion";
+import { Contact, type StoryContext } from "./story-motion";
+import { INFO_KIT, kitFor, type Kit } from "./story-kits";
 import { countAt, SIZES, type VideoSize } from "./timeline";
 
 /**
@@ -17,69 +17,10 @@ import { countAt, SIZES, type VideoSize } from "./timeline";
  * Same words, same scenes, same beats (kspec) as the paper: only the drawing differs.
  */
 
-const C = QUOTE_VIDEO_COLORS;
 const S = STORY_CLIP_COLORS;
 
-/**
- * What a look draws with: อินโฟกราฟิก's navy and gold, ปากกาพล็อตเตอร์'s one pen on cream paper, or (owner, 2026-11-14,
- * spec 2026-11-14-story-looks-board-neon-blueprint) ไวต์บอร์ด's markers, นีออน's glowing tubes, บลูพริ้นท์'s white lines.
- */
-export interface Kit {
-  /** drawn by hand rather than set in tiles: outlined tiles and stamps, hollow dots, thicker card lines */
-  drawn: boolean;
-  /** the ground the pieces stand on (the clip's background is drawn to match it) */
-  page: string;
-  /** the face its words are written in, or none (อินโฟกราฟิก: the frame's own Plex) */
-  hand: string | null;
-  /**
-   * the weight of its bold words: 400 in a face with no bold (Sriracha) — the clip registers Plex under every
-   * family and synthesises no bold, so a 600 line in Sriracha would be drawn in Plex SemiBold (as themes.tsx's โน้ตแปะ)
-   */
-  bold: 600 | 400;
-  /** how a piece comes in: its own entrance, written left to right, or switched on with a flicker */
-  reveal: "fade" | "write" | "switch";
-  /** ปากกาพล็อตเตอร์'s rail and carriage over the sheet; a title in outline; a tile's hatched shading set off behind it */
-  machine: boolean; hollowTitle: boolean; shade: boolean;
-  /** bars hatched inside their outline; a glow in the line's own colour; a dimension line under each figure */
-  hatch: boolean; glow: boolean; dims: boolean;
-  /** the width of a drawn line, against the pen's; a stamp's tilt; how far down a struck-out belief's line crosses it, as a share of its size (its face's own) */
-  line: number; tilt: number; strike: number;
-  /** headings and the accent, a title's second line, a tile's own ground, bad and good news, the words, a card's ground and edge, the quieter words */
-  gold: string; sub: string; sky: string; red: string; green: string; white: string; tile: string; tileLine: string; soft: string;
-  /** what is drawn on a gold tile, a struck-out belief, the list item the voice is on and its edge, a tick, a recap's ground and small line */
-  ground: string; dim: string; on: string; onLine: string; tick: string; card: string; mute: string;
-}
-const INFO_KIT: Kit = {
-  drawn: false, page: INFO_GROUND, hand: null, bold: 600, reveal: "fade", machine: false, hollowTitle: false, shade: false, hatch: false, glow: false, dims: false, line: 1, tilt: 0, strike: 0.62,
-  gold: C.motionGold, sub: S.white, sky: C.motionSky, red: C.motionRed, green: C.motionGreen, white: S.white, tile: "rgba(255,255,255,0.08)", tileLine: "rgba(255,255,255,0.2)", soft: "rgba(255,255,255,0.82)",
-  ground: INFO_GROUND, dim: "rgba(255,255,255,0.45)", on: "rgba(255,210,63,0.12)", onLine: C.motionGold, tick: S.infoTick, card: S.white, mute: S.infoMute,
-};
-const PLOT_KIT: Kit = {
-  drawn: true, page: S.plotPaper, hand: "Mali", bold: 600, reveal: "write", machine: true, hollowTitle: true, shade: true, hatch: true, glow: false, dims: false, line: 1, tilt: -2, strike: 0.62,
-  gold: S.plotInk, sub: S.plotInk, sky: S.plotInk, red: S.red, green: S.green, white: S.plotInk, tile: "transparent", tileLine: S.plotInk, soft: S.plotSoft,
-  ground: S.plotInk, dim: S.plotDim, on: S.plotOn, onLine: S.red, tick: S.green, card: S.plotPaper, mute: S.plotSoft,
-};
-/** ไวต์บอร์ด: dark ink and the blue and red markers on the white board, written in as the pen writes, with no machine */
-const BOARD_KIT: Kit = {
-  drawn: true, page: S.boardBoard, hand: "Mali", bold: 600, reveal: "write", machine: false, hollowTitle: false, shade: false, hatch: false, glow: false, dims: false, line: 1, tilt: -2, strike: 0.62,
-  gold: S.boardBlue, sub: S.boardInk, sky: S.boardInk, red: S.boardRed, green: S.boardGreen, white: S.boardInk, tile: "transparent", tileLine: S.boardInk, soft: S.boardMuted,
-  ground: S.boardInk, dim: S.boardMuted, on: "transparent", onLine: S.boardRed, tick: S.boardGreen, card: S.boardBoard, mute: S.boardMuted,
-};
-/** นีออน: cyan and pink tubes on the dark violet, lavender words, each piece switched on */
-const NEON_KIT: Kit = {
-  drawn: true, page: S.neonCentre, hand: "Sriracha", bold: 400, reveal: "switch", machine: false, hollowTitle: false, shade: false, hatch: false, glow: true, dims: false, line: 0.8, tilt: 0, strike: 0.98,
-  gold: S.neonCyan, sub: S.neonPink, sky: S.neonPink, red: S.neonRed, green: S.neonGreen, white: S.neonInk, tile: "transparent", tileLine: S.neonMuted, soft: S.neonMuted,
-  ground: S.white, dim: S.neonMuted, on: "transparent", onLine: S.neonCyan, tick: S.neonGreen, card: "transparent", mute: S.neonMuted,
-};
-/** บลูพริ้นท์: thin white lines on the blueprint blue, light cyan for the accent, amber for what the customer pays */
-const BLUEPRINT_KIT: Kit = {
-  drawn: true, page: S.bpGround, hand: "Plex", bold: 600, reveal: "write", machine: false, hollowTitle: false, shade: false, hatch: true, glow: false, dims: true, line: 0.6, tilt: 0, strike: 0.84,
-  gold: S.bpCyan, sub: S.bpInk, sky: S.bpInk, red: S.bpAmber, green: S.bpCyan, white: S.bpInk, tile: "transparent", tileLine: S.bpInk, soft: S.bpMuted,
-  ground: S.bpInk, dim: S.bpMuted, on: "transparent", onLine: S.bpAmber, tick: S.bpCyan, card: "transparent", mute: S.bpMuted,
-};
-const KITS: Partial<Record<string, Kit>> = { plot: PLOT_KIT, board: BOARD_KIT, neon: NEON_KIT, blueprint: BLUEPRINT_KIT };
-/** the Kit a clip is drawn with, from its look; อินโฟกราฟิก's for "info" and any other */
-export const kitFor = (input: Pick<StoryVideoInput, "art">): Kit => KITS[input.art ?? ""] ?? INFO_KIT;
+export { kitFor, type Kit };
+
 /**
  * The look being drawn, set from the input at every entry (infoBody, infoDrawn, infoShow) as it starts a frame: a
  * clip is drawn in one look from its first frame to its last, and its pieces are run straight after the frame is asked for.
@@ -191,7 +132,32 @@ function Title({ text, an, t, w, g }: { text: [string, string]; an?: Anim; t: nu
     <E an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title + (K.drawn && g.title < 100 ? Math.round(44 * g.k) : 0), flexDirection: "column", alignItems: "center" }}>
       <div style={box({ fontSize: Math.round((K.drawn && g.title < 100 ? 88 : 104) * g.k), fontWeight: K.bold, lineHeight: 1.15, textAlign: "center", ...(K.hollowTitle ? { color: "transparent", WebkitTextStroke: `${Math.max(2, Math.round(3 * g.k))}px ${K.gold}` } : ink(K.gold)) })}>{text[0]}</div>
       {text[1] ? <div style={box({ fontSize: Math.round(56 * g.k), ...ink(K.sub), marginTop: Math.round(8 * g.k), textAlign: "center" })}>{text[1]}</div> : null}
+      {/* landscape's tall figure cards rise to the title: บลูพริ้นท์'s dimension line would cross them there */}
+      {K.underline || (K.dims && !g.row) ? <TitleRule w={Math.round(Math.min((w - 80) * 0.5, 560 * g.k))} k={g.k} /> : null}
     </E>
+  );
+}
+
+/**
+ * What is ruled under a title, `w` wide: ไวต์บอร์ด's one marker stroke in the accent, a little curved (the mockup's
+ * opening), or บลูพริ้นท์'s dimension line with a tick at each end. It comes in with the title.
+ */
+function TitleRule({ w, k }: { w: number; k: number }) {
+  const h = Math.max(10, Math.round(16 * k));
+  if (K.underline) {
+    return (
+      <div data-underline="" style={box({ width: w, height: h, marginTop: Math.round(4 * k) })}>
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+          <path d={`M${h / 2} ${h * 0.35} Q ${w / 2} ${h * 1.1} ${w - h / 2} ${h * 0.35}`} fill="none" stroke={K.gold} strokeWidth={Math.max(4, Math.round(9 * k))} strokeLinecap="round" />
+        </svg>
+      </div>
+    );
+  }
+  const line = pen(3 * k);
+  return (
+    <div data-dim="" style={box({ position: "relative", width: w, height: h, marginTop: Math.round(8 * k), borderLeft: `${line}px solid ${K.gold}`, borderRight: `${line}px solid ${K.gold}` })}>
+      <div style={abs({ left: 0, top: Math.round((h - line) / 2), width: "100%", height: 0, borderTop: `${line}px solid ${K.gold}` })} />
+    </div>
   );
 }
 

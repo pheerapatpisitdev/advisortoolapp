@@ -5,10 +5,13 @@ import { blend, Figure, GROUNDS, lookFromId, type GroundColors, POSES, type Draw
 import { dollLook, PaperDoll } from "@/lib/story/paper-doll";
 import { infoArt, topicOf } from "@/lib/story/topics";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
+import { INFO_GROUND, kitFor, type Kit } from "./story-kits";
 import { heroName, planName, storyEvent, termShort, type StorySceneKey, type StoryVideoInput } from "./story";
 import { AFTER_CLOSE, type AfterTopic } from "./story-after";
 import type { KnowSceneKey } from "./story-knowledge";
 import { captionShown, wordAt } from "./caption";
+
+export { INFO_GROUND };
 import { LEAD, SIZES, wordTimes, type VideoSize } from "./timeline";
 import { VIDEO_WORDS } from "./video-words";
 
@@ -216,10 +219,13 @@ function Title({ c, an, t, text }: { c: StoryContext; an?: Anim; t: number; text
   const { w } = SIZES[c.size];
   if (paper(c.input)) return <PaperTitle w={w} top={g.title} size={g.titleSize} an={an} t={t} text={text} />;
   if (line(c.input)) return <LineTitle w={w} top={g.title} size={g.titleSize} an={an} t={t} text={text} />;
+  // a dressed look writes it as its scenes' titles are written: its face, its accent and its second colour
+  const k = dressOf(c.input);
   return (
-    <El an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: paperInk(c.input) }}>
-      <div style={box({ fontSize: g.titleSize, fontWeight: 600, lineHeight: 1.15 })}>{text[0]}</div>
-      <div style={box({ fontSize: Math.round(g.titleSize * 0.46), marginTop: 6, textAlign: "center" })}>{text[1]}</div>
+    // (inside the look's frame, which stands where the title would start)
+    <El an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title + (k ? Math.round(g.titleSize * 0.5) : 0), flexDirection: "column", alignItems: "center", fontFamily: k?.hand ?? HAND, color: paperInk(c.input) }}>
+      <div style={box({ fontSize: g.titleSize, fontWeight: k?.bold ?? 600, lineHeight: 1.15, ...(k ? { color: k.gold, ...glowOf(k, k.gold) } : {}) })}>{text[0]}</div>
+      <div style={box({ fontSize: Math.round(g.titleSize * 0.46), marginTop: 6, textAlign: "center", ...(k ? { color: k.sub, ...glowOf(k, k.sub) } : {}) })}>{text[1]}</div>
     </El>
   );
 }
@@ -252,7 +258,7 @@ export const dolls = (input: StoryVideoInput) => input.art === "paper" || input.
 /** drawn with whole people (lib/story/figure.tsx), not the faces: มินิมอล and สต็อปโมชันกระดาษ */
 export const whole = (input: StoryVideoInput) => input.art === "minimal" || dolls(input);
 /** the colour of words written straight on the ground: light on the dark one */
-export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(input).ink : plot(input) ? C.plotInk : info(input) ? C.white : INK);
+export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(input).ink : plot(input) ? C.plotInk : dressOf(input) ? kitFor(input).white : info(input) ? C.white : INK);
 /**
  * อินโฟกราฟิก's route (story-info-motion.tsx), no faces: อินโฟกราฟิก's tiles and icons on วิดีโอนำเสนอ Motion's navy, and
  * the looks drawn with its drawers in their own Kit (topics.ts INFO_ARTS: ปากกาพล็อตเตอร์, ไวต์บอร์ด, นีออน, บลูพริ้นท์)
@@ -260,7 +266,21 @@ export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(i
 export const info = (input: StoryVideoInput) => input.art === "info" || infoArt(input.art);
 /** ปากกาพล็อตเตอร์ (owner, 2026-11-12): อินโฟกราฟิก's scenes on cream paper, written by one pen as the voice goes */
 export const plot = (input: StoryVideoInput) => input.art === "plot";
-export const INFO_GROUND = QUOTE_VIDEO_COLORS.motionNavy;
+/**
+ * ไวต์บอร์ด, นีออน, บลูพริ้นท์ (owner, 2026-11-14, spec 2026-11-14-story-looks-board-neon-blueprint): a look of the
+ * info route that also dresses what is around the scenes — its background, titles, subtitle band, card and footer
+ */
+export const dressOf = (input: StoryVideoInput): (Kit & { dress: NonNullable<Kit["dress"]> }) | null => {
+  const k = info(input) ? kitFor(input) : null;
+  return k?.dress ? (k as Kit & { dress: NonNullable<Kit["dress"]> }) : null;
+};
+/** นีออน's glow on words written around the scenes, in their own colour (a shadow, never a blur) */
+const glowOf = (k: Kit | null, c: string): React.CSSProperties => (k?.glow ? { textShadow: `0 0 8px ${c}, 0 0 20px ${c}` } : {});
+/** the footer's own colour, at full strength, in a dressed look; the shared footer's otherwise */
+export const footStyle = (input: StoryVideoInput, shared: React.CSSProperties): React.CSSProperties => {
+  const k = dressOf(input);
+  return k ? { color: k.dress.foot } : shared;
+};
 /** สต็อปโมชันกระดาษ (owner, 2026-11-12): the faces cut out of paper on a wooden table, 12 poses a second */
 export const paper = (input: StoryVideoInput) => input.art === "paper";
 
@@ -427,7 +447,7 @@ function Help({ c, t }: { c: StoryContext; t: number }) {
         <Pic c={c} id={heroId} r={{ x: 0, y: 0, w: g.hero.w, h: g.hero.h }} opacity={color} pose={up} />
       </div>
       {name ? (
-        <El an={s.name} t={t} style={{ position: "absolute", left: g.name.x, width: g.name.w, top: g.name.y, justifyContent: "center", fontFamily: HAND, fontWeight: 600, fontSize: Math.round(g.name.h * 0.72), color: ink }}>{name}</El>
+        <El an={s.name} t={t} style={{ position: "absolute", left: g.name.x, width: g.name.w, top: g.name.y, justifyContent: "center", fontFamily: dressOf(c.input)?.hand ?? HAND, fontWeight: dressOf(c.input)?.bold ?? 600, fontSize: Math.round(g.name.h * 0.72), color: ink }}>{name}</El>
       ) : null}
       {note ? (
         <div className="cut" style={{ display: "flex", position: "absolute", left: g.note.x, top: g.note.y, width: g.note.w, flexDirection: "column", alignItems: "center", background: NOTE, border: `4px solid ${INK}`, borderRadius: 14, padding: "22px 26px", opacity: nl.opacity, transform: `rotate(-1.5deg)${nl.transform ? ` ${nl.transform}` : ""}`, fontFamily: HAND, color: INK }}>
@@ -474,21 +494,28 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
   const portrait = c.size === "portrait";
   const wide = c.size === "landscape";
   const big = g.px(88, 62, 84);
-  // on the dark ground the card's navy words would be lost: they take the ground's own ink
-  const onDark = (minimal(c.input) && c.input.ground === "dark") || (info(c.input) && !plot(c.input));
+  // on the dark ground the card's navy words would be lost: they take the ground's own ink (ไวต์บอร์ด's board is
+  // light: its card is the paper's); นีออน and บลูพริ้นท์ head it in their accent
+  const dk = dressOf(c.input);
+  const onDark = (minimal(c.input) && c.input.ground === "dark") || (info(c.input) && !plot(c.input) && c.input.art !== "board");
+  // ไวต์บอร์ด's heading in its blue marker and dark ink, the card itself the paper's
+  const kickerInk = dk ? dk.gold : onDark ? paperInk(c.input) : P.accent;
+  const linesInk = dk || onDark ? paperInk(c.input) : P.figure;
+  // a dressed look's frame stands inside the edge: the card keeps clear of it
+  const side = g.side + (dk ? 40 : 0);
   const head = (
     <El an={s.head} t={t} style={{ flexDirection: "column", ...(wide ? { width: 820, flexShrink: 0 } : {}) }}>
-      {kicker ? <div style={box({ fontSize: g.px(44, 34, 44), fontWeight: 600, color: onDark ? paperInk(c.input) : P.accent })}>{kicker}</div> : null}
-      <div style={box({ flexDirection: "column", fontSize: big, fontWeight: 600, color: onDark ? paperInk(c.input) : P.figure, lineHeight: vw.lineHeight, marginTop: kicker ? (portrait ? 40 : 12) : 0 })}>
+      {kicker ? <div style={box({ fontSize: g.px(44, 34, 44), fontWeight: 600, color: kickerInk, ...glowOf(dk, kickerInk) })}>{kicker}</div> : null}
+      <div style={box({ flexDirection: "column", fontSize: big, fontWeight: 600, color: linesInk, lineHeight: vw.lineHeight, marginTop: kicker ? (portrait ? 40 : 12) : 0 })}>
         {lines.map((l, i) => <div key={i} style={box({})}>{l}</div>)}
       </div>
     </El>
   );
   return (
-    <div style={abs({ left: g.side, width: w - g.side * 2, top: g.top, height: h - g.top - GEO[c.size].sub - 140, flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start" })}>
+    <div style={abs({ left: side, width: w - side * 2, top: g.top, height: h - g.top - GEO[c.size].sub - 140, flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start" })}>
       {head}
-      <div className="cut-card" style={box({ flexDirection: "column", ...(wide ? { flex: 1 } : { width: w - g.side * 2 }), marginLeft: wide ? 40 : 0, marginTop: g.px(120, 36, 0) })}>
-        <El an={s.card} t={t} style={{ background: C.white, border: `3px solid ${P.hair}`, borderRadius: g.px(44, 36, 36), padding: g.px(44, 30, 40), alignItems: "center" }}>
+      <div className="cut-card" style={box({ flexDirection: "column", ...(wide ? { flex: 1 } : { width: w - side * 2 }), marginLeft: wide ? 40 : 0, marginTop: g.px(120, 36, 0) })}>
+        <El an={s.card} t={t} style={{ background: C.white, border: `3px solid ${dk?.dress.cardEdge ?? P.hair}`, borderRadius: g.px(44, 36, 36), padding: g.px(44, 30, 40), alignItems: "center", ...(dk?.glow ? { boxShadow: `0 0 8px ${dk.dress.cardEdge}, 0 0 18px ${dk.dress.cardEdge}` } : {}) }}>
           {k.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={k.photo} width={g.face} height={g.face} style={{ borderRadius: g.face / 2, objectFit: "cover" }} alt="" />
@@ -547,6 +574,23 @@ export function Subtitle({ c, t }: { c: StoryContext; t: number }) {
       </div>
     );
   }
+  const k = dressOf(c.input);
+  if (k) {
+    // a dressed look's own band (the spec's table), in Plex: the words in its colour, the one being spoken lit,
+    // the ones still to come quieter
+    const d = k.dress;
+    return (
+      <div style={abs({ left: 60, width: w - 120, bottom: GEO[c.size].sub, justifyContent: "center" })}>
+        <div style={box({ flexWrap: "wrap", justifyContent: "center", background: d.band, borderRadius: 28, padding: "16px 28px", fontSize, lineHeight: 1.45, maxWidth })}>
+          {shown.map((i, n) => {
+            const spoken = t >= times[i].from && t < times[i].to;
+            const color = spoken ? d.spoken : d.words;
+            return <div key={i} style={box({ color, ...glowOf(k, color), ...(t < times[i].from ? { opacity: 0.55 } : {}), marginRight: n < shown.length - 1 ? 12 : 0 })}>{c.words[i]}</div>;
+          })}
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={abs({ left: 60, width: w - 120, bottom: GEO[c.size].sub, justifyContent: "center" })}>
       <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(20,22,26,0.82)", borderRadius: 28, padding: "16px 28px", fontSize, lineHeight: 1.45, maxWidth })}>
@@ -574,7 +618,7 @@ export function storyFrame(key: PoolSceneKey, c: StoryContext, t: number) {
     <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex", color: paperInk(c.input) }}>
       {body}
       <Subtitle c={c} t={t} />
-      <div style={abs({ left: 0, width: w, bottom: c.size === "portrait" ? 34 : 18, justifyContent: "center", fontSize: 26, color: paperInk(c.input), opacity: 0.55 })}>Application by www.advisortool.app</div>
+      <div style={abs({ left: 0, width: w, bottom: c.size === "portrait" ? 34 : 18, justifyContent: "center", fontSize: 26, ...footStyle(c.input, { color: paperInk(c.input), opacity: 0.55 }) })}>Application by www.advisortool.app</div>
     </div>
   );
 }
@@ -597,6 +641,7 @@ export function storyBackground(size: VideoSize, input?: StoryVideoInput) {
     );
   }
   if (input && line(input)) return <div style={{ display: "flex", width: w, height: h, background: C.lineGround }} />;
+  if (input && dressOf(input)) return dressedGround(size, input);
   if (input && plot(input)) {
     // the plotter's sheet: a registration mark at each corner, the drawing's frame inside them
     const m = Math.round(Math.min(w, h) * 0.05);
@@ -628,4 +673,84 @@ export function storyBackground(size: VideoSize, input?: StoryVideoInput) {
     );
   }
   return <div style={{ display: "flex", width: w, height: h, background: input && minimal(input) ? groundOf(input).bg : input && info(input) ? INFO_GROUND : FACE_PAPER }} />;
+}
+
+/** the longest name บลูพริ้นท์'s title block holds, in letters */
+const BLOCK = 24;
+/**
+ * บลูพริ้นท์'s title block: the iHealthy plan when the clip shows a health figure, else the clip's own title (คลิปตามโจทย์)
+ * or its topic's name, cut to BLOCK letters; "" leaves the block blank
+ */
+export function titleBlock(input: StoryVideoInput): string {
+  const plan = input.health?.figures?.planName;
+  const own = (input as { title?: unknown }).title;
+  const name = plan ? `iHealthy ${plan}` : typeof own === "string" && own.trim() ? own.trim() : (topicOf(input.topic)?.name ?? "");
+  const letters = [...name];
+  return letters.length <= BLOCK ? name : `${letters.slice(0, BLOCK - 1).join("")}…`;
+}
+
+/**
+ * The ground of ไวต์บอร์ด, นีออน and บลูพริ้นท์, as the mockup's sketches draw them (owner, 2026-11-14), at every
+ * size: the drawing's frame stops above the subtitle's band, so the words of the band stand on the wall or the ground.
+ */
+function dressedGround(size: VideoSize, input: StoryVideoInput) {
+  const { w, h } = SIZES[size];
+  const k = Math.min(w, h) / 1080;
+  const portrait = size === "portrait";
+  // the top of the subtitle's band (Subtitle: one line of 41 or 36 px at 1.45, 16 px above and under it)
+  const band = h - GEO[size].sub - (portrait ? 92 : 84);
+  if (input.art === "board") {
+    // the white board in its grey frame on the pale wall; the marker tray under it, a blue and a red marker on it
+    const side = Math.round(40 * k), top = portrait ? 110 : Math.round(36 * k), foot = band - Math.round(40 * k);
+    const tray = { w: Math.round(w * 0.44), h: Math.round(26 * k) };
+    const tx = Math.round((w - tray.w) / 2);
+    const marker = { w: Math.round(Math.min(w * 0.1, 200 * k)), h: Math.round(26 * k) };
+    const inner = w - side * 2;
+    return (
+      <div style={{ display: "flex", position: "relative", width: w, height: h, background: C.boardWall }}>
+        <div style={abs({ left: side, top, width: inner, height: foot - top, background: C.boardBoard, border: `${Math.round(20 * k)}px solid ${C.boardFrame}`, borderRadius: Math.round(18 * k) })} />
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: "absolute", left: 0, top: 0 }}>
+          <path d={`M${side + inner * 0.8} ${top + 52 * k} c${36 * k} ${20 * k} ${86 * k} ${14 * k} ${120 * k} ${-8 * k}`} fill="none" stroke={C.boardShine} strokeWidth={26 * k} strokeLinecap="round" opacity={0.6} />
+        </svg>
+        <div style={abs({ left: tx, top: foot, width: tray.w, height: tray.h, background: C.boardFrame, borderRadius: Math.round(8 * k) })} />
+        {[[C.boardBlue, 0.1], [C.boardRed, 0.37]].map(([color, at]) => (
+          <div key={color} style={abs({ left: tx + Math.round(tray.w * Number(at)), top: foot - marker.h, width: marker.w, height: marker.h, background: String(color), borderRadius: Math.round(8 * k) })} />
+        ))}
+      </div>
+    );
+  }
+  if (input.art === "neon") {
+    // dark violet from its centre to the edges, faint lines low down, one thin pink tube for a frame
+    const m = Math.round(48 * k), top = portrait ? 120 : Math.round(28 * k), foot = band - Math.round(24 * k);
+    const tube = Math.max(3, Math.round(4 * k));
+    const lines = Array.from({ length: 10 }, (_, i) => Math.round(h * (0.78 + i * 0.0208)));
+    return (
+      <div style={{ display: "flex", position: "relative", width: w, height: h, background: C.neonEdge }}>
+        <div style={abs({ left: 0, top: 0, width: w, height: h, background: `radial-gradient(ellipse ${Math.round(w * 0.75)}px ${Math.round(h * 0.75)}px at ${Math.round(w / 2)}px ${Math.round(h * 0.35)}px, ${C.neonCentre} 0%, ${C.neonEdge} 100%)` })} />
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: "absolute", left: 0, top: 0 }}>
+          <path d={lines.map((y) => `M0 ${y}H${w}`).join("")} stroke={C.neonLine} strokeWidth={Math.max(2, Math.round(3 * k))} />
+        </svg>
+        <div style={abs({ left: m, top, width: w - m * 2, height: foot - top, border: `${tube}px solid ${C.neonPink}`, borderRadius: Math.round(60 * k), boxShadow: `0 0 10px ${C.neonPink}, 0 0 24px ${C.neonPink}`, opacity: 0.85 })} />
+      </div>
+    );
+  }
+  // บลูพริ้นท์: the blue, a fine grid every 60 px and a coarse one every 300 (the sketch's 12 and 60 at 216 wide), a
+  // thin white border, and the title block in its bottom right corner
+  const m = Math.round(54 * k), top = portrait ? 130 : Math.round(30 * k), foot = band - Math.round(24 * k);
+  const grid = (step: number) => [
+    ...Array.from({ length: Math.floor(w / step) + 1 }, (_, i) => `M${i * step} 0V${h}`),
+    ...Array.from({ length: Math.floor(h / step) + 1 }, (_, i) => `M0 ${i * step}H${w}`),
+  ].join("");
+  const name = titleBlock(input);
+  const bw = Math.round(340 * k), bh = Math.round(64 * k);
+  return (
+    <div style={{ display: "flex", position: "relative", width: w, height: h, background: C.bpGround }}>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" style={{ position: "absolute", left: 0, top: 0 }}>
+        <path d={grid(Math.round(60 * k))} stroke={C.bpGridFine} strokeWidth={2} />
+        <path d={grid(Math.round(300 * k))} stroke={C.bpGridCoarse} strokeWidth={3} />
+      </svg>
+      <div style={abs({ left: m, top, width: w - m * 2, height: foot - top, border: `${Math.max(3, Math.round(4 * k))}px solid ${C.bpInk}` })} />
+      <div data-block={name} style={abs({ left: w - m - bw, top: foot - bh, width: bw, height: bh, background: C.bpGround, border: `${Math.max(2, Math.round(3 * k))}px solid ${C.bpInk}`, alignItems: "center", justifyContent: "center", fontFamily: "Plex", fontSize: Math.round(24 * k), color: C.bpInk })}>{name}</div>
+    </div>
+  );
 }

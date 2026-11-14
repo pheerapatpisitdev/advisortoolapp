@@ -3,22 +3,23 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { STORY_CLIP_COLORS as S } from "@/lib/card-theme";
+import { CARD_PALETTE as P, STORY_CLIP_COLORS as S } from "@/lib/card-theme";
 import { drawPngHere } from "@/lib/draw/core";
 import type { DrawFont } from "@/lib/draw/fonts";
-import { checkedStory, type StoryVideoInput } from "@/lib/quote-video/story";
+import { checkedStory, type StorySceneKey, type StoryVideoInput } from "@/lib/quote-video/story";
+import { clipFrame } from "@/lib/quote-video/story-frames";
 import { knowEpisode, type KnowSceneKey, type KnowShow } from "@/lib/quote-video/story-knowledge";
 import { kspec } from "@/lib/quote-video/story-knowledge-motion";
 import { infoBody, infoDrawn, infoShow, kitFor } from "@/lib/quote-video/story-info-motion";
-import { info, plot, type StoryContext } from "@/lib/quote-video/story-motion";
+import { info, INFO_GROUND, paperInk, plot, storyBackground, storyFrame, type StoryContext } from "@/lib/quote-video/story-motion";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
 import { INFO_SHELVES, STORY_TOPICS } from "@/lib/story/topics";
 
 /**
  * ไวต์บอร์ด นีออน บลูพริ้นท์ (spec 2026-11-14-story-looks-board-neon-blueprint), Task 2: each look a Kit of the
  * อินโฟกราฟิก / ปากกาพล็อตเตอร์ route, so every knowledge layout and health device is drawn in its palette, its hand
- * face and its reveal. What is around the scenes (background, title card, subtitle, contact card) is Task 3: here a
- * frame is the drawers' pieces on the Kit's own page colour.
+ * face and its reveal: here a frame is the drawers' pieces on the Kit's own page colour. What is around the scenes
+ * (background, title, subtitle, contact card, footer) is Task 3, at the end of the file.
  */
 const NEW = ["board", "neon", "blueprint"] as const;
 type New = (typeof NEW)[number];
@@ -234,4 +235,169 @@ describe("Review Focus 4: the Kit is the frame's own", () => {
     renderToStaticMarkup(<>{infoShow(ROOM, ctx(inputOf("plot")), END)}</>);
     expect(renderToStaticMarkup(<>{infoBody(episode.scenes[1].key, ctx(inputOf("neon", "roomcost")), END, episode)}</>)).not.toContain(S.plotInk);
   });
+});
+
+/* ── Task 3: around the scenes ─────────────────────────────────────────────────────────────────────────────────────
+ * The background (storyBackground), the opening title, the subtitle band, the agent's card and the footer, each in
+ * the look's dress (the spec's table and the mockup's sketches). Review Focus 2: every word drawn on a dark look can be
+ * read — counted as pixels that stand 3:1 or more off what is under them, at the word's own place in the frame.
+ */
+const AROUND: Record<New, { wall: string; band: string; words: string; foot: string; contactHead: string }> = {
+  board: { wall: S.boardWall, band: S.boardSub, words: S.white, foot: S.boardFooter, contactHead: S.boardBlue },
+  neon: { wall: S.neonEdge, band: S.neonSub, words: S.neonCyan, foot: S.neonFooter, contactHead: S.neonCyan },
+  blueprint: { wall: S.bpGround, band: S.bpSub, words: S.bpInk, foot: S.bpMuted, contactHead: S.bpCyan },
+};
+const lum = (p: number[]) => {
+  const f = (v: number) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * f(p[0]) + 0.7152 * f(p[1]) + 0.0722 * f(p[2]);
+};
+const contrast = (a: number[], b: number[]) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+type Box = { x: number; y: number; w: number; h: number };
+/** the pixels in `r` of the shot that stand 3:1 or more off what is under them: `under` a colour, or the background alone */
+async function readable(shotPng: Buffer, under: Buffer | string, r: Box) {
+  const over = await pixels(shotPng);
+  const base = typeof under === "string" ? () => rgb(under) : await pixels(under);
+  let hits = 0;
+  for (let y = r.y; y < r.y + r.h; y += 2) for (let x = r.x; x < r.x + r.w; x += 2) if (contrast(over(x, y), base(x, y)) >= 3) hits++;
+  return hits;
+}
+/** the frame as the clip shows it: the look's background under the scene */
+const shot = (input: StoryVideoInput, key: StorySceneKey, t: number, words = ["ทดสอบ"]) => {
+  const size = input.size ?? "portrait";
+  return (
+    <div style={{ display: "flex", position: "relative", width: SIZES[size].w, height: SIZES[size].h }}>
+      <div style={{ position: "absolute", left: 0, top: 0, display: "flex" }}>{storyBackground(size, input)}</div>
+      <div style={{ position: "absolute", left: 0, top: 0, display: "flex" }}>{clipFrame(key, { ...ctx(input), words }, t)}</div>
+    </div>
+  );
+};
+const bg = (input: StoryVideoInput) => png(storyBackground(input.size ?? "portrait", input), input.size ?? "portrait");
+const SUB_WORDS = ["ห้องที่ใช้อยู่", "6,000", "บาทต่อคืน", "แผน", "iHealthy"];
+
+describe("Task 3: the background, as the mockup's sketches", () => {
+  it("ไวต์บอร์ด: the white board in its grey frame on the pale wall, a tray with a blue and a red marker", async () => {
+    for (const size of ["portrait", "square", "landscape"] as VideoSize[]) {
+      const input = inputOf("board", "roomcost", size);
+      const html = renderToStaticMarkup(storyBackground(size, input));
+      for (const c of [S.boardWall, S.boardFrame, S.boardBoard, S.boardBlue, S.boardRed]) expect(html, `${size} ${c}`).toContain(c);
+      const at = await pixels(await bg(input));
+      const { w, h } = SIZES[size];
+      expect(near(at(4, 4), S.boardWall, 2), `${size} wall`).toBe(true);
+      expect(near(at(Math.round(w / 2), Math.round(h * 0.45)), S.boardBoard, 2), `${size} board`).toBe(true);
+    }
+  }, 60_000);
+
+  it("นีออน: violet from the centre to the edges, faint low lines, one thin pink frame that glows", async () => {
+    for (const size of ["portrait", "square", "landscape"] as VideoSize[]) {
+      const input = inputOf("neon", "roomcost", size);
+      const html = renderToStaticMarkup(storyBackground(size, input));
+      expect(html).toContain("radial-gradient");
+      expect(html).toContain(S.neonLine);
+      expect(html).toMatch(new RegExp(`box-shadow:[^;"]*${S.neonPink}`));
+      expect(html).not.toContain("filter:blur");
+      const at = await pixels(await bg(input));
+      const { w, h } = SIZES[size];
+      expect(near(at(2, 2), S.neonEdge, 10), `${size} edge ${at(2, 2)}`).toBe(true);
+      expect(near(at(Math.round(w / 2), Math.round(h * 0.35)), S.neonCentre, 6), `${size} centre`).toBe(true);
+    }
+  }, 60_000);
+
+  it("บลูพริ้นท์: the blue with its fine and coarse grid, a white border, the title block bottom right", async () => {
+    for (const size of ["portrait", "square", "landscape"] as VideoSize[]) {
+      const input = inputOf("blueprint", "roomcost", size);
+      const html = renderToStaticMarkup(storyBackground(size, input));
+      for (const c of [S.bpGround, S.bpGridFine, S.bpGridCoarse, S.bpInk]) expect(html, `${size} ${c}`).toContain(c);
+      const at = await pixels(await bg(input));
+      expect(near(at(30, 30), S.bpGround, 2), `${size} ground ${at(30, 30)}`).toBe(true);
+    }
+    // the block names the plan when a health figure is in the clip, else the topic, never more than 24 letters
+    const block = (input: StoryVideoInput) => /data-block="([^"]*)"/.exec(renderToStaticMarkup(storyBackground("portrait", input)))?.[1];
+    expect(block(inputOf("blueprint", "roomcost"))).toBe("iHealthy Silver");
+    const myth = inputOf("blueprint", "mythclaim");
+    const name = STORY_TOPICS.find((x) => x.key === "mythclaim")!.name;
+    expect(block({ ...myth, health: undefined })).toBe([...name].length <= 24 ? name : `${[...name].slice(0, 23).join("")}…`);
+    for (const t of STORY_TOPICS) expect([...(block({ ...inputOf("blueprint", "mythclaim"), topic: t.key, health: undefined }) ?? "")].length, t.key).toBeLessThanOrEqual(24);
+  }, 60_000);
+
+  it("is never อินโฟกราฟิก's navy", () => {
+    for (const art of NEW) expect(renderToStaticMarkup(storyBackground("portrait", inputOf(art))), art).not.toContain(INFO_GROUND);
+  });
+});
+
+describe("Task 3: the words around the scenes", () => {
+  it("writes straight on the ground in the look's ink, and the footer in its own colour at full strength", () => {
+    for (const art of NEW) {
+      expect(paperInk(inputOf(art)), art).toBe(kitFor(inputOf(art)).white);
+      const html = renderToStaticMarkup(clipFrame("knowOne", ctx(inputOf(art, "roomcost")), END));
+      const foot = /<div style="([^"]*)">Application by/.exec(html)?.[1] ?? "";
+      expect(foot, art).toContain(`color:${AROUND[art].foot}`);
+      expect(foot, art).not.toContain("opacity");
+    }
+  });
+
+  it("sets the subtitle on the look's band, in its words' colour, in Plex", () => {
+    for (const art of NEW) {
+      const html = renderToStaticMarkup(clipFrame("knowOne", { ...ctx(inputOf(art, "roomcost")), words: SUB_WORDS, voiceSec: 5 }, 4.9));
+      expect(html, art).toContain(`background:${AROUND[art].band}`);
+      expect(html, art).toContain(`color:${AROUND[art].words}`);
+      expect(html, art).not.toContain("rgba(20,22,26,0.82)");
+    }
+  });
+
+  it("draws the opening title in the look's hand: a blue marker underline, a glowing tube at 400, a dimension line", () => {
+    const opening = (art: string) => renderToStaticMarkup(clipFrame("knowAsk", ctx(inputOf(art, "roomcost")), END));
+    expect(opening("board")).toMatch(new RegExp(`data-underline[^>]*>.*stroke="${S.boardBlue}"`));
+    expect(opening("blueprint")).toContain("data-dim");
+    const neon = opening("neon");
+    expect(neon).toContain("font-family:Sriracha");
+    expect(neon).toMatch(new RegExp(`text-shadow:0 0 \\d+px ${S.neonCyan}`));
+    for (const m of neon.matchAll(/font-weight:(\d+)/g)) expect(Number(m[1])).toBeLessThanOrEqual(400);
+    for (const art of ["plot", "neon", "blueprint"]) expect(opening(art), art).not.toContain("data-underline");
+    expect(opening("board")).not.toContain("data-dim");
+  });
+
+  it("lays the agent's card light on the board, and light-on-dark in นีออน and บลูพริ้นท์, each headed in its accent", () => {
+    const card = (art: string) => renderToStaticMarkup(clipFrame("storyContact", ctx(inputOf(art, "roomcost")), END));
+    // the board's card is the paper's, white with its dark words; its heading in the blue marker and the board's ink
+    expect(card("board")).toContain(`color:${S.boardBlue}`);
+    expect(card("board")).toContain(`color:${S.boardInk}`);
+    expect(card("board")).toContain(`color:${P.ink}`);
+    for (const art of ["neon", "blueprint"] as const) {
+      const html = card(art);
+      expect(html, art).toContain(`color:${AROUND[art].contactHead}`);
+      expect(html, art).toContain(`color:${kitFor(inputOf(art)).white}`);
+      expect(html, art).not.toContain("Sriracha");
+    }
+  });
+
+  it("draws กองกลาง's title in the look's face and accent, should a look reach it", () => {
+    const pool = (art: string) => renderToStaticMarkup(storyFrame("storyHook", ctx({ ...inputOf(art), topic: "pool48" } as StoryVideoInput), END));
+    expect(pool("neon")).toContain("font-family:Sriracha");
+    for (const m of pool("neon").matchAll(/font-weight:(\d+)/g)) expect(Number(m[1])).toBeLessThanOrEqual(400);
+    expect(pool("neon")).toContain(`color:${S.neonCyan}`);
+    expect(pool("blueprint")).toContain(`color:${S.bpCyan}`);
+    expect(pool("board")).toContain(`color:${S.boardBlue}`);
+  });
+});
+
+describe("Task 3, Review Focus 2: every word can be read where it is drawn", () => {
+  const G = { portrait: { title: 160, sub: 96, band: 92, foot: 34 } };
+  it("the opening title, the subtitle over a device, the agent's card and the footer, in each look", async () => {
+    for (const art of NEW) {
+      const input = inputOf(art, "roomcost");
+      const under = await bg(input);
+      // the opening title, over the background
+      const title = await readable(await png(shot(input, "knowAsk", END)), under, { x: 60, y: G.portrait.title, w: W - 120, h: 240 });
+      expect(title, `${art} title`).toBeGreaterThan(400);
+      // a device scene with its subtitle: the words against the band they stand on
+      const dev = await png(shot(input, "knowOne", 4.9, SUB_WORDS));
+      const bandTop = H - G.portrait.sub - G.portrait.band;
+      expect(await readable(dev, AROUND[art].band, { x: 200, y: bandTop + 22, w: W - 400, h: 50 }), `${art} subtitle`).toBeGreaterThan(150);
+      // the footer, on the ground under it
+      expect(await readable(dev, under, { x: 300, y: H - G.portrait.foot - 34, w: W - 600, h: 34 }), `${art} footer`).toBeGreaterThan(30);
+      // the agent's card: its heading over the ground, its name on the card
+      const card = await png(shot(input, "storyContact", END));
+      expect(await readable(card, under, { x: 70, y: 220, w: W - 140, h: 260 }), `${art} card head`).toBeGreaterThan(400);
+    }
+  }, 120_000);
 });

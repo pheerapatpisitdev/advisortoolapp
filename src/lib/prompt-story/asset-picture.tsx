@@ -20,13 +20,18 @@ const FONTS: DrawFont[] = [{ name: "Plex", data: cardFont("IBMPlexSansThai-Regul
 
 /**
  * The ground StoryClip paints behind a คลิปตามโจทย์ scene in this look (story-motion.tsx storyBackground):
- * สต็อปโมชันกระดาษ's kraft sheet, แสงอุ่น's stage, the plotter's sheet, การ์ตูนลายเส้น's clean ground, else paper.
+ * สต็อปโมชันกระดาษ's kraft sheet, แสงอุ่น's stage, the plotter's sheet, การ์ตูนลายเส้น's clean ground, the
+ * board, the neon's violet, the blueprint blue, else paper.
  */
 export function lookGround(look: ReturnType<typeof freeLook>): string {
   if (look.art === "paper") return C.kraft;
   if (look.art === "minimal" && look.ground === "warm") return GROUNDS.warm.bg;
   if (look.art === "plot") return C.plotPaper;
   if (look.art === "line") return C.lineGround;
+  // ไวต์บอร์ด's board, นีออน's violet at its centre, บลูพริ้นท์'s blue (the part stands in the middle of each)
+  if (look.art === "board") return C.boardBoard;
+  if (look.art === "neon") return C.neonCentre;
+  if (look.art === "blueprint") return C.bpGround;
   return C.paper;
 }
 

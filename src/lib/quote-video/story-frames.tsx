@@ -4,7 +4,7 @@ import { type StorySceneKey, type StoryVideoInput } from "./story";
 import { knowEpisode, knowText, type KnowSceneKey } from "./story-knowledge";
 import { knowBody, knowFaces, knowTail, knowWindows } from "./story-knowledge-motion";
 import { infoBody } from "./story-info-motion";
-import { info, paper, paperInk, paperTime, storyFrame, storyHandText, storyWindows, Subtitle, type PoolSceneKey, type StoryContext } from "./story-motion";
+import { footStyle, info, paper, paperInk, paperTime, storyFrame, storyHandText, storyWindows, Subtitle, type PoolSceneKey, type StoryContext } from "./story-motion";
 import { SIZES, type VideoSize } from "./timeline";
 
 /**
@@ -50,7 +50,7 @@ export function clipFrame(key: StorySceneKey, c: StoryContext, at: number) {
     <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex" }}>
       {(info(c.input) ? infoBody : knowBody)(key as KnowSceneKey | "storyContact", c, t, episode)}
       <Subtitle c={c} t={t} />
-      <div style={abs({ left: 0, width: w, bottom: c.size === "portrait" ? 34 : 18, justifyContent: "center", fontSize: 26, opacity: 0.55, ...(info(c.input) ? { color: paperInk(c.input) } : {}) })}>Application by www.advisortool.app</div>
+      <div style={abs({ left: 0, width: w, bottom: c.size === "portrait" ? 34 : 18, justifyContent: "center", fontSize: 26, ...footStyle(c.input, { opacity: 0.55, ...(info(c.input) ? { color: paperInk(c.input) } : {}) }) })}>Application by www.advisortool.app</div>
     </div>
   );
 }
