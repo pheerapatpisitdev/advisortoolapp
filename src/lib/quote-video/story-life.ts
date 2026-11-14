@@ -105,7 +105,7 @@ function mortgage(input: StoryVideoInput, name: string): KnowScene[] {
 function selfEmployed(input: StoryVideoInput, name: string): KnowScene[] {
   const f = input.figure;
   return [
-    scene("knowAsk", { layout: "ask", title: ["ไม่มีเจ้านาย", "สวัสดิการล่ะ?"] }, `${name ? `คุณ${name} ` : ""}ทำงานของตัวเอง ไม่มีเจ้านาย แล้วสวัสดิการล่ะคะ`),
+    scene("knowAsk", { layout: "safetynet", title: ["ไม่มีเจ้านาย", "สวัสดิการล่ะ?"], note: "ตาข่ายนี้ เราขึงเองได้" }, `${name ? `คุณ${name} ` : ""}ทำงานของตัวเอง ไม่มีเจ้านาย แล้วสวัสดิการล่ะคะ`),
     scene("knowOne", { layout: "list", title: ["ที่มนุษย์เงินเดือนมี", "แต่เราไม่มี"], mark: "cross", items: ["ประกันกลุ่มจากบริษัท", "ลาป่วยแล้วเงินเดือนยังเข้า"] },
       "ประกันกลุ่มจากบริษัท ลาป่วยแล้วเงินเดือนยังเข้า สองอย่างนี้ เราไม่มีค่ะ"),
     scene("knowTwo", { layout: "note", title: ["หยุดงาน", ""], dim: true, note: [big("= หยุดรายได้", "red"), small("แต่ค่าใช้จ่ายไม่หยุด")] },

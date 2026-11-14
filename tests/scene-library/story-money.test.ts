@@ -16,7 +16,7 @@ const TOPICS: MoneyTopic[] = ["lifeneed", "ciincome", "taxback"];
 /** the spec's scene order (docs/superpowers/specs/2026-11-14-devices-life-tax-design.md, คลิปเล่าเรื่อง: a new shelf) */
 const ORDER: Record<MoneyTopic, string[]> = {
   lifeneed: ["ask", "lifeneed", "beneficiary", "moneysplit", "recap"],
-  ciincome: ["ask", "incomestop", "cilump", "list", "recap"],
+  ciincome: ["lifering", "incomestop", "cilump", "list", "recap"],
   taxback: ["ask", "taxcap", "taxback", "note", "recap"],
 };
 /** every input a topic takes, typed */

@@ -144,7 +144,7 @@ function ciincome(m: StoryMoney): KnowScene[] {
         : "ป่วยหนักต้องหยุดงานไปรักษาตัว รายได้ช่วงนั้นก็หยุดไปด้วยค่ะ";
   const lump = sourced({ layout: "cilump", title: ["เงินก้อน", "ตอนวินิจฉัย"], ...(m.ciSum !== undefined ? { sum: m.ciSum } : {}), note: "ใช้แทนรายได้ช่วงรักษาตัว" }, allowed) as LifeShow<"cilump">;
   return [
-    scene("knowAsk", { layout: "ask", title: ["ป่วยหนัก", "รายได้หายไปไหน?"] }, "ถ้าป่วยหนัก ต้องหยุดงานไปรักษาตัวหลายเดือน รายได้ช่วงนั้นหายไปไหนคะ"),
+    scene("knowAsk", { layout: "lifering", title: ["ป่วยหนัก", "รายได้หายไปไหน?"], note: "เงินก้อนมาตอนที่ต้องการที่สุด" }, "ถ้าป่วยหนัก ต้องหยุดงานไปรักษาตัวหลายเดือน รายได้ช่วงนั้นหายไปไหนคะ"),
     scene("knowOne", stop, stopVoice),
     scene("knowTwo", lump, `ประกันโรคร้ายแรงจ่ายเป็นเงินก้อน${lump.sum !== undefined ? ` ${withBaht(lump.sum)}` : ""} เมื่อแพทย์วินิจฉัยตามเงื่อนไขกรมธรรม์ เอามาใช้แทนรายได้ช่วงรักษาตัวได้ค่ะ`),
     scene("knowThree", { layout: "list", title: ["ค่าใช้จ่ายที่ยังเดิน", "ระหว่างรักษา"], mark: "warn", items: ["ค่าผ่อนบ้านและรถ", "ค่ากินอยู่ในบ้าน", "ค่าเรียนลูก"] },

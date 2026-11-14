@@ -78,7 +78,7 @@ const groupInsWords = (): KnowScene[] => [
 function welfare(input: StoryVideoInput): KnowScene[] {
   const f = input.figure;
   return [
-    scene("knowAsk", { layout: "myth", quote: ["“มีบัตรทอง", "ประกันสังคมแล้ว”"] }, "มีบัตรทอง มีประกันสังคมแล้ว พอแล้วหรือเปล่าคะ"),
+    scene("knowAsk", { layout: "bridge", title: ["“มีบัตรทอง", "ประกันสังคมแล้ว”"], note: "ช่วงป่วย รายได้หาย ต้องมีสะพาน" }, "มีบัตรทอง มีประกันสังคมแล้ว พอแล้วหรือเปล่าคะ"),
     scene("knowOne", { layout: "fact", crossed: "พอแล้ว", note: [small("สิทธิรักษามีอยู่จริง"), big("ช่วยเรื่องค่ารักษา", "green")] }, "สิทธิรักษาพยาบาลช่วยเรื่องค่ารักษาได้มากจริง ๆ ค่ะ"),
     scene("knowTwo", { layout: "list", title: ["แต่ระหว่างรักษา", "ยังมี"], mark: "box", items: ["รายได้ที่หยุดไป", "ค่ากินอยู่ของบ้าน", "ค่าเดินทาง ค่าคนดูแล"] },
       "แต่ระหว่างที่ป่วย รายได้อาจหยุด ส่วนค่ากินอยู่ของบ้าน ค่าเดินทาง ค่าคนดูแล ไม่ได้หยุดตามค่ะ"),
@@ -93,11 +93,11 @@ function welfare(input: StoryVideoInput): KnowScene[] {
 
 function bank(input: StoryVideoInput): KnowScene[] {
   const f = input.figure;
-  const myth = scene("knowAsk", { layout: "myth", quote: ["“ฝากธนาคาร", "ดีกว่า”"] }, "เอาเงินไปฝากธนาคารดีกว่า ไม่ต้องทำประกันหรอก จริงไหมคะ");
+  const opener = scene("knowAsk", { layout: "balance", title: ["“ฝากธนาคาร", "ดีกว่า”"], note: "ออมไว้ใช้ ประกันกันเรื่องใหญ่", sides: ["เงินออม", "ประกัน"], tilt: "even" }, "เอาเงินไปฝากธนาคารดีกว่า ไม่ต้องทำประกันหรอก จริงไหมคะ");
   const recap = scene("knowRecap", { layout: "recap", lines: [big("ออม = เงินไว้ใช้"), big("ประกัน = กันเรื่องใหญ่"), small("ควรมีทั้งสองอย่าง")] }, "จำง่าย ๆ ค่ะ ออมไว้ใช้ ประกันไว้กันเรื่องใหญ่ ควรมีทั้งสองอย่าง");
   if (!f) {
     return [
-      myth,
+      opener,
       scene("knowOne", { layout: "card", title: ["ฝากธนาคาร", ""], lines: [small("เงินโตทีละนิด"), big("ได้เท่าที่ฝาก"), small("กับดอกเบี้ย")] }, "ฝากธนาคาร เงินโตทีละนิด เราได้เท่าที่ฝาก กับดอกเบี้ยค่ะ"),
       scene("knowTwo", { layout: "card", title: ["ทำประกัน", ""], lines: [small("จ่ายเบี้ยไม่มาก"), big("ได้ทุนก้อนใหญ่", "green"), small("คุ้มครองตามเงื่อนไขตั้งแต่ปีแรก")] }, "ทำประกัน จ่ายเบี้ยไม่มาก แต่ได้ความคุ้มครองเป็นทุนก้อนใหญ่ ตั้งแต่ปีแรกค่ะ"),
       scene("knowThree", { layout: "note", title: ["ถ้าเรื่องใหญ่", "มาเร็วกว่าที่คิด"], note: [small("เงินฝาก"), big("ยังมีไม่พอ", "red"), small("ประกัน"), big("มีทุนรออยู่แล้ว", "green")] }, "ถ้าเรื่องใหญ่มาเร็วกว่าที่คิด เงินฝากอาจยังมีไม่พอ แต่ประกันมีทุนรออยู่แล้วค่ะ"),
@@ -106,7 +106,7 @@ function bank(input: StoryVideoInput): KnowScene[] {
   }
   const who = `${sexShort(f)} ${f.age} · ${planName(f.plan)} ${termShort(f)}`;
   return [
-    myth,
+    opener,
     scene("knowOne", { layout: "card", title: ["ฝากธนาคาร", ""], lines: [small(`ฝากปีละ ${n(f.annual)} บาท`), small("ครบปีแรก มีเงิน"), big(`${n(f.annual)} บาท`), small("กับดอกเบี้ยอีกเล็กน้อย")] },
       `ถ้าฝากธนาคารปีละ ${n(f.annual)} บาท ครบปีแรกเราจะมีเงิน ${n(f.annual)} บาท กับดอกเบี้ยอีกเล็กน้อยค่ะ`),
     scene("knowTwo", { layout: "card", title: ["ทำประกัน", ""], lines: [small(`จ่ายปีละ ${n(f.annual)} บาท`), small("คุ้มครองตามเงื่อนไขตั้งแต่ปีแรก"), big(`ทุน ${n(f.sumAssured)} บาท`, "green"), small(who)] },
@@ -122,7 +122,7 @@ function pricey(input: StoryVideoInput): KnowScene[] {
   // ตั้งค่าส่วนตัว: the agent hid the monthly instalment, so the yearly premium and no monthly paying
   const yearOnly = noMonthly(input);
   return [
-    scene("knowAsk", { layout: "myth", quote: ["“เบี้ยแพง", "ไม่มีงบ”"] }, "ประกันแพง ตอนนี้ยังไม่มีงบ หลายคนคิดแบบนี้ค่ะ"),
+    scene("knowAsk", { layout: "seedtree", title: ["“เบี้ยแพง", "ไม่มีงบ”"], note: "เริ่มเล็ก ดีกว่าไม่เริ่ม" }, "ประกันแพง ตอนนี้ยังไม่มีงบ หลายคนคิดแบบนี้ค่ะ"),
     f
       ? scene("knowOne", { layout: "fact", crossed: "แพง", note: [small(`${sexShort(f)} ${f.age} ทุน ${n(f.sumAssured)}`), big(yearOnly ? `ปีละ ${n(f.annual)} บาท` : `เดือนละ ${n(f.monthly)} บาท`), small(`เฉลี่ยวันละราว ${n(f.annual / 365)} บาท`)] },
         `${sexWord(f)}อายุ ${f.age} ทุนชีวิต ${withBaht(f.sumAssured)} จ่าย${yearOnly ? `ปีละ ${n(f.annual)}` : `เดือนละ ${n(f.monthly)}`} บาท เฉลี่ยวันละราว ${n(f.annual / 365)} บาทค่ะ`)

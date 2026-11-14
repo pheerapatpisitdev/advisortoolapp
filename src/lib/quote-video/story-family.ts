@@ -50,7 +50,7 @@ function pillar(input: StoryVideoInput, name: string): KnowScene[] {
   const h = input.home?.kind === "spend" ? input.home : undefined;
   const f = input.figure;
   return [
-    scene("knowAsk", { layout: "kin", title: ["บ้านนี้มีเสาหลัก", ""], people: row() },
+    scene("knowAsk", { layout: "housepillar", title: ["บ้านนี้มีเสาหลัก", ""], note: "รายได้หลักของบ้าน", label: "รายได้" },
       `นี่คือครอบครัว${name ? `ของคุณ${name}` : "หนึ่ง"} รายได้หลักของบ้าน มาจาก${who}คนเดียวค่ะ`),
     scene("knowOne", { layout: "kin", title: ["ทุกเดือน", "บ้านนี้ต้องจ่าย"], people: row(), tags: { items: bills } },
       "ทุกเดือน บ้านนี้มีค่าบ้าน ค่าเทอมลูก และค่ากินค่าใช้ ที่ต้องจ่ายค่ะ"),
