@@ -148,6 +148,26 @@ describe("taxback", () => {
     });
   });
 
+  it("the premium in the subtitle (เบี้ยปีละ X บาท) when there is one, the show's own subtitle without", () => {
+    each((size, art, label) => {
+      for (const show of [SHOWS[0], SHOWS[2]] as LifeShow<"taxback">[]) {
+        const out = words(html(show, end(show), size, art));
+        expect(out, label).toContain(`${LW.premium} 50,000 บาท`);
+        expect(out, label).not.toContain(TB[1]);
+      }
+      // over the cap: the premium as typed, and the cap line saying what counts
+      const over = words(html(SHOWS[1], end(SHOWS[1]), size, art));
+      expect(over, label).toContain(`${LW.premium} 150,000 บาท`);
+      expect(over, label).toContain(`${LW.deductible} 100,000 บาท`);
+      for (const show of [SHOWS[3], SHOWS[4]]) {
+        const out = words(html(show, end(show), size, art));
+        expect(out, label).not.toContain(LW.premium);
+        expect(out, label).toContain(TB[1]);
+      }
+    });
+    expect(LW.premium).toBe("เบี้ยปีละ");
+  });
+
   it("a refund on the show is never read", () => {
     const forged = { ...SHOWS[0], refund: 99_999 } as unknown as KnowShow;
     expect(words(html(forged))).not.toContain("99,999");
@@ -257,6 +277,6 @@ describe("threegen", () => {
 
 it("the words these four draw are in the hand font's text", () => {
   const text = knowText({ scenes: SHOWS.map((show) => ({ key: "knowOne", show, voice: "" })), cta: "", contactVoice: "" });
-  for (const w of [LW.bracket, LW.back, LW.deductible, LW.total, LW.left, LW.pass, TAX_YEAR, TAX_FOOT, ...TAX_CAPS.map((r) => r.label)]) expect(text).toContain(w);
+  for (const w of [LW.bracket, LW.back, LW.deductible, LW.premium, LW.total, LW.left, LW.pass, TAX_YEAR, TAX_FOOT, ...TAX_CAPS.map((r) => r.label)]) expect(text).toContain(w);
   expect(text).toContain("→");
 });

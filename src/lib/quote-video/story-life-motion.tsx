@@ -633,7 +633,8 @@ function taxbackGeo(size: VideoSize, show: LifeShow<"taxback">) {
   const room = footOf(size).top - r.y - Math.round(g.text * 0.3);
   const gapX = Math.round(g.text * 0.8);
   if (size === "portrait") {
-    const lh = side ? 540 : room;
+    // the cap line takes a line over the card: the ladder gives it the room
+    const lh = side ? (over ? 490 : 540) : room;
     return { over, side, lad: { x: r.x, y: r.y, w: r.w, h: lh }, side_: { x: r.x + 60, y: r.y + lh + 20, w: r.w - 120, h: room - lh - 20 } };
   }
   const lw = Math.round(r.w * (side ? (size === "square" ? 0.56 : 0.5) : size === "square" ? 0.8 : 0.6));
@@ -674,9 +675,11 @@ function TaxBack({ d, show }: { d: Dev; show: LifeShow<"taxback"> }) {
   const rateLine = show.bracket === undefined ? "" : refund !== undefined ? `${LW.bracket} ${show.bracket}% → ${LW.back}` : `${LW.bracket} ${show.bracket}%`;
   const rateSize = fitWrap([rateLine], inner, Math.round(g.text * (refund !== undefined ? 2.8 : 3.6)), Math.round(g.text * (refund !== undefined ? 1.05 : 1.4)));
   const pick = look(s.pick, t);
+  // with a premium the subtitle says it: the checked input as typed (over the cap, the cap line says what counts)
+  const title: [string, string] = show.premium !== undefined ? [show.title[0], `${LW.premium} ${baht(show.premium)}`] : show.title;
   return (
     <>
-      <DevTitle d={d} text={show.title} />
+      <DevTitle d={d} text={title} />
       {/* the ladder's heads: the rate, and what it gives back when there is a premium */}
       <El an={s.rung0} t={t} style={{ position: "absolute", left: lad.x, top, width: lad.w, height: headH, alignItems: "center", justifyContent: "space-between", fontFamily: HAND, fontSize: headSize, fontWeight: 700, color: d.ink }}>
         <div style={box({})}>{LW.bracket}</div>

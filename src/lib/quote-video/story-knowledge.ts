@@ -125,6 +125,8 @@ export const LIFE_WORDS = {
   bracket: "ฐานภาษี",
   back: "ได้คืน",
   deductible: "ลดหย่อนได้ไม่เกิน",
+  /** taxback's subtitle with a premium: the year's premium the ladder is worked on */
+  premium: "เบี้ยปีละ",
   exempt: "ยกเว้น",
   year: TAX_YEAR,
   foot: TAX_FOOT,
