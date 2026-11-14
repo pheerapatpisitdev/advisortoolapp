@@ -110,6 +110,18 @@ describe("the info route takes the three looks", () => {
     expect(markup("blueprint", ROOM)).toContain("font-family:Plex");
   });
 
+  it("writes นีออน's bold words at 400: Sriracha has no bold, and the clip would draw a 600 line in Plex", () => {
+    const weights = (html: string) => [...html.matchAll(/font-weight:(\d+)/g)].map((m) => Number(m[1]));
+    const all = (art: string) => [...KNOWLEDGE.map((k) => markup(art, k.show, END, k.topic, k.key)), ...DEVICES.map((d) => markup(art, d))];
+    expect(kitFor(inputOf("neon")).bold).toBe(400);
+    for (const html of all("neon")) {
+      expect(html).toContain("font-family:Sriracha");
+      for (const w of weights(html)) expect(w).toBeLessThanOrEqual(400);
+    }
+    // Mali and Plex have their 600 face: the board and the blueprint keep their bold
+    for (const art of ["board", "blueprint"]) expect(all(art).flatMap(weights), art).toContain(600);
+  });
+
   it("puts the plotter's machine over plot's sheet only", () => {
     expect(markup("plot", ROOM, 0.5)).toContain(S.plotRail);
     for (const art of NEW) expect(markup(art, ROOM, 0.5), art).not.toContain(S.plotRail);

@@ -31,6 +31,11 @@ export interface Kit {
   page: string;
   /** the face its words are written in, or none (อินโฟกราฟิก: the frame's own Plex) */
   hand: string | null;
+  /**
+   * the weight of its bold words: 400 in a face with no bold (Sriracha) — the clip registers Plex under every
+   * family and synthesises no bold, so a 600 line in Sriracha would be drawn in Plex SemiBold (as themes.tsx's โน้ตแปะ)
+   */
+  bold: 600 | 400;
   /** how a piece comes in: its own entrance, written left to right, or switched on with a flicker */
   reveal: "fade" | "write" | "switch";
   /** ปากกาพล็อตเตอร์'s rail and carriage over the sheet; a title in outline; a tile's hatched shading set off behind it */
@@ -45,30 +50,30 @@ export interface Kit {
   ground: string; dim: string; on: string; onLine: string; tick: string; card: string; mute: string;
 }
 const INFO_KIT: Kit = {
-  drawn: false, page: INFO_GROUND, hand: null, reveal: "fade", machine: false, hollowTitle: false, shade: false, hatch: false, glow: false, dims: false, line: 1, tilt: 0, strike: 0.62,
+  drawn: false, page: INFO_GROUND, hand: null, bold: 600, reveal: "fade", machine: false, hollowTitle: false, shade: false, hatch: false, glow: false, dims: false, line: 1, tilt: 0, strike: 0.62,
   gold: C.motionGold, sub: S.white, sky: C.motionSky, red: C.motionRed, green: C.motionGreen, white: S.white, tile: "rgba(255,255,255,0.08)", tileLine: "rgba(255,255,255,0.2)", soft: "rgba(255,255,255,0.82)",
   ground: INFO_GROUND, dim: "rgba(255,255,255,0.45)", on: "rgba(255,210,63,0.12)", onLine: C.motionGold, tick: S.infoTick, card: S.white, mute: S.infoMute,
 };
 const PLOT_KIT: Kit = {
-  drawn: true, page: S.plotPaper, hand: "Mali", reveal: "write", machine: true, hollowTitle: true, shade: true, hatch: true, glow: false, dims: false, line: 1, tilt: -2, strike: 0.62,
+  drawn: true, page: S.plotPaper, hand: "Mali", bold: 600, reveal: "write", machine: true, hollowTitle: true, shade: true, hatch: true, glow: false, dims: false, line: 1, tilt: -2, strike: 0.62,
   gold: S.plotInk, sub: S.plotInk, sky: S.plotInk, red: S.red, green: S.green, white: S.plotInk, tile: "transparent", tileLine: S.plotInk, soft: S.plotSoft,
   ground: S.plotInk, dim: S.plotDim, on: S.plotOn, onLine: S.red, tick: S.green, card: S.plotPaper, mute: S.plotSoft,
 };
 /** ไวต์บอร์ด: dark ink and the blue and red markers on the white board, written in as the pen writes, with no machine */
 const BOARD_KIT: Kit = {
-  drawn: true, page: S.boardBoard, hand: "Mali", reveal: "write", machine: false, hollowTitle: false, shade: false, hatch: false, glow: false, dims: false, line: 1, tilt: -2, strike: 0.62,
+  drawn: true, page: S.boardBoard, hand: "Mali", bold: 600, reveal: "write", machine: false, hollowTitle: false, shade: false, hatch: false, glow: false, dims: false, line: 1, tilt: -2, strike: 0.62,
   gold: S.boardBlue, sub: S.boardInk, sky: S.boardInk, red: S.boardRed, green: S.boardGreen, white: S.boardInk, tile: "transparent", tileLine: S.boardInk, soft: S.boardMuted,
   ground: S.boardInk, dim: S.boardMuted, on: "transparent", onLine: S.boardRed, tick: S.boardGreen, card: S.boardBoard, mute: S.boardMuted,
 };
 /** นีออน: cyan and pink tubes on the dark violet, lavender words, each piece switched on */
 const NEON_KIT: Kit = {
-  drawn: true, page: S.neonCentre, hand: "Sriracha", reveal: "switch", machine: false, hollowTitle: false, shade: false, hatch: false, glow: true, dims: false, line: 0.8, tilt: 0, strike: 0.98,
+  drawn: true, page: S.neonCentre, hand: "Sriracha", bold: 400, reveal: "switch", machine: false, hollowTitle: false, shade: false, hatch: false, glow: true, dims: false, line: 0.8, tilt: 0, strike: 0.98,
   gold: S.neonCyan, sub: S.neonPink, sky: S.neonPink, red: S.neonRed, green: S.neonGreen, white: S.neonInk, tile: "transparent", tileLine: S.neonMuted, soft: S.neonMuted,
   ground: S.white, dim: S.neonMuted, on: "transparent", onLine: S.neonCyan, tick: S.neonGreen, card: "transparent", mute: S.neonMuted,
 };
 /** บลูพริ้นท์: thin white lines on the blueprint blue, light cyan for the accent, amber for what the customer pays */
 const BLUEPRINT_KIT: Kit = {
-  drawn: true, page: S.bpGround, hand: "Plex", reveal: "write", machine: false, hollowTitle: false, shade: false, hatch: true, glow: false, dims: true, line: 0.6, tilt: 0, strike: 0.84,
+  drawn: true, page: S.bpGround, hand: "Plex", bold: 600, reveal: "write", machine: false, hollowTitle: false, shade: false, hatch: true, glow: false, dims: true, line: 0.6, tilt: 0, strike: 0.84,
   gold: S.bpCyan, sub: S.bpInk, sky: S.bpInk, red: S.bpAmber, green: S.bpCyan, white: S.bpInk, tile: "transparent", tileLine: S.bpInk, soft: S.bpMuted,
   ground: S.bpInk, dim: S.bpMuted, on: "transparent", onLine: S.bpAmber, tick: S.bpCyan, card: "transparent", mute: S.bpMuted,
 };
@@ -162,8 +167,8 @@ function Tile({ kind, size, bg = K.sky, color = K.white, radius }: { kind: InfoI
 /** a pill with a word on it: the stamp of a belief or a fact */
 const Chip = ({ text, bg, size }: { text: string; bg: string; size: number }) => (K.drawn
   // a rubber stamp's outline, a little askew (a marker's ring, a lit tube, a ruled box)
-  ? <div style={box({ background: patch(), ...ink(bg), border: `${pen(Math.max(3, size * 0.09))}px solid ${bg}`, borderRadius: Math.round(size * 0.3), padding: `${Math.round(size * 0.16)}px ${Math.round(size * 0.7)}px`, fontSize: size, fontWeight: 600, ...glowBox(bg), ...(K.tilt ? { transform: `rotate(${K.tilt}deg)` } : {}) })}>{text}</div>
-  : <div style={box({ background: bg, color: K.white, borderRadius: 999, padding: `${Math.round(size * 0.22)}px ${Math.round(size * 0.8)}px`, fontSize: size, fontWeight: 600 })}>{text}</div>
+  ? <div style={box({ background: patch(), ...ink(bg), border: `${pen(Math.max(3, size * 0.09))}px solid ${bg}`, borderRadius: Math.round(size * 0.3), padding: `${Math.round(size * 0.16)}px ${Math.round(size * 0.7)}px`, fontSize: size, fontWeight: K.bold, ...glowBox(bg), ...(K.tilt ? { transform: `rotate(${K.tilt}deg)` } : {}) })}>{text}</div>
+  : <div style={box({ background: bg, color: K.white, borderRadius: 999, padding: `${Math.round(size * 0.22)}px ${Math.round(size * 0.8)}px`, fontSize: size, fontWeight: K.bold })}>{text}</div>
 );
 
 /** a note's lines on the navy: small ones soft, big ones bold, a red or green one on its own pill */
@@ -173,7 +178,7 @@ function Lines({ lines, k, center = true }: { lines: NoteLine[]; k: number; cent
       {lines.map((l, i) => {
         const gap = i ? Math.round(16 * k) : 0;
         if (!l.big) return <div key={i} style={box({ fontSize: Math.round(44 * k), color: K.soft, marginTop: gap, textAlign: center ? "center" : "left" })}>{l.text}</div>;
-        if (!l.tone) return <div key={i} style={box({ fontSize: Math.round(64 * k), fontWeight: 600, color: K.white, lineHeight: 1.25, marginTop: gap, textAlign: center ? "center" : "left" })}>{l.text}</div>;
+        if (!l.tone) return <div key={i} style={box({ fontSize: Math.round(64 * k), fontWeight: K.bold, color: K.white, lineHeight: 1.25, marginTop: gap, textAlign: center ? "center" : "left" })}>{l.text}</div>;
         return <div key={i} style={box({ marginTop: gap + Math.round(4 * k) })}><Chip text={l.text} bg={l.tone === "red" ? K.red : K.green} size={Math.round(58 * k)} /></div>;
       })}
     </div>
@@ -184,7 +189,7 @@ function Lines({ lines, k, center = true }: { lines: NoteLine[]; k: number; cent
 function Title({ text, an, t, w, g }: { text: [string, string]; an?: Anim; t: number; w: number; g: (typeof GEO)[VideoSize] }) {
   return (
     <E an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title + (K.drawn && g.title < 100 ? Math.round(44 * g.k) : 0), flexDirection: "column", alignItems: "center" }}>
-      <div style={box({ fontSize: Math.round((K.drawn && g.title < 100 ? 88 : 104) * g.k), fontWeight: 600, lineHeight: 1.15, textAlign: "center", ...(K.hollowTitle ? { color: "transparent", WebkitTextStroke: `${Math.max(2, Math.round(3 * g.k))}px ${K.gold}` } : ink(K.gold)) })}>{text[0]}</div>
+      <div style={box({ fontSize: Math.round((K.drawn && g.title < 100 ? 88 : 104) * g.k), fontWeight: K.bold, lineHeight: 1.15, textAlign: "center", ...(K.hollowTitle ? { color: "transparent", WebkitTextStroke: `${Math.max(2, Math.round(3 * g.k))}px ${K.gold}` } : ink(K.gold)) })}>{text[0]}</div>
       {text[1] ? <div style={box({ fontSize: Math.round(56 * g.k), ...ink(K.sub), marginTop: Math.round(8 * g.k), textAlign: "center" })}>{text[1]}</div> : null}
     </E>
   );
@@ -290,7 +295,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
             </E>
             <E an={s.marks} t={t} style={{ position: "absolute", left: 0, top: 0, width: w - g.side * 2, height: g.bottom - g.top }}>
               {[[-0.42, -0.3, 120], [0.36, -0.36, 90], [0.4, 0.22, 70]].map(([dx, dy, size], i) => (
-                <div key={i} style={abs({ left: Math.round((w - g.side * 2) / 2 + dx * hero * 1.6), top: Math.round((g.bottom - g.top) / 2 + dy * hero * 1.6), fontSize: Math.round(size * k), fontWeight: 600, ...ink(K.gold) })}>?</div>
+                <div key={i} style={abs({ left: Math.round((w - g.side * 2) / 2 + dx * hero * 1.6), top: Math.round((g.bottom - g.top) / 2 + dy * hero * 1.6), fontSize: Math.round(size * k), fontWeight: K.bold, ...ink(K.gold) })}>?</div>
               ))}
             </E>
           </div>
@@ -304,7 +309,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
           </E>
           <div style={abs({ ...area, flexDirection: g.row ? "row" : "column" })}>
             <E an={s.quote} t={t} style={{ flexDirection: "column", alignItems: "center" }}>
-              {show.quote.map((q, i) => <div key={i} style={box({ fontSize: Math.round(112 * k), fontWeight: 600, color: K.white, lineHeight: 1.2 })}>{q}</div>)}
+              {show.quote.map((q, i) => <div key={i} style={box({ fontSize: Math.round(112 * k), fontWeight: K.bold, color: K.white, lineHeight: 1.2 })}>{q}</div>)}
             </E>
             <E an={s.face} t={t} style={{ margin: g.row ? `0 0 0 ${Math.round(70 * k)}px` : `${Math.round(70 * k)}px 0 0 0` }}>
               <Tile kind={icon ?? "speech"} size={Math.round(240 * k)} bg={K.red} />
@@ -320,7 +325,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
             <Chip text="ความจริง" bg={K.green} size={Math.round(54 * k)} />
           </E>
           <div style={abs(area)}>
-            <E an={s.crossed} t={t} style={{ position: "relative", fontSize: Math.round(80 * k), color: K.dim, fontWeight: 600 }}>
+            <E an={s.crossed} t={t} style={{ position: "relative", fontSize: Math.round(80 * k), color: K.dim, fontWeight: K.bold }}>
               {show.crossed}
               <div style={abs({ left: 0, top: Math.round(80 * k * K.strike), width: `${Math.round(strike * 100)}%`, height: Math.max(4, Math.round(9 * k)), background: K.red, borderRadius: 6, ...glowBox(K.red) })} />
             </E>
@@ -392,10 +397,10 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
               const on = i === now;
               return (
                 <E key={i} an={s[`item${i}`]} t={t} style={{ alignItems: "center", minHeight: tileH, marginTop: i ? Math.round(26 * k) : 0, background: on ? K.on : K.tile, border: `${Math.max(2, Math.round(4 * k))}px solid ${on ? K.onLine : K.tileLine}`, borderRadius: Math.round(30 * k), padding: `${Math.round(20 * k)}px ${Math.round(30 * k)}px`, ...glowBox(on ? K.onLine : K.tileLine) }}>
-                  <div style={box({ width: Math.round(70 * k), justifyContent: "center", fontSize: Math.round(76 * k), fontWeight: 600, ...ink(show.mark === "check" ? K.tick : show.mark === "cross" ? K.red : K.gold), flexShrink: 0 })}>{p.badge}</div>
+                  <div style={box({ width: Math.round(70 * k), justifyContent: "center", fontSize: Math.round(76 * k), fontWeight: K.bold, ...ink(show.mark === "check" ? K.tick : show.mark === "cross" ? K.red : K.gold), flexShrink: 0 })}>{p.badge}</div>
                   {icons[i] ? <div style={box({ marginLeft: Math.round(22 * k) })}><Tile kind={icons[i]} size={Math.round(110 * k)} bg={K.gold} color={K.ground} radius={Math.round(26 * k)} /></div> : null}
                   <div style={box({ flexDirection: "column", marginLeft: Math.round(30 * k), flexShrink: 1 })}>
-                    <div style={box({ fontSize: fitSize(p.head, Math.round(58 * k), room), fontWeight: 600, color: K.white, lineHeight: 1.25 })}>{p.head}</div>
+                    <div style={box({ fontSize: fitSize(p.head, Math.round(58 * k), room), fontWeight: K.bold, color: K.white, lineHeight: 1.25 })}>{p.head}</div>
                     {p.tail ? <div style={box({ fontSize: fitSize(p.tail, Math.round(44 * k), room), color: K.soft, lineHeight: 1.3 })}>{p.tail}</div> : null}
                   </div>
                 </E>
@@ -412,7 +417,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
           <div style={abs(area)}>
             <E an={s.card} t={t} style={{ flexDirection: "column", alignItems: "center", background: K.card, border: `${K.drawn ? pen(4 * k) : Math.round(8 * k)}px solid ${K.gold}`, borderRadius: Math.round(44 * k), padding: `${Math.round(56 * k)}px ${Math.round(60 * k)}px`, maxWidth: w - g.side * 2, ...glowBox(K.gold) }}>
               {show.lines.map((l, i) => (
-                <div key={i} style={box({ fontSize: Math.round((l.big ? 80 : 48) * k), fontWeight: l.big ? 600 : 400, ...ink(l.tone === "red" ? K.red : l.tone === "green" ? K.green : l.big ? K.ground : K.mute), lineHeight: 1.3, textAlign: "center" })}>{l.text}</div>
+                <div key={i} style={box({ fontSize: Math.round((l.big ? 80 : 48) * k), fontWeight: l.big ? K.bold : 400, ...ink(l.tone === "red" ? K.red : l.tone === "green" ? K.green : l.big ? K.ground : K.mute), lineHeight: 1.3, textAlign: "center" })}>{l.text}</div>
               ))}
             </E>
           </div>
@@ -428,8 +433,8 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
           </E>
           <div style={abs({ ...area, alignItems: "stretch" })}>
             <E an={s.lead} t={t} style={{ flexDirection: "column", alignItems: "center", marginBottom: Math.round(60 * k) }}>
-              <div style={box({ fontSize: Math.round(88 * k), fontWeight: 600, ...ink(K.gold) })}>{show.lead[0]}</div>
-              <div style={box({ fontSize: Math.round(64 * k), fontWeight: 600, color: K.white })}>{show.lead[1]}</div>
+              <div style={box({ fontSize: Math.round(88 * k), fontWeight: K.bold, ...ink(K.gold) })}>{show.lead[0]}</div>
+              <div style={box({ fontSize: Math.round(64 * k), fontWeight: K.bold, color: K.white })}>{show.lead[1]}</div>
             </E>
             {show.rows.map((row, i) => {
               const p = look(s[`bar${i}`], t).p;
@@ -438,7 +443,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
                   <div style={box({ width: Math.round(230 * k), fontSize: Math.round(48 * k), color: K.white, flexShrink: 0 })}>{row.label}</div>
                   <div style={box({ alignItems: "center", width: track })}>
                     <div style={box({ width: Math.max(8, Math.round(track * 0.72 * (row.value / max) * p)), height: Math.round(70 * k), ...fill(i === show.rows.length - 1 ? K.red : K.gold, Math.round(16 * k)) })} />
-                    <div style={box({ marginLeft: Math.round(20 * k), fontSize: Math.round(52 * k), fontWeight: 600, color: K.white, opacity: p > 0.6 ? 1 : 0 })}>{dimmed(row.text, k)}</div>
+                    <div style={box({ marginLeft: Math.round(20 * k), fontSize: Math.round(52 * k), fontWeight: K.bold, color: K.white, opacity: p > 0.6 ? 1 : 0 })}>{dimmed(row.text, k)}</div>
                   </div>
                 </div>
               );
@@ -501,7 +506,7 @@ function Figure({ label, value, color, k, room, size = 76 }: { label?: string; v
   return (
     <div style={box({ flexDirection: "column" })}>
       {label ? <div style={box({ fontSize: Math.round(44 * k), color: K.soft, lineHeight: 1.3 })}>{label}</div> : null}
-      {dimmed(<div style={box({ fontSize: fitSize(value, Math.round(size * k), room), fontWeight: 600, ...ink(color), lineHeight: 1.2 })}>{value}</div>, k, true)}
+      {dimmed(<div style={box({ fontSize: fitSize(value, Math.round(size * k), room), fontWeight: K.bold, ...ink(color), lineHeight: 1.2 })}>{value}</div>, k, true)}
     </div>
   );
 }
@@ -537,7 +542,7 @@ function wordsCard(d: Dev, an: Anim | undefined, lines: NoteLine[], title?: [str
         </E>
         <Card an={an} t={t} k={k} style={{ maxWidth: g.row ? Math.round(a.w * 0.6) : a.w }}>
           {lines.map((l, i) => (
-            <div key={i} style={box({ fontSize: l.big ? fitWords(l.text, Math.round(68 * k), room) : Math.round(46 * k), fontWeight: l.big ? 600 : 400, color: l.big ? K.white : K.soft, lineHeight: 1.3, textAlign: "center", marginTop: i ? Math.round(12 * k) : 0 })}>{l.text}</div>
+            <div key={i} style={box({ fontSize: l.big ? fitWords(l.text, Math.round(68 * k), room) : Math.round(46 * k), fontWeight: l.big ? K.bold : 400, color: l.big ? K.white : K.soft, lineHeight: 1.3, textAlign: "center", marginTop: i ? Math.round(12 * k) : 0 })}>{l.text}</div>
           ))}
         </Card>
       </div>
@@ -590,7 +595,7 @@ function split(d: Dev, show: Show<"split">) {
   const wl = look(s.whole, t);
   const lumpW = Math.round(inner * 0.85);
   const lumpH = ch - pad * 2 - Math.round(head * 1.8);
-  const heading = (text: string) => <div style={box({ fontSize: head, fontWeight: 600, ...ink(K.gold), lineHeight: 1.25 })}>{text}</div>;
+  const heading = (text: string) => <div style={box({ fontSize: head, fontWeight: K.bold, ...ink(K.gold), lineHeight: 1.25 })}>{text}</div>;
   const card: React.CSSProperties = { position: "absolute", top: a.y, width: cw, height: ch, padding: pad, justifyContent: "flex-start" };
   return (
     <>
@@ -616,7 +621,7 @@ function split(d: Dev, show: Show<"split">) {
         {heading(HW.lump)}
         <div style={box({ flexGrow: 1, justifyContent: "center", alignItems: "flex-end" })}>
           <div style={box({ width: lumpW, height: Math.round(lumpH * wl.p), opacity: wl.opacity, justifyContent: "center", alignItems: "center", ...fill(K.green, Math.round(14 * k)) })}>
-            <div style={box({ fontSize: fitWords(show.whole, Math.round(52 * k), lumpW - 40), fontWeight: 600, lineHeight: 1.25, textAlign: "center", justifyContent: "center", ...(K.drawn ? ink(K.green) : { color: K.white }), background: K.drawn ? K.page : "transparent", padding: `0 ${Math.round(10 * k)}px`, opacity: wl.p > 0.5 ? 1 : 0 })}>{show.whole}</div>
+            <div style={box({ fontSize: fitWords(show.whole, Math.round(52 * k), lumpW - 40), fontWeight: K.bold, lineHeight: 1.25, textAlign: "center", justifyContent: "center", ...(K.drawn ? ink(K.green) : { color: K.white }), background: K.drawn ? K.page : "transparent", padding: `0 ${Math.round(10 * k)}px`, opacity: wl.p > 0.5 ? 1 : 0 })}>{show.whole}</div>
           </div>
         </div>
       </Card>
@@ -651,7 +656,7 @@ function limit(d: Dev, show: Show<"limit">) {
       </E>
       <E an={s.top} t={t} style={{ position: "absolute", left: lx, top: ty, width: lw, flexDirection: "column" }}>
         <Figure value={baht(most)} color={K.gold} k={k} room={lw} size={88} />
-        <div style={box({ fontSize: Math.round(52 * k), fontWeight: 600, color: K.white, lineHeight: 1.3 })}>{HW.perYear}</div>
+        <div style={box({ fontSize: Math.round(52 * k), fontWeight: K.bold, color: K.white, lineHeight: 1.3 })}>{HW.perYear}</div>
         <div style={box({ fontSize: Math.round(38 * k), color: K.soft, lineHeight: 1.3 })}>{show.planName}</div>
       </E>
       {used !== undefined ? (
@@ -680,7 +685,7 @@ function room(d: Dev, show: Show<"room">) {
   const row = (an: Anim | undefined, label: string, value: string, color: string, size: number) => (
     <E an={an} t={t} style={{ width: inner, justifyContent: "space-between", alignItems: "center", marginTop: Math.round(18 * k) }}>
       <div style={box({ fontSize: Math.round(48 * k), color: K.white, flexShrink: 0 })}>{label}</div>
-      {dimmed(<div style={box({ fontSize: Math.round(size * k), fontWeight: 600, ...ink(color) })}>{value}</div>, k)}
+      {dimmed(<div style={box({ fontSize: Math.round(size * k), fontWeight: K.bold, ...ink(color) })}>{value}</div>, k)}
     </E>
   );
   const rule = <div style={box({ width: inner, height: 0, borderTop: `3px dashed ${K.tileLine}`, marginTop: Math.round(20 * k) })} />;
@@ -701,14 +706,14 @@ function room(d: Dev, show: Show<"room">) {
               {/* a room within what the plan pays is paid: no difference to show, never a negative one */}
               {real > plan
                 ? row(s.own, HW.ownNight, n(countAt(real - plan, look(s.count, t).p)), K.red, 84)
-                : <E an={s.own} t={t} style={{ width: inner, justifyContent: "center", marginTop: Math.round(18 * k), fontSize: fitSize(HW.enough, Math.round(76 * k), inner), fontWeight: 600, ...ink(K.green) }}>{HW.enough}</E>}
+                : <E an={s.own} t={t} style={{ width: inner, justifyContent: "center", marginTop: Math.round(18 * k), fontSize: fitSize(HW.enough, Math.round(76 * k), inner), fontWeight: K.bold, ...ink(K.green) }}>{HW.enough}</E>}
               <div style={box({ width: inner, justifyContent: "flex-end", marginTop: Math.round(10 * k), fontSize: Math.round(30 * k), color: K.soft })}>{HW.example}</div>
             </div>
           ) : (
             <div style={box({ flexDirection: "column" })}>
               {row(s.plan, HW.planNight, n(plan), K.green, 76)}
               {rule}
-              <E an={s.words} t={t} style={{ width: inner, justifyContent: "center", marginTop: Math.round(20 * k), fontSize: fitWords(HW.roomWords, Math.round(54 * k), inner), fontWeight: 600, color: K.white, lineHeight: 1.35, textAlign: "center" }}>{HW.roomWords}</E>
+              <E an={s.words} t={t} style={{ width: inner, justifyContent: "center", marginTop: Math.round(20 * k), fontSize: fitWords(HW.roomWords, Math.round(54 * k), inner), fontWeight: K.bold, color: K.white, lineHeight: 1.35, textAlign: "center" }}>{HW.roomWords}</E>
             </div>
           )}
         </Card>
@@ -748,7 +753,7 @@ function overflow(d: Dev, show: Show<"overflow">) {
       {/* the limit's word with its own figure, so the bill's figure beside it is never read as the limit */}
       <E an={s.line} t={t} style={{ position: "absolute", left: bx + barW + Math.round(16 * k), top: limitY - Math.round(104 * k), flexDirection: "column", ...ink(K.red), lineHeight: 1.2 }}>
         <div style={box({ fontSize: Math.round(36 * k) })}>{HW.limit}</div>
-        <div style={box({ fontSize: fitSize(n(cap), Math.round(42 * k), lineEnd - bx - barW - Math.round(24 * k)), fontWeight: 600 })}>{n(cap)}</div>
+        <div style={box({ fontSize: fitSize(n(cap), Math.round(42 * k), lineEnd - bx - barW - Math.round(24 * k)), fontWeight: K.bold })}>{n(cap)}</div>
       </E>
       <div style={abs({ left: lx, top, width: lw, height: barH, flexDirection: "column", justifyContent: "center" })}>
         <E an={s.bill} t={t} style={{ flexDirection: "column" }}><Figure label={HW.bill} value={baht(bill)} color={K.gold} k={k} room={lw} /></E>
@@ -760,7 +765,7 @@ function overflow(d: Dev, show: Show<"overflow">) {
         {/* what the insurer pays is an example within the plan's conditions, as the room's card says (ruling R12) */}
         <E an={s.insurer} t={t} style={{ marginTop: Math.round(18 * k), fontSize: Math.round(30 * k), color: K.soft }}>{`${HW.example} ${HW.terms}`}</E>
       </div>
-      <E an={s.foot} t={t} style={{ position: "absolute", left: a.x, width: a.w, top: base + Math.round(20 * k), justifyContent: "center", fontSize: Math.round(40 * k), fontWeight: 600, color: K.soft }}>{`${HW.choose}${HW.chooseFoot}`}</E>
+      <E an={s.foot} t={t} style={{ position: "absolute", left: a.x, width: a.w, top: base + Math.round(20 * k), justifyContent: "center", fontSize: Math.round(40 * k), fontWeight: K.bold, color: K.soft }}>{`${HW.choose}${HW.chooseFoot}`}</E>
     </>
   );
 }
@@ -804,14 +809,14 @@ function waiting(d: Dev, show: Show<"waiting">) {
       {len > 0 ? <div style={abs({ left: x0, top: ly - Math.round(5 * k), width: Math.round(len * lp), height: Math.max(4, Math.round(10 * k)), background: K.gold, borderRadius: 6, ...glowBox(K.gold) })} /> : null}
       {rows.map((row, i) => (
         <E key={i} an={s[`row${i}`]} t={t} style={{ position: "absolute", left: a.x + i * col, top: ly - atH - Math.round(dot / 2), width: col, flexDirection: "column", alignItems: "center" }}>
-          <div style={box({ height: atH, alignItems: "flex-end", fontSize: atSize, fontWeight: 600, lineHeight: 1.2, ...ink(i === 0 ? K.green : K.gold) })}>{row.at}</div>
+          <div style={box({ height: atH, alignItems: "flex-end", fontSize: atSize, fontWeight: K.bold, lineHeight: 1.2, ...ink(i === 0 ? K.green : K.gold) })}>{row.at}</div>
           <div style={box({ width: dot, height: dot, borderRadius: dot, flexShrink: 0, background: K.drawn ? K.page : dotColor(i), border: `${Math.max(4, Math.round(7 * k))}px solid ${dotColor(i)}`, ...glowBox(dotColor(i)) })} />
-          <div style={box({ marginTop: margin, width: col - 24, justifyContent: "center", fontSize: labelSize, fontWeight: 600, color: K.white, lineHeight: 1.3, textAlign: "center" })}>{row.label}</div>
+          <div style={box({ marginTop: margin, width: col - 24, justifyContent: "center", fontSize: labelSize, fontWeight: K.bold, color: K.white, lineHeight: 1.3, textAlign: "center" })}>{row.label}</div>
         </E>
       ))}
       <div style={abs({ left: a.x, top: cardY, width: a.w, justifyContent: "center" })}>
         <Card an={s.card} t={t} k={k} style={{ maxWidth: Math.round(a.w * 0.8) }}>
-          <div style={box({ fontSize: fitWords(HW.waitFoot, Math.round(54 * k), Math.round(a.w * 0.8) - Math.round(80 * k)), fontWeight: 600, color: K.white, textAlign: "center" })}>{HW.waitFoot}</div>
+          <div style={box({ fontSize: fitWords(HW.waitFoot, Math.round(54 * k), Math.round(a.w * 0.8) - Math.round(80 * k)), fontWeight: K.bold, color: K.white, textAlign: "center" })}>{HW.waitFoot}</div>
         </Card>
       </div>
     </>
@@ -838,7 +843,7 @@ function cashless(d: Dev, show: Show<"cashless">) {
           <E an={s.tick} t={t} style={{ width: tick, height: tick, borderRadius: tick, alignItems: "center", justifyContent: "center", background: K.drawn ? K.page : K.green, border: `${Math.max(4, Math.round(8 * k))}px solid ${K.green}`, ...glowBox(K.green) }}>
             <svg width={Math.round(tick * 0.62)} height={Math.round(tick * 0.62)} viewBox="0 0 100 100"><path d="M18 52 L40 73 L82 28" fill="none" stroke={K.drawn ? K.green : K.white} strokeWidth={13} strokeLinecap="round" strokeLinejoin="round" /></svg>
           </E>
-          <E an={s.word} t={t} style={{ marginTop: Math.round(30 * k), fontSize: fitSize(HW.network, Math.round(84 * k), side - 20), fontWeight: 600, ...ink(K.gold) }}>{HW.network}</E>
+          <E an={s.word} t={t} style={{ marginTop: Math.round(30 * k), fontSize: fitSize(HW.network, Math.round(84 * k), side - 20), fontWeight: K.bold, ...ink(K.gold) }}>{HW.network}</E>
           <E an={s.note} t={t} style={{ marginTop: Math.round(12 * k), width: side - 20, justifyContent: "center", fontSize: fitWords(show.note, Math.round(48 * k), side - 20), color: K.soft, lineHeight: 1.35, textAlign: "center" }}>{show.note}</E>
         </div>
       </div>
@@ -867,12 +872,12 @@ function groupgap(d: Dev, show: Show<"groupgap">) {
     const len = Math.max(12, Math.round((track * value) / most));
     return (
       <div style={abs({ left: bars.x, top: bars.y + i * block, width: bars.w, flexDirection: "column" })}>
-        <div style={box({ fontSize: labelSize, fontWeight: 600, color: K.white, lineHeight: 1.35 })}>{label}</div>
+        <div style={box({ fontSize: labelSize, fontWeight: K.bold, color: K.white, lineHeight: 1.35 })}>{label}</div>
         <div style={box({ alignItems: "center" })}>
           <div style={box({ width: track, height: barH, flexShrink: 0 })}>
             <div style={box({ width: Math.round(len * p), height: barH, opacity: p > 0 ? 1 : 0, ...fill(color, Math.round(12 * k)) })} />
           </div>
-          <E an={s[`${an}Fig`]} t={t} style={{ marginLeft: Math.round(24 * k), width: figW, fontSize: fitSize(n(value), Math.round(64 * k), figW), fontWeight: 600, ...ink(color) }}>{dimmed(<div style={box({})}>{n(value)}</div>, k)}</E>
+          <E an={s[`${an}Fig`]} t={t} style={{ marginLeft: Math.round(24 * k), width: figW, fontSize: fitSize(n(value), Math.round(64 * k), figW), fontWeight: K.bold, ...ink(color) }}>{dimmed(<div style={box({})}>{n(value)}</div>, k)}</E>
         </div>
       </div>
     );
@@ -887,10 +892,10 @@ function groupgap(d: Dev, show: Show<"groupgap">) {
           {/* what the group plan pays covers the bill: nothing short, never a negative */}
           {bill > group ? (
             <div style={box({ flexDirection: "column", alignItems: "center" })}>
-              <div style={box({ fontSize: Math.round(52 * k), fontWeight: 600, color: K.white, lineHeight: 1.3 })}>{HW.short}</div>
-              <div style={box({ fontSize: fitSize(baht(bill - group), Math.round(88 * k), inner), fontWeight: 600, ...ink(K.red), lineHeight: 1.25 })}>{baht(countAt(bill - group, look(s.count, t).p))}</div>
+              <div style={box({ fontSize: Math.round(52 * k), fontWeight: K.bold, color: K.white, lineHeight: 1.3 })}>{HW.short}</div>
+              <div style={box({ fontSize: fitSize(baht(bill - group), Math.round(88 * k), inner), fontWeight: K.bold, ...ink(K.red), lineHeight: 1.25 })}>{baht(countAt(bill - group, look(s.count, t).p))}</div>
             </div>
-          ) : <div style={box({ fontSize: fitSize(HW.groupEnough, Math.round(72 * k), inner), fontWeight: 600, ...ink(K.green) })}>{HW.groupEnough}</div>}
+          ) : <div style={box({ fontSize: fitSize(HW.groupEnough, Math.round(72 * k), inner), fontWeight: K.bold, ...ink(K.green) })}>{HW.groupEnough}</div>}
         </Card>
       </div>
     </>
@@ -925,14 +930,14 @@ function agecost(d: Dev, show: Show<"agecost">) {
         const color = i === last ? K.red : K.gold;
         return (
           <div key={i} style={abs({ left: chart.x + i * slot, top: base - Math.round(h * p) - Math.round(figSize * 1.4), width: slot, flexDirection: "column", alignItems: "center" })}>
-            <div style={box({ height: Math.round(figSize * 1.4), alignItems: "flex-end", fontSize: figSize, fontWeight: 600, ...ink(i === last ? K.red : K.white), opacity: p > 0.6 ? 1 : 0 })}>{n(row.annual)}</div>
+            <div style={box({ height: Math.round(figSize * 1.4), alignItems: "flex-end", fontSize: figSize, fontWeight: K.bold, ...ink(i === last ? K.red : K.white), opacity: p > 0.6 ? 1 : 0 })}>{n(row.annual)}</div>
             <div style={box({ width: barW, height: Math.round(h * p), opacity: p > 0 ? 1 : 0, ...fill(color, `${Math.round(14 * k)}px ${Math.round(14 * k)}px 0 0`), ...(K.hatch ? { borderBottom: "none" } : {}) })} />
           </div>
         );
       })}
       <div style={abs({ left: chart.x - Math.round(20 * k), top: base - 2, width: chart.w + Math.round(40 * k), height: Math.max(3, Math.round(5 * k)), background: K.gold, borderRadius: 3, ...glowBox(K.gold) })} />
       {labels.map((label, i) => (
-        <div key={i} style={abs({ left: chart.x + i * slot, top: base + Math.round(labelSize * 0.25), width: slot, justifyContent: "center", fontSize: labelSize, fontWeight: 600, ...ink(i === last ? K.red : K.white) })}>{label}</div>
+        <div key={i} style={abs({ left: chart.x + i * slot, top: base + Math.round(labelSize * 0.25), width: slot, justifyContent: "center", fontSize: labelSize, fontWeight: K.bold, ...ink(i === last ? K.red : K.white) })}>{label}</div>
       ))}
       <E an={s.source} t={t} style={{ position: "absolute", left: a.x + 20, width: a.w - 40, top: base + Math.round(labelSize * 1.7), justifyContent: "center", fontSize: sourceSize, color: K.soft, lineHeight: 1.35, textAlign: "center" }}>{show.source}</E>
     </>
