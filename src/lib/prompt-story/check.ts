@@ -209,7 +209,7 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
   const rawTitle = Array.isArray(o.title) && o.title.length >= 1 && o.title.length <= 2 ? o.title : null;
   if (!rawTitle) fail.push("title: ใส่หัวข้อ 1–2 บรรทัด");
   const title: [string, string] = isMetaLayout
-    ? [meta("title", rawTitle?.[0], META_LIMITS.titleLine, true), meta("title", rawTitle?.[1], META_LIMITS.titleLine, false)]
+    ? [meta("title", rawTitle?.[0], META_LIMITS.titleLine, true), meta("title", rawTitle?.[1] ?? "", META_LIMITS.titleLine, false)]
     : [word("title", rawTitle?.[0], true), word("title", rawTitle?.[1], false)];
   const note = isMetaLayout ? metaOpt("note", o.note, META_LIMITS.note) : {};
 

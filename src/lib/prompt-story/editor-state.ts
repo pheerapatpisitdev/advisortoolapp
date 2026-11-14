@@ -1,6 +1,7 @@
 import { checkDevice, type TaxSources } from "./check";
 import { deviceInfo } from "@/lib/scene-library/devices";
 import { isUploadId } from "@/lib/scene-library/upload-rules";
+import { META_LAYOUTS } from "@/lib/quote-video/story-knowledge";
 import type { DeviceScene, PromptScene } from "./types";
 
 /**
@@ -26,24 +27,34 @@ const FIELD: Record<string, string> = {
   at: "เมื่อ", label: "รายการ", age: "อายุ", annual: "ปีละ",
   // ชีวิต ภาษี มรดก (round 2)
   debts: "ภาระหนี้", expenses: "ค่าใช้จ่ายต่อปี", years: "จำนวนปี", education: "ค่าการศึกษา", have: "ทุนที่มี", name: "ชื่อ", share: "สัดส่วน",
+  // อุปมา (round 3)
+  spare: "เสาสำรอง", from: "คำใต้ภาพซ้าย", to: "คำใต้ภาพขวา", sides: "สองข้างตาชั่ง", tilt: "ตาชั่งเอียง", arrows: "ลูกศร",
   sum: "ทุนโรคร้าย", monthly: "รายได้ต่อเดือน", months: "จำนวนเดือน", premium: "เบี้ยต่อปี", bracket: "ฐานภาษี", total: "เงินก้อน", amount: "จำนวนเงิน",
 };
-export const fieldName = (f: string): string => FIELD[f] ?? f;
+/** a word the อุปมา devices name apart from the rest: the line under the picture, the word on housepillar's pillar */
+const META_FIELD: Record<string, string> = { note: "บรรทัดใต้ภาพ", label: "คำบนเสา" };
+export const fieldName = (f: string, layout?: string): string => (isMetaLayout(layout) ? META_FIELD[f] : undefined) ?? FIELD[f] ?? f;
+const isMetaLayout = (layout?: string): boolean => (META_LAYOUTS as readonly string[]).includes(layout ?? "");
+
+/** the balance's tilt as the owner reads and types it */
+const TILT_THAI: Record<string, string> = { left: "ซ้าย", right: "ขวา", even: "เท่ากัน" };
+const TILT_KEY: Record<string, string> = Object.fromEntries(Object.entries(TILT_THAI).map(([k, v]) => [v, k]));
 
 /** a list's item by what it holds on this device: a beneficiary's row is a person, a moneysplit part a share of the sum */
 const ITEM: Partial<Record<DeviceScene["layout"], Record<string, string>>> = {
   beneficiary: { rows: "ผู้รับ" }, moneysplit: { parts: "ส่วน" }, threegen: { rows: "รุ่น" },
 };
-const itemName = (layout: DeviceScene["layout"], f: string): string => ITEM[layout]?.[f] ?? fieldName(f);
+const itemName = (layout: DeviceScene["layout"], f: string): string => ITEM[layout]?.[f] ?? fieldName(f, layout);
 
 /** a figure as the editor shows it: a share or a tax rate as a percentage, anything else 1,234,567 */
 const PERCENT = new Set(["share", "bracket"]);
 const shownAs = (f: string, n: unknown) => (typeof n === "number" ? (PERCENT.has(f) ? `${n}%` : n.toLocaleString("en-US")) : "");
 
 /** checkDevice's reason ("real: ตัวเลข 7000 …") with its field said in Thai and its figure as 7,000 */
-export function deviceReason(reason: string): string {
+export function deviceReason(reason: string, layout?: string): string {
   const m = /^(\w+):\s*(.*)$/.exec(reason);
-  const said = m ? `${fieldName(m[1])} ${m[2]}` : reason;
+  if (m?.[1] === "tilt") return `${fieldName("tilt")} ต้องเป็น ซ้าย ขวา หรือ เท่ากัน`;
+  const said = m ? `${fieldName(m[1], layout)} ${m[2]}` : reason;
   return said.replace(/\d{4,}/g, (n) => Number(n).toLocaleString("en-US"));
 }
 
@@ -54,7 +65,7 @@ export function sceneKind(s: PromptScene, forDevice: Set<number>, tax?: TaxSourc
   const d = checkDevice(s.device, forDevice, tax);
   const name = deviceInfo(String(s.device.layout))?.name ?? "อุปกรณ์";
   if (typeof d !== "string") return { kind: "device", device: s.device, name };
-  return asset ? { kind: "asset", id: asset } : { kind: "broken", reason: deviceReason(d), name };
+  return asset ? { kind: "asset", id: asset } : { kind: "broken", reason: deviceReason(d, String(s.device.layout)), name };
 }
 
 /** neither a passing device nor a part: the painter draws it */
@@ -136,7 +147,7 @@ export function deviceFields(d: DeviceScene): { words: DeviceWord[]; numbers: De
           }
         }
       });
-    } else words.push({ path: [f], label: fieldName(f), value: typeof v === "string" ? v : "" });
+    } else words.push({ path: [f], label: fieldName(f, d.layout), value: f === "tilt" ? TILT_THAI[String(v ?? "even")] ?? String(v) : typeof v === "string" ? v : "" });
   }
   for (const f of info?.numberFields ?? []) {
     const v = o[f];
@@ -158,8 +169,10 @@ export function deviceFields(d: DeviceScene): { words: DeviceWord[]; numbers: De
 
 /** the device with one of its words changed (a copy; the title stays two lines) */
 export function setDeviceWord(d: DeviceScene, path: (string | number)[], value: string): DeviceScene {
+  // the balance's tilt is typed in Thai; what is not one of the three stays as typed, for the check to refuse
+  const v = path.length === 1 && path[0] === "tilt" ? TILT_KEY[value.trim()] ?? value : value;
   const put = (at: unknown, rest: (string | number)[]): unknown => {
-    if (!rest.length) return value;
+    if (!rest.length) return v;
     const [k, ...more] = rest;
     if (typeof k === "number") {
       const arr = Array.isArray(at) ? [...at] : [];

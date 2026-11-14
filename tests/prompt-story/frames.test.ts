@@ -6,7 +6,7 @@ import { TRANSITIONS } from "@/lib/quote-video/job";
 import { freeFrame, freeHandText, freeWindows, type FreeContext } from "@/lib/prompt-story/frames";
 import type { DeviceScene, PromptScene, PromptStoryInput } from "@/lib/prompt-story/types";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
-import { HEALTH_WORDS, LIFE_WORDS } from "@/lib/quote-video/story-knowledge";
+import { HEALTH_WORDS, LIFE_WORDS, metaWords, type MetaShow } from "@/lib/quote-video/story-knowledge";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
 
 const SIZE_LIST: VideoSize[] = ["portrait", "square", "landscape"];
@@ -236,5 +236,47 @@ describe("freeHandText with a device", () => {
   it("keeps the figure card's words while a device takes the figure scene", () => {
     const i = input(2, { scenes: [deviceScene(SPLIT, { showFigure: true }), scene(2, "คำฉากสอง")] });
     expect(freeHandText(i)).toContain("เบี้ยปีละ 24,000 บาท");
+  });
+});
+
+/** the อุปมา devices (round 3, Task 6): each drawn in a prompt clip, through the real frames path */
+const META: DeviceScene[] = [
+  { layout: "umbrella", title: ["ประกันเหมือนร่ม", "กางไว้ก่อนฝนตก"], note: "กางไว้ก่อน ไม่ได้แช่งฝน" },
+  { layout: "housepillar", title: ["เสาหลักของบ้าน", "ถ้าเสาล้ม"], note: "ทั้งบ้านรับไม่ไหว", label: "รายได้", spare: "ประกัน" },
+  { layout: "lifering", title: ["ห่วงชูชีพ", "มาทันเวลา"], note: "ตอนรายได้หายไป" },
+  { layout: "safetynet", title: ["ตาข่ายนิรภัย", "รับตอนพลาด"], note: "ฟรีแลนซ์ไม่มีสวัสดิการ" },
+  { layout: "seedtree", title: ["เริ่มทีละน้อย", "โตเป็นต้นไม้"], note: "เริ่มวันนี้ก็ยังทัน", from: "เมล็ดเล็ก", to: "ต้นใหญ่" },
+  { layout: "balance", title: ["ออมกับประกัน", "ต่างหน้าที่"], note: "มีทั้งคู่ดีกว่า", sides: ["ออมเงิน", "ประกัน"], tilt: "left" },
+  { layout: "bridge", title: ["สะพาน", "ข้ามช่วงยาก"], note: "ตอนป่วยแล้วรายได้หาย" },
+  { layout: "shield", title: ["โล่กันลูกศร", "เรื่องร้ายที่มา"], note: "โล่รับแทนเรา", arrows: ["ป่วยหนัก", "อุบัติเหตุ", "รายได้หาย"] },
+];
+
+describe("freeFrame with an อุปมา device", () => {
+  it("draws each of the eight in paper and one info look, every size: its title and words, no picture, no screen words", () => {
+    for (const d of META) for (const style of ["paper", "blueprint"] as const) for (const size of SIZE_LIST) {
+      const i = input(1, { style, scenes: [deviceScene(d)] });
+      const at = (t: number) => renderToStaticMarkup(freeFrame(i.scenes[0], false, ctx(i, size), t));
+      expect(at(0), `${d.layout} ${style} ${size}`).not.toContain("<img");
+      const out = shown(at(12));
+      for (const w of metaWords(d as MetaShow)) expect(out, `${d.layout} ${style} ${size}: ${w}`).toContain(w);
+      expect(out, `${d.layout} ${style} ${size}`).not.toContain("คำบนจอซ่อนไว้");
+      expect(out).toContain("เสียงที่");
+    }
+  });
+
+  it("renders each in satori, paper and one dark look, every size", async () => {
+    for (const d of META) for (const style of ["paper", "neon"] as const) for (const size of SIZE_LIST) {
+      const i = input(1, { style, scenes: [deviceScene(d)] });
+      const { w, h } = SIZES[size];
+      const png = await renderPng(freeFrame(i.scenes[0], false, ctx(i, size), 12), { width: w, height: h }, { hand: freeHandText(i) });
+      expect(png.length, `${d.layout} ${style} ${size}`).toBeGreaterThan(1000);
+    }
+  }, 120_000);
+
+  it("cuts the hand face to each device's own words", () => {
+    const i = input(META.length, { scenes: META.map((d) => deviceScene(d)) });
+    const hand = freeHandText(i);
+    for (const d of META) for (const w of metaWords(d as MetaShow)) expect(hand).toContain(w);
+    expect(hand).not.toContain("คำบนจอซ่อนไว้");
   });
 });

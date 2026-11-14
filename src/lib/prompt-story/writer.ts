@@ -1,8 +1,8 @@
 import { chat } from "@/lib/ai/client";
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
-import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
-import { DEVICES, isMetaDevice } from "@/lib/scene-library/devices";
+import { META_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
+import { DEVICES } from "@/lib/scene-library/devices";
 import { allowedFor, briefTax, checkDevice, checkScene, checkScript, deviceAllowed, forbiddenForPrompt, type TaxSources } from "./check";
 import { SCREEN_MAX, TITLE_MAX, type PromptFormat, type PromptScene, type SceneCount } from "./types";
 
@@ -133,13 +133,14 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     "",
     "อุปกรณ์: ภาพที่ระบบวาดเองแทนรูป AI ใส่ใน device ของฉากได้ เมื่อฉากนั้นพูดเรื่องที่อุปกรณ์อธิบายได้ ฉากอื่นใส่ device เป็น null",
     `- ใช้อุปกรณ์ได้ไม่เกิน ${deviceMax(count)} ฉาก (ไม่เกินครึ่งหนึ่งของจำนวนฉาก) ฉากที่เหลือเป็นรูป AI`,
-    // Task 6: the อุปมา devices join the list; until then the writer does not offer them (no drawer yet)
-    ...DEVICES.filter((d) => !isMetaDevice(d)).map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
+    ...DEVICES.map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
     "กฎของอุปกรณ์:",
     "- ตัวเลขในอุปกรณ์เป็นจำนวนเต็มมากกว่าศูนย์ ไม่ใส่จุลภาค และต้องเป็นตัวเลขที่อยู่ในโจทย์หรือตัวเลขแผนเท่านั้น ห้ามคิดตัวเลขเอง",
     nums.length ? `- ตัวเลขที่ใช้ในอุปกรณ์ได้: ${nums.join(", ")}` : "- โจทย์ไม่มีตัวเลข ใช้ได้เฉพาะอุปกรณ์ที่ไม่ต้องมีตัวเลข",
     "- ถ้าไม่มีตัวเลขที่เข้ากับอุปกรณ์ ให้ละช่องตัวเลขที่ละได้ หรือเลือกอุปกรณ์ที่ไม่มีตัวเลข หรือไม่ใช้อุปกรณ์เลย",
     `- คำในอุปกรณ์ทุกช่อง (title, parts, whole, planName, rows, note, source, name, label) ช่องละไม่เกิน ${SCREEN_MAX} ตัวอักษร และทำตามกฎเดียวกับคำพูดข้างบนทุกข้อ`,
+    // round 3 (spec 2026-11-15-devices-metaphor): words only, no digit anywhere; each word within its own length
+    `- อุปมา (umbrella, housepillar, lifering, safetynet, seedtree, balance, bridge, shield): ไม่มีช่องตัวเลข ห้ามมีตัวเลขในคำเลย ทั้งเลขอารบิกและเลขไทย ถ้ามีตัวเลขระบบจะไม่วาดอุปกรณ์นี้ ความยาว: บรรทัดของ title ไม่เกิน ${META_LIMITS.titleLine} ตัวอักษร note ไม่เกิน ${META_LIMITS.note} คำอื่นๆ (label, spare, from, to, sides) ไม่เกิน ${META_LIMITS.word} ลูกศรแต่ละคำ (arrows) ไม่เกิน ${META_LIMITS.arrow} และมีได้ 1–${META_LIMITS.arrows} คำ`,
     "- agecost: ทุกช่องข้อความ (title และ source) ห้ามใช้คำว่า เบี้ย ให้ใช้ ค่าประกันสุขภาพ แทน",
     // round 2 (spec 2026-11-14-devices-life-tax): the inputs only; the tax table is the system's, never pasted here
     "- คำที่เขียนในอุปกรณ์ทุกตัวห้ามมีคำต้องห้ามข้างบน แม้ระบบจะวาดคำอย่าง เบี้ยปีละ หรือ % บนอุปกรณ์เอง ให้ใช้ ค่าประกัน แทน เบี้ย",
