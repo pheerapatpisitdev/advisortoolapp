@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, easyProtectSlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useEffect, useMemo, useState } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { PayMode, Sex } from "@/calc/types";
@@ -37,6 +39,8 @@ export interface EasyProtectCalculatorProps {
   hide?: PayMode[];
   /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
   pen?: boolean;
+  /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+  shareTemplate?: string;
 }
 
 /**
@@ -48,7 +52,7 @@ export interface EasyProtectCalculatorProps {
  * the one this plan is decided on: it is a number with an end to it, which is not true of
  * any plan paid to ninety-nine.
  */
-export function EasyProtectCalculator({ table, sticky = false, hide = [], pen = true }: EasyProtectCalculatorProps) {
+export function EasyProtectCalculator({ table, sticky = false, hide = [], pen = true, shareTemplate }: EasyProtectCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -123,12 +127,16 @@ export function EasyProtectCalculator({ table, sticky = false, hide = [], pen = 
   const tableCard = who && projection
     ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, hide, pen })
     : undefined;
-  const quoteText = who && headline && total !== null
-    ? easyProtectQuoteText({
+  const quoteFacts = who && headline && total !== null
+    ? {
       sumAssured, age: who.age, sex, years: term.payTerm,
       coverToAge: table.coverToAge, modes: [headline, ...others], total, leverage: times,
       cash, premiumFloorPercent: table.topUp.premiumPercent,
-    })
+    }
+    : undefined;
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว), with this quote's figures
+  const quoteText = quoteFacts
+    ? shareText(shareTemplate, easyProtectQuoteText(quoteFacts), easyProtectSlots(quoteFacts), SHARE_PLANS.easyprotect.blocks)
     : undefined;
 
   return (

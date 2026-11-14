@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, iHealthySlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PayMode, Sex } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
@@ -62,6 +64,8 @@ export interface IHealthyCalculatorProps {
   lang?: Lang;
   /** the rows the copied quote reads the plan's room rate and OPD limit off */
   shareRows?: ShareRows;
+  /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+  shareTemplate?: string;
   /** the thirty-one illnesses DCI names, in the reader's language */
   dciDiseases: string[];
 }
@@ -76,7 +80,7 @@ export interface IHealthyCalculatorProps {
 export function IHealthyCalculator(
   {
     table, data, sharedLimit, participationNote, initial, initialAttached, sticky = false,
-    lang = "th", dciDiseases, shareRows,
+    lang = "th", dciDiseases, shareRows, shareTemplate,
   }: IHealthyCalculatorProps,
 ) {
   const w = WORDS[lang];
@@ -333,9 +337,13 @@ export function IHealthyCalculator(
     : standardPlan !== null ? [w.dailyCash(standardPlan)] : undefined;
   const bases = (b: (typeof table.bases)[number]) => baseWords(w, b.variant, b);
   // In the language the page is read in: the text goes to the customer the page is shown to.
-  const quoteText = iHealthyQuoteText(
-    { ...cta, baseLabel: bases(base).label, standardLabel: standardLines }, w,
-  );
+  const quoteFacts = { ...cta, baseLabel: bases(base).label, standardLabel: standardLines };
+  const standardText = iHealthyQuoteText(quoteFacts, w);
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว) — written in Thai, so only the
+  // Thai page sends it; a translated page keeps the system's text in its language
+  const quoteText = standardText && lang === "th"
+    ? shareText(shareTemplate, standardText, iHealthySlots(quoteFacts), SHARE_PLANS.ihealthy.blocks)
+    : standardText;
   const territoryName = (t: string) => w.territory[t] ?? t;
   // Show the list from the moment DCI is ticked, not only after its premium round trip has
   // returned. `answered` keeps the card's price honest; `picked` keeps this explanation in

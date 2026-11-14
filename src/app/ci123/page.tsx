@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { shareTemplateOnPage } from "@/lib/share-text/store";
 import { hiddenOnPage } from "@/lib/pay-prefs-store";
 import { Ci123Calculator } from "@/components/Ci123Calculator";
 import { ci123Table } from "@/lib/ci123-table";
@@ -22,6 +23,8 @@ export default async function Ci123Page({
 }) {
   // members only, trial included (owner, 2026-10-20)
   const viewer = await gateCalc("/ci123");
+  // ข้อความส่งให้ลูกค้า: the member's own wording for this plan, where they saved one
+  const shareTemplate = await shareTemplateOnPage(viewer, "ci123");
   // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
   const hide = await hiddenOnPage(viewer, await searchParams);
   const table = ci123Table();
@@ -29,7 +32,7 @@ export default async function Ci123Page({
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="CI 123" kind="ประกันโรคร้ายแรง" facts={[`คุ้มครอง ${table.diseaseCount} โรค`, "จ่ายตามระยะของโรค", `รับแรกเกิด–${table.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
-        <Ci123Calculator table={table} hide={hide} sticky />
+        <Ci123Calculator shareTemplate={shareTemplate} table={table} hide={hide} sticky />
       </section>
       <DiseaseSection table={table} />
       <Disclaimer table={table} />

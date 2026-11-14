@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { shareTemplateOnPage } from "@/lib/share-text/store";
 import Link from "next/link";
 import { CalcTitle } from "@/components/sales/CalcTitle";
 import { Rule } from "@/components/sales/Blocks";
@@ -24,14 +25,16 @@ export const metadata = {
 
 export default async function GlobalSavingPage() {
   // members only, trial included (owner, 2026-10-20)
-  await gateCalc("/global-saving");
+  const viewer = await gateCalc("/global-saving");
+  // ข้อความส่งให้ลูกค้า: the member's own wording for this plan, where they saved one
+  const shareTemplate = await shareTemplateOnPage(viewer, "gsaving");
   const weeks = await loadIndexWeeks();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Global Savings Plus 15/8" kind="ประกันออมทรัพย์ ผลตอบแทนตามดัชนี (Index Linked)"
                  facts={[`คุ้มครอง ${GS_TERM} ปี`, `จ่ายเบี้ย ${GS_PREM_YEARS} ปี`, `รับอายุ ${GS_AGE_MIN}–${GS_AGE_MAX} ปี`, "ลดหย่อนภาษีได้"]} />
       <section id="calc" className="scroll-mt-4">
-        <GlobalSavingCalculator />
+        <GlobalSavingCalculator shareTemplate={shareTemplate} />
       </section>
       <LiveIndex weeks={weeks} />
       <IndexFactsheet />

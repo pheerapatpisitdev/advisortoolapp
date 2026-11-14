@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { shareTemplateOnPage } from "@/lib/share-text/store";
 import { HIDE_KEY, hideParam } from "@/lib/pay-prefs";
 import { hiddenOnPage } from "@/lib/pay-prefs-store";
 import { cookies } from "next/headers";
@@ -73,6 +74,8 @@ export default async function IHealthyPage(
 ) {
   // members only, trial included (owner, 2026-10-20)
   const viewer = await gateCalc("/ihealthy-ultra");
+  // ข้อความส่งให้ลูกค้า: the member's own wording for this plan, where they saved one
+  const shareTemplate = await shareTemplateOnPage(viewer, "ihealthy");
   const table = iHealthyTable();
   const lang = await readerLang();
   const w = WORDS[lang];
@@ -143,6 +146,7 @@ export default async function IHealthyPage(
       )}
       <section id="calc" className="scroll-mt-4">
         <IHealthyCalculator
+          shareTemplate={shareTemplate}
           table={table} data={{ rows, plans, copayPercent }}
           sharedLimit={facts.terms.sharedLimit} participationNote={facts.terms.participationNote}
           initial={initial} initialAttached={initialAttached} sticky
