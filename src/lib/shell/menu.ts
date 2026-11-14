@@ -210,6 +210,14 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
       { href: "/group-insurance", label: "Group Insurance", icon: "building", hue: "#8a335e" },
     ],
   },
+  {
+    // not a plan: the tax estimate an agent opens before any of them, since what is left of a
+    // customer's deductions is the reason for half the plans above (owner, 2026-11-14, ก ก ก ก)
+    title: "วางแผนภาษี",
+    links: [
+      { href: "/tax", label: "คำนวณภาษี 2569", icon: "calc", hue: "#2b6a5a" },
+    ],
+  },
 ];
 
 /**
