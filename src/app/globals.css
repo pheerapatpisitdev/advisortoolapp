@@ -846,3 +846,73 @@ body:has(.theme-legacy) {
     margin-bottom: 0;
   }
 }
+
+/* ── คำนวณภาษี 2569 ────────────────────────────────────────────────────────────
+   The stand-alone tax app's own palette (its light theme), kept to /tax: the owner asked for
+   that app's interface as it was (2026-11-15, ก), so this one page is green on cream, rounded,
+   and set in Plex throughout, inside this application's menu. Not for use anywhere else. */
+.tax-orig {
+  --tx-bg: #f6f4ef;
+  --tx-surface: #ffffff;
+  --tx-surface-2: #efece4;
+  --tx-ink: #1c2321;
+  --tx-muted: #5d6662;
+  --tx-line: #ddd8cc;
+  --tx-accent: #0f6e5c;
+  --tx-accent-ink: #ffffff;
+  --tx-accent-soft: #dcefe9;
+  --tx-pay: #b4471f;
+  --tx-pay-soft: #f8e4da;
+  --tx-refund: #0f6e5c;
+  --tx-warn-soft: #fbf1d4;
+  --tx-warn-ink: #6b5108;
+  --tx-bar-0: #c9d8d2;
+  --tx-bar-1: #8fbfb1;
+  --tx-bar-2: #4f9e89;
+  --tx-bar-3: #0f6e5c;
+  --tx-bar-4: #0b5245;
+  --tx-bar-5: #083a31;
+  background: var(--tx-bg);
+  color: var(--tx-ink);
+  line-height: 1.6;
+}
+@theme inline {
+  --color-tx-bg: var(--tx-bg);
+  --color-tx-surface: var(--tx-surface);
+  --color-tx-surface-2: var(--tx-surface-2);
+  --color-tx-ink: var(--tx-ink);
+  --color-tx-muted: var(--tx-muted);
+  --color-tx-line: var(--tx-line);
+  --color-tx-accent: var(--tx-accent);
+  --color-tx-accent-ink: var(--tx-accent-ink);
+  --color-tx-accent-soft: var(--tx-accent-soft);
+  --color-tx-pay: var(--tx-pay);
+  --color-tx-pay-soft: var(--tx-pay-soft);
+  --color-tx-refund: var(--tx-refund);
+  --color-tx-warn-soft: var(--tx-warn-soft);
+  --color-tx-warn-ink: var(--tx-warn-ink);
+}
+/* the ground under and around the page, so a short page and overscroll stay cream */
+body:has(.tax-orig),
+.theme-legacy:has(.tax-orig) {
+  background: var(--tx-bg);
+}
+.tax-orig .num {
+  font-variant-numeric: tabular-nums;
+}
+/* the sales skin sets headings in a serif and draws its own select chevron and navy focus ring;
+   that app had none of the three */
+.theme-legacy .tax-orig :is(h1, h2) {
+  font-family: var(--lg-font-body), system-ui, "Noto Sans Thai", sans-serif;
+}
+.theme-legacy .tax-orig table :is(th, td) {
+  border-color: var(--tx-line);
+}
+.theme-legacy .tax-orig :is(button, a, select, input, summary):focus-visible {
+  outline: 2px solid var(--tx-accent);
+  outline-offset: 2px;
+}
+.theme-legacy .tax-orig select {
+  background-image: none;
+  padding-right: 0.875rem;
+}
