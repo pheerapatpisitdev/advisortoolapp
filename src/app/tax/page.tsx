@@ -1,5 +1,4 @@
 import { gateCalc } from "@/lib/auth/viewer";
-import { CalcTitle } from "@/components/sales/CalcTitle";
 import { TaxCalculator } from "@/components/tax/TaxCalculator";
 import { RULES_2569 as R } from "@/lib/tax/rules/2569";
 
@@ -9,22 +8,20 @@ export const metadata = {
 };
 
 /**
- * The stand-alone tax app (Documents/APP/tax) brought in as one page (owner, 2026-11-14,
- * ก ก ก ก on mockup https://claude.ai/artifact/U4tvaUqZU5zkTnZF5qi6R8): its engine and rules
- * unchanged under src/lib/tax, its four pages as tabs in this application's look.
+ * The stand-alone tax app (Documents/APP/tax) brought in as one page: its engine and rules
+ * unchanged under src/lib/tax, and its own interface too (owner, 2026-11-15, ก on mockup
+ * https://claude.ai/artifact/LxPPda9hhH7jKNkpgvRavL). `.tax-orig` in globals.css carries that
+ * app's palette, kept to this route; the menu around it is this application's.
  */
 export default async function TaxPage() {
-  // members only, trial included, as every calculator is (ก on question 4)
+  // members only, trial included, as every calculator is (owner, 2026-11-14)
   await gateCalc("/tax");
   return (
-    <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
-      <CalcTitle
-        name={`คำนวณภาษี ${R.taxYear}`}
-        facts={[`ภาษีเงินได้ปี ${R.taxYear}`, `ยื่น ม.ค.–มี.ค. ${R.taxYear + 1}`, "เป็นการประมาณการ"]}
-      />
-      <section id="calc" className="scroll-mt-4">
+    // padded clear of the phone's menu button, fixed at the top left
+    <main className="tax-orig min-h-dvh px-4 pt-16 lg:pt-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-3xl flex-col">
         <TaxCalculator />
-      </section>
+      </div>
     </main>
   );
 }
