@@ -267,8 +267,8 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
   const fPlans = planScenes(fScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: fSecs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS })));
   writeFileSync(join(PUB, "audio/st-free.wav"), silentWav(clipLength(fPlans)));
   writeFileSync(join(PUB, "props/st-free.json"), JSON.stringify(storyClipProps(free as never, "portrait", "", "M", CONTACT, fPlans, fScript, fSecs, clipLength(fPlans), "audio/st-free.wav", [...free.pictures])));
-  // the same clip in each of the four looks (owner, 2026-11-13): the photo stands in for the painter's picture
-  for (const style of ["paper", "warm", "plot", "line"] as const) {
+  // the same clip in each look (owner, 2026-11-13; ไวต์บอร์ด นีออน บลูพริ้นท์ 2026-11-14): the photo stands in for the painter's picture
+  for (const style of ["paper", "warm", "plot", "line", "board", "neon", "blueprint"] as const) {
     writeFileSync(join(PUB, `props/st-free-${style}.json`), JSON.stringify(storyClipProps({ ...free, style } as never, "portrait", "", "M", CONTACT, fPlans, fScript, fSecs, clipLength(fPlans), "audio/st-free.wav", [...free.pictures])));
   }
 
@@ -289,8 +289,24 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
     writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(h, "portrait", "", "F", CONTACT, hPlans, hScript, hSecs, clipLength(hPlans), `audio/${name}.wav`, [])));
   }
 
+  // ไวต์บอร์ด นีออน บลูพริ้นท์ (owner, 2026-11-14): อินโฟกราฟิก's route on a whiteboard, in neon tubes and as a blueprint,
+  // each a ความรู้ประกัน episode (square) and a ประกันสุขภาพ one with its device (portrait, the figures above), checked as
+  // the form checks them so the look is kept. props/st-neon-health.json is a ship.sh smoke render
+  for (const [name, topic, art, size] of [["st-board-sq", "fiverisks", "board", "square"], ["st-board-health", "roomcost", "board", "portrait"],
+    ["st-neon-sq", "mythclaim", "neon", "square"], ["st-neon-health", "waiting", "neon", "portrait"],
+    ["st-blueprint-sq", "declare", "blueprint", "square"], ["st-blueprint-health", "agecost", "blueprint", "portrait"]] as const) {
+    const n = checkedStory({ topic, faces: { narrator: "w26", hero: "m09" }, art, size, health } as never, "F");
+    if (typeof n === "string") throw new Error(`${name}: ${n}`);
+    if (n.art !== art) throw new Error(`${name}: drawn in ${n.art}, not ${art}`);
+    const nScript = storyScript(n, "", "F");
+    const nSecs = nScript.map((s) => secsOf(s.voice));
+    const nPlans = planScenes(nScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: nSecs[i], windows: clipWindows(s.key, n, size), fps: MOTION_FPS, ...clipTail(s.key, n, nSecs[i]) })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), silentWav(clipLength(nPlans)));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(n, size, "", "F", CONTACT, nPlans, nScript, nSecs, clipLength(nPlans), `audio/${name}.wav`, [])));
+  }
+
   // health devices in place of the painter's pictures (scene library, 2026-11-13): a clip of two device scenes in
-  // each of the four looks, drawn by the system on the look's ground, no picture filed for them
+  // each look, drawn by the system on the look's ground, no picture filed for them
   const devices = {
     ...free, title: "ประกันสุขภาพ", pictures: [null, null],
     scenes: [
@@ -303,7 +319,7 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
   // as make.ts freeParts: a device scene held whole before the next comes in
   const dPlans = planScenes(dScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: dSecs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS, ...(s.key === "storyContact" ? {} : freeTail(devices.scenes[i], dSecs[i])) })));
   writeFileSync(join(PUB, "audio/st-free-device.wav"), silentWav(clipLength(dPlans)));
-  for (const style of ["paper", "warm", "plot", "line"] as const) {
+  for (const style of ["paper", "warm", "plot", "line", "board", "neon", "blueprint"] as const) {
     writeFileSync(join(PUB, `props/st-free-device-${style}.json`), JSON.stringify(storyClipProps({ ...devices, style } as never, "portrait", "", "M", CONTACT, dPlans, dScript, dSecs, clipLength(dPlans), "audio/st-free-device.wav", [undefined, undefined])));
   }
 });

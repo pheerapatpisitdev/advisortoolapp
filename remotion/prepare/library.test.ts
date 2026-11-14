@@ -22,7 +22,7 @@ import { it } from "vitest";
 
 const PUB = join(__dirname, "..", "public");
 const CONTACT = { name: "ภีรพัฒน์ ตัวอย่าง", phone: "081-234-5678", line: "@unitclub" };
-const LOOKS = ["paper", "minimal", "line", "plot"] as const;
+const LOOKS = ["paper", "minimal", "line", "plot", "board", "neon", "blueprint"] as const;
 /** the episodes the eight devices stand in, and the figures each is told on */
 const SILVER = { plan: "SILVER", sex: "M", age: 35, room: 6000, bill: 800_000 };
 const EPISODES = [
@@ -33,7 +33,7 @@ const EPISODES = [
   { topic: "agecost", health: SILVER, devices: ["agecost"] },
   { topic: "groupins", home: { kind: "group", bill: 800_000, group: 50_000 }, devices: ["groupgap"] },
 ] as const;
-/** the look pictures: one scene of one episode, the same in all four looks so they compare */
+/** the look pictures: one scene of one episode, the same in every look so they compare */
 const LOOK_SCENE = { topic: "sumvspremium", key: "knowOne" } as const;
 
 function silentWav(sec: number): Buffer {
@@ -110,6 +110,6 @@ it.runIf(Boolean(process.env.LIBRARY))("prepares the library's preview props", a
     const { plans, moment } = clip(name, { topic: LOOK_SCENE.topic }, look);
     shots.push({ file: `look-${look}.jpg`, props: name, at: moment(plans.findIndex((p) => p.key === LOOK_SCENE.key)) });
   }
-  if (new Set(shots.map((s) => s.file)).size !== 36 || shots.length !== 36) throw new Error(`36 pictures expected: ${shots.map((s) => s.file).join(" ")}`);
+  if (new Set(shots.map((s) => s.file)).size !== 63 || shots.length !== 63) throw new Error(`63 pictures expected: ${shots.map((s) => s.file).join(" ")}`);
   writeFileSync(join(PUB, "props/library.json"), JSON.stringify(shots, null, 1));
 });
