@@ -141,7 +141,10 @@ export interface LifeneedTotals {
   /** the blocks' sum; none without a block */
   need?: number;
   have?: number;
-  /** how far what is had falls short of the need, never below nought; with both only */
+  /**
+   * how far what is had falls short of the need, never below nought; with what is had and all three blocks only (a
+   * partial sum is what was typed, not the need, so no gap is drawn against it)
+   */
   gap?: number;
 }
 
@@ -154,7 +157,7 @@ export function lifeneedTotals(show: LifeShow<"lifeneed">): LifeneedTotals {
   const out: LifeneedTotals = { blocks };
   if (blocks.length) out.need = blocks.reduce((s, b) => s + b.amount, 0);
   if (show.have !== undefined) out.have = show.have;
-  if (out.need !== undefined && out.have !== undefined) out.gap = Math.max(0, out.need - out.have);
+  if (out.need !== undefined && out.have !== undefined && blocks.length === 3) out.gap = Math.max(0, out.need - out.have);
   return out;
 }
 

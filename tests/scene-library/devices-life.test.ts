@@ -120,9 +120,12 @@ describe("derived figures: computed from the inputs, never read", () => {
       blocks: [{ key: "debts", amount: 2_000_000 }, { key: "living", amount: 3_000_000 }, { key: "education", amount: 1_000_000 }],
       need: 6_000_000, have: 1_000_000, gap: 5_000_000,
     });
-    // expenses without years make no block; have above the need leaves no gap
+    // expenses without years make no block; a partial sum (fewer than the three blocks) is not the need: no gap
     expect(lifeneedTotals({ layout: "lifeneed", title: T, debts: 500_000, expenses: 300_000, have: 1_000_000 }))
-      .toEqual({ blocks: [{ key: "debts", amount: 500_000 }], need: 500_000, have: 1_000_000, gap: 0 });
+      .toEqual({ blocks: [{ key: "debts", amount: 500_000 }], need: 500_000, have: 1_000_000 });
+    expect(lifeneedTotals({ layout: "lifeneed", title: T, debts: 5_000_000, have: 1_000_000 }).gap).toBeUndefined();
+    // all three blocks and have above the need: a gap of nought
+    expect(lifeneedTotals({ ...(FULL[0] as Show<"lifeneed">), have: 9_000_000 }).gap).toBe(0);
     expect(lifeneedTotals({ layout: "lifeneed", title: T })).toEqual({ blocks: [] });
     // a forged total on the show is not read
     expect(lifeneedTotals({ ...(FULL[0] as Show<"lifeneed">), need: 1, gap: 2 } as Show<"lifeneed">).need).toBe(6_000_000);

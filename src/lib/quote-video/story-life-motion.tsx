@@ -1,11 +1,11 @@
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
-import { TAX_CAPS, TAX_RATES } from "@/lib/scene-library/tax-th";
-import { CHILDREN } from "@/lib/story/faces";
+import { LIFE_CAP, TAX_CAPS, TAX_FOOT, TAX_RATES, TAX_YEAR } from "@/lib/scene-library/tax-th";
+import { CHILDREN, GRANDPAS } from "@/lib/story/faces";
 import { Fragment, type ReactNode } from "react";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import { fitSize } from "./recipe-blocks";
 import { baht, Sheet, type Dev } from "./story-health-motion";
-import { incomestopLost, LIFE_WORDS as LW, lifeneedTotals, moneysplitRemainder, n, partnerFace, taxbackRefund, type LifeShow } from "./story-knowledge";
+import { incomestopLost, LIFE_WORDS as LW, lifeneedTotals, moneysplitRemainder, n, partnerFace, taxbackLadder, taxbackRefund, type LifeShow } from "./story-knowledge";
 import { geoOf, Title, type Rect } from "./story-knowledge-motion";
 import { fitHand, line, minimal, paper, Pic, whole } from "./story-motion";
 import { countAt, type VideoSize } from "./timeline";
@@ -60,14 +60,19 @@ export function lifeSpec(show: LifeShow): Record<string, Anim> {
     case "taxback": {
       TAX_RATES.forEach((_, i) => { s[`rung${i}`] = a(0.5 + i * 0.2, "grow"); });
       const after = 0.7 + TAX_RATES.length * 0.2;
-      if (show.bracket !== undefined) s.pick = a(after, "pop");
-      if (taxbackRefund(show) !== undefined) {
+      // the premium over the cap: the line that says the ladder counts only the cap
+      if (show.premium !== undefined && show.premium > LIFE_CAP) s.cap = a(1.0, "fade");
+      // the agent's rung lights up, then the line under it: the rate, and what it gives back when there is a premium
+      if (show.bracket !== undefined) {
+        s.pick = a(after, "pop");
         s.line = a(after + 0.4, "up");
-        s.count = a(after + 0.4, "count");
       }
+      if (taxbackRefund(show) !== undefined) s.count = a(after + 0.4, "count");
+      s.foot = a(after + 0.9, "fade");
       return s;
     }
     case "taxcap":
+      s.card = a(0.35, "pop");
       TAX_CAPS.forEach((_, i) => { s[`row${i}`] = a(0.5 + i * 0.4, "left"); });
       s.foot = a(0.7 + TAX_CAPS.length * 0.4, "fade");
       return s;
@@ -94,15 +99,83 @@ export function lifeBody(show: LifeShow, d: Dev) {
     case "beneficiary": return <Beneficiary d={d} show={show} />;
     case "cilump": return <CiLump d={d} show={show} />;
     case "incomestop": return <IncomeStop d={d} show={show} />;
-    // taxback, taxcap, moneysplit and threegen: Task 3 draws them
-    default: return null;
+    case "taxback": return <TaxBack d={d} show={show} />;
+    case "taxcap": return <TaxCap d={d} show={show} />;
+    case "moneysplit": return <MoneySplit d={d} show={show} />;
+    case "threegen": return <ThreeGen d={d} show={show} />;
   }
 }
 
 /** Thai marks set above or below a letter: they take no width of their own (as fitHand counts) */
 const MARK = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/;
 /** a word's width in the handwriting face at `size`: 0.7 em a letter that takes width (Mali's widest), the marks none */
-const handWidth = (text: string, size: number) => 0.7 * size * [...text].filter((x) => !MARK.test(x)).length;
+export const handWidth = (text: string, size: number) => 0.7 * size * [...text].filter((x) => !MARK.test(x)).length;
+
+/**
+ * where a line may break: at a space, and (with no space) before "(" or "ไม่เกิน", where a phrase of the tax table's
+ * long notes starts; a break there takes no space, so the line reads the same unbroken
+ */
+const SOFT = /(?=\()|(?=ไม่เกิน)/;
+function pieces(text: string): { s: string; space: boolean }[] {
+  return text.split(" ").filter(Boolean).flatMap((word, wi) => word.split(SOFT).filter(Boolean).map((s, pi) => ({ s, space: wi > 0 && pi === 0 })));
+}
+
+/** `text` filled into lines `room` px wide, each taking all it can (a piece wider than the room keeps a line of its own) */
+function greedy(text: string, size: number, room: number): string[] {
+  const lines: string[] = [];
+  let cur = "";
+  for (const p of pieces(text)) {
+    const next = cur ? `${cur}${p.space ? " " : ""}${p.s}` : p.s;
+    if (!cur || handWidth(next, size) <= room) { cur = next; continue; }
+    lines.push(cur);
+    cur = p.s;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/** the same lines, as even as they can be: the narrowest width that still takes no more lines (no lone word left at the end) */
+function balanced(text: string, size: number, room: number): string[] {
+  const lines = greedy(text, size, room);
+  if (lines.length < 2) return lines;
+  let lo = Math.max(...pieces(text).map((p) => handWidth(p.s, size)));
+  let hi = room;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) / 2;
+    if (greedy(text, size, mid).length <= lines.length) hi = mid;
+    else lo = mid;
+  }
+  return greedy(text, size, hi);
+}
+
+/**
+ * `text` set as lines `room` px wide at `size` in the handwriting face, broken where it may break: on one line when
+ * it fits; else a bracket starts a line of its own, and each part's lines are as even as they can be
+ */
+export function wrapHand(text: string, size: number, room: number): string[] {
+  if (!text.trim()) return [""];
+  const one = greedy(text, size, room);
+  if (one.length < 2) return one;
+  return text.split(/ (?=\()/).flatMap((part) => balanced(part, size, room));
+}
+
+/** the largest size up to `cap` at which every text, set as lines (wrapHand), fits `room` px wide in `band` px of height */
+function fitWrap(texts: string[], room: number, band: number, cap: number): number {
+  for (let size = Math.floor(cap); size > 8; size -= 1) {
+    if (texts.every((x) => pieces(x).every((p) => handWidth(p.s, size) <= room) && wrapHand(x, size, room).length * size * 1.3 <= band)) return size;
+  }
+  return 8;
+}
+
+/** a figure's width at `size`: 0.6 em a character (fitSize's measure) */
+const figWidth = (text: string, size: number) => Math.ceil(0.6 * size * [...text].length);
+
+/** lines set one under another, each a child of the column (never a fragment: satori lays a fragment's children apart) */
+const Lines = ({ lines, size, weight = 600, align = "flex-start", color }: { lines: string[]; size: number; weight?: number; align?: "flex-start" | "center"; color?: string }) => (
+  <div style={box({ flexDirection: "column", alignItems: align })}>
+    {lines.map((x, i) => <div key={i} style={box({ fontSize: size, fontWeight: weight, lineHeight: 1.3, ...(color ? { color } : {}) })}>{x}</div>)}
+  </div>
+);
 
 /**
  * how many lines `text` wrapped at its spaces takes in `room` px at `size` in the handwriting face (the drawing breaks
@@ -245,13 +318,13 @@ function NeedRows({ d, tot, partial, inner }: { d: Dev; tot: ReturnType<typeof l
     );
   };
   const need = tot.need ?? 0;
-  const gap = partial ? undefined : tot.gap;
+  // a partial sum is not the need: the helper gives no gap against it, so neither ขาดอีก nor the enough words is drawn
+  const gap = tot.gap;
   return (
     <div style={box({ flexDirection: "column" })}>
       {row(undefined, partial ? LW.partial : LW.need, need, countAt(need, look(s.count, t).p), C.ink, Math.round(g.text * 1.4), true)}
       {tot.have !== undefined ? row(s.have, LW.have, tot.have, tot.have, GREEN, Math.round(g.text * 1.4)) : null}
       {/* (each piece a child of its own: satori lays a fragment's children out apart from the column) */}
-      {/* a partial sum is not the need: no gap (nor enough) is drawn against it, only what was typed and what is had */}
       {gap !== undefined ? <El an={s.gap} t={t} style={{ height: 0, borderTop: `3px dashed ${C.ink}`, marginTop: Math.round(g.text * 0.45) }} /> : null}
       {/* what is had meets the need: it is enough, never a gap of nought or a negative */}
       {gap === undefined ? null : gap > 0
@@ -525,6 +598,393 @@ function IncomeStop({ d, show }: { d: Dev; show: LifeShow<"incomestop"> }) {
           </div>
         ) : <div style={box({ justifyContent: "center", fontSize: fitHand(LW.lost, inner, Math.round(g.text * 1.6)), fontWeight: 700, lineHeight: 1.3, color: C.red })}>{LW.lost}</div>}
       </Sheet>
+    </>
+  );
+}
+
+/* ---------- the tax devices' line ---------- */
+
+/** where the tax table's line stands under a tax device: along the foot of the room, on one line */
+function footOf(size: VideoSize) {
+  const g = geoOf(size);
+  const r = g.dev;
+  const size_ = fitHand(TAX_FOOT, r.w - 20, Math.round(g.text * 0.72));
+  const h = Math.round(size_ * 1.5);
+  return { size: size_, top: r.y + r.h - h };
+}
+
+/** ตามเกณฑ์กรมสรรพากร ตรวจสอบเงื่อนไขก่อนใช้สิทธิ, under every tax device */
+function TaxFoot({ d, an }: { d: Dev; an?: Anim }) {
+  const f = footOf(d.c.size);
+  return <El an={an} t={d.t} style={{ position: "absolute", left: d.g.dev.x, width: d.g.dev.w, top: f.top, justifyContent: "center", fontFamily: HAND, fontSize: f.size, fontWeight: 600, color: d.ink }}>{TAX_FOOT}</El>;
+}
+
+/* ---------- taxback: ภาษีที่ได้คืนตามฐาน ---------- */
+
+/**
+ * where ภาษีที่ได้คืนตามฐาน stands: the ladder of rates, and beside it (under it in portrait) the line of the agent's
+ * rate and the cap's line; with neither, the ladder alone in the middle
+ */
+function taxbackGeo(size: VideoSize, show: LifeShow<"taxback">) {
+  const g = geoOf(size);
+  const r = g.dev;
+  const over = show.premium !== undefined && show.premium > LIFE_CAP;
+  const side = show.bracket !== undefined || over;
+  const room = footOf(size).top - r.y - Math.round(g.text * 0.3);
+  const gapX = Math.round(g.text * 0.8);
+  if (size === "portrait") {
+    const lh = side ? 540 : room;
+    return { over, side, lad: { x: r.x, y: r.y, w: r.w, h: lh }, side_: { x: r.x + 60, y: r.y + lh + 20, w: r.w - 120, h: room - lh - 20 } };
+  }
+  const lw = Math.round(r.w * (side ? (size === "square" ? 0.56 : 0.5) : size === "square" ? 0.8 : 0.6));
+  const lad = { x: side ? r.x : r.x + Math.round((r.w - lw) / 2), y: r.y, w: lw, h: room };
+  return { over, side, lad, side_: { x: lad.x + lw + gapX, y: r.y, w: r.w - lw - gapX, h: room } };
+}
+
+/**
+ * ภาษีที่ได้คืนตามฐาน: the table's rates as a ladder, 5% at its foot to 35% at its top, each rung as long as its rate
+ * with what the premium (at most the life cap) gives back at it; the agent's rate lit up, and its line: ฐานภาษี X% →
+ * ได้คืน Y. No premium: the rates alone; no rate: no rung lit and no line.
+ */
+function TaxBack({ d, show }: { d: Dev; show: LifeShow<"taxback"> }) {
+  const { c, t, s, g } = d;
+  const geo = taxbackGeo(c.size, show);
+  const lad = geo.lad;
+  const ladder = taxbackLadder(show);
+  const refund = taxbackRefund(show);
+  const k = ladder.length;
+  const headSize = Math.round(g.text * 0.8);
+  const headH = Math.round(headSize * 1.5);
+  const gapR = Math.round(g.text * 0.2);
+  const rh = Math.floor(Math.min((lad.h - headH - gapR * (k - 1)) / k, g.text * 1.6));
+  const ladH = headH + k * rh + (k - 1) * gapR;
+  const top = lad.y + Math.round((lad.h - ladH) / 2);
+  const figSize = Math.min(Math.round(g.text), Math.round(rh * 0.72));
+  const rateW = Math.ceil(handWidth("35%", figSize)) + 14;
+  const amounts = ladder.map((x) => (x.refund === undefined ? "" : n(x.refund)));
+  const amtW = show.premium === undefined ? 0 : Math.max(...amounts.map((x) => figWidth(x, figSize)), Math.ceil(handWidth(LW.back, headSize))) + 8;
+  const barX = lad.x + rateW;
+  const barMax = lad.x + lad.w - barX - (amtW ? amtW + 18 : 0);
+  const sr = geo.side_;
+  const pad = Math.round(g.text * 0.55);
+  const cardW = Math.min(sr.w, c.size === "portrait" ? 720 : sr.w);
+  const inner = cardW - pad * 2 - 8;
+  const capLine = `${LW.deductible} ${baht(LIFE_CAP)}`;
+  const capSize = fitWrap([capLine], sr.w, Math.round(g.text * 2.4), Math.round(g.text * 0.9));
+  const rateLine = show.bracket === undefined ? "" : refund !== undefined ? `${LW.bracket} ${show.bracket}% → ${LW.back}` : `${LW.bracket} ${show.bracket}%`;
+  const rateSize = fitWrap([rateLine], inner, Math.round(g.text * (refund !== undefined ? 2.8 : 3.6)), Math.round(g.text * (refund !== undefined ? 1.05 : 1.4)));
+  const pick = look(s.pick, t);
+  return (
+    <>
+      <DevTitle d={d} text={show.title} />
+      {/* the ladder's heads: the rate, and what it gives back when there is a premium */}
+      <El an={s.rung0} t={t} style={{ position: "absolute", left: lad.x, top, width: lad.w, height: headH, alignItems: "center", justifyContent: "space-between", fontFamily: HAND, fontSize: headSize, fontWeight: 700, color: d.ink }}>
+        <div style={box({})}>{LW.bracket}</div>
+        {amtW ? <div style={box({})}>{LW.back}</div> : null}
+      </El>
+      {ladder.map((rung, i) => {
+        const l = look(s[`rung${i}`], t);
+        const y = top + headH + (k - 1 - i) * (rh + gapR);
+        const bw = Math.max(0, Math.round(barMax * (0.3 + (0.7 * i) / (k - 1)) * l.p));
+        const bar = { left: barX, top: y + 3, width: bw, height: rh - 6, border: `3px solid ${C.ink}`, borderRadius: 8 };
+        const text = { top: y, height: rh, alignItems: "center", justifyContent: "flex-end", fontFamily: HAND, fontSize: figSize, fontWeight: rung.on ? 700 : 600, color: d.ink, opacity: l.opacity } as const;
+        return (
+          <Fragment key={rung.rate}>
+            <div style={abs({ left: lad.x, width: rateW - 12, ...text })}>{`${rung.rate}%`}</div>
+            <div className="cut" style={abs({ ...bar, background: C.tiles[4], opacity: l.opacity })} />
+            {/* the agent's rung, lit up in gold as it is picked */}
+            {rung.on ? <div className="cut" style={abs({ ...bar, background: C.coin, opacity: pick.opacity })} /> : null}
+            {rung.refund !== undefined ? <div style={abs({ left: lad.x + lad.w - amtW, width: amtW, ...text })}>{n(rung.refund)}</div> : null}
+          </Fragment>
+        );
+      })}
+      {geo.side ? (
+        <div style={abs({ left: sr.x, top: sr.y, width: sr.w, height: sr.h, flexDirection: "column", alignItems: "center", justifyContent: "center" })}>
+          {/* the premium over the cap: the ladder counts only the cap */}
+          {geo.over ? (
+            <El an={s.cap} t={t} style={{ fontFamily: HAND, color: d.ink, marginBottom: Math.round(g.text * 0.45) }}>
+              <Lines lines={wrapHand(capLine, capSize, sr.w)} size={capSize} align="center" />
+            </El>
+          ) : null}
+          {show.bracket !== undefined ? (
+            <Card an={s.line} t={t} tilt={-0.8} pad={pad} w={cardW}>
+              <Lines lines={wrapHand(rateLine, rateSize, inner)} size={rateSize} align="center" />
+              {refund !== undefined ? (
+                <div style={box({ justifyContent: "center", fontSize: fitSize(baht(refund), inner, Math.round(g.text * 1.6)), fontWeight: 700, lineHeight: 1.2, color: GREEN })}>{baht(countAt(refund, look(s.count, t).p))}</div>
+              ) : null}
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
+      <TaxFoot d={d} an={s.foot} />
+    </>
+  );
+}
+
+/* ---------- taxcap: เพดานลดหย่อนรวม ---------- */
+
+/**
+ * where เพดานลดหย่อนรวม's rows stand: one card, the year at its head, a row a cap (the label wrapped beside its
+ * figure, the note under both); every size is the largest at which the year and the four rows fit the card
+ */
+export function taxcapGeo(size: VideoSize) {
+  const g = geoOf(size);
+  const r = g.dev;
+  const card = { x: r.x, y: r.y, w: r.w, h: footOf(size).top - r.y - Math.round(g.text * 0.3) };
+  const pad = Math.round(g.text * 0.5);
+  const inner = r.w - pad * 2 - 8;
+  const innerH = card.h - pad * 2 - 8;
+  // landscape is wide and short: the rows in two columns, two a column
+  const cols = size === "landscape" ? 2 : 1;
+  const colGap = cols > 1 ? Math.round(g.text * 1.2) : 0;
+  const colW = Math.floor((inner - colGap * (cols - 1)) / cols);
+  const per = Math.ceil(TAX_CAPS.length / cols);
+  const widest = Math.max(...TAX_CAPS.map((x) => [...n(x.cap)].length));
+  const at = (ls: number) => {
+    const ns = Math.round(ls * 0.78);
+    const capSize = Math.round(ls * 1.15);
+    const capW = Math.ceil(0.6 * capSize * widest) + 16;
+    const labelRoom = colW - capW;
+    const rowGap = Math.round(ls * 0.4);
+    const yearSize = Math.round(ls * 1.1);
+    const rows = TAX_CAPS.map((x) => ({ label: wrapHand(x.label, ls, labelRoom), note: x.note ? wrapHand(x.note, ns, colW) : [] }));
+    const fits = TAX_CAPS.every((x) => pieces(x.label).every((p) => handWidth(p.s, ls) <= labelRoom) && pieces(x.note ?? "").every((p) => handWidth(p.s, ns) <= colW));
+    const colH = (c: typeof rows) => c.reduce((sum, x) => sum + Math.max(x.label.length * ls * 1.3, capSize * 1.25) + x.note.length * ns * 1.3, 0) + (c.length - 1) * (rowGap * 2 + 3);
+    const h = Math.round(yearSize * 1.3) + rowGap + Math.max(...Array.from({ length: cols }, (_, i) => colH(rows.slice(i * per, (i + 1) * per))));
+    return { ls, ns, capSize, labelRoom, rowGap, yearSize, rows, ok: fits && h <= innerH };
+  };
+  // (two columns leave landscape the height for larger words)
+  let ls = Math.round(g.text * (cols > 1 ? 1.3 : 1));
+  while (ls > 10 && !at(ls).ok) ls -= 1;
+  return { card, pad, inner, cols, colGap, colW, per, ...at(ls) };
+}
+
+/** เพดานลดหย่อนรวม: the tax table's caps as one card, the year at its head, the line under it; nothing typed */
+function TaxCap({ d, show }: { d: Dev; show: LifeShow<"taxcap"> }) {
+  const { c, t, s } = d;
+  const geo = taxcapGeo(c.size);
+  return (
+    <>
+      <DevTitle d={d} text={show.title} />
+      <Sheet r={geo.card} an={s.card} t={t} tilt={-0.5} pad={geo.pad} middle>
+        <div style={box({ justifyContent: "center", fontSize: geo.yearSize, fontWeight: 700, lineHeight: 1.3, color: C.navy, marginBottom: geo.rowGap })}>{TAX_YEAR}</div>
+        <div style={box({ justifyContent: "space-between" })}>
+          {Array.from({ length: geo.cols }, (_, ci) => (
+            <div key={ci} style={box({ width: geo.colW, flexDirection: "column" })}>
+              {TAX_CAPS.slice(ci * geo.per, (ci + 1) * geo.per).map((row, j) => {
+                const i = ci * geo.per + j;
+                return (
+                  <El key={row.label} an={s[`row${i}`]} t={t} style={{ flexDirection: "column", ...(j ? { marginTop: geo.rowGap, paddingTop: geo.rowGap, borderTop: `3px dashed ${C.ink}` } : {}) }}>
+                    <div style={box({ justifyContent: "space-between", alignItems: "center" })}>
+                      <Lines lines={geo.rows[i].label} size={geo.ls} />
+                      <div data-cap={row.cap} style={box({ flexShrink: 0, fontSize: geo.capSize, fontWeight: 700, lineHeight: 1.25, color: C.navy })}>{n(row.cap)}</div>
+                    </div>
+                    {geo.rows[i].note.length ? <div style={box({ opacity: 0.9 })}><Lines lines={geo.rows[i].note} size={geo.ns} weight={400} /></div> : null}
+                  </El>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </Sheet>
+      <TaxFoot d={d} an={s.foot} />
+    </>
+  );
+}
+
+/* ---------- moneysplit: แบ่งเงินให้คนในบ้าน ---------- */
+
+/**
+ * where แบ่งเงินให้คนในบ้าน stands: the lump (portrait: on top, a trunk down the left to each part; the wider
+ * shapes: on the left, an arrow fanning out to each) and a box a part, the label wrapped at its spaces over its
+ * amount, what is left under them. The labels are set in the one size at which every label fits its box.
+ */
+export function moneysplitGeo(size: VideoSize, show: LifeShow<"moneysplit">) {
+  const g = geoOf(size);
+  const r = g.dev;
+  const parts = show.parts.slice(0, 3);
+  const k = Math.max(1, parts.length);
+  const amounts = parts.length > 0 && parts.every((p) => p.amount !== undefined);
+  const left = moneysplitRemainder(show);
+  const portrait = size === "portrait";
+  const total = portrait ? { x: r.x, y: r.y, w: 640, h: 190 } : size === "square" ? { x: r.x, y: r.y + Math.round((r.h - 300) / 2), w: 280, h: 300 } : { x: r.x + 20, y: r.y + Math.round((r.h - 340) / 2), w: 380, h: 340 };
+  const rows = portrait ? { x: r.x + 110, y: r.y + 240, w: r.w - 110, h: r.h - 240 } : size === "square" ? { x: r.x + 360, y: r.y, w: r.w - 360, h: r.h } : { x: r.x + 540, y: r.y, w: Math.min(r.w - 540, 820), h: r.h };
+  const gap = Math.round(g.text * 0.35);
+  const leftSize = Math.round(g.text * 0.95);
+  const leftH = left !== undefined ? Math.round(leftSize * 1.3) + 20 + gap : 0;
+  const rowH = Math.floor(Math.min((rows.h - leftH - gap * (k - 1)) / k, portrait ? 210 : 170));
+  const pad = Math.round(g.text * 0.4);
+  const inner = rows.w - pad * 2 - 8;
+  const amountSize = amounts ? Math.min(Math.round(g.text * 1.15), ...parts.map((p) => fitSize(baht(p.amount!), inner, 999))) : 0;
+  const amountH = amounts ? Math.round(amountSize * 1.2) : 0;
+  const labelBand = rowH - pad * 2 - 8 - amountH;
+  const labelSize = fitWrap(parts.map((p) => p.label), inner, labelBand, Math.round(g.text * (amounts ? 1.05 : 1.25)));
+  const labels = parts.map((p) => wrapHand(p.label, labelSize, inner));
+  const block = k * rowH + (k - 1) * gap + leftH;
+  const rowsTop = rows.y + Math.round((rows.h - block) / 2);
+  return { parts, k, amounts, left, total, rows, rowH, gap, rowsTop, pad, amountSize, labelSize, labelRoom: inner, labelBand, labels, leftSize, leftH };
+}
+
+/** แบ่งเงินให้คนในบ้าน: a lump splitting into two or three boxes, each its label and (all given) its amount, and what is left */
+function MoneySplit({ d, show }: { d: Dev; show: LifeShow<"moneysplit"> }) {
+  const { c, t, s, g } = d;
+  const geo = moneysplitGeo(c.size, show);
+  const portrait = c.size === "portrait";
+  const tb = geo.total;
+  const rowY = (i: number) => geo.rowsTop + i * (geo.rowH + geo.gap);
+  const tpad = Math.round(g.text * 0.4);
+  // the lump: its notes beside (portrait) or over its words, and the sum when there is one
+  const notes = portrait ? { w: 170, h: 133 } : { w: Math.round(tb.w * 0.55), h: Math.round(tb.w * 0.43) };
+  const colW = portrait ? tb.w - notes.w - tpad * 3 - 8 : tb.w - tpad * 2 - 8;
+  const label = show.total !== undefined ? Math.min(Math.round(g.text * 0.95), fitHand(LW.total, colW, 999)) : fitHand(LW.total, colW, Math.round(g.text * 1.4));
+  // the arrows: portrait, a trunk down the left from under the lump, out to each part; wider, a fan from the lump's side
+  const svg = portrait
+    ? { x: g.dev.x, y: tb.y + tb.h, w: geo.rows.x - g.dev.x, h: rowY(geo.k - 1) + geo.rowH - tb.y - tb.h }
+    : { x: tb.x + tb.w, y: g.dev.y, w: geo.rows.x - tb.x - tb.w, h: g.dev.h };
+  return (
+    <>
+      <DevTitle d={d} text={show.title} />
+      <Piece an={s.total} t={t} r={tb} className="cut">
+        <div style={box({ width: tb.w, height: tb.h, flexDirection: portrait ? "row" : "column", alignItems: "center", justifyContent: "center", background: C.note, border: `4px solid ${C.ink}`, borderRadius: 16, padding: tpad, fontFamily: HAND, color: C.ink })}>
+          <Notes w={notes.w} h={notes.h} />
+          <div style={box({ flexDirection: "column", alignItems: "center", marginLeft: portrait ? tpad : 0 })}>
+            <div style={box({ fontSize: label, fontWeight: show.total !== undefined ? 600 : 700, lineHeight: 1.3, ...(show.total === undefined ? { color: GREEN } : {}) })}>{LW.total}</div>
+            {show.total !== undefined ? <div style={box({ fontSize: fitSize(baht(show.total), colW, Math.round(g.text * 1.3)), fontWeight: 700, lineHeight: 1.2, color: GREEN })}>{baht(show.total)}</div> : null}
+          </div>
+        </div>
+      </Piece>
+      <div style={abs({ left: svg.x, top: svg.y, width: svg.w, height: svg.h })}>
+        <svg width={svg.w} height={svg.h} viewBox={`0 0 ${svg.w} ${svg.h}`}>
+          {geo.parts.map((_, i) => {
+            const p = look(s[`part${i}`], t).p;
+            const y1 = rowY(i) + Math.round(geo.rowH / 2) - svg.y;
+            const x1 = svg.w - 10;
+            if (portrait) {
+              const x0 = 50;
+              return <g key={i}>{stroke({ d: `M${x0} 4 V${y1} H${x1} M${x1 - 16} ${y1 - 11} L${x1} ${y1} L${x1 - 16} ${y1 + 11}`, len: y1 + x1 + 60, p, color: d.ink, width: 5 })}</g>;
+            }
+            const y0 = tb.y + Math.round(tb.h / 2) - svg.y;
+            const len = Math.round(Math.hypot(x1, y1 - y0) * 1.1) + 40;
+            return <g key={i}>{stroke({ d: `M4 ${y0} C${Math.round(x1 * 0.5)} ${y0} ${Math.round(x1 * 0.5)} ${y1} ${x1} ${y1} M${x1 - 16} ${y1 - 11} L${x1} ${y1} L${x1 - 16} ${y1 + 11}`, len, p, color: d.ink, width: 5 })}</g>;
+          })}
+        </svg>
+      </div>
+      {geo.parts.map((part, i) => (
+        <Piece key={i} an={s[`part${i}`]} t={t} r={{ x: geo.rows.x, y: rowY(i), w: geo.rows.w, h: geo.rowH }} className="cut">
+          <div style={box({ width: geo.rows.w, height: geo.rowH, flexDirection: "column", justifyContent: "center", background: C.tiles[[0, 1, 2][i]], border: `4px solid ${C.ink}`, borderRadius: 14, padding: geo.pad, fontFamily: HAND, color: C.ink })}>
+            <Lines lines={geo.labels[i]} size={geo.labelSize} />
+            {geo.amounts && part.amount !== undefined ? <div style={box({ fontSize: geo.amountSize, fontWeight: 700, lineHeight: 1.2, color: C.navy })}>{baht(countAt(part.amount, look(s.count, t).p))}</div> : null}
+          </div>
+        </Piece>
+      ))}
+      {geo.left !== undefined ? (
+        <El an={s.left} t={t} style={{ position: "absolute", left: geo.rows.x, top: rowY(geo.k - 1) + geo.rowH + geo.gap, width: geo.rows.w, height: geo.leftH - geo.gap, alignItems: "center", justifyContent: "center", background: C.note, border: `3px dashed ${C.ink}`, borderRadius: 14, fontFamily: HAND, fontSize: Math.min(geo.leftSize, fitSize(`${LW.left} ${baht(geo.left)}`, geo.rows.w - 30, 999)), fontWeight: 700, color: C.ink }}>{`${LW.left} ${baht(geo.left)}`}</El>
+      ) : null}
+    </>
+  );
+}
+
+/* ---------- threegen: ส่งต่อสามรุ่น ---------- */
+
+/** who the generations are drawn as: a grandparent, the episode's hero, a child */
+const genFaces = (input: Dev["c"]["input"]) => [GRANDPAS[0], input.faces.hero, CHILDREN[0]];
+
+/**
+ * where ส่งต่อสามรุ่น stands: the arcs passing the money on along the top, the three generations in a row under
+ * them, each one's words wrapped under them, the note on a card along the foot. Each set of words is the largest it
+ * can be in its room.
+ */
+export function threegenGeo(size: VideoSize, show: LifeShow<"threegen">, tall = false) {
+  const g = geoOf(size);
+  const r = g.dev;
+  const portrait = size === "portrait";
+  const rows = show.rows.slice(0, 3);
+  const arcH = portrait ? 150 : 100;
+  const pad = Math.round(g.text * 0.5);
+  // landscape is short: its note stands on a card to the right, so the people have the height
+  const side = size === "landscape" && !!show.note;
+  const noteW = side ? 560 : r.w;
+  const noteRoom = noteW - pad * 2 - 8;
+  const noteSize = show.note ? fitWrap([show.note], noteRoom, side ? 360 : portrait ? 200 : 110, Math.round(g.text * 0.95)) : 0;
+  const note = show.note ? wrapHand(show.note, noteSize, noteRoom) : [];
+  const noteH = show.note ? Math.round(note.length * noteSize * 1.3) + pad * 2 + 8 : 0;
+  const noteGap = show.note && !side ? Math.round(g.text * 0.5) : 0;
+  const peopleW = side ? r.w - noteW - 60 : r.w;
+  const colW = Math.min(Math.floor(peopleW / 3), size === "landscape" ? 400 : 300);
+  const x0 = r.x + Math.round((peopleW - 3 * colW) / 2);
+  const rowRoom = colW - 16;
+  const rowBand = portrait ? 140 : 84;
+  const rowSize = fitWrap(rows, rowRoom, rowBand, Math.round(g.text * 1.05));
+  const lines = rows.map((x) => wrapHand(x, rowSize, rowRoom));
+  const rowH = Math.ceil(Math.max(...lines.map((x) => x.length)) * rowSize * 1.3);
+  const below = side ? 0 : noteGap + noteH;
+  const room = r.h - arcH - 20 - rowH - below;
+  const ps = Math.max(40, Math.min(colW - 20, room));
+  // a doll is as tall as it is wide; มินิมอล's whole people stand taller. The arcs, people and words sit together in the middle of the room
+  const peopleH = Math.min(room, tall ? Math.round(ps * 1.6) : ps);
+  const block = arcH + 10 + peopleH + 10 + rowH + below;
+  const top = r.y + Math.max(0, Math.round((r.h - block) / 2));
+  const peopleTop = top + arcH + 10;
+  const labelTop = peopleTop + peopleH + 10;
+  const noteTop = side ? r.y + Math.round((r.h - noteH) / 2) : labelTop + rowH + noteGap;
+  const noteX = side ? r.x + r.w - noteW : r.x;
+  return { rows: lines, rowSize, rowRoom, rowBand, note, noteSize, noteRoom, noteW, noteH, noteTop, noteX, pad, colW, x0, arcTop: top, arcH, peopleTop, peopleH, ps, labelTop };
+}
+
+/** ส่งต่อสามรุ่น: three generations side by side, the money passed from each to the next along the arcs, the note */
+function ThreeGen({ d, show }: { d: Dev; show: LifeShow<"threegen"> }) {
+  const { c, t, s, g } = d;
+  const geo = threegenGeo(c.size, show, minimal(c.input));
+  const faces = genFaces(c.input);
+  const W = geo.colW * 3;
+  const p = look(s.arrow, t).p;
+  const passSize = fitHand(LW.pass, geo.colW, Math.round(g.text * 0.9));
+  const coin = Math.round(geo.arcH * 0.13);
+  return (
+    <>
+      <DevTitle d={d} text={show.title} />
+      {/* the arcs, the first drawn and then the second, a coin riding at each top as it is passed */}
+      <div style={abs({ left: geo.x0, top: geo.arcTop, width: W, height: geo.arcH })}>
+        <svg width={W} height={geo.arcH} viewBox={`0 0 ${W} ${geo.arcH}`}>
+          {[0, 1].map((i) => {
+            const xa = Math.round(geo.colW * (i + 0.5)) + 24;
+            const xb = Math.round(geo.colW * (i + 1.5)) - 24;
+            const yb = geo.arcH - 12;
+            const top = Math.round(geo.arcH * 0.12);
+            const pi = Math.min(1, Math.max(0, p * 2 - i));
+            const len = Math.round((xb - xa) * 1.6) + 60;
+            const mx = Math.round((xa + xb) / 2);
+            return (
+              <g key={i}>
+                {stroke({ d: `M${xa} ${yb} Q${mx} ${top - geo.arcH * 0.3} ${xb} ${yb} M${xb - 22} ${yb - 14} L${xb} ${yb} L${xb + 4} ${yb - 24}`, len, p: pi, color: C.coin, width: 7 })}
+                <circle cx={mx} cy={Math.round(geo.arcH * 0.45)} r={coin} fill={C.coin} stroke={C.ink} strokeWidth={3} opacity={pi > 0.5 ? 1 : 0} />
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <El an={s.arrow} t={t} style={{ position: "absolute", left: geo.x0 + geo.colW, width: geo.colW, top: geo.arcTop, justifyContent: "center", fontFamily: HAND, fontSize: passSize, fontWeight: 700, color: d.ink }}>{LW.pass}</El>
+      {geo.rows.map((lines, i) => {
+        const l = look(s[`gen${i}`], t);
+        const x = geo.x0 + i * geo.colW;
+        // มินิมอล: a whole person in a square is small, so they stand the whole height
+        const pr = { x: Math.round((geo.colW - geo.ps) / 2), y: geo.peopleH - (minimal(c.input) ? geo.peopleH : geo.ps), w: geo.ps, h: minimal(c.input) ? geo.peopleH : geo.ps };
+        return (
+          <div key={i} style={abs({ left: x, top: geo.peopleTop, width: geo.colW, height: geo.labelTop + geo.rowBand - geo.peopleTop, opacity: l.opacity, ...(l.transform ? { transform: l.transform } : {}) })}>
+            {whole(c.input) ? <Pic c={c} id={faces[i]} r={pr} t={t + i * 0.5} pose={i === 2 ? "wave" : "stand"} /> : null}
+            <div style={abs({ left: 0, top: geo.labelTop - geo.peopleTop, width: geo.colW, justifyContent: "center", fontFamily: HAND, color: d.ink })}>
+              <Lines lines={lines} size={geo.rowSize} align="center" />
+            </div>
+          </div>
+        );
+      })}
+      {show.note ? (
+        <div style={abs({ left: geo.noteX, top: geo.noteTop, width: geo.noteW, height: geo.noteH, justifyContent: "center" })}>
+          <Card an={s.note} t={t} tilt={0.6} pad={geo.pad} w={geo.noteW}>
+            <Lines lines={geo.note} size={geo.noteSize} align="center" />
+          </Card>
+        </div>
+      ) : null}
     </>
   );
 }
