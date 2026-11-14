@@ -33,7 +33,9 @@ describe("the quotation the bot sends", () => {
       mode: "annual",
       minMonthly: table.minMonthly,
       shown: shownAt(priced, "annual"),
+      benefits: { room: "9,000 ต่อวัน", opd: "12,000" },
     })!;
+    expect(expected).toContain("- ค่าห้องและอาหาร 9,000 บาทต่อวัน\n- ค่ารักษาพยาบาล 25,000,000 บาทต่อปี\n- OPD 12,000 บาทต่อปี (รวมกายภาพบำบัด)");
     expect(reply.messages[0].text).toBe(expected);
     expect(reply.priced).toBe(true);
   });

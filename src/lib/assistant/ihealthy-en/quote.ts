@@ -1,6 +1,8 @@
 import { formatBaht } from "@/calc/money";
 import type { Sex } from "@/calc/types";
 import { iHealthyQuoteText } from "@/lib/ihealthy-cta";
+import { compareLines } from "@/lib/ihealthy-compare-card";
+import { shareBenefits, shareRows } from "@/lib/ihealthy-share-lines";
 import { iHealthyFacts, planLabel } from "@/lib/ihealthy-facts";
 import { IHEALTHY_OPENING, type IHealthyInitial } from "@/lib/ihealthy-choice";
 import { cardPath, cardQuery, queryFrom } from "@/lib/ihealthy-link";
@@ -89,6 +91,7 @@ export function healthQuoteEn(
     mode: v.mode,
     minMonthly: table.minMonthly,
     shown: shownAt(priced, v.mode),
+    benefits: shareBenefits(shareRows(compareLines("en")), chosen.code, age),
   }, W);
   if (!text) return one(NO_PRICE_EN);
 

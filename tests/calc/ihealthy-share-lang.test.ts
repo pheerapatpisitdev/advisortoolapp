@@ -38,14 +38,17 @@ const facts: IHealthyCtaFacts = {
     standard: { label: "ค่าชดเชยรายวัน 1,000 บาท", total: 130_000 },
   },
   standardLabel: "Daily hospital cash 1,000 baht",
+  benefits: { room: "9,000 per day", opd: "12,000" },
 };
 
 describe("the copied quote", () => {
   it("is in English on the English page, with not one Thai letter left", () => {
     const text = iHealthyQuoteText(facts, WORDS.en)!;
     expect(text).not.toMatch(THAI);
-    expect(text).toContain("Territory: Thailand");
-    expect(text).toContain("Total premium about 4,133 baht/month");
+    expect(text).toContain("- Room and board 9,000 per day");
+    expect(text).toContain("- Medical expenses 25,000,000 baht/year");
+    expect(text).toContain("- OPD 12,000 baht/year (shared with physiotherapy)");
+    expect(text).toContain("Monthly 4,133 baht");
     expect(text).toContain("- Daily hospital cash 1,000 baht");
     expect(text).toContain(WORDS.en.translationNote);
   });
@@ -62,7 +65,7 @@ describe("the copied quote", () => {
   it("is the Thai it always was when no language is named", () => {
     const { standardLabel: _, ...bot } = facts;
     expect(iHealthyQuoteText(bot)).toBe(iHealthyQuoteText(bot, WORDS.th));
-    expect(iHealthyQuoteText(bot)).toContain("อาณาเขตประเทศไทย");
+    expect(iHealthyQuoteText(bot)).toContain("วงเงินค่ารักษา 25,000,000 บาทต่อปี");
   });
 });
 

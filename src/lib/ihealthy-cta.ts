@@ -1,9 +1,12 @@
 import { formatBaht } from "@/calc/money";
 import type { DeathBenefit, PayMode, Sex } from "@/calc/types";
 import { PER } from "@/lib/legacy-cta";
-import { deathBenefitRows } from "@/lib/death-benefit";
 import type { IHealthyShown } from "@/lib/ihealthy-quote";
 import { WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
+import { COMPARE_WORDS } from "@/lib/ihealthy-compare-words";
+import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
+import { LANGS } from "@/lib/ihealthy-lang";
+import type { ShareBenefits } from "@/lib/ihealthy-share-lines";
 
 const SEX_WORD: Record<Sex, string> = { M: "ชาย", F: "หญิง" };
 const INSTALMENT_ORDER: PayMode[] = ["monthly", "semi", "annual"];
@@ -70,6 +73,11 @@ export interface IHealthyCtaFacts {
    * used.
    */
   standardLabel?: string | string[];
+  /**
+   * The plan's room rate and OPD limit as the sheet words them, in the reader's language.
+   * A plan that pays no OPD has none, and then the quote has no OPD line.
+   */
+  benefits?: ShareBenefits;
 }
 
 /**
@@ -97,14 +105,22 @@ export function iHealthyMessage(f: IHealthyCtaFacts): string {
 /**
  * The quote as text, for the agent to paste into whichever chat the customer is already in.
  *
+ * What the plan pays first — the ceiling, the room, the OPD, the daily cash — then who it is
+ * priced for and the three instalments (owner, 2026-11-14, ข ก ก ก on mockup
+ * https://claude.ai/artifact/1Enwcfye9osZF9UgBZRkob). The owner took the life sum, the death
+ * benefit and the headline total out: the customer asks about treatment, and the yearly
+ * instalment is the total.
+ *
  * A pasted quote outlives the page it came from: nothing around it will ever say again that
  * this is a first-year premium on a rider that re-prices at every birthday, so that sentence
  * and the occupation class it assumes are part of the quote rather than part of the page.
  *
- * For the same reason it carries no per-day figure, though every other plan on the site
+ * For the same reason it carries no per-day premium, though every other plan on the site
  * does. Theirs are level for the whole paying term, so "ตกวันละ 126 บาท" stays true;
  * this one would read as a standing subscription price and quietly contradict the line
  * underneath it.
+ *
+ * Thailand is the territory unless another is named, so only another is named.
  *
  * Undefined when no price may be shown — `ContactButtons` then hides the copy button, and
  * there is no half-quote for an agent to send by mistake.
@@ -125,18 +141,24 @@ export function iHealthyQuoteText(f: IHealthyCtaFacts, w: IHealthyWords = WORDS.
     + (a.coverage === "Deductible" ? ` · ${w.deductible(a.deductible)}` : "")
     + (a.coverage === "Co-Payment" ? ` · ${w.copay(f.copayPercent)}` : "");
   const instalments = [{ mode: f.mode, total: shown.total }, ...shown.others];
+  const lang = LANGS.find((l) => WORDS[l] === w) ?? "th";
+  const cw = COMPARE_WORDS[lang];
+  // Thai says "บาทต่อปี" as the ceiling above it does; the other languages word a yearly
+  // amount as the compare page already does
+  const yearly = lang === "th" ? " บาทต่อปี" : ` ${w.baht}${cw.perYear}`;
+  const room = f.benefits?.room;
+  const opd = f.benefits?.opd;
   return [
     // an emoji a heading, no more: the text is pasted into a customer's chat, where a wall
     // of them reads as a broadcast rather than as an agent answering
     `🏥 iHealthy Ultra ${a.planName}`,
-    `${ceiling} · ${s.territory(w.territory[a.territory] ?? a.territory)}`,
+    ceiling + (a.territory === IHEALTHY_OPENING.territory ? "" : ` · ${s.territory(w.territory[a.territory] ?? a.territory)}`),
     "",
-    s.insured(w.sex[f.sex], f.age),
-    // the total, and under it what that total buys — named, not priced. This text is pasted
-    // into a customer's chat, and a split there reads as an invitation to take one half out
-    `💰 ${s.total(formatBaht(shown.total), f.mode)}`,
-    `- ${s.baseLine(f.baseLabel, f.sumAssured)}`,
-    `- ${s.treatment}`,
+    // the sheet says "9,000 ต่อวัน"; a customer's chat wants the unit said
+    ...(room ? [`- ${cw.room} ${lang === "th" ? room.replace(/^([\d,]+) /, "$1 บาท") : room}`] : []),
+    `- ${s.treatment} ${baht(a.annualMax)}${yearly}`,
+    // a figure is a yearly limit; "ตามที่จ่ายจริง" is not, and takes no unit
+    ...(opd ? [`- OPD ${opd}${/^[\d,]+$/.test(opd) ? yearly : ""} ${cw.opdShared}`] : []),
     // the daily cash the agency attaches as standard; above the age it is written at there
     // is no line rather than a line of nothing. Its premium is what says whether it is on the
     // arrangement at all, which is the last thing a premium is read for here.
@@ -144,6 +166,7 @@ export function iHealthyQuoteText(f: IHealthyCtaFacts, w: IHealthyWords = WORDS.
       ? [f.standardLabel ?? shown.standard.label].flat().map((l) => `- ${l}`)
       : []),
     "",
+    s.insured(w.sex[f.sex], f.age),
     // one instalment a line, smallest first, whichever the card is showing
     ...INSTALMENT_ORDER.flatMap((mode) => {
       const m = instalments.find((x) => x.mode === mode);
@@ -156,9 +179,6 @@ export function iHealthyQuoteText(f: IHealthyCtaFacts, w: IHealthyWords = WORDS.
         ? `${line} ${s.monthlyRefused(f.minMonthly)}`
         : line];
     }),
-    "",
-    `👪 ${s.family}`,
-    ...deathBenefitRows(f.death, w.death).map((r) => `- ${r.label} ${baht(r.amount)} ${w.baht}`),
     "",
     // The instalments that are missing from the list above, and why. A reader who counted
     // three ways to pay on the page and two here is owed the reason.

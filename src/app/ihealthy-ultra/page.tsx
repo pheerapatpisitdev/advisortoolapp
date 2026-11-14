@@ -13,6 +13,8 @@ import type { Attached } from "@/components/ihealthy/RiderPanel";
 import { LangSwitch } from "@/components/ihealthy/LangSwitch";
 import { HTML_LANG, LANG_COOKIE, parseLang, type Lang } from "@/lib/ihealthy-lang";
 import { WORDS } from "@/lib/ihealthy-words";
+import { compareLines } from "@/lib/ihealthy-compare-card";
+import { shareRows } from "@/lib/ihealthy-share-lines";
 import { dciDiseases, translateFacts } from "@/lib/ihealthy-translate";
 
 /** The language the reader picked with the switch; Thai for everyone who has not. */
@@ -139,6 +141,7 @@ export default async function IHealthyPage(
           sharedLimit={facts.terms.sharedLimit} participationNote={facts.terms.participationNote}
           initial={initial} initialAttached={initialAttached} sticky
           lang={lang} dciDiseases={dciDiseases(lang)}
+          shareRows={shareRows(compareLines(lang))}
         />
       </section>
       <TermsSection facts={facts} w={w} />

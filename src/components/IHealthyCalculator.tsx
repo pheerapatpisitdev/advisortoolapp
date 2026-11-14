@@ -30,6 +30,7 @@ import { ContactButtons } from "@/components/sales/ContactButtons";
 import { VIDEO_LABEL } from "@/components/sales/video-label";
 import { videoStartHref } from "@/lib/quote-video/link";
 import { iHealthyQuoteText, type IHealthyCtaFacts } from "@/lib/ihealthy-cta";
+import { shareBenefits, type ShareRows } from "@/lib/ihealthy-share-lines";
 import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
 import { WORDS, baseWords } from "@/lib/ihealthy-words";
 import { riderLines } from "@/lib/ihealthy-rider-lines";
@@ -58,6 +59,8 @@ export interface IHealthyCalculatorProps {
   sticky?: boolean;
   /** the language the reader chose; `data` and the strings below arrive already in it */
   lang?: Lang;
+  /** the rows the copied quote reads the plan's room rate and OPD limit off */
+  shareRows?: ShareRows;
   /** the thirty-one illnesses DCI names, in the reader's language */
   dciDiseases: string[];
 }
@@ -72,7 +75,7 @@ export interface IHealthyCalculatorProps {
 export function IHealthyCalculator(
   {
     table, data, sharedLimit, participationNote, initial, initialAttached, sticky = false,
-    lang = "th", dciDiseases,
+    lang = "th", dciDiseases, shareRows,
   }: IHealthyCalculatorProps,
 ) {
   const w = WORDS[lang];
@@ -312,6 +315,7 @@ export function IHealthyCalculator(
     mode,
     minMonthly: table.minMonthly,
     shown,
+    ...(plan && shareRows ? { benefits: shareBenefits(shareRows, plan.code, age) } : {}),
   };
   /**
    * What the card calls the attached riders, a line each in the reader's language — the same

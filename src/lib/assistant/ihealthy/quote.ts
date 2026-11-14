@@ -1,5 +1,7 @@
 import type { Sex } from "@/calc/types";
 import { iHealthyQuoteText } from "@/lib/ihealthy-cta";
+import { compareLines } from "@/lib/ihealthy-compare-card";
+import { shareBenefits, shareRows } from "@/lib/ihealthy-share-lines";
 import { iHealthyFacts, planLabel } from "@/lib/ihealthy-facts";
 import { IHEALTHY_OPENING, type IHealthyInitial } from "@/lib/ihealthy-choice";
 import { cardPath, queryFrom } from "@/lib/ihealthy-link";
@@ -104,6 +106,7 @@ export function healthQuote(
     mode: v.mode,
     minMonthly: table.minMonthly,
     shown: shownAt(priced, v.mode),
+    benefits: shareBenefits(shareRows(compareLines("th")), chosen.code, age),
   });
 
   // no text means no price may be shown; the card would only say the same thing in a picture

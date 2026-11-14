@@ -39,6 +39,7 @@ const facts: IHealthyCtaFacts = {
   mode: "annual",
   minMonthly: 1_000,
   shown: SHOWN,
+  benefits: { room: "9,000 ต่อวัน", opd: "12,000" },
 };
 
 describe("iHealthyMessage", () => {
@@ -80,20 +81,16 @@ describe("iHealthyQuoteText", () => {
   it("writes the summary an agent pastes into a chat", () => {
     expect(iHealthyQuoteText(facts)).toBe([
       "🏥 iHealthy Ultra Gold",
-      "วงเงินค่ารักษา 25,000,000 บาทต่อปี · อาณาเขตประเทศไทย",
+      "วงเงินค่ารักษา 25,000,000 บาทต่อปี",
+      "",
+      "- ค่าห้องและอาหาร 9,000 บาทต่อวัน",
+      "- ค่ารักษาพยาบาล 25,000,000 บาทต่อปี",
+      "- OPD 12,000 บาทต่อปี (รวมกายภาพบำบัด)",
       "",
       "หญิง อายุ 35 ปี",
-      "💰 เบี้ยรวมประมาณ 45,930 บาท/ปี",
-      "- ไลฟ์ โพรเทค+ x 2 ทุน 150,000 บาท",
-      "- ค่ารักษาพยาบาล",
-      "",
       "รายเดือน 4,133 บาท",
       "ราย 6 เดือน 23,883 บาท",
       "รายปี 45,930 บาท",
-      "",
-      "👪 ครอบครัวได้รับเมื่อเสียชีวิต",
-      "- เสียชีวิตก่อนอายุ 60 ปี 300,000 บาท",
-      "- อายุ 60 ปีขึ้นไป 150,000 บาท",
       "",
       "📌 เบี้ยปีแรก เบี้ยปีต่อไปคิดตามอายุที่เพิ่มขึ้น",
       "เบี้ยของอาชีพชั้น 1 · ไม่ใช่ใบเสนอราคา เบี้ยและความคุ้มครองจริงเป็นไปตามผลการพิจารณารับประกันและที่ระบุในกรมธรรม์",
@@ -123,9 +120,9 @@ describe("iHealthyQuoteText", () => {
 
   it("prints what the customer carries themselves under each arrangement", () => {
     expect(iHealthyQuoteText({ ...facts, arrangement: { ...GOLD, coverage: "Deductible" } }))
-      .toContain("วงเงินค่ารักษา 25,000,000 บาทต่อปี · รับผิดส่วนแรก 50,000 บาทต่อปี · อาณาเขตประเทศไทย");
+      .toContain("วงเงินค่ารักษา 25,000,000 บาทต่อปี · รับผิดส่วนแรก 50,000 บาทต่อปี\n");
     expect(iHealthyQuoteText({ ...facts, arrangement: { ...GOLD, coverage: "Co-Payment" } }))
-      .toContain("· ร่วมจ่าย 20 เปอร์เซ็นต์ของค่าใช้จ่ายที่คุ้มครอง ·");
+      .toContain("· ร่วมจ่าย 20 เปอร์เซ็นต์ของค่าใช้จ่ายที่คุ้มครอง\n");
   });
 
   /** The cheapest arrangement the pickers reach is under the company's monthly floor. */
@@ -139,13 +136,24 @@ describe("iHealthyQuoteText", () => {
     expect(text).toContain("ราย 6 เดือน 5,460 บาท\nรายปี 10,500 บาท");
   });
 
-  it("promises no doubling to an insured already past the age it stops at", () => {
-    const text = iHealthyQuoteText({
-      ...facts, age: 65,
-      death: { beforeAge: 60, sumBefore: 150_000, sumFrom: 150_000, alreadyPastAge: true },
-    })!;
-    expect(text).toContain("👪 ครอบครัวได้รับเมื่อเสียชีวิต\n- ทุกช่วงอายุ 150,000 บาท");
-    expect(text).not.toContain("ก่อนอายุ");
+  /** Thailand is the territory unless another is named (owner, 2026-11-14). */
+  it("names a territory only when it is not Thailand", () => {
+    expect(iHealthyQuoteText(facts)).not.toContain("อาณาเขต");
+    expect(iHealthyQuoteText({ ...facts, arrangement: { ...GOLD, territory: "เอเชีย" } }))
+      .toContain("วงเงินค่ารักษา 25,000,000 บาทต่อปี · อาณาเขตเอเชีย\n");
+  });
+
+  /** สมาร์ท and บรอนซ์ pay no OPD: no line, rather than a line of nothing (owner, ก). */
+  it("has no OPD line on a plan that pays none", () => {
+    const text = iHealthyQuoteText({ ...facts, benefits: { room: "1,500 ต่อวัน" } })!;
+    expect(text).toContain("- ค่าห้องและอาหาร 1,500 บาทต่อวัน\n- ค่ารักษาพยาบาล 25,000,000 บาทต่อปี\n\nหญิง");
+    expect(text).not.toContain("OPD");
+  });
+
+  /** แพลทินัม pays OPD as charged, which is not a yearly figure. */
+  it("puts no unit on an OPD that is not a figure", () => {
+    expect(iHealthyQuoteText({ ...facts, benefits: { room: "21,000 ต่อวัน", opd: "ตามที่จ่ายจริง" } }))
+      .toContain("- OPD ตามที่จ่ายจริง (รวมกายภาพบำบัด)");
   });
 
   it("has nothing to copy when no price may be shown", () => {
@@ -153,14 +161,14 @@ describe("iHealthyQuoteText", () => {
   });
 
   /**
-   * The split used to sit under the total — 2,130 for the life half against 43,800 for the
-   * health half — and it is out because this text is pasted into a customer's chat, where
-   * two figures of that size beside each other are read as one of them being optional.
+   * The life half is not in the text at all (owner, 2026-11-14, ก): no split, no life sum, no
+   * death benefit, and the yearly instalment is the one total.
    */
-  it("carries one premium only: the total", () => {
+  it("carries the instalments and nothing of the life half", () => {
     const text = iHealthyQuoteText(facts)!;
-    expect(text).toContain("💰 เบี้ยรวมประมาณ 45,930 บาท/ปี");
-    expect(text).toContain("- ไลฟ์ โพรเทค+ x 2 ทุน 150,000 บาท");
+    expect(text).not.toContain("เบี้ยรวมประมาณ");
+    expect(text).not.toContain("ทุน 150,000");
+    expect(text).not.toContain("เสียชีวิต");
     expect(text).not.toContain("2,130");
     expect(text).not.toContain("43,800");
   });
@@ -171,7 +179,7 @@ describe("the fold's own line in the copied quote", () => {
     const text = iHealthyQuoteText({ ...facts, shown: WITH_DAILY_CASH })!;
     expect(text).toContain("- ค่าชดเชยรายวัน 1,000 บาท");
     expect(text).not.toContain("1,300");
-    expect(text).toContain("เบี้ยรวมประมาณ 47,230 บาท/ปี");
+    expect(text).toContain("รายปี 47,230 บาท");
   });
 
   /**
