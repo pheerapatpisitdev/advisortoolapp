@@ -206,7 +206,7 @@ describe("migration", () => {
     expect(sql).not.toMatch(/cron\.schedule/);
   });
   it("a later migration that redefines either function keeps the marks' delete", () => {
-    // 20261211_whats_new.sql redefines both to add มีอะไรใหม่'s reads (tests/updates/migration.test.ts)
+    // 20261213_whats_new.sql redefines both to add มีอะไรใหม่'s reads (tests/updates/migration.test.ts)
     const later = readdirSync("supabase/migrations").filter((f) => f > "20261210_library_marks.sql");
     for (const f of later) {
       const text = readFileSync(`supabase/migrations/${f}`, "utf8");

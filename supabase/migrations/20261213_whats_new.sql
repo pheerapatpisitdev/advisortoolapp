@@ -81,7 +81,7 @@ begin
   delete from ins_prompt_drafts where agent_id = p_member;
   -- คลังแอนิเมชัน's saved pieces and votes (20261210): no files either
   delete from ins_library_marks where agent_id = p_member;
-  -- มีอะไรใหม่'s reads (20261211)
+  -- มีอะไรใหม่'s reads (20261213)
   delete from ins_update_reads where agent_id = p_member;
 
   delete from ins_wallet_holds where agent_id = p_member;
@@ -128,7 +128,7 @@ begin
   delete from public.ins_logos where agent_id = demo; get diagnostics n = row_count; out := out || jsonb_build_object('logos', n);
   delete from public.ins_agent_contact where agent_id = demo; get diagnostics n = row_count; out := out || jsonb_build_object('contact', n);
   delete from public.ins_library_marks where agent_id = demo; get diagnostics n = row_count; out := out || jsonb_build_object('marks', n);
-  -- มีอะไรใหม่ shows as unread again to the next customer trying the system (20261211)
+  -- มีอะไรใหม่ shows as unread again to the next customer trying the system (20261213)
   delete from public.ins_update_reads where agent_id = demo; get diagnostics n = row_count; out := out || jsonb_build_object('reads', n);
   update public.ins_demo set wiped_at = now() where id;
   return out;

@@ -2,9 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { BODY_MAX, GROUPS, KINDS, TITLE_MAX } from "@/lib/updates/rules";
 
-/** supabase/migrations/20261211_whats_new.sql: มีอะไรใหม่'s two tables and the two functions it adds a line to */
+/** supabase/migrations/20261213_whats_new.sql: มีอะไรใหม่'s two tables and the two functions it adds a line to */
 
-const sql = readFileSync("supabase/migrations/20261211_whats_new.sql", "utf8");
+const sql = readFileSync("supabase/migrations/20261213_whats_new.sql", "utf8");
 const fn = (s: string, name: string) => {
   const at = s.indexOf(`create or replace function public.${name}`);
   expect(at, name).toBeGreaterThanOrEqual(0);
@@ -44,7 +44,7 @@ describe("whats-new migration", () => {
     expect(sql).toMatch(/grant execute on function public\.ins_member_delete\(uuid\) to service_role/);
   });
   it("no later migration redefines either function without the reads", () => {
-    const later = readdirSync("supabase/migrations").filter((f) => f > "20261211_whats_new.sql");
+    const later = readdirSync("supabase/migrations").filter((f) => f > "20261213_whats_new.sql");
     for (const f of later) {
       const text = readFileSync(`supabase/migrations/${f}`, "utf8");
       if (/function public\.ins_(member_delete|demo_wipe)/.test(text)) expect(text, f).toMatch(/ins_update_reads/);

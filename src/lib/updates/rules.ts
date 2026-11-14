@@ -1,7 +1,7 @@
 /**
  * มีอะไรใหม่ (owner chose 1ข 2ก 3ก, 2026-11-14, mockup https://claude.ai/artifact/NW7M5MzvhWiZHymbyU34hs): the
  * rules, pure, so they are tested without a database. ./store.ts reads and writes the rows
- * (supabase/migrations/20261211_whats_new.sql).
+ * (supabase/migrations/20261213_whats_new.sql).
  *
  * 1ข: a red number on มีอะไรใหม่ in the menu and a bar on /home while anything is unread.
  * 2ก: Claude writes a draft on each push; the Super Admin edits it and publishes it on /admin/updates.

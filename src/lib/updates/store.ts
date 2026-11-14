@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { bangkokDay, shownFrom, unreadOf, visibleTo, type UpdateInput, type UpdateRow, type UpdateStatus } from "./rules";
 
 /**
- * มีอะไรใหม่'s rows (./rules.ts, supabase/migrations/20261211_whats_new.sql). Server only.
+ * มีอะไรใหม่'s rows (./rules.ts, supabase/migrations/20261213_whats_new.sql). Server only.
  *
  * ins_updates holds every change told or to be told; ins_update_reads which viewer has read which. The
  * viewer is viewer.agentId for every kind of viewer (a สมาชิกทั่วไป's id is a row of ins_members).
