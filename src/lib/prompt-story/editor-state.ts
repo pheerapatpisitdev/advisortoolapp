@@ -1,4 +1,4 @@
-import { checkDevice } from "./check";
+import { checkDevice, type TaxSources } from "./check";
 import { deviceInfo } from "@/lib/scene-library/devices";
 import { isUploadId } from "@/lib/scene-library/upload-rules";
 import type { DeviceScene, PromptScene } from "./types";
@@ -6,7 +6,8 @@ import type { DeviceScene, PromptScene } from "./types";
 /**
  * The script editor's sums and moves (health devices, Task 10), kept apart from the page so they are
  * tested alone. Browser-safe. A scene is a picture scene unless its device passes checkDevice with the
- * figures the brief and the plan give (deviceAllowed): the very test checkedPromptStory charges by. A
+ * figures the brief and the plan give (deviceAllowed), a taxback's inputs the brief's alone (briefTax): the very
+ * test checkedPromptStory charges by. A
  * library part (ภาพจากคลัง, คลังแอนิเมชัน phase 3) is laid in, not painted, unless a passing device is on the scene.
  */
 
@@ -47,10 +48,10 @@ export function deviceReason(reason: string): string {
 }
 
 /** a passing device first; else a part (as checkedPromptStory keeps one only on a scene with no device it keeps) */
-export function sceneKind(s: PromptScene, forDevice: Set<number>): SceneKind {
+export function sceneKind(s: PromptScene, forDevice: Set<number>, tax?: TaxSources): SceneKind {
   const asset = isUploadId(s.asset) ? s.asset : null;
   if (!s.device) return asset ? { kind: "asset", id: asset } : { kind: "picture" };
-  const d = checkDevice(s.device, forDevice);
+  const d = checkDevice(s.device, forDevice, tax);
   const name = deviceInfo(String(s.device.layout))?.name ?? "อุปกรณ์";
   if (typeof d !== "string") return { kind: "device", device: s.device, name };
   return asset ? { kind: "asset", id: asset } : { kind: "broken", reason: deviceReason(d), name };
@@ -60,15 +61,15 @@ export function sceneKind(s: PromptScene, forDevice: Set<number>): SceneKind {
 const painted = (k: SceneKind) => k.kind === "picture" || k.kind === "broken";
 
 /** the scenes the painter draws and the clip charges for: no device or part, or a device the server will drop */
-export const pictureCount = (scenes: PromptScene[], forDevice: Set<number>): number =>
-  scenes.filter((s) => painted(sceneKind(s, forDevice))).length;
+export const pictureCount = (scenes: PromptScene[], forDevice: Set<number>, tax?: TaxSources): number =>
+  scenes.filter((s) => painted(sceneKind(s, forDevice, tax))).length;
 
 /** the server's words for a picture scene left without its picture words (checkedPromptStory) */
 export const needPictureWords = (n: number): string => `ใส่คำบรรยายภาพของฉากที่ ${n}`;
 
 /** the first picture scene (from 0) with no picture words, as the server would refuse it; null when none */
-export function missingPicture(scenes: PromptScene[], forDevice: Set<number>): number | null {
-  const i = scenes.findIndex((s) => painted(sceneKind(s, forDevice)) && !s.picture.replace(/\s+/g, " ").trim());
+export function missingPicture(scenes: PromptScene[], forDevice: Set<number>, tax?: TaxSources): number | null {
+  const i = scenes.findIndex((s) => painted(sceneKind(s, forDevice, tax)) && !s.picture.replace(/\s+/g, " ").trim());
   return i < 0 ? null : i;
 }
 

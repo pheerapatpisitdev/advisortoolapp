@@ -455,8 +455,9 @@ function taxback(d: Dev, show: LifeShow<"taxback">) {
         const text: React.CSSProperties = { top: y, height: rh, alignItems: "center", fontSize: figSize, opacity: l.opacity };
         return (
           <div key={rung.rate} style={abs({ left: 0, top: 0, width: 1, height: 1 })}>
-            {/* the agent's rung, ringed as the voice's item is, as it is picked */}
-            {rung.on ? <div data-pick="" style={abs({ left: lad.x - Math.round(12 * k), top: y - Math.round(5 * k), width: lad.w + Math.round(24 * k), height: rh + Math.round(10 * k), background: K.on, border: `${pen(4 * k)}px solid ${K.onLine}`, borderRadius: Math.round(16 * k), opacity: pick.opacity, ...glowBox(K.onLine) })} /> : null}
+            {/* the agent's rung, ringed as it is picked: in the look's tick (never onLine, red in plot and board =
+                what the customer pays), tinted as the voice's item is */}
+            {rung.on ? <div data-pick="" style={abs({ left: lad.x - Math.round(12 * k), top: y - Math.round(5 * k), width: lad.w + Math.round(24 * k), height: rh + Math.round(10 * k), background: K.on, border: `${pen(4 * k)}px solid ${K.tick}`, borderRadius: Math.round(16 * k), opacity: pick.opacity, ...glowBox(K.tick) })} /> : null}
             <div style={abs({ left: lad.x, width: rateW - Math.round(14 * k), justifyContent: "flex-end", fontWeight: K.bold, ...ink(K.white), ...text })}>{`${rung.rate}%`}</div>
             <div style={abs({ left: barX, top: y + Math.round(rh * 0.18), width: bw, height: Math.round(rh * 0.64), opacity: l.p > 0 ? 1 : 0, ...fill(K.gold, Math.round(8 * k)) })} />
             {rung.refund !== undefined ? <div style={abs({ left: lad.x + lad.w - amtW, width: amtW, justifyContent: "flex-end", ...ink(rung.on ? K.green : K.white), ...(rung.on ? { fontWeight: K.bold } : {}), ...text })}>{n(rung.refund)}</div> : null}

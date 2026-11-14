@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   HEALTH_PARENTS_CAP, HEALTH_SELF_CAP, HEALTH_WITH_LIFE_CAP, isTaxRate, LIFE_CAP, PENSION_CAP, PENSION_PERCENT, PENSION_RETIRE_CAP,
-  refundAt, TAX_BRACKETS, TAX_CAPS, TAX_FIGURES, TAXBACK_FIGURES, TAX_FOOT, TAX_RATES, TAX_YEAR,
+  refundAt, TAX_BRACKETS, TAX_CAPS, TAX_FIGURES, TAX_WORD_FIGURES, TAX_FOOT, TAX_RATES, TAX_YEAR,
 } from "@/lib/scene-library/tax-th";
+import { RULES_2569 } from "@/lib/tax/rules/2569";
 
 /** the spec's table (2026-11-14-devices-life-tax-design.md), pinned: a change here is a change the owner must see */
 describe("tax table", () => {
@@ -44,15 +45,11 @@ describe("tax table", () => {
     for (const r of TAX_RATES) expect(isTaxRate(r)).toBe(true);
     for (const r of [0, 12, 40, 5.5, -5]) expect(isTaxRate(r)).toBe(false);
   });
-  it("gives every figure of the table, for a tax device's words", () => {
+  it("gives every figure of the table", () => {
     for (const n of [2569, 100_000, 25_000, 15_000, 200_000, 500_000, 15, 10, 35, 150_000, 5_000_000]) expect(TAX_FIGURES.has(n), String(n)).toBe(true);
   });
-  it("gives taxback's words only the year, the life cap and the bracket thresholds: no figure a refund could be", () => {
-    expect([...TAXBACK_FIGURES].sort((a, b) => a - b)).toEqual([
-      2569, 100_000, 150_000, 150_001, 300_000, 300_001, 500_000, 500_001, 750_000, 750_001,
-      1_000_000, 1_000_001, 2_000_000, 2_000_001, 5_000_000, 5_000_001,
-    ]);
-    for (const n of [15_000, 25_000, 35, 20, 10]) expect(TAXBACK_FIGURES.has(n), String(n)).toBe(false);
+  it("gives a tax device's AI-written words only the year: no cap, threshold or rate", () => {
+    expect([...TAX_WORD_FIGURES]).toEqual([2569]);
   });
   it("refundAt: the premium, capped at the life cap, times the rate", () => {
     expect(refundAt(50_000, 10)).toBe(5_000);
@@ -61,5 +58,31 @@ describe("tax table", () => {
     expect(refundAt(33_333, 5)).toBe(1_667);
     expect(refundAt(0, 20)).toBe(0);
     expect(refundAt(-10, 20)).toBe(0);
+  });
+});
+
+/**
+ * The /tax calculator's rules (src/lib/tax/rules/2569.ts) and the tax devices' table must say the same law. Test
+ * only: the drawing code never imports the calculator's rules (the Remotion bundle stays as it is).
+ */
+describe("tax table = the /tax calculator's RULES_2569", () => {
+  it("is the same tax year", () => {
+    expect(TAX_YEAR).toBe(`ปีภาษี ${RULES_2569.taxYear}`);
+  });
+  it("has the same brackets: the same tops and rates", () => {
+    expect(TAX_BRACKETS.map((b) => ({ upTo: b.to, rate: b.rate }))).toEqual(RULES_2569.personalBrackets.map((b) => ({ upTo: b.upTo, rate: Math.round(b.rate * 100) })));
+    // each bracket starts a baht above the last one's top
+    TAX_BRACKETS.forEach((b, i) => expect(b.from).toBe(i ? (TAX_BRACKETS[i - 1].to ?? NaN) + 1 : 0));
+  });
+  it("has the same caps", () => {
+    const a = RULES_2569.allowance;
+    // life alone and life with the own health premium: the calculator's one combined 100,000
+    expect(LIFE_CAP).toBe(a.lifeHealthCombined);
+    expect(HEALTH_WITH_LIFE_CAP).toBe(a.lifeHealthCombined);
+    expect(HEALTH_SELF_CAP).toBe(a.health);
+    expect(HEALTH_PARENTS_CAP).toBe(a.parentHealth);
+    expect(PENSION_PERCENT).toBe(Math.round(a.pensionRate * 100));
+    expect(PENSION_CAP).toBe(a.pensionCap);
+    expect(PENSION_RETIRE_CAP).toBe(a.retirementGroupCap);
   });
 });

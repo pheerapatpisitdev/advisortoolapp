@@ -50,7 +50,7 @@ export const TAX_CAPS: { label: string; cap: number; note?: string }[] = [
 /** the line under every tax device */
 export const TAX_FOOT = "ตามเกณฑ์กรมสรรพากร ตรวจสอบเงื่อนไขก่อนใช้สิทธิ";
 
-/** every figure of the table: taxcap's words may say these as the brief's own (check.ts) */
+/** every figure of the table (the tests hold the story path's drawn figures to these) */
 export const TAX_FIGURES: ReadonlySet<number> = new Set([
   YEAR,
   ...TAX_BRACKETS.flatMap((b) => [b.from, ...(b.to === null ? [] : [b.to]), b.rate]).filter((v) => v > 0),
@@ -60,14 +60,11 @@ export const TAX_FIGURES: ReadonlySet<number> = new Set([
 ]);
 
 /**
- * the figures taxback's words may say beside the brief's: the year, the life cap and the bracket thresholds. Not
- * the other caps or the rates: 15,000 and 25,000 are what common premiums give back (50,000 at 30%, 100,000 at
- * 15% or 25%), and a refund is the drawer's sum, never a figure the AI writes.
+ * the only figure the AI's words on a tax device (taxback, taxcap) may carry: the year. Never a cap, threshold
+ * or rate: the device draws the table's figures itself, and a cap such as 15,000 or 25,000 is also what common
+ * premiums give back, a refund being the drawer's sum, never a figure the AI writes.
  */
-export const TAXBACK_FIGURES: ReadonlySet<number> = new Set([
-  YEAR, LIFE_CAP,
-  ...TAX_BRACKETS.flatMap((b) => [b.from, ...(b.to === null ? [] : [b.to])]).filter((v) => v > 0),
-]);
+export const TAX_WORD_FIGURES: ReadonlySet<number> = new Set([YEAR]);
 
 /** the tax a life premium gives back at a rate: the premium, at most LIFE_CAP, times the rate, to the baht */
 export const refundAt = (premium: number, rate: number): number => Math.round((Math.min(Math.max(0, premium), LIFE_CAP) * rate) / 100);

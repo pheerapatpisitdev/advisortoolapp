@@ -3,7 +3,7 @@ import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
 import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { DEVICES } from "@/lib/scene-library/devices";
-import { allowedFor, checkDevice, checkScene, checkScript, deviceAllowed, forbiddenForPrompt } from "./check";
+import { allowedFor, briefTax, checkDevice, checkScene, checkScript, deviceAllowed, forbiddenForPrompt, type TaxSources } from "./check";
 import { SCREEN_MAX, TITLE_MAX, type PromptFormat, type PromptScene, type SceneCount } from "./types";
 
 /**
@@ -17,7 +17,8 @@ import { SCREEN_MAX, TITLE_MAX, type PromptFormat, type PromptScene, type SceneC
  * the scenes, drawn by the system instead of painted; a device whose numbers the brief or the plan do
  * not give is dropped and the scene painted. Since 2026-11-14 (device round 2) the ชีวิต ภาษี มรดก devices
  * join them: their figures from the brief or the plan (taxcap's only from the tax table the system draws,
- * taxback's bracket only a rate the brief states), every total, gap, loss and refund computed by the system,
+ * taxback's bracket only a rate the brief states as a percent and its premium only a number the brief writes),
+ * every total, gap, loss and refund computed by the system,
  * never written by the model. A format (ละครสั้น 3 ฉาก, รีวิวเคสเคลม) adds its order of
  * beats. One scene may be written again (rewriteScene).
  */
@@ -134,7 +135,10 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     "- คำที่เขียนในอุปกรณ์ทุกตัวห้ามมีคำต้องห้ามข้างบน แม้ระบบจะวาดคำอย่าง เบี้ยปีละ หรือ % บนอุปกรณ์เอง ให้ใช้ ค่าประกัน แทน เบี้ย",
     "- ห้ามเขียนยอดที่ระบบคิดเอง ทั้งในช่องตัวเลขและในคำของอุปกรณ์: ยอดรวม ทุนที่ขาด รายได้ที่หาย ภาษีที่ได้คืน เงินที่เหลือ",
     "- taxcap: ไม่มีช่องตัวเลข ระบบวาดตารางเพดานลดหย่อนตามเกณฑ์กรมสรรพากรเอง",
-    "- taxback: ใส่ bracket ได้เฉพาะเมื่อโจทย์บอกอัตราภาษีของลูกค้า และต้องเป็นอัตราตามโจทย์ ถ้าโจทย์ไม่บอกให้ละ bracket",
+    "- taxback: ใส่ bracket ได้เฉพาะเมื่อโจทย์บอกอัตราภาษีของลูกค้าเป็นเปอร์เซ็นต์ และต้องเป็นอัตราตามโจทย์ ถ้าโจทย์ไม่บอกให้ละ bracket",
+    "- taxback: premium ต้องเป็นค่าประกันชีวิตต่อปีที่เขียนไว้ในโจทย์เท่านั้น ห้ามใช้ตัวเลขแผน ถ้าโจทย์ไม่บอกให้ละ premium",
+    "- taxback และ taxcap: คำในอุปกรณ์ห้ามมีตัวเลข ยกเว้นปีภาษี ระบบวาดเพดาน อัตรา และยอดที่ได้คืนเอง",
+    "- beneficiary และ moneysplit: ชื่อผู้รับ (name) และชื่อส่วน (label) ใช้คำเรียกความสัมพันธ์เท่านั้น เช่น ภรรยา ลูกคนโต พ่อ แม่ ห้ามใช้ชื่อคน",
     "- ฉากที่มี device ยังต้องมี voice และ screen และใส่ picture เป็นภาพสำรองไว้ด้วย",
     "",
   ];
@@ -152,11 +156,11 @@ function system(brief: string, count: number, figure?: StoryFigure, format?: Pro
 const pictureFrom = (screen: string) => screen.replace(/[\d๐-๙][\d๐-๙,.]*/g, "").replace(/\s+/g, " ").trim().slice(0, 300);
 
 /** one scene of a reply: its device kept only when checkDevice passes it */
-function sceneOf(x: unknown, forDevice: Set<number>): { scene: PromptScene; wantsFigure: boolean } {
+function sceneOf(x: unknown, forDevice: Set<number>, tax: TaxSources): { scene: PromptScene; wantsFigure: boolean } {
   const o = (x ?? {}) as Record<string, unknown>;
   const s: PromptScene = { voice: clean(o.voice, 400), screen: clean(o.screen, SCREEN_MAX), picture: clean(o.picture, 300) };
   if (o.device !== undefined && o.device !== null) {
-    const d = checkDevice(o.device, forDevice);
+    const d = checkDevice(o.device, forDevice, tax);
     if (typeof d === "string") s.picture ||= pictureFrom(s.screen);
     else s.device = d;
   }
@@ -176,14 +180,14 @@ function capDevices(scenes: PromptScene[], max: number): void {
 
 interface Read { onTopic: boolean; refusal: string; title: string; caption: string; scenes: PromptScene[] }
 
-/** `forDevice`: the figures a device may show (deviceAllowed) */
-function read(text: string, count: number, forDevice: Set<number>, figure?: StoryFigure): Read | null {
+/** `forDevice`: the figures a device may show (deviceAllowed); `tax`: a taxback's inputs (briefTax) */
+function read(text: string, count: number, forDevice: Set<number>, tax: TaxSources, figure?: StoryFigure): Read | null {
   const j = parseJsonReply<Record<string, unknown>>(text);
   if (!j || typeof j !== "object") return null;
   const raw = Array.isArray(j.scenes) ? j.scenes : [];
   let shown = false;
   const scenes = raw.slice(0, count).map((x): PromptScene => {
-    const { scene: s, wantsFigure } = sceneOf(x, forDevice);
+    const { scene: s, wantsFigure } = sceneOf(x, forDevice, tax);
     const show = Boolean(figure) && wantsFigure && !shown;
     if (show) shown = true;
     if (show) s.showFigure = true;
@@ -203,12 +207,13 @@ export async function writeStory(input: { brief: string; scenes: SceneCount; fig
   const ask = input.ask ?? defaultAsk(count);
   const allowed = allowedFor(brief, figure);
   const forDevice = deviceAllowed(brief, figure);
+  const tax = briefTax(brief);
   const sys = system(brief, count, figure, input.format);
   const user = `เขียนบทคลิป ${count} ฉากตามโจทย์ในบล็อกข้อมูล`;
 
   let first: Read | null = null;
   try {
-    first = read(await ask(sys, user), count, forDevice, figure);
+    first = read(await ask(sys, user), count, forDevice, tax, figure);
   } catch (e) {
     console.error("prompt story not written:", e instanceof Error ? e.message : "unknown error");
   }
@@ -229,7 +234,7 @@ export async function writeStory(input: { brief: string; scenes: SceneCount; fig
   if (bad.size) {
     try {
       const why = [...bad].map(([i, r]) => `- ฉากที่ ${i + 1}: ${r.join("; ")}`).join("\n");
-      const again = read(await ask(sys, `${user}\n\nรอบก่อนฉากเหล่านี้ใช้ไม่ได้ แก้ให้ถูกตามเหตุผล:\n${why}`), count, forDevice, figure);
+      const again = read(await ask(sys, `${user}\n\nรอบก่อนฉากเหล่านี้ใช้ไม่ได้ แก้ให้ถูกตามเหตุผล:\n${why}`), count, forDevice, tax, figure);
       if (again) for (const i of bad.keys()) if (again.scenes[i]) scenes[i] = again.scenes[i];
     } catch (e) {
       console.error("prompt story retry failed:", e instanceof Error ? e.message : "unknown error");
@@ -268,6 +273,7 @@ export async function rewriteScene(input: { brief: string; scenes: PromptScene[]
   const ask = input.ask ?? defaultAsk(1);
   const allowed = allowedFor(brief, figure);
   const forDevice = deviceAllowed(brief, figure);
+  const tax = briefTax(brief);
   const sys = [...rules(brief, count, figure, input.format), `ตอบเป็น JSON object เดียว: {"scene": ${SCENE_SHAPE}}`].join("\n");
   const bare = (t: unknown) => (typeof t === "string" ? t.replace(/[<>]/g, "") : "");
   const lines = scenes.map((s, i) =>
@@ -299,10 +305,10 @@ export async function rewriteScene(input: { brief: string; scenes: PromptScene[]
       why = "ตอบไม่เป็น JSON ตามรูปแบบ";
       continue;
     }
-    const { scene: s, wantsFigure } = sceneOf(j.scene, forDevice);
+    const { scene: s, wantsFigure } = sceneOf(j.scene, forDevice, tax);
     if (s.device && room <= 0) capDevices([s], 0);
     if (keepsFigure || (wantsFigure && figure && !shownElsewhere)) s.showFigure = true;
-    const reasons = empty(s) ? ["ฉากว่างหรือไม่ครบ"] : checkScene(s, allowed, forDevice);
+    const reasons = empty(s) ? ["ฉากว่างหรือไม่ครบ"] : checkScene(s, allowed, forDevice, tax);
     if (!reasons.length) return { ok: true, scene: s };
     why = reasons.join("; ");
   }

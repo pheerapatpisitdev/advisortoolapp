@@ -2,7 +2,7 @@ import { FORBIDDEN, numbersIn } from "@/lib/quote-video/brief";
 import type { StoryFigure } from "@/lib/quote-video/story";
 import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { deviceInfo } from "@/lib/scene-library/devices";
-import { isTaxRate, TAX_FIGURES, TAXBACK_FIGURES } from "@/lib/scene-library/tax-th";
+import { isTaxRate, TAX_WORD_FIGURES } from "@/lib/scene-library/tax-th";
 import { SCREEN_MAX, type DeviceScene, type PromptScene } from "./types";
 
 /**
@@ -48,6 +48,32 @@ export function deviceAllowed(brief: string, figure?: Pick<StoryFigure, "age" | 
 }
 
 /**
+ * Where a taxback's two client inputs may come from, when not the device's `allowed` figures: `rates` for its
+ * bracket, `premiums` for its premium.
+ */
+export interface TaxSources { rates: ReadonlySet<number>; premiums: ReadonlySet<number> }
+
+/**
+ * The tax table's rates the brief writes as a percent ("ฐานภาษี 30%", "30 เปอร์เซ็นต์"): never the plan's figures,
+ * whose age (20, 25, 30, 35) may be a rate, nor a bare number such as "30 ปี".
+ */
+export function briefRates(brief: string): Set<number> {
+  const out = new Set<number>();
+  for (const m of brief.matchAll(/(?<![\d,.])(\d+(?:\.\d+)?)\s*(?:%|เปอร์เซ็?นต์)/g)) {
+    const n = Number(m[1]);
+    if (isTaxRate(n)) out.add(n);
+  }
+  return out;
+}
+
+/**
+ * A คลิปตามโจทย์'s taxback inputs: the client's bracket a rate the brief writes as a percent (briefRates), and the
+ * premium a number the brief writes (deviceAllowed of the brief alone): never the plan's figures, whose premium may
+ * be a health plan's (iShield), not life insurance a refund is worked from.
+ */
+export const briefTax = (brief: string): TaxSources => ({ rates: briefRates(brief), premiums: deviceAllowed(brief) });
+
+/**
  * What no word of a คลิปตามโจทย์ may say, told to the writer: built from the same lists checkScene
  * holds the words to, so the prompt and the check cannot drift. A rule that is a plain list of words
  * gives its words; any other (greetings, Thai digits, links, emoji…) gives its reason as "ห้าม…".
@@ -64,9 +90,10 @@ export function forbiddenForPrompt(): { words: string[]; rules: string[] } {
 
 /**
  * why a scene cannot go in the clip (empty when fine): voice, screen and picture are all held to the
- * same rules; a device's numbers to `forDevice` (deviceAllowed), else to `allowed`
+ * same rules; a device's numbers to `forDevice` (deviceAllowed), else to `allowed`; a taxback's inputs to
+ * `tax` (briefTax) when given
  */
-export function checkScene(scene: PromptScene, allowed: Set<number>, forDevice: Set<number> = allowed): string[] {
+export function checkScene(scene: PromptScene, allowed: Set<number>, forDevice: Set<number> = allowed, tax?: TaxSources): string[] {
   const reasons: string[] = [];
   for (const field of ["voice", "screen", "picture"] as const) {
     const t = scene[field] ?? "";
@@ -77,14 +104,14 @@ export function checkScene(scene: PromptScene, allowed: Set<number>, forDevice: 
     if (stray !== undefined) reasons.push(`${field}: ตัวเลข ${stray} ไม่อยู่ในโจทย์หรือแผน`);
   }
   if (scene.device) {
-    const d = checkDevice(scene.device, forDevice);
+    const d = checkDevice(scene.device, forDevice, tax);
     if (typeof d === "string") reasons.push(`device: ${d}`);
   }
   return reasons;
 }
 
 /** a device's word on screen: the script's rules, and every figure in it from the brief or the plan */
-function wordReasons(field: string, t: string, allowed: Set<number>): string[] {
+function wordReasons(field: string, t: string, allowed: ReadonlySet<number>): string[] {
   const reasons: string[] = [];
   for (const x of [...FORBIDDEN, ...FREE_FORBIDDEN]) if (x.re.test(t)) reasons.push(`${field}: ${x.why}`);
   const stray = numbersIn(t).find((n, i, all) => !allowed.has(n) && !(i > 0 && all[i - 1] === n * 1_000_000));
@@ -97,25 +124,23 @@ function wordReasons(field: string, t: string, allowed: Set<number>): string[] {
  * kept (a total, gap or refund the writer adds is dropped: the drawer computes those); every word at most
  * SCREEN_MAX and held to the script's rules; a list at most four (moneysplit's parts two or three,
  * threegen's rows three); every number a whole number above nought that the brief or the plan gave
- * (deviceAllowed), the figures inside words too; taxcap's words may also say the tax table's figures
- * (TAX_FIGURES), taxback's only its year, life cap and bracket thresholds (TAXBACK_FIGURES: never a figure a
- * refund could be). Anything else is the first reason, naming its field: the device is dropped and the scene
+ * (deviceAllowed), the figures inside words too, but a tax device's words (taxcap, taxback) carry no figure but
+ * the year (TAX_WORD_FIGURES): the device draws the table's own, and a refund is never the AI's. Anything else is the first reason, naming its field: the device is dropped and the scene
  * painted. Three things are not reasons but drawn without (spec, Review Focus 2): beneficiary shares not all
  * given or not totalling 100, moneysplit amounts not all given or over the total (or with no total), and a
- * taxback bracket that is not one of the table's rates or not in `allowed`. The client's bracket is an input,
- * never the AI's pick: a คลิปตามโจทย์ brief states it ("ฐานภาษี 20%", deviceAllowed reads the 20); the story
- * form adds its chip's rate to `allowed`.
+ * taxback bracket that is not one of the table's rates or not in `tax.rates` (else `allowed`). The client's bracket
+ * and premium are inputs, never the AI's pick: a คลิปตามโจทย์ passes `tax` (briefTax), so the bracket is a rate the
+ * brief writes as a percent ("ฐานภาษี 20%") and the premium a number the brief writes, never a plan figure; the
+ * story form leaves `tax` out and adds its chip's rate to `allowed`.
  */
-export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | string {
+export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources): DeviceScene | string {
   if (!d || typeof d !== "object" || Array.isArray(d)) return "layout: ไม่มีอุปกรณ์";
   const o = d as Record<string, unknown>;
   // the registry (browser-safe) rather than story-knowledge's list, so the page may check a device too
   if (typeof o.layout !== "string" || !deviceInfo(o.layout)) return "layout: ไม่รู้จักอุปกรณ์นี้";
   const layout = o.layout as DeviceLayout;
-  // the tax devices' words may name the table's own figures ("ลดหย่อนได้ 100,000"); their numbers may not.
-  // taxback's words a narrower set: a cap such as 15,000 is also a refund, and a refund is never written by the AI
-  const wordAllowed = layout === "taxcap" ? new Set([...allowed, ...TAX_FIGURES])
-    : layout === "taxback" ? new Set([...allowed, ...TAXBACK_FIGURES]) : allowed;
+  // a tax device's words carry the year alone: no cap, threshold or rate (the device draws them) and no refund
+  const wordAllowed: ReadonlySet<number> = layout === "taxcap" || layout === "taxback" ? TAX_WORD_FIGURES : allowed;
   const fail: string[] = [];
   const word = (field: string, x: unknown, need: boolean): string => {
     if (x === undefined && !need) return "";
@@ -129,7 +154,8 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
     fail.push(...wordReasons(field, t, wordAllowed));
     return t;
   };
-  const num = (field: string, x: unknown, need: boolean): number | undefined => {
+  // `from`: where the figure may come from, `where` said in its reason when not
+  const num = (field: string, x: unknown, need: boolean, from: ReadonlySet<number> = allowed, where = "ไม่อยู่ในโจทย์หรือแผน"): number | undefined => {
     if (x === undefined || x === null) {
       if (need) fail.push(`${field}: ไม่มีตัวเลข`);
       return undefined;
@@ -139,7 +165,7 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
       fail.push(`${field}: ต้องเป็นจำนวนเต็มมากกว่าศูนย์`);
       return undefined;
     }
-    if (!allowed.has(x)) fail.push(`${field}: ตัวเลข ${x} ไม่อยู่ในโจทย์หรือแผน`);
+    if (!from.has(x)) fail.push(`${field}: ตัวเลข ${x} ${where}`);
     return x;
   };
   const list = (field: string, x: unknown, min: number, max = 4): Record<string, unknown>[] => {
@@ -209,10 +235,14 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
     case "incomestop":
       out = { layout, title, ...opt("monthly", o.monthly), ...opt("months", o.months) };
       break;
-    case "taxback":
+    case "taxback": {
+      // the premium: in a คลิปตามโจทย์ the brief's own number (tax.premiums), never the plan's
+      const premium = num("premium", o.premium, false, tax?.premiums ?? allowed, tax ? "ไม่อยู่ในโจทย์" : undefined);
       // the bracket: one of the tax table's rates that the brief (or the story form) gave; any other is left off
-      out = { layout, title, ...opt("premium", o.premium), ...(isTaxRate(o.bracket) && allowed.has(o.bracket) ? { bracket: o.bracket } : {}) };
+      const rates = tax?.rates ?? allowed;
+      out = { layout, title, ...(premium !== undefined ? { premium } : {}), ...(isTaxRate(o.bracket) && rates.has(o.bracket) ? { bracket: o.bracket } : {}) };
       break;
+    }
     case "taxcap":
       out = { layout, title };
       break;
@@ -235,8 +265,9 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
 export function checkScript(scenes: PromptScene[], brief: string, figure?: StoryFigure): { scene: number; reasons: string[] }[] {
   const allowed = allowedFor(brief, figure);
   const forDevice = deviceAllowed(brief, figure);
+  const tax = briefTax(brief);
   return scenes.flatMap((s, scene) => {
-    const reasons = checkScene(s, allowed, forDevice);
+    const reasons = checkScene(s, allowed, forDevice, tax);
     return reasons.length ? [{ scene, reasons }] : [];
   });
 }

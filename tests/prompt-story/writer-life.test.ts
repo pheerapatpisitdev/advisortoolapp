@@ -7,6 +7,8 @@ import { pictureScenes, promptPicturesPrice, type DeviceScene } from "@/lib/prom
 import { FORBIDDEN } from "@/lib/quote-video/brief";
 import { LIFE_LAYOUTS, type LifeLayout, type LifeShow } from "@/lib/quote-video/story-knowledge";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
+import { storyFigure } from "@/lib/quote-video/story";
+import { STORY_PLANS } from "@/lib/story/plans";
 
 /**
  * The ชีวิต ภาษี มรดก devices in คลิปตามโจทย์ (device round 2, Task 6): the writer offers them with their
@@ -118,6 +120,44 @@ describe("writeStory with the ชีวิต ภาษี มรดก devices"
     expect(odd.scenes[0].device).toEqual({ layout: "taxback", title: GOOD.taxback.title, premium: 60_000 });
   });
 
+  // final review: the plan's age (20/25/30/35 are table rates) never picks the client's bracket
+  const AGE_30 = { plan: "ISHIELD", variant: "x", sex: "F", age: 30, sumAssured: 1_000_000, annual: 20_000, monthly: 1_800 } as never;
+  const TAX_BRIEF = "จ่ายค่าประกันชีวิตปีละ 60,000 บาท อยากรู้ว่าลดหย่อนภาษีได้เท่าไร";
+  const withFigure = async (device: unknown, brief: string) => {
+    const r = await writeStory({ brief, scenes: 3, figure: AGE_30, ask: vi.fn().mockResolvedValue(reply([sc({ device }), sc(), sc()])) });
+    if (!r.ok) throw new Error("not ok");
+    return r.scenes[0].device;
+  };
+
+  it("taxback's bracket never comes from the plan figure: the plan's age 30 is no rate the brief states", async () => {
+    const device = { layout: "taxback", title: ["ลดหย่อนภาษี", "ได้คืนเท่าไหร่"], premium: 60_000, bracket: 30 };
+    expect(await withFigure(device, TAX_BRIEF)).toEqual({ layout: "taxback", title: device.title, premium: 60_000 });
+    // a bare 30 (years) is no rate either
+    expect(await withFigure(device, `${TAX_BRIEF} ส่งมา 30 ปี`)).toEqual({ layout: "taxback", title: device.title, premium: 60_000 });
+    // written as a percent, it is the client's
+    expect(await withFigure(device, `${TAX_BRIEF} ฐานภาษี 30%`)).toEqual(device);
+    expect(await withFigure(device, `${TAX_BRIEF} ฐานภาษี 30 เปอร์เซ็นต์`)).toEqual(device);
+  });
+
+  it("taxback's premium is the brief's own number, never the plan's annual premium", async () => {
+    const fromPlan = { layout: "taxback", title: ["ลดหย่อนภาษี", "ได้คืนเท่าไหร่"], premium: 20_000 };
+    // the plan's 20,000 (an iShield may not count as life insurance): the device is dropped, the scene painted
+    expect(await withFigure(fromPlan, TAX_BRIEF)).toBeUndefined();
+    expect(await withFigure({ ...fromPlan, premium: 60_000 }, TAX_BRIEF)).toEqual({ ...fromPlan, premium: 60_000 });
+    // the same through checkedPromptStory with a real priced iShield: its annual premium dropped there too
+    const plan = STORY_PLANS.find((p) => p.code === "ISHIELD")!;
+    const figure = { plan: "ISHIELD", variant: plan.terms[0].variant, sex: "F", age: 30, sumAssured: 1_000_000 };
+    const f = storyFigure(figure);
+    if (typeof f === "string") throw new Error(f);
+    const form = checkedPromptStory({
+      draftId: "5853e0d0-6fbf-4a38-91d5-474b108a4905", brief: TAX_BRIEF, title: "t", caption: "c", style: "paper", painter: "standard", figure,
+      scenes: [sc({ device: { ...fromPlan, premium: f.annual } }), sc({ device: { ...fromPlan, premium: 60_000, bracket: 30 } }), sc()],
+    }, "F");
+    if (typeof form === "string") throw new Error(form);
+    expect(form.scenes[0].device).toBeUndefined();
+    expect(form.scenes[1].device).toEqual({ ...fromPlan, premium: 60_000 });
+  });
+
   it("taxcap takes no figures: any it is given is left off", async () => {
     const r = await write([sc({ device: { ...GOOD.taxcap, cap: 100_000, rows: [1, 2] } }), sc(), sc()]);
     expect(r.scenes[0].device).toEqual(GOOD.taxcap);
@@ -143,7 +183,9 @@ describe("the system prompt for the ชีวิต ภาษี มรดก de
   it("says where each new device's figures come from, and that the system computes the rest", async () => {
     const system = await systemOf();
     expect(system).toContain("- taxcap: ไม่มีช่องตัวเลข ระบบวาดตารางเพดานลดหย่อนตามเกณฑ์กรมสรรพากรเอง");
-    expect(system).toContain("- taxback: ใส่ bracket ได้เฉพาะเมื่อโจทย์บอกอัตราภาษีของลูกค้า และต้องเป็นอัตราตามโจทย์ ถ้าโจทย์ไม่บอกให้ละ bracket");
+    expect(system).toContain("- taxback: ใส่ bracket ได้เฉพาะเมื่อโจทย์บอกอัตราภาษีของลูกค้าเป็นเปอร์เซ็นต์ และต้องเป็นอัตราตามโจทย์ ถ้าโจทย์ไม่บอกให้ละ bracket");
+    expect(system).toContain("- taxback: premium ต้องเป็นค่าประกันชีวิตต่อปีที่เขียนไว้ในโจทย์เท่านั้น ห้ามใช้ตัวเลขแผน ถ้าโจทย์ไม่บอกให้ละ premium");
+    expect(system).toContain("- taxback และ taxcap: คำในอุปกรณ์ห้ามมีตัวเลข ยกเว้นปีภาษี ระบบวาดเพดาน อัตรา และยอดที่ได้คืนเอง");
     expect(system).toContain("- ห้ามเขียนยอดที่ระบบคิดเอง ทั้งในช่องตัวเลขและในคำของอุปกรณ์: ยอดรวม ทุนที่ขาด รายได้ที่หาย ภาษีที่ได้คืน เงินที่เหลือ");
     expect(system).toContain("- คำที่เขียนในอุปกรณ์ทุกตัวห้ามมีคำต้องห้ามข้างบน แม้ระบบจะวาดคำอย่าง เบี้ยปีละ หรือ % บนอุปกรณ์เอง ให้ใช้ ค่าประกัน แทน เบี้ย");
     // the words the model may write in the new devices' fields
@@ -159,6 +201,10 @@ describe("the system prompt for the ชีวิต ภาษี มรดก de
     const lines = system.split("\n").filter((l) => LIFE_LAYOUTS.some((k) => l.startsWith(`- ${k} (`)));
     expect(lines).toHaveLength(8);
     for (const l of lines) for (const x of FORBIDDEN) expect(x.re.test(l), `${x.why}: ${l}`).toBe(false);
+  });
+
+  it("names beneficiaries and moneysplit parts by relationship only, never a person's name", async () => {
+    expect(await systemOf()).toContain("- beneficiary และ moneysplit: ชื่อผู้รับ (name) และชื่อส่วน (label) ใช้คำเรียกความสัมพันธ์เท่านั้น เช่น ภรรยา ลูกคนโต พ่อ แม่ ห้ามใช้ชื่อคน");
   });
 
   it("shows the brief's tax rate among the figures a device may use", async () => {

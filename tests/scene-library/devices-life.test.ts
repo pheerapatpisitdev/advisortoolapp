@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDevice, checkScript, deviceAllowed } from "@/lib/prompt-story/check";
+import { briefRates, briefTax, checkDevice, checkScript, deviceAllowed } from "@/lib/prompt-story/check";
 import { DEVICES, deviceInfo } from "@/lib/scene-library/devices";
 import { TAX_CAPS, TAX_FOOT, TAX_RATES, TAX_YEAR } from "@/lib/scene-library/tax-th";
 import {
@@ -226,6 +226,32 @@ describe("checkDevice: number sourcing for the new devices", () => {
     expect(checkDevice(device, new Set([...deviceAllowed("ค่าประกัน 50,000 ต่อปี"), 20]))).toEqual(device);
     expect(checkScript([scene], "ค่าประกัน 50,000 ต่อปี ฐานภาษี 20%")).toEqual([]);
   });
+  it("briefRates: the table's rates the brief writes as a percent, nothing else", () => {
+    expect([...briefRates("ฐานภาษี 30%")]).toEqual([30]);
+    expect([...briefRates("ฐานภาษี 30 %")]).toEqual([30]);
+    expect([...briefRates("ฐานภาษี 30 เปอร์เซ็นต์")]).toEqual([30]);
+    expect([...briefRates("ส่งมา 30 ปี อายุ 25")]).toEqual([]);
+    // not a table rate, or a percent inside a bigger number
+    expect([...briefRates("ฐานภาษี 12% โต 1,030%")]).toEqual([]);
+  });
+  it("taxback in a คลิปตามโจทย์ (briefTax): bracket and premium from the brief's own words, never the plan's", () => {
+    const brief = "จ่ายค่าประกันชีวิตปีละ 60,000 บาท อยากรู้ว่าลดหย่อนภาษีได้เท่าไร";
+    const plan = { age: 30, sumAssured: 1_000_000, annual: 20_000, monthly: 1_800 };
+    const device = { layout: "taxback" as const, title: T, premium: 60_000, bracket: 30 };
+    // the verified case: the plan's age 30 is in deviceAllowed, so without briefTax the AI's 30 would stay
+    expect(checkDevice(device, deviceAllowed(brief, plan))).toEqual(device);
+    expect(checkDevice(device, deviceAllowed(brief, plan), briefTax(brief))).toEqual({ layout: "taxback", title: T, premium: 60_000 });
+    expect(checkDevice(device, deviceAllowed(`${brief} ฐานภาษี 30%`, plan), briefTax(`${brief} ฐานภาษี 30%`))).toEqual(device);
+    expect(checkDevice(device, deviceAllowed(`${brief} ฐานภาษี 30 เปอร์เซ็นต์`, plan), briefTax(`${brief} ฐานภาษี 30 เปอร์เซ็นต์`))).toEqual(device);
+    expect(checkDevice(device, deviceAllowed(`${brief} 30 ปี`, plan), briefTax(`${brief} 30 ปี`))).toEqual({ layout: "taxback", title: T, premium: 60_000 });
+    // the plan's annual premium is no life premium the brief gives: a reason, the device dropped
+    expect(checkDevice({ ...device, premium: 20_000 }, deviceAllowed(brief, plan), briefTax(brief))).toBe("premium: ตัวเลข 20000 ไม่อยู่ในโจทย์");
+    // checkScript (the server's and make's check) uses briefTax
+    const scene: PromptScene = { voice: "ลดหย่อนภาษีได้", screen: "ภาษีที่ได้คืน", picture: "เอกสารภาษี", device: { ...device, premium: 20_000 } };
+    expect(checkScript([scene], brief, { plan: "ISHIELD", variant: "x", sex: "F", ...plan } as never)[0]?.reasons.join(" ")).toContain("premium");
+    // the story path (no briefTax) is unchanged: its chip rate and typed premium in allowed
+    expect(checkDevice({ ...device, premium: 20_000 }, new Set([20_000, 30]))).toEqual({ ...device, premium: 20_000 });
+  });
   it("taxback's words never carry a refund the AI worked out", () => {
     const allowed = deviceAllowed("ค่าประกัน 50,000 ต่อปี");
     for (const refund of ["15,000", "25,000", "7,500", "10,000"]) {
@@ -235,13 +261,17 @@ describe("checkDevice: number sourcing for the new devices", () => {
     }
     const scene: PromptScene = { voice: "ลดหย่อนภาษีได้", screen: "ภาษีที่ได้คืน", picture: "เอกสารภาษี", device: { layout: "taxback", title: ["จ่าย 50,000", "ได้คืน 15,000"], premium: 50_000 } };
     expect(checkScript([scene], "ค่าประกัน 50,000 ต่อปี")[0]?.reasons.join(" ")).toContain("device");
-    // the year, the life cap and the bracket thresholds may still be named
-    for (const title of [[TAX_YEAR, ""], ["ลดหย่อนได้", "ไม่เกิน 100,000"], ["เงินได้สุทธิ", "เกิน 1,000,000"]]) {
-      expect(checkDevice({ layout: "taxback", title }, new Set()), title.join(" ")).toEqual({ layout: "taxback", title });
+    // the year alone may be named: no cap, threshold or rate, even one the brief gives
+    expect(checkDevice({ layout: "taxback", title: [TAX_YEAR, ""] }, new Set())).toEqual({ layout: "taxback", title: [TAX_YEAR, ""] });
+    for (const title of [["ลดหย่อนได้", "ไม่เกิน 100,000"], ["เงินได้สุทธิ", "เกิน 1,000,000"], ["ได้คืนสูงสุด 100,000", ""], ["ฐานภาษี 20", ""]]) {
+      expect(checkDevice({ layout: "taxback", title }, new Set([100_000, 1_000_000, 20])), title.join(" ")).toContain("title");
     }
   });
-  it("taxcap: no figure of its own; its words may name the table's", () => {
-    expect(checkDevice({ layout: "taxcap", title: ["ลดหย่อนได้", "สูงสุด 100,000"], cap: 5 }, new Set())).toEqual({ layout: "taxcap", title: ["ลดหย่อนได้", "สูงสุด 100,000"] });
+  it("taxcap: no figure of its own; its words carry the year alone", () => {
+    expect(checkDevice({ layout: "taxcap", title: ["เพดานลดหย่อน", TAX_YEAR], cap: 5 }, new Set())).toEqual({ layout: "taxcap", title: ["เพดานลดหย่อน", TAX_YEAR] });
+    for (const title of [["ลดหย่อนได้", "สูงสุด 100,000"], ["ได้คืน 15,000", ""], ["สุขภาพ 25,000", ""]]) {
+      expect(checkDevice({ layout: "taxcap", title }, new Set([100_000, 15_000, 25_000])), title.join(" ")).toContain("title");
+    }
     expect(checkDevice({ layout: "taxback", title: [TAX_YEAR, ""] }, new Set())).toEqual({ layout: "taxback", title: [TAX_YEAR, ""] });
     // the table's figures are a tax device's only: elsewhere 100,000 must be in the brief
     expect(typeof checkDevice({ layout: "threegen", title: ["ส่งต่อ", "100,000"], rows: ["ก", "ข", "ค"] }, new Set())).toBe("string");

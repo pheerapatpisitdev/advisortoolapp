@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { deviceFields, keptRewrite, missingPicture, needPictureWords, rewritesLeft, sceneKind, scenePart, setDeviceWord, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
 import { REWRITES_DONE, REWRITES_PER_DRAFT, SCREEN_MAX, TITLE_MAX, type DeviceScene, type PromptScene } from "@/lib/prompt-story/types";
+import type { TaxSources } from "@/lib/prompt-story/check";
 import { rewritePromptScene } from "./actions";
 
 /**
@@ -39,13 +40,15 @@ export interface Draft {
 /** a library part the agent may pick: an approved upload's id and name */
 export interface LibraryPart { id: string; name: string }
 
-export function ScriptEditor({ draft, notes, onChange, forDevice, assets = [], startAsset }: {
+export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = [], startAsset }: {
   draft: Draft;
   /** scenes (from 0) the writer had to make plain: the agent is told */
   notes: number[];
   onChange: (next: Draft) => void;
   /** the figures a device may show: deviceAllowed of the brief and plan the script was written from */
   forDevice: Set<number>;
+  /** a taxback's bracket and premium: briefTax of the brief the script was written from (the page always gives it) */
+  tax?: TaxSources;
   /** the library's approved parts (the page's list); none when the library cannot be read */
   assets?: LibraryPart[];
   /** the part a library link named (?asset=): first in the row when it is in the list */
@@ -62,12 +65,12 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, assets = [], s
   useEffect(() => { latest.current = draft; });
 
   const left = draft.left ?? REWRITES_PER_DRAFT;
-  const kinds = draft.scenes.map((s) => sceneKind(s, forDevice));
+  const kinds = draft.scenes.map((s) => sceneKind(s, forDevice, tax));
   const devices = kinds.filter((k) => k.kind === "device").length;
   const fromLibrary = kinds.filter((k) => k.kind === "asset").length;
   const linked = assets.find((p) => p.id === startAsset);
   const parts = linked ? [linked, ...assets.filter((p) => p !== linked)] : assets;
-  const missing = missingPicture(draft.scenes, forDevice);
+  const missing = missingPicture(draft.scenes, forDevice, tax);
 
   const setScene = (i: number, patch: Partial<PromptScene>) =>
     onChange({ ...draft, scenes: draft.scenes.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
