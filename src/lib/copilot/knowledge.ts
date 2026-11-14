@@ -7,6 +7,7 @@ import { pricedHere } from "./price";
 import { PENSION_LABEL, pensionNamedIn } from "./pension-price";
 import { CI123_LABEL, ci123NamedIn } from "./ci123-price";
 import { CANCER_LABEL, cancerNamedIn } from "./cancer-price";
+import { PA_LABEL, paNamedIn, paSection } from "./pa-price";
 import { getBundle } from "@/calc/bundles/registry";
 import { bundleAgeRange } from "@/calc/bundles/quote";
 import {
@@ -467,7 +468,7 @@ export async function assembleKnowledge(
      * by hand and forbid quoting any other — which outranked everything below it, so fixing
      * the per-plan lines alone would have left the assistant refusing anyway.
      */
-    `**สำคัญ:** แชทนี้คิดเบี้ยให้ได้เฉพาะแบบเหล่านี้: ${priceableNames().join(", ")}, ${PENSION_LABEL}, ${CI123_LABEL} (แบบชุดคู่ Life Protect x 2), ${CANCER_LABEL} (แพ็กเกจมะเร็ง หน้า /cancer) และ iHealthy Ultra`,
+    `**สำคัญ:** แชทนี้คิดเบี้ยให้ได้เฉพาะแบบเหล่านี้: ${priceableNames().join(", ")}, ${PENSION_LABEL}, ${CI123_LABEL} (แบบชุดคู่ Life Protect x 2), ${CANCER_LABEL} (แพ็กเกจมะเร็ง หน้า /cancer), ${PA_LABEL} ทั้ง 3 แบบ และ iHealthy Ultra`,
     "แบบที่ไม่อยู่ในรายการนี้ ตอบได้แต่เรื่องเงื่อนไข ห้ามเสนอว่าจะคิดเบี้ยให้",
     "",
     plans,
@@ -476,6 +477,8 @@ export async function assembleKnowledge(
     ...(question === "" || pensionNamedIn(question) ? ["", PENSION_SECTION] : []),
     ...(question === "" || ci123NamedIn(question) ? ["", CI123_SECTION] : []),
     ...(question === "" || cancerNamedIn(question) ? ["", cancerSection()] : []),
+    // PA, by name like the cancer set: its prices are answered without a model, its rules here
+    ...(question === "" || paNamedIn(question) ? ["", paSection()] : []),
     // fetched by name like the three above; it is the company's Q&A sheet and runs to 7,000
     // characters an iHealthy question would carry for nothing
     ...(question === "" || open.lifeProtect || lifeProtectNamedIn(question) ? ["", lifeProtectQaSection()] : []),

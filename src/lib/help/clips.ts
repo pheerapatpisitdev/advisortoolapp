@@ -29,6 +29,12 @@ export const HELP_GROUPS: { title: string; clips: HelpClip[] }[] = [
     ],
   },
   {
+    title: "ตั้งค่าส่วนตัว",
+    clips: [
+      { id: "share-text", title: "เขียนข้อความส่งให้ลูกค้าเอง", about: "ร่างตามสไตล์คุณ ให้ AI จัดเรียง ระบบเติมตัวเลขจริงให้", seconds: 96, go: { href: "/studio/settings", label: "ไปหน้า ตั้งค่าส่วนตัว" } },
+    ],
+  },
+  {
     title: "Studio",
     clips: [
       { id: "quote-video", title: "ทำวิดีโอนำเสนอแบบประกัน", about: "5 ขั้น จากเลือกแบบจนได้คลิปส่งลูกค้า", seconds: 108, go: { href: "/studio/quote-video", label: "ไปหน้า วิดีโอนำเสนอ" } },

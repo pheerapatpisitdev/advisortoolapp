@@ -37,7 +37,7 @@ describe("every place the menu says you can go", () => {
     // find from inside their own tool
     const onDisk = [
       "lifeprotect", "legacy", "plb", "easyprotect", "lifetreasure", "ishield", "ihealthy-ultra",
-      "ihealthy-ultra/compare", "group-insurance", "bumnan95", "ci123", "cancer", "fhc", "global-saving", "survey",
+      "ihealthy-ultra/compare", "group-insurance", "bumnan95", "ci123", "cancer", "fhc", "global-saving", "survey", "pa", "tax",
     ];
     expect(SALES_PAGES.map((p) => p.href).sort()).toEqual(onDisk.map((s) => `/${s}`).sort());
   });
@@ -66,7 +66,7 @@ describe("every place the menu says you can go", () => {
   it("deals the sales pages into the kinds of cover, losing none", () => {
     // the planner comes first: it is the page for a customer who does not yet know which kind
     expect(SALES_SECTIONS.map((s) => s.title))
-      .toEqual(["วางแผนประกัน", "ประกันชีวิต", "ประกันออมทรัพย์", "ประกันโรคร้ายแรง", "ประกันสุขภาพ", "ประกันบำนาญ", "ประกันกลุ่ม"]);
+      .toEqual(["วางแผนประกัน", "ประกันชีวิต", "ประกันออมทรัพย์", "ประกันโรคร้ายแรง", "ประกันสุขภาพ", "ประกันอุบัติเหตุ", "ประกันบำนาญ", "ประกันกลุ่ม", "วางแผนภาษี"]);
     expect(SALES_SECTIONS.flatMap((s) => s.links)).toEqual(SALES_PAGES);
     // and no page is filed under two kinds at once
     expect(new Set(SALES_PAGES.map((p) => p.href)).size).toBe(SALES_PAGES.length);
@@ -80,8 +80,9 @@ describe("every place the menu says you can go", () => {
    */
   it("names every sales page in English, under headings that stay Thai", () => {
     const THAI = /[\u0E00-\u0E7F]/;
-    // สำรวจความคุ้มครอง (2026-10-22) keeps the Thai the owner gave it
-    for (const page of SALES_PAGES.filter((p) => p.href !== "/survey")) {
+    // สำรวจความคุ้มครอง (2026-10-22) keeps the Thai the owner gave it; คำนวณภาษี 2569
+    // (2026-11-14) is not a plan with an English name of the company's, and is Thai as approved
+    for (const page of SALES_PAGES.filter((p) => p.href !== "/survey" && p.href !== "/tax")) {
       expect(page.label, page.href).not.toMatch(THAI);
     }
     for (const section of SALES_SECTIONS) {

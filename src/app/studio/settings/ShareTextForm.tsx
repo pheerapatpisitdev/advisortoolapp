@@ -2,6 +2,7 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { FormError } from "@/components/auth/fields";
 import { MUTE } from "@/components/auth/styles";
+import { HelpLink } from "@/components/help/HelpLink";
 import type { SharePlan } from "@/lib/share-text/plans";
 import { DRAFT_MAX, SLOT } from "@/lib/share-text/template";
 import { arrangeMyShareText, putMyShareTextToUse } from "./share-actions";
@@ -103,6 +104,7 @@ export function ShareTextForm({ plans, initial, left: leftAtFirst, locked }: {
         <p className={`mt-1 text-sm ${MUTE}`}>
           เขียนข้อความตามสไตล์ของคุณ แล้วให้ AI จัดเรียง ระบบจะเติมตัวเลขจริงของแต่ละใบเสนอราคาให้เองทุกครั้งที่กด “ส่งให้ลูกค้า” หรือ “คัดลอก” ในหน้าคำนวณ มีผลกับคุณคนเดียว
         </p>
+        <p className="mt-1.5"><HelpLink clip="share-text">ดูคลิปวิธีใช้</HelpLink></p>
       </div>
 
       <div className="grid gap-1">

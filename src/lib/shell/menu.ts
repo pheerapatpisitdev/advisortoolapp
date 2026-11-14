@@ -189,6 +189,14 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     ],
   },
   {
+    // Krungthai-AXA's PA, its own heading after health (owner, 2026-11-14, ก): an accident
+    // cover is asked for as such, not as a hospital bill
+    title: "ประกันอุบัติเหตุ",
+    links: [
+      { href: "/pa", label: "PA", icon: "umbrella", hue: "#2b5a73" },
+    ],
+  },
+  {
     // its own kind: bought for an income after work stops, which none of the three above is
     title: "ประกันบำนาญ",
     links: [
@@ -200,6 +208,14 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     title: "ประกันกลุ่ม",
     links: [
       { href: "/group-insurance", label: "Group Insurance", icon: "building", hue: "#8a335e" },
+    ],
+  },
+  {
+    // not a plan: the tax estimate an agent opens before any of them, since what is left of a
+    // customer's deductions is the reason for half the plans above (owner, 2026-11-14, ก ก ก ก)
+    title: "วางแผนภาษี",
+    links: [
+      { href: "/tax", label: "คำนวณภาษี 2569", icon: "calc", hue: "#2b6a5a" },
     ],
   },
 ];
