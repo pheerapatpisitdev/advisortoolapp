@@ -106,6 +106,8 @@ export const LIFE_WORDS = {
   years: "ปี",
   education: "ค่าการศึกษาลูก",
   need: "ควรมีทุนรวม",
+  /** lifeneed's card when some inputs are missing: the sum of what was typed, not the whole need */
+  partial: "รวมที่กรอกไว้",
   have: "มีอยู่แล้ว",
   gap: "ขาดอีก",
   enough: "ทุนที่มีพอแล้ว",

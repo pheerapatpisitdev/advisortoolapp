@@ -8,7 +8,7 @@ import { familyFaces } from "./story-family";
 import { healthBody, healthSpec } from "./story-health-motion";
 import { isDevice, knowEpisode, partnerFace, type Kin, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine, type PicIcon } from "./story-knowledge";
 import type { PoseName } from "@/lib/story/figure";
-import { lifeSpec } from "./story-life-motion";
+import { lifeBody, lifeSpec } from "./story-life-motion";
 import { Contact, contactSpec, fitHand, line, LineTitle, minimal, paper, paperInk, PaperTitle, Pic, whole, type StoryContext } from "./story-motion";
 import { LEAD, SIZES, TAIL, XFADE, type VideoSize } from "./timeline";
 
@@ -115,6 +115,9 @@ const GEO: Record<VideoSize, Geo> = {
     dev: { x: 240, y: 230, w: 1440, h: 580 },
   },
 };
+
+/** where each layout stands in a shape of clip (the round-2 devices' geometry helpers, and their tests, read it) */
+export const geoOf = (size: VideoSize): Geo => GEO[size];
 
 /** the few things a scene shows, in the order they come in (อินโฟกราฟิก moves on the same beats) */
 export function kspec(show: KnowShow): Record<string, Anim> {
@@ -565,6 +568,8 @@ export function showBody(show: KnowShow, c: StoryContext, t: number) {
     }
     case "split": case "limit": case "room": case "overflow": case "waiting": case "cashless": case "groupgap": case "agecost":
       return healthBody(show, { c, t, s, g, w, ink });
+    case "lifeneed": case "beneficiary": case "cilump": case "incomestop": case "taxback": case "taxcap": case "moneysplit": case "threegen":
+      return lifeBody(show, { c, t, s, g, w, ink });
   }
 }
 
