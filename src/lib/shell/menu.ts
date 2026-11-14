@@ -189,6 +189,14 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     ],
   },
   {
+    // Krungthai-AXA's PA, its own heading after health (owner, 2026-11-14, ก): an accident
+    // cover is asked for as such, not as a hospital bill
+    title: "ประกันอุบัติเหตุ",
+    links: [
+      { href: "/pa", label: "PA", icon: "umbrella", hue: "#2b5a73" },
+    ],
+  },
+  {
     // its own kind: bought for an income after work stops, which none of the three above is
     title: "ประกันบำนาญ",
     links: [
