@@ -21,6 +21,7 @@ import { DEFAULT_FIGURE, FigurePicker, type FigureChoice } from "./FigurePicker"
 import { LookStep, type Look } from "./LookStep";
 import { geminiVoice } from "@/lib/voice/gemini";
 import { ScriptEditor, type Draft } from "./ScriptEditor";
+import type { PromptStart } from "@/lib/scene-library/links";
 
 /**
  * คลิปตามโจทย์ (owner, 2026-10-16, mockup https://claude.ai/artifact/4SfQNZjNuNR86jKo83D4Bn): the
@@ -60,22 +61,24 @@ interface Written {
   nums: FigureNums | null;
 }
 
-export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
+export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven, start }: {
   initial: VideoItem[] | null;
   cost: CostView | null;
   prices: Prices;
   quota: VoiceQuota | null;
   pages: { id: string; name: string }[];
   eleven: ElevenChoice[];
+  /** คลังแอนิเมชัน's link: the format and style to open on (links.ts has checked them); neither is remembered in this browser, so nothing restored overrides them */
+  start?: PromptStart;
 }) {
   const [brief, setBrief] = useState("");
   const [scenes, setScenes] = useState<SceneCount>(5);
-  const [style, setStyle] = useState<PictureStyle>("paper");
+  const [style, setStyle] = useState<PictureStyle>(start?.style ?? "paper");
   const [painter, setPainter] = useState<PromptStoryInput["painter"]>("standard");
   const [withFigure, setWithFigure] = useState(false);
   const [figure, setFigure] = useState<FigureChoice>(DEFAULT_FIGURE);
   const [premium, setPremium] = useState<{ annual: number; monthly: number } | null>(null);
-  const [format, setFormat] = useState<PromptFormat>("free");
+  const [format, setFormat] = useState<PromptFormat>(start?.format ?? "free");
   const [look, setLook] = useState<Look>(DEFAULT_LOOK);
   const [face, setFace] = useState(DEFAULT_NARRATOR_FACE);
   const [customer, setCustomer] = useState("");

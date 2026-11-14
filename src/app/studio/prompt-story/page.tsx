@@ -11,6 +11,7 @@ import { walletPrices } from "@/lib/wallet/store";
 import { myCost, myVideos, voiceQuota } from "../quote-video/actions";
 import { PromptStoryBoard } from "./PromptStoryBoard";
 import { ToolLogo } from "@/components/shell/ToolLogo";
+import { promptStartFrom } from "@/lib/scene-library/links";
 
 export const dynamic = "force-dynamic";
 // a clip is drawn after the request is answered (after()), inside this page's time
@@ -27,7 +28,7 @@ export const metadata = {
  * since 2026-10-17; anyone else who opens the address is told it is closed (owner chose ก, mockup
  * https://claude.ai/artifact/LcRWfmRo4opwx7mymfd7fM).
  */
-export default async function PromptStoryPage() {
+export default async function PromptStoryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await gatePage("/studio/prompt-story");
   if (!mayPromptStory(viewer)) {
     return (
@@ -47,6 +48,8 @@ export default async function PromptStoryPage() {
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));
   const eleven = keyed ? ELEVEN_VOICES : [];
   const [cost, prices, quota] = await Promise.all([myCost(), walletPrices(), voiceQuota()]);
+  // คลังแอนิเมชัน's "ใช้แบบนี้": the format and style the link asked for (spec 2026-11-14)
+  const start = promptStartFrom(await searchParams);
   const initial = await myVideos("prompt").catch((e) => {
     console.error("prompt story videos not read:", e);
     return null;
@@ -58,7 +61,7 @@ export default async function PromptStoryPage() {
         พิมพ์โจทย์ของลูกค้าเอง AI เขียนบทให้ฟรี แก้ได้ทุกช่อง แล้วค่อยสร้างเป็นคลิปพร้อมรูป เสียง และการ์ดตัวแทนท้ายคลิป
       </p>
       <ClosedNotice viewer={viewer} feature="prompt-story" />
-      <PromptStoryBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} />
+      <PromptStoryBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} start={start} />
     </div>
   );
 }

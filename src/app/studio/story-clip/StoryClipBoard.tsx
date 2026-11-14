@@ -22,6 +22,7 @@ import { ClipList } from "../quote-video/ClipList";
 import { costLine, SizePicker, Step } from "../quote-video/QuoteVideoBoard";
 import { geminiOf, VoicePicker } from "../quote-video/VoicePicker";
 import { GEMINI_DEFAULT, geminiVoice } from "@/lib/voice/gemini";
+import { startLook, type StoryStart } from "@/lib/scene-library/links";
 
 /**
  * คลิปเล่าเรื่อง's form (owner, 2026-10-15, mockup https://claude.ai/artifact/FmDZmdTf6Mwgb2Dza8hQtM):
@@ -299,19 +300,24 @@ function PaperPreview({ title, hero, crowd, size, pose, ink }: { title: string; 
   );
 }
 
-export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
+export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven, start }: {
   initial: VideoItem[] | null;
   cost: CostView | null;
   prices: Prices;
   quota: VoiceQuota | null;
   pages: { id: string; name: string }[];
   eleven: ElevenChoice[];
+  /** คลังแอนิเมชัน's link: the topic and look to open on (links.ts has checked them) */
+  start?: StoryStart;
 }) {
+  // a linked topic held to one plan opens on it, as picking it would (pickTopic)
+  const firstTopic = topicOf(start?.topic ?? "pool48")!;
+  const firstPlan: StoryPlan = firstTopic.plans && !firstTopic.plans.includes("ISHIELD") ? firstTopic.plans[0] : "ISHIELD";
   const [narratorFace, setNarratorFace] = useState(DEFAULT_NARRATOR_FACE);
   const [heroSex, setHeroSex] = useState<"M" | "F">("F");
   const [heroFace, setHeroFace] = useState(DEFAULT_HERO_FACE.F);
   const [customer, setCustomer] = useState("");
-  const [topic, setTopic] = useState<StoryTopic>("pool48");
+  const [topic, setTopic] = useState<StoryTopic>(firstTopic.key);
   const info = topicOf(topic)!;
   const knowledge = info.shelf === "knowledge";
   const family = info.shelf === "family";
@@ -350,12 +356,12 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [groupBill, setGroupBill] = useState("300,000");
   const [groupSum, setGroupSum] = useState("50,000");
   const [health, setHealth] = useState<Awaited<ReturnType<typeof previewStoryHealth>> | null>(null);
-  const [plan, setPlan] = useState<StoryPlan>("ISHIELD");
-  const [variant, setVariant] = useState(STORY_DEFAULT_TERM.ISHIELD);
+  const [plan, setPlan] = useState<StoryPlan>(firstPlan);
+  const [variant, setVariant] = useState(STORY_DEFAULT_TERM[firstPlan]);
   const [age, setAge] = useState("35");
   const [sum, setSum] = useState("1,000,000");
   const [figure, setFigure] = useState<{ annual: number; monthly: number } | { error: string } | null>(null);
-  const [look, setLook] = useState<Look>(DEFAULT_LOOK);
+  const [look, setLook] = useState<Look>(start?.look ? { ...DEFAULT_LOOK, art: start.look } : DEFAULT_LOOK);
   const [cast, setCast] = useState<Cast>(DEFAULT_FORM_CAST);
   const [dressing, setDressing] = useState<"hero" | "narrator">("hero");
   const mini = look.art === "minimal";
@@ -375,8 +381,10 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
       if (f && FACES.some((x) => x.id === f)) setNarratorFace(f);
     } catch { /* the default stands */ }
     // a voice no longer listed (the cloned ones, gone 2026-10-17) falls back to Gemini's
+    // a look the library's link asked for wins over the one remembered (not saved until the agent picks)
     const kept = readLook();
-    setLook(eleven.some((v) => v.id === kept.voice) ? kept : { ...kept, voice: "" });
+    const art = startLook(start, kept.art);
+    setLook(eleven.some((v) => v.id === kept.voice) ? { ...kept, art } : { ...kept, art, voice: "" });
     setCast(readCast());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- read once, as the page opens
   }, []);

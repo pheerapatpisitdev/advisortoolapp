@@ -1,4 +1,5 @@
 import { DEVICES } from "./devices";
+import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PROMPT_FORMATS } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
@@ -30,21 +31,7 @@ export interface LibraryItem {
 export const TYPE_NAME: Record<LibraryType, string> = { format: "รูปแบบรายการ", device: "อุปกรณ์ภาพ", look: "สไตล์ภาพ", fx: "ลูกเล่น" };
 export const PRODUCT_NAME: Record<LibraryProduct, string> = { all: "ทุกแผน", health: "ประกันสุขภาพ", life: "ประกันชีวิต", saving: "ออม บำนาญ ลงทุน" };
 
-/** the links into the clip forms; absent params are left out */
-export const storyLibraryHref = (p: { topic?: string; look?: string }): string => {
-  const q = new URLSearchParams();
-  if (p.topic) q.set("topic", p.topic);
-  if (p.look) q.set("look", p.look);
-  const s = q.toString();
-  return `/studio/story-clip${s ? `?${s}` : ""}`;
-};
-export const promptLibraryHref = (p: { format?: string; style?: string }): string => {
-  const q = new URLSearchParams();
-  if (p.format) q.set("format", p.format);
-  if (p.style) q.set("style", p.style);
-  const s = q.toString();
-  return `/studio/prompt-story${s ? `?${s}` : ""}`;
-};
+export { storyLibraryHref, promptLibraryHref } from "./links";
 
 const QUOTE = "/studio/quote-video";
 const useQuote = (label = "ทำคลิปขายแผน"): LibraryUse => ({ tool: "quote-video", label, href: QUOTE });
