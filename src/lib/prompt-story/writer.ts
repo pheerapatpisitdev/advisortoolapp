@@ -2,7 +2,7 @@ import { chat } from "@/lib/ai/client";
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
 import type { HealthLayout } from "@/lib/quote-video/story-knowledge";
-import { DEVICES } from "@/lib/scene-library/devices";
+import { DEVICES, isHealthDevice } from "@/lib/scene-library/devices";
 import { allowedFor, checkDevice, checkScene, checkScript, deviceAllowed, forbiddenForPrompt } from "./check";
 import { SCREEN_MAX, TITLE_MAX, type PromptFormat, type PromptScene, type SceneCount } from "./types";
 
@@ -111,7 +111,8 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     "",
     "อุปกรณ์สุขภาพ: ภาพที่ระบบวาดเองแทนรูป AI ใส่ใน device ของฉากได้ เมื่อฉากนั้นพูดเรื่องที่อุปกรณ์อธิบายได้ ฉากอื่นใส่ device เป็น null",
     `- ใช้อุปกรณ์ได้ไม่เกิน ${deviceMax(count)} ฉาก (ไม่เกินครึ่งหนึ่งของจำนวนฉาก) ฉากที่เหลือเป็นรูป AI`,
-    ...DEVICES.map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
+    // Task 6: the ชีวิต ภาษี มรดก devices join the list with their shapes and sources
+    ...DEVICES.filter(isHealthDevice).map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
     "กฎของอุปกรณ์:",
     "- ตัวเลขในอุปกรณ์เป็นจำนวนเต็มมากกว่าศูนย์ ไม่ใส่จุลภาค และต้องเป็นตัวเลขที่อยู่ในโจทย์หรือตัวเลขแผนเท่านั้น ห้ามคิดตัวเลขเอง",
     nums.length ? `- ตัวเลขที่ใช้ในอุปกรณ์ได้: ${nums.join(", ")}` : "- โจทย์ไม่มีตัวเลข ใช้ได้เฉพาะอุปกรณ์ที่ไม่ต้องมีตัวเลข",

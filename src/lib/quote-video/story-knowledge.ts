@@ -7,6 +7,7 @@ import { familyScenes, FAMILY_CLOSE, type FamilyTopic } from "./story-family";
 import { healthScenes, HEALTH_CLOSE, type HealthTopic } from "./story-health";
 import { lifeScenes, LIFE_CLOSE, type LifeTopic } from "./story-life";
 import { objectionScenes, OBJECTION_CLOSE, type ObjectionTopic } from "./story-objection";
+import { refundAt, TAX_CAPS, TAX_FOOT, TAX_RATES, TAX_YEAR } from "@/lib/scene-library/tax-th";
 
 /**
  * ความรู้ประกัน 1 นาที (owner, 2026-10-15, mockup https://claude.ai/artifact/LUVQ8Pob2DJbBp5petTsNu):
@@ -62,10 +63,117 @@ export type KnowShow =
   | { layout: "waiting"; title: [string, string]; rows: { at: string; label: string }[] }
   | { layout: "cashless"; title: [string, string]; note: string }
   | { layout: "groupgap"; title: [string, string]; bill?: number; group?: number }
-  | { layout: "agecost"; title: [string, string]; rows: { age: number; annual: number }[]; source: string };
+  | { layout: "agecost"; title: [string, string]; rows: { age: number; annual: number }[]; source: string }
+  /*
+   * ชีวิต โรคร้าย ภาษี มรดก devices (round 2): every number an input (typed, the brief, the plan, or the tax
+   * table), each optional so the device has a words-only form; totals, gaps and refunds are computed by the
+   * helpers below, never carried on the show
+   */
+  /** ทุนชีวิตที่ควรมี: debts + expenses a year × years + education, against what is had */
+  | { layout: "lifeneed"; title: [string, string]; debts?: number; expenses?: number; years?: number; education?: number; have?: number }
+  /** ผู้รับประโยชน์: up to four names, shares (percent) all given and totalling 100, or none */
+  | { layout: "beneficiary"; title: [string, string]; rows: { name: string; share?: number }[] }
+  /** เงินก้อนตอนวินิจฉัย: the critical-illness sum, paid as a lump */
+  | { layout: "cilump"; title: [string, string]; sum?: number; note?: string }
+  /** รายได้หยุดระหว่างรักษา: a month's income, the months off */
+  | { layout: "incomestop"; title: [string, string]; monthly?: number; months?: number }
+  /** ภาษีที่ได้คืนตามฐาน: a year's life premium, the agent's bracket (one of TAX_RATES) */
+  | { layout: "taxback"; title: [string, string]; premium?: number; bracket?: number }
+  /** เพดานลดหย่อนรวม: the table's caps, nothing typed */
+  | { layout: "taxcap"; title: [string, string] }
+  /** แบ่งเงินให้คนในบ้าน: a total split into two or three, amounts all given and within the total, or none */
+  | { layout: "moneysplit"; title: [string, string]; total?: number; parts: { label: string; amount?: number }[] }
+  /** ส่งต่อสามรุ่น: three generations, the money passed on */
+  | { layout: "threegen"; title: [string, string]; rows: string[]; note?: string };
 
 export const HEALTH_LAYOUTS = ["split", "limit", "room", "overflow", "waiting", "cashless", "groupgap", "agecost"] as const;
 export type HealthLayout = (typeof HEALTH_LAYOUTS)[number];
+export const LIFE_LAYOUTS = ["lifeneed", "beneficiary", "cilump", "incomestop", "taxback", "taxcap", "moneysplit", "threegen"] as const;
+export type LifeLayout = (typeof LIFE_LAYOUTS)[number];
+/** any system-drawn device: health (round 1) or ชีวิต ภาษี มรดก (round 2) */
+export type DeviceLayout = HealthLayout | LifeLayout;
+export const DEVICE_LAYOUTS: readonly DeviceLayout[] = [...HEALTH_LAYOUTS, ...LIFE_LAYOUTS];
+export type LifeShow<L extends LifeLayout = LifeLayout> = Extract<KnowShow, { layout: L }>;
+
+/**
+ * The words the round-2 devices draw themselves, beside their fields and the tax table's rows (tax-th.ts):
+ * kept here so knowText hands them to the hand font with the rest.
+ */
+export const LIFE_WORDS = {
+  debts: "หนี้คงเหลือ",
+  living: "ค่าใช้จ่ายครอบครัว",
+  perYear: "ต่อปี",
+  years: "ปี",
+  education: "ค่าการศึกษาลูก",
+  need: "ควรมีทุนรวม",
+  have: "มีอยู่แล้ว",
+  gap: "ขาดอีก",
+  enough: "ทุนที่มีพอแล้ว",
+  needWords: "ทุนชีวิตควรครอบคลุมหนี้และค่าใช้จ่ายของครอบครัว",
+  policy: "กรมธรรม์",
+  name: "ระบุชื่อและสัดส่วนในใบคำขอ",
+  certificate: "ใบรับรองแพทย์",
+  lump: "จ่ายเป็นเงินก้อน",
+  diagnosed: "เมื่อแพทย์วินิจฉัยตามเงื่อนไขกรมธรรม์",
+  income: "รายได้",
+  perMonth: "ต่อเดือน",
+  stop: "หยุดรักษา",
+  months: "เดือน",
+  lost: "รายได้หาย",
+  bracket: "ฐานภาษี",
+  back: "ได้คืน",
+  deductible: "ลดหย่อนได้ไม่เกิน",
+  exempt: "ยกเว้น",
+  year: TAX_YEAR,
+  foot: TAX_FOOT,
+  total: "เงินก้อน",
+  left: "เหลือ",
+  pass: "ส่งต่อ",
+  /** the digits and marks the devices draw their figures with */
+  marks: "0123456789,บาท%×=−→()",
+} as const;
+
+/** lifeneed's blocks, each from its inputs: debts, expenses a year × years (both needed), education */
+export interface LifeneedTotals {
+  blocks: { key: "debts" | "living" | "education"; amount: number }[];
+  /** the blocks' sum; none without a block */
+  need?: number;
+  have?: number;
+  /** how far what is had falls short of the need, never below nought; with both only */
+  gap?: number;
+}
+
+/** lifeneed's figures, from its inputs only (a total or gap on the show is never read) */
+export function lifeneedTotals(show: LifeShow<"lifeneed">): LifeneedTotals {
+  const blocks: LifeneedTotals["blocks"] = [];
+  if (show.debts !== undefined) blocks.push({ key: "debts", amount: show.debts });
+  if (show.expenses !== undefined && show.years !== undefined) blocks.push({ key: "living", amount: show.expenses * show.years });
+  if (show.education !== undefined) blocks.push({ key: "education", amount: show.education });
+  const out: LifeneedTotals = { blocks };
+  if (blocks.length) out.need = blocks.reduce((s, b) => s + b.amount, 0);
+  if (show.have !== undefined) out.have = show.have;
+  if (out.need !== undefined && out.have !== undefined) out.gap = Math.max(0, out.need - out.have);
+  return out;
+}
+
+/** incomestop's income lost: a month's income × the months off, with both only */
+export const incomestopLost = (show: LifeShow<"incomestop">): number | undefined =>
+  show.monthly !== undefined && show.months !== undefined ? show.monthly * show.months : undefined;
+
+/** taxback's ladder: each of the table's rates, its refund on the premium (capped, refundAt) when there is one, the agent's rate on */
+export const taxbackLadder = (show: LifeShow<"taxback">): { rate: number; refund?: number; on: boolean }[] =>
+  TAX_RATES.map((rate) => ({ rate, ...(show.premium !== undefined ? { refund: refundAt(show.premium, rate) } : {}), on: rate === show.bracket }));
+
+/** taxback's refund at the agent's own rate, with a premium and a rate only */
+export const taxbackRefund = (show: LifeShow<"taxback">): number | undefined =>
+  show.premium !== undefined && show.bracket !== undefined ? refundAt(show.premium, show.bracket) : undefined;
+
+/** what moneysplit's total keeps once every part has its amount; none when nothing is left or an amount is missing */
+export function moneysplitRemainder(show: LifeShow<"moneysplit">): number | undefined {
+  if (show.total === undefined || !show.parts.length || show.parts.some((p) => p.amount === undefined)) return undefined;
+  const left = show.total - show.parts.reduce((s, p) => s + (p.amount ?? 0), 0);
+  return left > 0 ? left : undefined;
+}
 
 /**
  * The words the health devices draw themselves, beside the fields they are given (story-knowledge-motion.tsx):
@@ -283,6 +391,10 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
 
 /** a health device (scene library): drawn with digits and "บาท", and words of its own (HEALTH_WORDS) */
 export const isHealth = (show: KnowShow): boolean => (HEALTH_LAYOUTS as readonly string[]).includes(show.layout);
+/** a ชีวิต ภาษี มรดก device (round 2): drawn with digits, "บาท" and "%", and words of its own (LIFE_WORDS, the tax table's rows) */
+export const isLife = (show: KnowShow): boolean => (LIFE_LAYOUTS as readonly string[]).includes(show.layout);
+/** any system-drawn device, either round */
+export const isDevice = (show: KnowShow): boolean => isHealth(show) || isLife(show);
 
 /** the words one show puts on screen from its own fields (a device's own words and digits are showText's) */
 function showWords(show: KnowShow): string[] {
@@ -303,20 +415,27 @@ function showWords(show: KnowShow): string[] {
   if (show.layout === "waiting") words.push(...show.rows.flatMap((r) => [r.at, r.label]));
   if (show.layout === "limit" || show.layout === "room") words.push(show.planName);
   if (show.layout === "agecost") words.push(show.source);
+  if (show.layout === "beneficiary") words.push(...show.rows.map((r) => r.name));
+  if (show.layout === "cilump" && show.note) words.push(show.note);
+  if (show.layout === "moneysplit") words.push(...show.parts.map((p) => p.label));
+  if (show.layout === "threegen") words.push(...show.rows, ...(show.note ? [show.note] : []));
   return words;
 }
 
 /** health devices draw their numbers with digits and "บาท", and words of their own */
 const HEALTH_TEXT = ["0123456789,บาท", ...Object.values(HEALTH_WORDS)];
+/** round-2 devices: their own words, and the tax table's rows (taxcap) */
+const LIFE_TEXT = [...Object.values(LIFE_WORDS), ...TAX_CAPS.flatMap((r) => [r.label, r.note ?? ""])];
 
 /** every word one show puts on screen, for the handwriting face: a knowledge scene's, or a คลิปตามโจทย์ device scene's */
 export function showText(show: KnowShow): string {
-  return [...showWords(show), ...(isHealth(show) ? HEALTH_TEXT : [])].join("");
+  return [...showWords(show), ...(isHealth(show) ? HEALTH_TEXT : []), ...(isLife(show) ? LIFE_TEXT : [])].join("");
 }
 
 /** every word an episode puts on screen, for the handwriting face */
 export function knowText(e: KnowEpisode): string {
   const words: string[] = [e.cta, ...e.scenes.flatMap(({ show }) => showWords(show))];
   if (e.scenes.some(({ show }) => isHealth(show))) words.push(...HEALTH_TEXT);
+  if (e.scenes.some(({ show }) => isLife(show))) words.push(...LIFE_TEXT);
   return words.join("");
 }

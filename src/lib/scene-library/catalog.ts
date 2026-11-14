@@ -1,4 +1,4 @@
-import { DEVICES } from "./devices";
+import { DEVICES, isHealthDevice } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
@@ -75,7 +75,8 @@ const DEVICE_TELLS: Record<HealthLayout, string> = {
 };
 /** whether คลิปเล่าเรื่อง keeps this look on this topic: the info-route looks (INFO_ARTS) only on the shelves told in points */
 const lookFits = (topic: StoryTopic, look: string): boolean => !infoArt(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
-const readyDevices: LibraryItem[] = DEVICES.map((d) => {
+// Task 7: the ชีวิต ภาษี มรดก devices become ready (stills, topics); until then their unbuilt entries below stand
+const readyDevices: LibraryItem[] = DEVICES.filter(isHealthDevice).map((d) => {
   const topic = DEVICE_TOPIC[d.key];
   return {
     id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: "health", ready: true,

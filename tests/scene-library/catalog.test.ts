@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LIBRARY, libraryItem, usesFor, storyLibraryHref, promptLibraryHref, TYPE_NAME, PRODUCT_NAME } from "@/lib/scene-library/catalog";
-import { DEVICES } from "@/lib/scene-library/devices";
+import { DEVICES as ALL_DEVICES, isHealthDevice } from "@/lib/scene-library/devices";
 import { PROMPT_FORMATS, PICTURE_STYLES } from "@/lib/prompt-story/types";
 import { SOUNDS, MUSIC_MOODS, joinCues } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
@@ -9,6 +9,8 @@ import type { StoryLook } from "@/lib/scene-library/links";
 import { INFO_SHELVES, topicOf } from "@/lib/story/topics";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+/** the health devices; Task 7 widens these checks to the ชีวิต ภาษี มรดก devices */
+const DEVICES = ALL_DEVICES.filter(isHealthDevice);
 
 const KNOWN = new Set(["topic", "look", "format", "style"]);
 /** every link the catalogue draws: each piece's, and each device look's */

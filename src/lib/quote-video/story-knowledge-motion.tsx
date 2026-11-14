@@ -6,8 +6,9 @@ import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import type { StoryVideoInput } from "./story";
 import { familyFaces } from "./story-family";
 import { healthBody, healthSpec } from "./story-health-motion";
-import { isHealth, knowEpisode, partnerFace, type Kin, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine, type PicIcon } from "./story-knowledge";
+import { isDevice, knowEpisode, partnerFace, type Kin, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine, type PicIcon } from "./story-knowledge";
 import type { PoseName } from "@/lib/story/figure";
+import { lifeSpec } from "./story-life-motion";
 import { Contact, contactSpec, fitHand, line, LineTitle, minimal, paper, paperInk, PaperTitle, Pic, whole, type StoryContext } from "./story-motion";
 import { LEAD, SIZES, TAIL, XFADE, type VideoSize } from "./timeline";
 
@@ -164,6 +165,8 @@ export function kspec(show: KnowShow): Record<string, Anim> {
       };
     case "split": case "limit": case "room": case "overflow": case "waiting": case "cashless": case "groupgap": case "agecost":
       return healthSpec(show);
+    case "lifeneed": case "beneficiary": case "cilump": case "incomestop": case "taxback": case "taxcap": case "moneysplit": case "threegen":
+      return lifeSpec(show);
   }
 }
 
@@ -177,21 +180,21 @@ export function knowWindows(key: KnowSceneKey | "storyContact", input: StoryVide
   return Object.values(spec).map((x) => [x.at, x.at + x.dur]);
 }
 
-/** how long a health device stands whole before the next scene's cross-fade begins */
+/** how long a device stands whole before the next scene's cross-fade begins */
 export const DEVICE_HOLD = 0.8;
 
 /**
- * A health device's silence after the voice: long enough that its whole drawing is on screen and held
+ * A device's silence after the voice: long enough that its whole drawing is on screen and held
  * DEVICE_HOLD before the next scene comes in, however short the voice (a scene runs LEAD + voice + tail,
  * timeline.ts planScenes). Any other show: none, so the scene keeps TAIL as before.
  */
 export function deviceTail(show: KnowShow, voiceSec: number): number | undefined {
-  if (!isHealth(show)) return undefined;
+  if (!isDevice(show)) return undefined;
   const end = Math.max(0, ...Object.values(kspec(show)).map((x) => x.at + x.dur));
   return Math.max(TAIL, end + DEVICE_HOLD + XFADE - LEAD - voiceSec);
 }
 
-/** a knowledge scene's tail: its health device's (deviceTail); none for any other scene or the card */
+/** a knowledge scene's tail: its device's (deviceTail); none for any other scene or the card */
 export function knowTail(key: KnowSceneKey | "storyContact", input: StoryVideoInput, voiceSec: number): number | undefined {
   return key === "storyContact" ? undefined : deviceTail(sceneOf(knowEpisode(input), key), voiceSec);
 }

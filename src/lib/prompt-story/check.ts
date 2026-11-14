@@ -1,7 +1,8 @@
 import { FORBIDDEN, numbersIn } from "@/lib/quote-video/brief";
 import type { StoryFigure } from "@/lib/quote-video/story";
-import type { HealthLayout } from "@/lib/quote-video/story-knowledge";
+import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { deviceInfo } from "@/lib/scene-library/devices";
+import { isTaxRate, TAX_FIGURES } from "@/lib/scene-library/tax-th";
 import { SCREEN_MAX, type DeviceScene, type PromptScene } from "./types";
 
 /**
@@ -92,17 +93,24 @@ function wordReasons(field: string, t: string, allowed: Set<number>): string[] {
 }
 
 /**
- * A scene's health device, as the writer or the agent left it, made fit to draw: only the device's own
- * fields are kept; every word at most SCREEN_MAX and held to the script's rules; a list (parts, rows) at
- * most four; every number a whole number above nought that the brief or the plan gave (deviceAllowed), the
- * figures inside words too. Anything else is the first reason, naming its field.
+ * A scene's device, as the writer or the agent left it, made fit to draw: only the device's own fields are
+ * kept (a total, gap or refund the writer adds is dropped: the drawer computes those); every word at most
+ * SCREEN_MAX and held to the script's rules; a list at most four (moneysplit's parts two or three,
+ * threegen's rows three); every number a whole number above nought that the brief or the plan gave
+ * (deviceAllowed), the figures inside words too, and a tax device's words may also say the tax table's
+ * (TAX_FIGURES). Anything else is the first reason, naming its field: the device is dropped and the scene
+ * painted. Three things are not reasons but drawn without (spec, Review Focus 2): beneficiary shares not all
+ * given or not totalling 100, moneysplit amounts not all given or over the total (or with no total), and a
+ * taxback bracket that is not one of the table's rates.
  */
 export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | string {
   if (!d || typeof d !== "object" || Array.isArray(d)) return "layout: ไม่มีอุปกรณ์";
   const o = d as Record<string, unknown>;
   // the registry (browser-safe) rather than story-knowledge's list, so the page may check a device too
   if (typeof o.layout !== "string" || !deviceInfo(o.layout)) return "layout: ไม่รู้จักอุปกรณ์นี้";
-  const layout = o.layout as HealthLayout;
+  const layout = o.layout as DeviceLayout;
+  // the tax devices' words may name the table's own figures ("ลดหย่อนได้ 100,000"); their numbers may not
+  const wordAllowed = layout === "taxback" || layout === "taxcap" ? new Set([...allowed, ...TAX_FIGURES]) : allowed;
   const fail: string[] = [];
   const word = (field: string, x: unknown, need: boolean): string => {
     if (x === undefined && !need) return "";
@@ -113,7 +121,7 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
     const t = x.replace(/\s+/g, " ").trim();
     if (need && !t) fail.push(`${field}: ว่างอยู่`);
     if ([...t].length > SCREEN_MAX) fail.push(`${field}: ยาวเกิน ${SCREEN_MAX} ตัวอักษร`);
-    fail.push(...wordReasons(field, t, allowed));
+    fail.push(...wordReasons(field, t, wordAllowed));
     return t;
   };
   const num = (field: string, x: unknown, need: boolean): number | undefined => {
@@ -129,9 +137,9 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
     if (!allowed.has(x)) fail.push(`${field}: ตัวเลข ${x} ไม่อยู่ในโจทย์หรือแผน`);
     return x;
   };
-  const list = (field: string, x: unknown, min: number): Record<string, unknown>[] => {
-    if (!Array.isArray(x) || x.length < min || x.length > 4) {
-      fail.push(`${field}: ใส่ได้ ${min}–4 รายการ`);
+  const list = (field: string, x: unknown, min: number, max = 4): Record<string, unknown>[] => {
+    if (!Array.isArray(x) || x.length < min || x.length > max) {
+      fail.push(`${field}: ใส่ได้ ${min === max ? min : `${min}–${max}`} รายการ`);
       return [];
     }
     return x.map((r) => (r && typeof r === "object" && !Array.isArray(r) ? r : { value: r }) as Record<string, unknown>);
@@ -139,6 +147,10 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
   const opt = (field: string, x: unknown) => {
     const n = num(field, x, false);
     return n === undefined ? {} : { [field]: n };
+  };
+  const optWord = (field: string, x: unknown) => {
+    const t = word(field, x, false);
+    return t ? { [field]: t } : {};
   };
 
   const rawTitle = Array.isArray(o.title) && o.title.length >= 1 && o.title.length <= 2 ? o.title : null;
@@ -174,6 +186,40 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
         rows: list("rows", o.rows, 0).map((r) => ({ age: num("rows", r.age, true) ?? 0, annual: num("rows", r.annual, true) ?? 0 })),
         source: word("source", o.source, false),
       };
+      break;
+    case "lifeneed":
+      out = { layout, title, ...opt("debts", o.debts), ...opt("expenses", o.expenses), ...opt("years", o.years), ...opt("education", o.education), ...opt("have", o.have) };
+      break;
+    case "beneficiary": {
+      const rows = list("rows", o.rows, 1).map((r) => ({ name: word("rows", r.name, true), share: num("rows", r.share, false) }));
+      // shares all given and totalling 100, or none drawn
+      const keep = rows.every((r) => r.share !== undefined) && rows.reduce((s, r) => s + (r.share ?? 0), 0) === 100;
+      out = { layout, title, rows: rows.map((r) => (keep ? { name: r.name, share: r.share } : { name: r.name })) };
+      break;
+    }
+    case "cilump":
+      out = { layout, title, ...opt("sum", o.sum), ...optWord("note", o.note) };
+      break;
+    case "incomestop":
+      out = { layout, title, ...opt("monthly", o.monthly), ...opt("months", o.months) };
+      break;
+    case "taxback":
+      // the bracket is the tax table's (one of its rates), not the brief's: any other is left off
+      out = { layout, title, ...opt("premium", o.premium), ...(isTaxRate(o.bracket) ? { bracket: o.bracket } : {}) };
+      break;
+    case "taxcap":
+      out = { layout, title };
+      break;
+    case "moneysplit": {
+      const total = num("total", o.total, false);
+      const parts = list("parts", o.parts, 2, 3).map((p) => ({ label: word("parts", p.label, true), amount: num("parts", p.amount, false) }));
+      // amounts all given and within the total, or none drawn
+      const keep = total !== undefined && parts.every((p) => p.amount !== undefined) && parts.reduce((s, p) => s + (p.amount ?? 0), 0) <= total;
+      out = { layout, title, ...(total !== undefined ? { total } : {}), parts: parts.map((p) => (keep ? { label: p.label, amount: p.amount } : { label: p.label })) };
+      break;
+    }
+    case "threegen":
+      out = { layout, title, rows: list("rows", o.rows, 3, 3).map((r) => word("rows", r.value, true)), ...optWord("note", o.note) };
       break;
   }
   return fail.length ? fail[0] : out;
