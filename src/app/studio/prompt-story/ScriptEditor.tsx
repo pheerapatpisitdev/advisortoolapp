@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { deviceFields, missingPicture, needPictureWords, rewritesLeft, sceneKind, setDeviceWord, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
+import { deviceFields, keptRewrite, missingPicture, needPictureWords, rewritesLeft, sceneKind, setDeviceWord, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
 import { REWRITES_DONE, REWRITES_PER_DRAFT, SCREEN_MAX, TITLE_MAX, type DeviceScene, type PromptScene } from "@/lib/prompt-story/types";
 import { rewritePromptScene } from "./actions";
 
@@ -119,7 +119,7 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, assets = [], s
       if (r.ok) {
         const parked = { ...now.parked };
         delete parked[i];
-        onChange({ ...now, scenes: now.scenes.map((x, j) => (j === i ? r.scene : x)), left: nextLeft, parked });
+        onChange({ ...now, scenes: now.scenes.map((x, j) => (j === i ? keptRewrite(x, r.scene) : x)), left: nextLeft, parked });
         setAsked((a) => ({ ...a, [i]: false }));
       } else {
         onChange({ ...now, left: nextLeft });

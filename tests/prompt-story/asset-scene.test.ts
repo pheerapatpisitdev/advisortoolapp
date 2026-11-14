@@ -6,7 +6,7 @@ import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
 import { GROUNDS } from "@/lib/story/figure";
 import { checkedPromptStory } from "@/lib/prompt-story/checked";
-import { missingPicture, pictureCount, sceneKind, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
+import { keptRewrite, missingPicture, pictureCount, sceneKind, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
 import { pictureScenes, promptStoryPrice, type DeviceScene, type PromptScene, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { promptStartFrom } from "@/lib/scene-library/links";
 
@@ -96,6 +96,20 @@ describe("the editor's sums and moves with an asset", () => {
   it("toAsset drops the device and sets the asset, the words kept", () => {
     expect(toAsset(pic({ device: room, showFigure: true }), U2)).toEqual({ ...pic(), showFigure: true, asset: U2 });
     expect(toAsset(pic({ asset: U1 }), U2)).toEqual({ ...pic(), asset: U2 });
+  });
+});
+
+describe("keptRewrite: เขียนฉากนี้ใหม่ on a ภาพจากคลัง scene", () => {
+  const written = pic({ voice: "เขียนใหม่", screen: "ใหม่", picture: "a new picture" });
+  it("keeps the part when the rewrite brings no device", () => {
+    expect(keptRewrite(pic({ asset: U1, picture: "" }), written)).toEqual({ ...written, asset: U1 });
+  });
+  it("drops the part when the rewrite brings a device (the device wins)", () => {
+    expect(keptRewrite(pic({ asset: U1 }), { ...written, device: cashless })).toEqual({ ...written, device: cashless });
+  });
+  it("leaves a scene without a part as the writer wrote it", () => {
+    expect(keptRewrite(pic(), written)).toEqual(written);
+    expect(keptRewrite(pic({ device: cashless }), written)).toEqual(written);
   });
 });
 

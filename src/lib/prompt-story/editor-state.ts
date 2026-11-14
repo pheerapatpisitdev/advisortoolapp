@@ -81,6 +81,14 @@ export function toAsset(s: PromptScene, id: string): PromptScene {
   return { ...rest, asset: id };
 }
 
+/**
+ * A scene the writer wrote again (เขียนฉากนี้ใหม่), put in place of `was`: the writer never sets a part, so
+ * the agent's ภาพจากคลัง stays, unless the rewrite brings a device (the device wins).
+ */
+export function keptRewrite(was: PromptScene, written: PromptScene): PromptScene {
+  return was.asset && !written.device ? { ...written, asset: was.asset } : written;
+}
+
 /** one box of a device's words: where it sits in the device, its label, its text */
 export interface DeviceWord { path: (string | number)[]; label: string; value: string }
 /** one of a device's figures, shown and never typed (the writer took it from the brief or the plan) */
