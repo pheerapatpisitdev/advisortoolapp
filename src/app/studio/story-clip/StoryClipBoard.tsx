@@ -6,7 +6,7 @@ import { availablePensionAges, PENSION_LIMITS, type PensionPay } from "@/calc/pe
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { CostView } from "@/lib/quote-video/make";
 import { STORY_DEFAULT_TERM, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { FESTIVALS, figureShown, GRADUATE_AGE, INFO_SHELVES, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { FESTIVALS, figureShown, GRADUATE_AGE, INFO_ARTS, INFO_SHELVES, infoArt, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type InfoArt, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
@@ -59,6 +59,13 @@ const digits = (v: string, max: number) => { const n = Number(v.replace(/[^\d]/g
 const TAG_WORD: Record<FaceTag, string> = { glasses: "ใส่แว่น", curly: "ผมหยิก", hat: "ใส่หมวก" };
 /** what each plan's figure makes of the story (story.ts storyEvent) */
 const PLAN_STORY: Record<StoryPlan, string> = { ISHIELD: "คลิปเล่าว่าป่วยเป็นโรคร้ายแรง", LIFEPROTECT: "คลิปเล่าว่าจากไปไม่ทันตั้งตัว เงินไปถึงครอบครัว" };
+/** the looks drawn on อินโฟกราฟิก's route (topics.ts INFO_ARTS), as the form names them, and the line under each */
+const INFO_LOOK: Record<InfoArt, { name: string; tells: string }> = {
+  plot: { name: "ปากกาพล็อตเตอร์", tells: "กระดาษสีครีม ปากกาเขียนทีละเส้นตามเสียงพูด ไอคอนลายแรเงา ไม่มีตัวละครในฉาก ราคาเท่าเดิม" },
+  board: { name: "ไวต์บอร์ด", tells: "เขียนอธิบายบนไวต์บอร์ดทีละเส้นด้วยปากกาเมจิก ไม่มีตัวละครในฉาก ราคาเท่าเดิม" },
+  neon: { name: "นีออน", tells: "ตัวอักษรและเส้นเรืองแสงบนพื้นมืด ติดไฟทีละชิ้น ไม่มีตัวละครในฉาก ราคาเท่าเดิม" },
+  blueprint: { name: "บลูพริ้นท์", tells: "เส้นขาวบนพื้นน้ำเงินแบบแปลนวิศวกร ไม่มีตัวละครในฉาก ราคาเท่าเดิม" },
+};
 
 const NARRATOR_KEY = "story-narrator-face";
 const LOOK_KEY = "story-look";
@@ -67,7 +74,7 @@ const CAST_KEY = "story-cast";
  * `gemini`: one of Gemini's 30 voices by name, or "" for the narrator's own (owner, 2026-10-17);
  * `art`: the hand-drawn faces, or มินิมอล's whole people on one of three grounds (owner, 2026-10-20)
  */
-interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string; gemini: string; art: "paper" | "minimal" | "plot" | "line"; ground: FigureGround }
+interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string; gemini: string; art: "paper" | "minimal" | InfoArt | "line"; ground: FigureGround }
 const DEFAULT_LOOK: Look = { size: "portrait", palette: "reveal", narrator: "F", voice: "", gemini: "", art: "paper", ground: "warm" };
 /** มินิมอล's two the agent dresses: the hero as a woman and as a man (the step-2 choice picks one), and the agent */
 interface Cast { hero: Record<"M" | "F", FigureLook>; narrator: FigureLook }
@@ -83,7 +90,8 @@ function readCast(): Cast {
   }
 }
 
-function readLook(): Look {
+/** the look as it was left in this browser; อินโฟกราฟิก, retired, opens as ปากกาพล็อตเตอร์, anything unknown as the paper */
+export function readLook(): Look {
   try {
     const raw = JSON.parse(localStorage.getItem(LOOK_KEY) ?? "null") as Partial<Look> | null;
     if (!raw) return DEFAULT_LOOK;
@@ -93,7 +101,7 @@ function readLook(): Look {
       narrator: raw.narrator === "M" ? "M" : "F",
       voice: typeof raw.voice === "string" ? raw.voice : "",
       gemini: geminiVoice(raw.gemini)?.name ?? "",
-      art: raw.art === "minimal" || raw.art === "line" ? raw.art : (raw.art as string) === "info" || raw.art === "plot" ? "plot" : "paper",
+      art: raw.art === "minimal" || raw.art === "line" || infoArt(raw.art) ? raw.art : (raw.art as string) === "info" ? "plot" : "paper",
       // the old grounds left the form with มินิมอล (owner, 2026-11-12): every clip made now stands under the warm lamp
       ground: "warm",
     };
@@ -271,6 +279,51 @@ function PlotPreview({ title, size }: { title: string; size: VideoSize }) {
   );
 }
 
+/**
+ * ไวต์บอร์ด นีออน บลูพริ้นท์'s opening, a still in the look's colours (spec 2026-11-14-story-looks-board-neon-blueprint):
+ * the board in its frame over the marker tray; the glowing title in its pink frame on dark violet; the white title on the
+ * gridded blue with its title block
+ */
+function InfoLookPreview({ art, title, size }: { art: Exclude<InfoArt, "plot">; title: string; size: VideoSize }) {
+  const C = STORY_CLIP_COLORS;
+  const aspectRatio = size === "landscape" ? "16 / 9" : size === "square" ? "1 / 1" : "9 / 16";
+  const grid = `linear-gradient(${C.bpGridFine} 1px, transparent 1px), linear-gradient(90deg, ${C.bpGridFine} 1px, transparent 1px)`;
+  return (
+    <div className="rounded-[26px] p-2.5" style={{ background: C.bezel }}>
+      {art === "board" ? (
+        <div className="relative overflow-hidden rounded-[18px] p-[6%]" style={{ background: C.boardWall, aspectRatio }}>
+          <div className="flex h-[86%] flex-col items-center border-[5px] px-[6%] pt-[14%]" style={{ background: C.boardBoard, borderColor: C.boardFrame }}>
+            <p className="text-center text-2xl font-semibold leading-tight" style={{ color: C.boardBlue }}>{title}</p>
+            <div className="mt-1 h-1 w-2/3 rounded-full" style={{ background: C.boardRed }} />
+            <div className="mt-[16%] h-14 w-14 rounded-xl border-[3px]" style={{ borderColor: C.boardInk }} />
+          </div>
+          <div className="mx-auto mt-[3%] flex h-2.5 w-3/4 items-center justify-center gap-2 rounded-sm" style={{ background: C.boardFrame }}>
+            <span className="h-1.5 w-7 rounded-full" style={{ background: C.boardBlue }} />
+            <span className="h-1.5 w-7 rounded-full" style={{ background: C.boardRed }} />
+          </div>
+        </div>
+      ) : art === "neon" ? (
+        <div className="relative overflow-hidden rounded-[18px] p-[7%]" style={{ background: `radial-gradient(circle at 50% 45%, ${C.neonCentre}, ${C.neonEdge})`, aspectRatio }}>
+          <div className="flex h-full flex-col items-center rounded-xl border px-[6%] pt-[14%]" style={{ borderColor: C.neonPink, boxShadow: `0 0 8px ${C.neonPink}` }}>
+            <p className="text-center text-2xl font-semibold leading-tight" style={{ color: C.neonCyan, textShadow: `0 0 8px ${C.neonCyan}` }}>{title}</p>
+            <div className="mt-[18%] h-14 w-14 rounded-xl border-2" style={{ borderColor: C.neonPink, boxShadow: `0 0 8px ${C.neonPink}` }} />
+            <p className="mt-3 text-sm" style={{ color: C.neonInk }}>เปิดไฟทีละชิ้น</p>
+          </div>
+        </div>
+      ) : (
+        <div className="relative overflow-hidden rounded-[18px] p-[6%]" style={{ background: C.bpGround, backgroundImage: grid, backgroundSize: "12px 12px", aspectRatio }}>
+          <div className="flex h-full flex-col items-center border px-[6%] pt-[14%]" style={{ borderColor: C.bpInk }}>
+            <p className="text-center text-2xl font-semibold leading-tight" style={{ color: C.bpInk }}>{title}</p>
+            <div className="mt-[18%] h-14 w-14 border-2" style={{ borderColor: C.bpCyan }} />
+            <div className="mt-1 h-px w-14" style={{ background: C.bpCyan }} />
+          </div>
+          <div className="absolute bottom-[8%] right-[8%] h-5 w-12 border" style={{ borderColor: C.bpInk, background: C.bpSub }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** สต็อปโมชันกระดาษ's opening as the clip draws it: the sheet pinned on the table, the title's tile, the 48 dolls or the hero */
 function PaperPreview({ title, hero, crowd, size, pose, ink }: { title: string; hero: string; crowd?: string[]; size: VideoSize; pose: "stand" | "think" | "wave"; ink?: boolean }) {
   const C = STORY_CLIP_COLORS;
@@ -365,9 +418,11 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [cast, setCast] = useState<Cast>(DEFAULT_FORM_CAST);
   const [dressing, setDressing] = useState<"hero" | "narrator">("hero");
   const mini = look.art === "minimal";
-  // อินโฟกราฟิก draws only the shelves told in points; on any other the faces stand in for it
+  // the looks on อินโฟกราฟิก's route (ปากกาพล็อตเตอร์, ไวต์บอร์ด, นีออน, บลูพริ้นท์) draw only the shelves told in
+  // points; on any other the paper stands in for them
   const lineLook = look.art === "line";
-  const infoLook = look.art === "plot" && INFO_SHELVES.includes(info.shelf);
+  const infoOn: InfoArt | null = infoArt(look.art) && INFO_SHELVES.includes(info.shelf) ? look.art : null;
+  const infoLook = infoOn !== null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
   const [items, setItems] = useState<VideoItem[] | null>(initial);
@@ -543,7 +598,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
         topic, size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         faces: { narrator: narratorFace, hero: heroFace, ...(withPartner && partner && !mini ? { partner } : {}) },
         ...(mini ? { art: "minimal" as const, ground: look.ground, cast: { hero: cast.hero[heroSex], narrator: cast.narrator } } : {}),
-        ...(infoLook ? { art: "plot" as const } : {}),
+        ...(infoOn ? { art: infoOn } : {}),
         ...(!mini && !infoLook ? { art: lineLook ? "line" as const : "paper" as const } : {}),
         ...(showsFigure && info.figure === "plan" ? { figure: { plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht } } : {}),
         ...(showsFigure && info.figure === "ladder" ? { ladder: true } : {}),
@@ -876,19 +931,19 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             )}
           </Step>
 
-          <Step n={4} title="หน้าตาคลิป" summary={[mini ? "ฉากกระดาษใต้แสงอุ่น" : infoLook ? "ปากกาพล็อตเตอร์" : lineLook ? "การ์ตูนลายเส้น" : "", episode ? "" : look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].filter(Boolean).join(" · ")}>
+          <Step n={4} title="หน้าตาคลิป" summary={[mini ? "ฉากกระดาษใต้แสงอุ่น" : infoOn ? INFO_LOOK[infoOn].name : lineLook ? "การ์ตูนลายเส้น" : "", episode ? "" : look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].filter(Boolean).join(" · ")}>
             <div>
               <span className={label}>สไตล์ภาพ</span>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={chip(!mini && !infoLook && !lineLook)} onClick={() => pickLook({ art: "paper" })}>สต็อปโมชันกระดาษ</button>
                 <button type="button" className={chip(lineLook)} onClick={() => pickLook({ art: "line" })}>การ์ตูนลายเส้น</button>
                 <button type="button" className={chip(mini)} onClick={() => pickLook({ art: "minimal", ground: "warm" })}>ฉากกระดาษใต้แสงอุ่น</button>
-                {INFO_SHELVES.includes(info.shelf) && <button type="button" className={chip(infoLook)} onClick={() => pickLook({ art: "plot" })}>ปากกาพล็อตเตอร์</button>}
+                {INFO_SHELVES.includes(info.shelf) && INFO_ARTS.map((a) => <button key={a} type="button" className={chip(infoOn === a)} onClick={() => pickLook({ art: a })}>{INFO_LOOK[a].name}</button>)}
               </div>
               {lineLook && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">ตัวการ์ตูนหัวกลม เส้นดำหนา บนพื้นขาว ซับตัวใหญ่ไม่มีแถบ ราคาเท่าเดิม</p>}
               {!mini && !infoLook && !lineLook && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">ตัวละครกระดาษสีเต็มตัว วางบนโต๊ะไม้ ขยับ 12 ท่าต่อวินาทีแบบงานมือ ราคาเท่าเดิม</p>}
               {mini && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">ตัวละครเต็มตัวที่คุณแต่งเอง บนฉากกระดาษใต้โคมไฟแสงอุ่น มีเงาตกจริง ราคาเท่าเดิม</p>}
-              {infoLook && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">กระดาษสีครีม ปากกาเขียนทีละเส้นตามเสียงพูด ไอคอนลายแรเงา ไม่มีตัวละครในฉาก ราคาเท่าเดิม</p>}
+              {infoOn && <p className="mt-1.5 text-xs text-[var(--ct-mute)]">{INFO_LOOK[infoOn].tells}</p>}
             </div>
             {mini && <>
               <div className="space-y-2">
@@ -931,8 +986,10 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                     title={topic === "pool48" ? "48 คน" : topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name}
                     hero={topic === "festival" ? narratorFace : heroFace} size={look.size}
                     crowd={topic === "pool48" ? crowdOf(heroFace, narratorFace) : undefined} pose={afterSale ? "wave" : asks ? "think" : "stand"} />
-                : infoLook
+                : infoOn === "plot"
                 ? <PlotPreview title={info.name} size={look.size} />
+                : infoOn
+                ? <InfoLookPreview art={infoOn} title={info.name} size={look.size} />
                 : afterSale
                 ? <KnowPreview hero={topic === "festival" ? narratorFace : heroFace} title={topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name} size={look.size} ask={topic === "claimish"} />
                 : asks || (life && !lifeFamily)

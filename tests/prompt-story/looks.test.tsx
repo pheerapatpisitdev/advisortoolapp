@@ -11,8 +11,14 @@ const ctx = (style: PromptStoryInput["style"]): FreeContext => ({ input: input(s
 const frame = (style: PromptStoryInput["style"]) => renderToStaticMarkup(freeFrame(scene, true, ctx(style), 1));
 
 describe("คลิปตามโจทย์'s looks", () => {
-  it("offers the four looks, in that order, and no other", () => {
-    expect(PICTURE_STYLES.map((s) => s.id)).toEqual(["paper", "warm", "plot", "line"]);
+  it("offers the seven looks, in that order, and no other", () => {
+    expect(PICTURE_STYLES.map((s) => s.id)).toEqual(["paper", "warm", "plot", "line", "board", "neon", "blueprint"]);
+    // ไวต์บอร์ด นีออน บลูพริ้นท์ (owner, 2026-11-14) after the four, by these names
+    expect(PICTURE_STYLES.slice(4)).toEqual([{ id: "board", name: "ไวต์บอร์ด" }, { id: "neon", name: "นีออน" }, { id: "blueprint", name: "บลูพริ้นท์" }]);
+  });
+
+  it("dresses ไวต์บอร์ด นีออน บลูพริ้นท์ in คลิปเล่าเรื่อง's look of the same id", () => {
+    for (const s of ["board", "neon", "blueprint"] as const) expect(freeLook(input(s)), s).toEqual({ art: s });
   });
 
   it("dresses each look as คลิปเล่าเรื่อง's, and leaves the others plain", () => {
@@ -39,7 +45,7 @@ describe("คลิปตามโจทย์'s looks", () => {
 
   it("takes every style a clip may be in, old ones too, and no other", () => {
     const sent = (style: string) => checkedPromptStory({ draftId: "00000000-0000-0000-0000-000000000000", brief: "โจทย์", title: "ชื่อ", caption: "", scenes: [scene, scene, scene], style, painter: "sharp" }, "F");
-    for (const s of ["paper", "warm", "plot", "line", "real", "cartoon", "flat"]) expect(typeof sent(s)).toBe("object");
+    for (const s of ["paper", "warm", "plot", "line", "board", "neon", "blueprint", "real", "cartoon", "flat"]) expect(typeof sent(s), s).toBe("object");
     expect(sent("oil")).toBe("เลือกแบบภาพ");
   });
 });

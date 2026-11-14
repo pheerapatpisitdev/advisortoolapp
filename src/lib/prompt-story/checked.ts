@@ -15,7 +15,7 @@ import { BRIEF_MAX, isPromptFormat, REWRITES_DONE, REWRITES_PER_DRAFT, SCENE_COU
 export const HOURLY_LIMIT = 20;
 export { BRIEF_MAX, SCENE_COUNTS, REWRITES_DONE, REWRITES_PER_DRAFT };
 // "cartoon", "flat" and "real" left the form 2026-11-13; a page left open from before may still send one
-const STYLES: PictureStyle[] = ["paper", "warm", "plot", "line", "real", "cartoon", "flat"];
+const STYLES: PictureStyle[] = ["paper", "warm", "plot", "line", "board", "neon", "blueprint", "real", "cartoon", "flat"];
 const PAINTER_IDS: PromptStoryInput["painter"][] = ["standard", "sharp", "gemini"];
 const VOICE_MAX = 400;
 const PICTURE_MAX = 300;

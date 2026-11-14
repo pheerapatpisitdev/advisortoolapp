@@ -5,7 +5,7 @@ import { lifeProtectModes, termAt as lifeProtectTerm } from "@/lib/lifeprotect-q
 import { DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, faceOf, FACES } from "@/lib/story/faces";
 import { checkedLook, isGround, type FigureGround, type FigureLook } from "@/lib/story/figure";
 import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { FESTIVALS, GRADUATE_AGE, INFO_SHELVES, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { FESTIVALS, GRADUATE_AGE, INFO_SHELVES, infoArt, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type InfoArt, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { PensionPay } from "@/calc/pension/engine";
 import type { PayMode } from "@/calc/types";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -92,7 +92,7 @@ export interface StoryVideoInput {
    * the hand-drawn faces as cut paper on a wooden table, moved 12 poses a second. It took การ์ตูนหน้าคน's
    * place on the form; a row with no art is an older clip, still drawn as it was.
    */
-  art?: "minimal" | "info" | "paper" | "plot" | "line";
+  art?: "minimal" | "info" | "paper" | InfoArt | "line";
   ground?: FigureGround;
   cast?: { hero: FigureLook; narrator: FigureLook };
   /** ตั้งค่าส่วนตัว (owner, 2026-11-14; src/lib/pay-prefs.ts): the instalments the agent switched off; absent = none */
@@ -341,9 +341,10 @@ export function checkedStory(
     minimal = { art: "minimal", ground: isGround(v.ground) ? v.ground : "lav", cast: { hero: heroLook, narrator: narratorLook } };
   } else if (v.art === "info" && INFO_SHELVES.includes(topic.shelf)) {
     minimal = { art: "info" };
-  } else if (v.art === "plot" && INFO_SHELVES.includes(topic.shelf)) {
-    // ปากกาพล็อตเตอร์ (owner, 2026-11-12): อินโฟกราฟิก's scenes drawn line by line by one pen; it took its place on the form
-    minimal = { art: "plot" };
+  } else if (infoArt(v.art) && INFO_SHELVES.includes(topic.shelf)) {
+    // ปากกาพล็อตเตอร์ (owner, 2026-11-12): อินโฟกราฟิก's scenes drawn line by line by one pen; it took its place on the form.
+    // ไวต์บอร์ด นีออน บลูพริ้นท์ (owner, 2026-11-14) are drawn on the same route, and kept on the same shelves
+    minimal = { art: v.art };
   } else if (v.art === "line") {
     // การ์ตูนลายเส้น (owner, 2026-11-12): a fourth look beside the three, the dolls drawn in a thick black line on white
     minimal = { art: "line" };

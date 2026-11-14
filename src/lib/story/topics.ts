@@ -101,6 +101,15 @@ export const THAI_MONTHS = ["มกราคม", "กุมภาพันธ�
 /** the shelves อินโฟกราฟิก draws (owner chose ข, 2026-11-01): the ones told in points, not through a family */
 export const INFO_SHELVES: StoryShelf[] = ["knowledge", "objection", "health"];
 
+/**
+ * The looks drawn through อินโฟกราฟิก's route with no people (story-info-motion.tsx), so kept only on INFO_SHELVES:
+ * ปากกาพล็อตเตอร์ (owner, 2026-11-12) and ไวต์บอร์ด นีออน บลูพริ้นท์ (owner, 2026-11-14, spec
+ * 2026-11-14-story-looks-board-neon-blueprint). The retired "info" keeps its own rule and is not one of them.
+ */
+export const INFO_ARTS = ["plot", "board", "neon", "blueprint"] as const;
+export type InfoArt = (typeof INFO_ARTS)[number];
+export const infoArt = (art: unknown): art is InfoArt => (INFO_ARTS as readonly unknown[]).includes(art);
+
 export const topicOf = (key: string): StoryTopicInfo | undefined => STORY_TOPICS.find((t) => t.key === key);
 
 /**

@@ -215,6 +215,20 @@ describe("the detail", () => {
     expect(storyHref(detail({ look: "plot" }))).toBe("/studio/story-clip?topic=roomcost&look=plot");
   });
 
+  it("offers ไวต์บอร์ด นีออน บลูพริ้นท์ in a device's looks, each opening both forms in it", () => {
+    const tree = LibraryDetail(props());
+    for (const [id, name] of [["board", "ไวต์บอร์ด"], ["neon", "นีออน"], ["blueprint", "บลูพริ้นท์"]]) {
+      let chosen = "";
+      const chip = elements(LibraryDetail(props({ onLook: (x) => { chosen = x; } }))).find((e) => e.type === "button" && e.props.children === name);
+      expect(chip, name).toBeDefined();
+      (chip!.props.onClick as () => void)();
+      expect(chosen, name).toBe(id);
+      expect(storyHref(detail({ look: id })), id).toBe(`/studio/story-clip?topic=roomcost&look=${id}`);
+      expect(detail({ look: id, open: open({ "prompt-story": true }) }), id).toContain(`href="/studio/prompt-story?style=${id}"`);
+    }
+    expect(elements(tree).filter((e) => e.type === "button" && ["ไวต์บอร์ด", "นีออน", "บลูพริ้นท์"].includes(e.props.children as string))).toHaveLength(3);
+  });
+
   it("the คลิปตามโจทย์ link follows the look too, แสงอุ่น as the form names it", () => {
     const html = detail({ look: "minimal", open: open({ "prompt-story": true }) });
     expect(html).toContain('href="/studio/prompt-story?style=warm"');

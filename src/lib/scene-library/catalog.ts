@@ -4,7 +4,7 @@ import { PROMPT_FORMATS } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
 import type { HealthLayout } from "@/lib/quote-video/story-knowledge";
-import { INFO_SHELVES, topicOf, type StoryTopic } from "@/lib/story/topics";
+import { INFO_SHELVES, infoArt, topicOf, type StoryTopic } from "@/lib/story/topics";
 
 /**
  * คลังแอนิเมชัน: every clip building block the Studio has, or has planned, in one list (owner-approved
@@ -41,16 +41,20 @@ const quoteUse = (label = "ทำคลิปขายแผน"): LibraryUse =>
 const storyUse = (label: string, p: { topic?: string; look?: string } = {}): LibraryUse => ({ tool: "story-clip", label, href: storyLibraryHref(p) });
 const promptUse = (label: string, p: { format?: string; style?: string } = {}): LibraryUse => ({ tool: "prompt-story", label, href: promptLibraryHref(p) });
 
-/** the four story looks: story-clip art id, prompt-story style id (it calls แสงอุ่น "warm"), shown name */
+/** the seven story looks: story-clip art id, prompt-story style id (it calls แสงอุ่น "warm"), shown name */
 const STORY_LOOKS = [
   { art: "paper", style: "paper", name: "สต็อปโมชันกระดาษ", tells: "ฉากเป็นกระดาษตัดแปะถ่ายทีละเฟรม" },
   { art: "minimal", style: "warm", name: "แสงอุ่น", tells: "ฉากกระดาษใต้แสงอุ่น อบอุ่นอ่านง่าย" },
   { art: "plot", style: "plot", name: "ปากกาพล็อตเตอร์", tells: "เส้นหมึกบางๆ บนกระดาษ เหมือนเครื่องวาดแผนภาพ" },
   { art: "line", style: "line", name: "การ์ตูนลายเส้น", tells: "ตัวการ์ตูนเส้นหนา สีเรียบ" },
+  // ไวต์บอร์ด นีออน บลูพริ้นท์ (owner, 2026-11-14, spec 2026-11-14-story-looks-board-neon-blueprint): drawn as plot is
+  { art: "board", style: "board", name: "ไวต์บอร์ด", tells: "เขียนอธิบายบนไวต์บอร์ดทีละเส้น" },
+  { art: "neon", style: "neon", name: "นีออน", tells: "ตัวอักษรและเส้นเรืองแสงบนพื้นมืด" },
+  { art: "blueprint", style: "blueprint", name: "บลูพริ้นท์", tells: "เส้นขาวบนพื้นน้ำเงินแบบแปลนวิศวกร" },
 ] as const;
-/** ปากกาพล็อตเตอร์ draws only the shelves told in points (INFO_SHELVES); its link opens on one of them */
+/** ปากกาพล็อตเตอร์, ไวต์บอร์ด, นีออน and บลูพริ้นท์ draw only the shelves told in points (INFO_SHELVES); their links open on one of them */
 const PLOT_TOPIC: StoryTopic = "sumvspremium";
-const DEVICE_LOOK_ORDER = ["paper", "minimal", "line", "plot"] as const;
+const DEVICE_LOOK_ORDER = ["paper", "minimal", "line", "plot", "board", "neon", "blueprint"] as const;
 
 /** the story topic that shows each health device */
 const DEVICE_TOPIC: Record<HealthLayout, StoryTopic> = {
@@ -69,8 +73,8 @@ const DEVICE_TELLS: Record<HealthLayout, string> = {
   groupgap: "สวัสดิการประกันกลุ่มจากที่ทำงานที่จ่ายได้ไม่พอ",
   agecost: "เบี้ยสุขภาพต่อปีที่สูงขึ้นตามช่วงอายุ",
 };
-/** whether คลิปเล่าเรื่อง keeps this look on this topic: ปากกาพล็อตเตอร์ only on the shelves told in points */
-const lookFits = (topic: StoryTopic, look: string): boolean => look !== "plot" || INFO_SHELVES.includes(topicOf(topic)!.shelf);
+/** whether คลิปเล่าเรื่อง keeps this look on this topic: the info-route looks (INFO_ARTS) only on the shelves told in points */
+const lookFits = (topic: StoryTopic, look: string): boolean => !infoArt(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
 const readyDevices: LibraryItem[] = DEVICES.map((d) => {
   const topic = DEVICE_TOPIC[d.key];
   return {
@@ -103,7 +107,7 @@ const readyFormats: LibraryItem[] = [
 const readyLooks: LibraryItem[] = [
   ...STORY_LOOKS.map((l): LibraryItem => ({
     id: `look-${l.art}`, type: "look", name: l.name, tells: l.tells, product: "all", ready: true,
-    uses: [storyUse("ทำคลิปเล่าเรื่อง", { look: l.art, ...(l.art === "plot" ? { topic: PLOT_TOPIC } : {}) }), promptUse("ทำคลิปตามโจทย์", { style: l.style })],
+    uses: [storyUse("ทำคลิปเล่าเรื่อง", { look: l.art, ...(infoArt(l.art) ? { topic: PLOT_TOPIC } : {}) }), promptUse("ทำคลิปตามโจทย์", { style: l.style })],
     preview: `/library/look-${l.art}.jpg`,
   })),
   { id: "look-glass", type: "look", name: THEME_LABELS.glass.name, tells: "การ์ดโปร่งแสงซ้อนกัน หน้าตาทันสมัย", product: "all", ready: true, uses: [quoteUse()] },
@@ -134,11 +138,7 @@ const unbuilt: LibraryItem[] = [
   n("format", "all", "format-agent-talk", "ตัวแทนพูดหน้ากล้อง + กราฟิก", "ตัวแทนพูด มีกราฟิกเด้งประกอบ แล้วปิดด้วยการติดต่อ"),
   n("format", "all", "format-mascot-series", "ซีรีส์น้องโล่", "ตอนสั้นที่มีมาสคอตเป็นตัวละครประจำ"),
   n("format", "all", "format-long-infographic", "อินโฟกราฟิกยาว", "บทนำ 3–5 ช่วง สรุป ความยาว 3–5 นาที สำหรับ YouTube"),
-  // looks: system-drawn
-  n("look", "all", "look-board", "ไวต์บอร์ด", "เขียนอธิบายบนไวต์บอร์ดทีละเส้น"),
-  n("look", "all", "look-neon", "นีออน", "ตัวอักษรและเส้นเรืองแสงบนพื้นมืด"),
-  n("look", "all", "look-blueprint", "บลูพริ้นท์", "เส้นขาวบนพื้นน้ำเงินแบบแปลนวิศวกร"),
-  // looks: AI picture styles
+  // looks: AI picture styles (the system-drawn ไวต์บอร์ด นีออน บลูพริ้นท์ are built, in STORY_LOOKS)
   n("look", "all", "ai-style-3d", "การ์ตูน 3D", "ภาพ AI ตัวการ์ตูนสามมิติสีสด"),
   n("look", "all", "ai-style-clay", "ดินเคลย์", "ภาพ AI เหมือนปั้นจากดินน้ำมัน"),
   n("look", "all", "ai-style-anime", "อนิเมะ", "ภาพ AI สไตล์อนิเมะญี่ปุ่น"),

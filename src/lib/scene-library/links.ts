@@ -1,4 +1,4 @@
-import { INFO_SHELVES, topicOf, type StoryTopic } from "@/lib/story/topics";
+import { INFO_SHELVES, infoArt, topicOf, type InfoArt, type StoryTopic } from "@/lib/story/topics";
 import { isPromptFormat, type PromptFormat } from "@/lib/prompt-story/types";
 import { isUploadId } from "./upload-rules";
 
@@ -8,12 +8,12 @@ import { isUploadId } from "./upload-rules";
  * Nothing in an address is trusted: an unknown value is left out, and the form opens as it would anyway.
  */
 
-/** คลิปเล่าเรื่อง's four looks, as its form names them (`art`) */
-export type StoryLook = "paper" | "minimal" | "plot" | "line";
-const STORY_LOOKS: readonly StoryLook[] = ["paper", "minimal", "plot", "line"];
-/** คลิปตามโจทย์'s four styles a link may name (the form calls แสงอุ่น "warm") */
-export type PromptStyle = "paper" | "warm" | "plot" | "line";
-const PROMPT_STYLES: readonly PromptStyle[] = ["paper", "warm", "plot", "line"];
+/** คลิปเล่าเรื่อง's seven looks, as its form names them (`art`): the four, then ไวต์บอร์ด นีออน บลูพริ้นท์ (2026-11-14) */
+export type StoryLook = "paper" | "minimal" | "line" | InfoArt;
+const STORY_LOOKS: readonly StoryLook[] = ["paper", "minimal", "plot", "line", "board", "neon", "blueprint"];
+/** คลิปตามโจทย์'s seven styles a link may name (the form calls แสงอุ่น "warm") */
+export type PromptStyle = "paper" | "warm" | "plot" | "line" | "board" | "neon" | "blueprint";
+const PROMPT_STYLES: readonly PromptStyle[] = ["paper", "warm", "plot", "line", "board", "neon", "blueprint"];
 
 export interface StoryStart { topic?: StoryTopic; look?: StoryLook }
 /**
@@ -42,14 +42,14 @@ export const promptLibraryHref = (p: { format?: string; style?: string }): strin
 };
 
 /**
- * What a คลิปเล่าเรื่อง address asked for. ปากกาพล็อตเตอร์ draws only the shelves told in points
- * (INFO_SHELVES): on a topic of any other shelf the topic is kept and the look left out, so the form
- * opens on the topic in the look it would have anyway. With no topic there is nothing to check it against.
+ * What a คลิปเล่าเรื่อง address asked for. ปากกาพล็อตเตอร์, ไวต์บอร์ด, นีออน and บลูพริ้นท์ (INFO_ARTS) draw only the
+ * shelves told in points (INFO_SHELVES): on a topic of any other shelf the topic is kept and the look left out, so
+ * the form opens on the topic in the look it would have anyway. With no topic there is nothing to check it against.
  */
 export function storyStartFrom(params: Params): StoryStart {
   const topic = topicOf(one(params.topic) ?? "");
   const look = one(params.look) as StoryLook | undefined;
-  const lookOk = look !== undefined && STORY_LOOKS.includes(look) && !(look === "plot" && topic && !INFO_SHELVES.includes(topic.shelf));
+  const lookOk = look !== undefined && STORY_LOOKS.includes(look) && !(infoArt(look) && topic && !INFO_SHELVES.includes(topic.shelf));
   return { ...(topic ? { topic: topic.key } : {}), ...(lookOk ? { look } : {}) };
 }
 

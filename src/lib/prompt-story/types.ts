@@ -17,12 +17,13 @@ export const isSceneCount = (v: unknown): v is SceneCount => (SCENE_COUNTS as re
  * How a clip's pictures are painted. The four of คลิปเล่าเรื่อง's looks (owner, 2026-11-13, mockup
  * https://claude.ai/artifact/HHcQYn3umUREhMELrGQyKu) are on the form; "cartoon", "flat" and, on the owner's word
  * after seeing a picture of it the same day, "real" left it, and are kept for the clips made in them.
+ * ไวต์บอร์ด นีออน บลูพริ้นท์ (owner, 2026-11-14, spec 2026-11-14-story-looks-board-neon-blueprint) follow the four.
  */
-export type PictureStyle = "paper" | "warm" | "plot" | "line" | "real" | "cartoon" | "flat";
+export type PictureStyle = "paper" | "warm" | "plot" | "line" | "board" | "neon" | "blueprint" | "real" | "cartoon" | "flat";
 /** the styles the form offers, in its order */
 export const PICTURE_STYLES: { id: PictureStyle; name: string }[] = [
   { id: "paper", name: "สต็อปโมชันกระดาษ" }, { id: "warm", name: "ฉากกระดาษใต้แสงอุ่น" }, { id: "plot", name: "ปากกาพล็อตเตอร์" },
-  { id: "line", name: "การ์ตูนลายเส้น" },
+  { id: "line", name: "การ์ตูนลายเส้น" }, { id: "board", name: "ไวต์บอร์ด" }, { id: "neon", name: "นีออน" }, { id: "blueprint", name: "บลูพริ้นท์" },
 ];
 
 /**

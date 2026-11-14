@@ -48,11 +48,13 @@ describe("catalogue", () => {
   it("device links and names", () => {
     expect(libraryItem("room")?.name).toBe("ค่าห้องต่อคืน");
     expect(libraryItem("groupgap")?.uses.find((u) => u.tool === "story-clip")?.href).toBe("/studio/story-clip?topic=groupins");
-    expect(libraryItem("room")?.looks?.map((l) => l.id)).toEqual(["paper", "minimal", "line", "plot"]);
+    expect(libraryItem("room")?.looks?.map((l) => l.id)).toEqual(["paper", "minimal", "line", "plot", "board", "neon", "blueprint"]);
+    expect(libraryItem("room")?.looks?.map((l) => l.name)).toEqual(["สต็อปโมชันกระดาษ", "แสงอุ่น", "การ์ตูนลายเส้น", "ปากกาพล็อตเตอร์", "ไวต์บอร์ด", "นีออน", "บลูพริ้นท์"]);
+    expect(libraryItem("room")?.looks?.find((l) => l.id === "neon")?.preview).toBe("/library/room-neon.jpg");
     expect(libraryItem("room")?.preview).toBe("/library/room-paper.jpg");
   });
   it("each device look opens the forms in that look, on the device's topic", () => {
-    const STYLE: Record<string, string> = { paper: "paper", minimal: "warm", line: "line", plot: "plot" };
+    const STYLE: Record<string, string> = { paper: "paper", minimal: "warm", line: "line", plot: "plot", board: "board", neon: "neon", blueprint: "blueprint" };
     for (const d of DEVICES) {
       const item = libraryItem(d.key)!;
       const topic = q(item.uses.find((u) => u.tool === "story-clip")!.href).get("topic");
@@ -90,7 +92,7 @@ describe("catalogue", () => {
   it("ties looks, themes, music and sounds to the code's own lists", () => {
     // every look the story form offers (the clip's art, less the retired อินโฟกราฟิก), and only those: a
     // look added to or dropped from either type fails to compile here
-    const ARTS: Record<Exclude<NonNullable<StoryVideoInput["art"]>, "info">, true> & Record<StoryLook, true> = { paper: true, minimal: true, plot: true, line: true };
+    const ARTS: Record<Exclude<NonNullable<StoryVideoInput["art"]>, "info">, true> & Record<StoryLook, true> = { paper: true, minimal: true, plot: true, line: true, board: true, neon: true, blueprint: true };
     const ART = Object.keys(ARTS);
     for (const art of ART) {
       const item = libraryItem(`look-${art}`)!;
@@ -109,9 +111,37 @@ describe("catalogue", () => {
     expect(joinCues([{ start: 0 }, { start: 3 }]).map((c) => c.sound)).toEqual(["whoosh"]);
     for (const s of SOUNDS) expect(existsSync(join(process.cwd(), "remotion/public/fx", `${s}.mp3`)), s).toBe(true);
   });
-  it("a plot story link opens on a topic plot can draw", () => {
+  it("ไวต์บอร์ด นีออน บลูพริ้นท์ are ready, with a still and links into both forms", () => {
+    for (const [art, name] of [["board", "ไวต์บอร์ด"], ["neon", "นีออน"], ["blueprint", "บลูพริ้นท์"]]) {
+      const item = libraryItem(`look-${art}`)!;
+      expect(item, art).toBeDefined();
+      expect(item.ready, art).toBe(true);
+      expect(item.type, art).toBe("look");
+      expect(item.name, art).toBe(name);
+      expect(item.preview, art).toBe(`/library/look-${art}.jpg`);
+      expect(item.uses.map((u) => u.tool), art).toEqual(["story-clip", "prompt-story"]);
+      const story = q(item.uses[0].href);
+      expect(story.get("look"), art).toBe(art);
+      // like ปากกาพล็อตเตอร์ it opens on a topic told in points
+      expect(story.get("topic"), art).toBe("sumvspremium");
+      expect(q(item.uses[1].href).get("style"), art).toBe(art);
+    }
+    expect(LIBRARY.filter((i) => ["look-board", "look-neon", "look-blueprint"].includes(i.id))).toHaveLength(3);
+  });
+  it("every device lists the seven looks, the three new ones kept on its topic", () => {
+    for (const d of DEVICES) {
+      const looks = libraryItem(d.key)!.looks!;
+      expect(looks, d.key).toHaveLength(7);
+      for (const id of ["board", "neon", "blueprint"]) {
+        const l = looks.find((x) => x.id === id)!;
+        expect(l.preview, `${d.key} ${id}`).toBe(`/library/${d.key}-${id}.jpg`);
+        expect(q(l.uses[0].href).get("look"), `${d.key} ${id}`).toBe(id);
+      }
+    }
+  });
+  it("an info-route story link opens on a topic the look can draw", () => {
     const plots = LIBRARY.flatMap(allUses).filter((u) => u.tool === "story-clip")
-      .map((u) => new URL(u.href, "http://x").searchParams).filter((q) => q.get("look") === "plot");
+      .map((u) => new URL(u.href, "http://x").searchParams).filter((q) => ["plot", "board", "neon", "blueprint"].includes(q.get("look") ?? ""));
     expect(plots.length).toBeGreaterThan(0);
     for (const q of plots) {
       const topic = topicOf(q.get("topic") ?? "");

@@ -7,11 +7,16 @@ const SUFFIX = "no text, no numbers, no logos, no real person's likeness";
 const ok = () => vi.fn().mockResolvedValue({ bytes: Buffer.from("png"), mimeType: "image/png" });
 
 describe("prompt-story pictures", () => {
-  it("has a prefix for every style: the four looks, real, and the two that left the form", () => {
-    expect(Object.keys(STYLE_PREFIX).sort()).toEqual(["cartoon", "flat", "line", "paper", "plot", "real", "warm"]);
+  it("has a prefix for every style: the seven looks, real, and the two that left the form", () => {
+    expect(Object.keys(STYLE_PREFIX).sort()).toEqual(["blueprint", "board", "cartoon", "flat", "line", "neon", "paper", "plot", "real", "warm"]);
+  });
+  it("paints ไวต์บอร์ด นีออน บลูพริ้นท์ in the spec's words", () => {
+    expect(STYLE_PREFIX.board).toBe("Hand-drawn whiteboard marker illustration: dark blue and black marker lines on a clean white board, a few red and blue marker accents, simple shapes, no shading, generous white space.");
+    expect(STYLE_PREFIX.neon).toBe("Neon sign illustration on a dark violet background: glowing cyan, pink and yellow neon tube outlines, simple shapes, soft glow, no fill except the glow.");
+    expect(STYLE_PREFIX.blueprint).toBe("Technical blueprint drawing: thin white lines on blueprint blue paper with a faint grid, simple isometric outlines and dimension marks, no colour other than white and pale cyan.");
   });
   it("prompt = prefix + note + no-text suffix", () => {
-    for (const s of ["cartoon", "real", "flat", "paper", "warm", "plot", "line"] as const) {
+    for (const s of ["cartoon", "real", "flat", "paper", "warm", "plot", "line", "board", "neon", "blueprint"] as const) {
       const p = picturePrompt(scene, s);
       expect(p.startsWith(STYLE_PREFIX[s])).toBe(true);
       expect(p).toContain(scene.picture);

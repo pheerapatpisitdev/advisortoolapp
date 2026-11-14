@@ -6,6 +6,7 @@ import { infoDrawn } from "@/lib/quote-video/story-info-motion";
 import { deviceTail, Note, showBody } from "@/lib/quote-video/story-knowledge-motion";
 import { info, LineTitle, PaperTitle, Subtitle, type StoryContext } from "@/lib/quote-video/story-motion";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
+import type { InfoArt } from "@/lib/story/topics";
 import type { DeviceScene, PromptScene, PromptStoryInput } from "./types";
 
 /**
@@ -36,12 +37,14 @@ const GEO: Record<VideoSize, { top: number; side: number; size: number; note: { 
  * words' band, the subtitle, the figure card and the agent's card are drawn as that look draws them. A style
  * with none ("real", and the two that left the form) keeps the plain paper band.
  */
-export function freeLook(input: Pick<PromptStoryInput, "style">): { art?: "paper" | "minimal" | "plot" | "line"; ground?: "warm" } {
+export function freeLook(input: Pick<PromptStoryInput, "style">): { art?: "paper" | "minimal" | "line" | InfoArt; ground?: "warm" } {
   switch (input.style) {
     case "paper": return { art: "paper" };
     case "warm": return { art: "minimal", ground: "warm" };
     case "plot": return { art: "plot" };
     case "line": return { art: "line" };
+    // ไวต์บอร์ด นีออน บลูพริ้นท์ (2026-11-14): คลิปเล่าเรื่อง's look of the same id
+    case "board": case "neon": case "blueprint": return { art: input.style };
     default: return {};
   }
 }
