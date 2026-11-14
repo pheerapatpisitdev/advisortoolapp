@@ -6,7 +6,8 @@ import { HEALTH_WORDS as HW, n, type KnowEpisode, type KnowSceneKey, type KnowSh
 import { ageRows, baht, groupBars, limitFigs, overflowBar, PART_FILL, roomFigs, splitParts, wrapLines } from "./story-health-motion";
 import { kspec } from "./story-knowledge-motion";
 import { infoIcon, type InfoIcon } from "./story-info-icons";
-import { Contact, INFO_GROUND, plot, type StoryContext } from "./story-motion";
+import type { StoryVideoInput } from "./story";
+import { Contact, INFO_GROUND, type StoryContext } from "./story-motion";
 import { countAt, SIZES, type VideoSize } from "./timeline";
 
 /**
@@ -19,30 +20,77 @@ import { countAt, SIZES, type VideoSize } from "./timeline";
 const C = QUOTE_VIDEO_COLORS;
 const S = STORY_CLIP_COLORS;
 
-/** what a look draws with: อินโฟกราฟิก's navy and gold, or ปากกาพล็อตเตอร์'s one pen on cream paper */
-interface Kit {
-  plot: boolean;
-  /** headings and the accent, a tile's own ground, bad and good news, the words, a card's ground and edge, the quieter words */
-  gold: string; sky: string; red: string; green: string; white: string; tile: string; tileLine: string; soft: string;
+/**
+ * What a look draws with: อินโฟกราฟิก's navy and gold, ปากกาพล็อตเตอร์'s one pen on cream paper, or (owner, 2026-11-14,
+ * spec 2026-11-14-story-looks-board-neon-blueprint) ไวต์บอร์ด's markers, นีออน's glowing tubes, บลูพริ้นท์'s white lines.
+ */
+export interface Kit {
+  /** drawn by hand rather than set in tiles: outlined tiles and stamps, hollow dots, thicker card lines */
+  drawn: boolean;
+  /** the ground the pieces stand on (the clip's background is drawn to match it) */
+  page: string;
+  /** the face its words are written in, or none (อินโฟกราฟิก: the frame's own Plex) */
+  hand: string | null;
+  /** how a piece comes in: its own entrance, written left to right, or switched on with a flicker */
+  reveal: "fade" | "write" | "switch";
+  /** ปากกาพล็อตเตอร์'s rail and carriage over the sheet; a title in outline; a tile's hatched shading set off behind it */
+  machine: boolean; hollowTitle: boolean; shade: boolean;
+  /** bars hatched inside their outline; a glow in the line's own colour; a dimension line under each figure */
+  hatch: boolean; glow: boolean; dims: boolean;
+  /** the width of a drawn line, against the pen's; a stamp's tilt; how far down a struck-out belief's line crosses it, as a share of its size (its face's own) */
+  line: number; tilt: number; strike: number;
+  /** headings and the accent, a title's second line, a tile's own ground, bad and good news, the words, a card's ground and edge, the quieter words */
+  gold: string; sub: string; sky: string; red: string; green: string; white: string; tile: string; tileLine: string; soft: string;
   /** what is drawn on a gold tile, a struck-out belief, the list item the voice is on and its edge, a tick, a recap's ground and small line */
   ground: string; dim: string; on: string; onLine: string; tick: string; card: string; mute: string;
 }
 const INFO_KIT: Kit = {
-  plot: false, gold: C.motionGold, sky: C.motionSky, red: C.motionRed, green: C.motionGreen, white: S.white, tile: "rgba(255,255,255,0.08)", tileLine: "rgba(255,255,255,0.2)", soft: "rgba(255,255,255,0.82)",
+  drawn: false, page: INFO_GROUND, hand: null, reveal: "fade", machine: false, hollowTitle: false, shade: false, hatch: false, glow: false, dims: false, line: 1, tilt: 0, strike: 0.62,
+  gold: C.motionGold, sub: S.white, sky: C.motionSky, red: C.motionRed, green: C.motionGreen, white: S.white, tile: "rgba(255,255,255,0.08)", tileLine: "rgba(255,255,255,0.2)", soft: "rgba(255,255,255,0.82)",
   ground: INFO_GROUND, dim: "rgba(255,255,255,0.45)", on: "rgba(255,210,63,0.12)", onLine: C.motionGold, tick: S.infoTick, card: S.white, mute: S.infoMute,
 };
 const PLOT_KIT: Kit = {
-  plot: true, gold: S.plotInk, sky: S.plotInk, red: S.red, green: S.green, white: S.plotInk, tile: "transparent", tileLine: S.plotInk, soft: S.plotSoft,
+  drawn: true, page: S.plotPaper, hand: "Mali", reveal: "write", machine: true, hollowTitle: true, shade: true, hatch: true, glow: false, dims: false, line: 1, tilt: -2, strike: 0.62,
+  gold: S.plotInk, sub: S.plotInk, sky: S.plotInk, red: S.red, green: S.green, white: S.plotInk, tile: "transparent", tileLine: S.plotInk, soft: S.plotSoft,
   ground: S.plotInk, dim: S.plotDim, on: S.plotOn, onLine: S.red, tick: S.green, card: S.plotPaper, mute: S.plotSoft,
 };
+/** ไวต์บอร์ด: dark ink and the blue and red markers on the white board, written in as the pen writes, with no machine */
+const BOARD_KIT: Kit = {
+  drawn: true, page: S.boardBoard, hand: "Mali", reveal: "write", machine: false, hollowTitle: false, shade: false, hatch: false, glow: false, dims: false, line: 1, tilt: -2, strike: 0.62,
+  gold: S.boardBlue, sub: S.boardInk, sky: S.boardInk, red: S.boardRed, green: S.boardGreen, white: S.boardInk, tile: "transparent", tileLine: S.boardInk, soft: S.boardMuted,
+  ground: S.boardInk, dim: S.boardMuted, on: "transparent", onLine: S.boardRed, tick: S.boardGreen, card: S.boardBoard, mute: S.boardMuted,
+};
+/** นีออน: cyan and pink tubes on the dark violet, lavender words, each piece switched on */
+const NEON_KIT: Kit = {
+  drawn: true, page: S.neonCentre, hand: "Sriracha", reveal: "switch", machine: false, hollowTitle: false, shade: false, hatch: false, glow: true, dims: false, line: 0.8, tilt: 0, strike: 0.98,
+  gold: S.neonCyan, sub: S.neonPink, sky: S.neonPink, red: S.neonRed, green: S.neonGreen, white: S.neonInk, tile: "transparent", tileLine: S.neonMuted, soft: S.neonMuted,
+  ground: S.white, dim: S.neonMuted, on: "transparent", onLine: S.neonCyan, tick: S.neonGreen, card: "transparent", mute: S.neonMuted,
+};
+/** บลูพริ้นท์: thin white lines on the blueprint blue, light cyan for the accent, amber for what the customer pays */
+const BLUEPRINT_KIT: Kit = {
+  drawn: true, page: S.bpGround, hand: "Plex", reveal: "write", machine: false, hollowTitle: false, shade: false, hatch: true, glow: false, dims: true, line: 0.6, tilt: 0, strike: 0.84,
+  gold: S.bpCyan, sub: S.bpInk, sky: S.bpInk, red: S.bpAmber, green: S.bpCyan, white: S.bpInk, tile: "transparent", tileLine: S.bpInk, soft: S.bpMuted,
+  ground: S.bpInk, dim: S.bpMuted, on: "transparent", onLine: S.bpAmber, tick: S.bpCyan, card: "transparent", mute: S.bpMuted,
+};
+const KITS: Partial<Record<string, Kit>> = { plot: PLOT_KIT, board: BOARD_KIT, neon: NEON_KIT, blueprint: BLUEPRINT_KIT };
+/** the Kit a clip is drawn with, from its look; อินโฟกราฟิก's for "info" and any other */
+export const kitFor = (input: Pick<StoryVideoInput, "art">): Kit => KITS[input.art ?? ""] ?? INFO_KIT;
 /**
- * The look being drawn, set by infoBody as it starts a frame: a clip is drawn in one look from its first frame
- * to its last, and its pieces are run straight after the frame is asked for.
+ * The look being drawn, set from the input at every entry (infoBody, infoDrawn, infoShow) as it starts a frame: a
+ * clip is drawn in one look from its first frame to its last, and its pieces are run straight after the frame is asked for.
  */
 let K: Kit = INFO_KIT;
-const HAND = "Mali";
 /** a pen's shading: fine slanted lines in its ink */
 const hatch = (ink: string) => `repeating-linear-gradient(45deg, ${ink} 0px, ${ink} 2px, transparent 2px, transparent 10px)`;
+/** นีออน's glow, in the line's own colour, on the words and the outlines: a shadow, never a blur over the frame */
+const glowText = (c: string): React.CSSProperties => (K.glow ? { textShadow: `0 0 8px ${c}, 0 0 20px ${c}` } : {});
+const glowBox = (c: string): React.CSSProperties => (K.glow ? { boxShadow: `0 0 8px ${c}, 0 0 18px ${c}` } : {});
+/** words in `c`, glowing in นีออน when `c` is a tube's colour and not the plain words' */
+const ink = (c: string): React.CSSProperties => ({ color: c, ...(c === K.white || c === K.soft || c === K.dim || c === K.mute ? {} : glowText(c)) });
+/** a drawn line's width: the pen's `px`, thinner in บลูพริ้นท์ */
+const pen = (px: number) => Math.max(2, Math.round(px * K.line));
+/** what masks a drawn piece's own ground: the sheet behind ปากกาพล็อตเตอร์'s shading, nothing elsewhere */
+const patch = () => (K.shade ? K.page : "transparent");
 
 /** where things stand, for each shape: `k` scales every size set for the portrait */
 const GEO: Record<VideoSize, { k: number; title: number; top: number; bottom: number; side: number; row: boolean }> = {
@@ -92,15 +140,15 @@ const itemIcons = (topic: StoryTopic, key: KnowSceneKey): InfoIcon[] => {
 /** a square tile with an icon in it */
 function Tile({ kind, size, bg = K.sky, color = K.white, radius }: { kind: InfoIcon; size: number; bg?: string; color?: string; radius?: number }) {
   const r = radius ?? Math.round(size * 0.24);
-  if (K.plot) {
-    // the pen's tile: its outline and the icon in one ink, the shading a hatched block set off behind it
+  if (K.drawn) {
+    // a drawn tile: its outline and the icon in one ink (glowing in นีออน); the pen sets a hatched block off behind it
+    const outline = <div style={abs({ left: 0, top: 0, width: size, height: size, borderRadius: r, background: patch(), border: `${pen(Math.max(3, size * 0.022))}px solid ${bg}`, alignItems: "center", justifyContent: "center", ...glowBox(bg) })}>{infoIcon(kind, Math.round(size * 0.62), bg)}</div>;
+    if (!K.shade) return <div style={box({ position: "relative", width: size, height: size, flexShrink: 0 })}>{outline}</div>;
     const off = Math.max(6, Math.round(size * 0.06));
     return (
       <div style={box({ position: "relative", width: size + off, height: size + off, flexShrink: 0 })}>
         <div style={abs({ left: off, top: off, width: size, height: size, borderRadius: r, background: hatch(bg) })} />
-        <div style={abs({ left: 0, top: 0, width: size, height: size, borderRadius: r, background: S.plotPaper, border: `${Math.max(3, Math.round(size * 0.022))}px solid ${bg}`, alignItems: "center", justifyContent: "center" })}>
-          {infoIcon(kind, Math.round(size * 0.62), bg)}
-        </div>
+        {outline}
       </div>
     );
   }
@@ -112,9 +160,9 @@ function Tile({ kind, size, bg = K.sky, color = K.white, radius }: { kind: InfoI
 }
 
 /** a pill with a word on it: the stamp of a belief or a fact */
-const Chip = ({ text, bg, size }: { text: string; bg: string; size: number }) => (K.plot
-  // a rubber stamp's outline, a little askew
-  ? <div style={box({ background: S.plotPaper, color: bg, border: `${Math.max(3, Math.round(size * 0.09))}px solid ${bg}`, borderRadius: Math.round(size * 0.3), padding: `${Math.round(size * 0.16)}px ${Math.round(size * 0.7)}px`, fontSize: size, fontWeight: 600, transform: "rotate(-2deg)" })}>{text}</div>
+const Chip = ({ text, bg, size }: { text: string; bg: string; size: number }) => (K.drawn
+  // a rubber stamp's outline, a little askew (a marker's ring, a lit tube, a ruled box)
+  ? <div style={box({ background: patch(), ...ink(bg), border: `${pen(Math.max(3, size * 0.09))}px solid ${bg}`, borderRadius: Math.round(size * 0.3), padding: `${Math.round(size * 0.16)}px ${Math.round(size * 0.7)}px`, fontSize: size, fontWeight: 600, ...glowBox(bg), ...(K.tilt ? { transform: `rotate(${K.tilt}deg)` } : {}) })}>{text}</div>
   : <div style={box({ background: bg, color: K.white, borderRadius: 999, padding: `${Math.round(size * 0.22)}px ${Math.round(size * 0.8)}px`, fontSize: size, fontWeight: 600 })}>{text}</div>
 );
 
@@ -135,9 +183,9 @@ function Lines({ lines, k, center = true }: { lines: NoteLine[]; k: number; cent
 /** the scene's title: the first line gold and large, the second white under it */
 function Title({ text, an, t, w, g }: { text: [string, string]; an?: Anim; t: number; w: number; g: (typeof GEO)[VideoSize] }) {
   return (
-    <E an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title + (K.plot && g.title < 100 ? Math.round(44 * g.k) : 0), flexDirection: "column", alignItems: "center" }}>
-      <div style={box({ fontSize: Math.round((K.plot && g.title < 100 ? 88 : 104) * g.k), fontWeight: 600, color: K.gold, lineHeight: 1.15, textAlign: "center", ...(K.plot ? { color: "transparent", WebkitTextStroke: `${Math.max(2, Math.round(3 * g.k))}px ${K.gold}` } : {}) })}>{text[0]}</div>
-      {text[1] ? <div style={box({ fontSize: Math.round(56 * g.k), color: K.white, marginTop: Math.round(8 * g.k), textAlign: "center" })}>{text[1]}</div> : null}
+    <E an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title + (K.drawn && g.title < 100 ? Math.round(44 * g.k) : 0), flexDirection: "column", alignItems: "center" }}>
+      <div style={box({ fontSize: Math.round((K.drawn && g.title < 100 ? 88 : 104) * g.k), fontWeight: 600, lineHeight: 1.15, textAlign: "center", ...(K.hollowTitle ? { color: "transparent", WebkitTextStroke: `${Math.max(2, Math.round(3 * g.k))}px ${K.gold}` } : ink(K.gold)) })}>{text[0]}</div>
+      {text[1] ? <div style={box({ fontSize: Math.round(56 * g.k), ...ink(K.sub), marginTop: Math.round(8 * g.k), textAlign: "center" })}>{text[1]}</div> : null}
     </E>
   );
 }
@@ -164,18 +212,19 @@ function itemParts(text: string, i: number, mark: "check" | "cross" | "box" | "w
 
 /** One อินโฟกราฟิก scene's frame body at scene time t (story-frames.tsx adds the subtitle and footer). */
 export function infoBody(key: KnowSceneKey | "storyContact", c: StoryContext, t: number, episode: KnowEpisode) {
-  K = plot(c.input) ? PLOT_KIT : INFO_KIT;
+  K = kitFor(c.input);
   if (key === "storyContact") return <Contact c={c} t={t} />;
   return infoDrawn(episode.scenes.find((x) => x.key === key)!.show, c, t, key);
 }
 
 /**
- * One show at scene time t in อินโฟกราฟิก, or in ปากกาพล็อตเตอร์ with the machine over the sheet: a knowledge
- * scene's (infoBody), or a คลิปตามโจทย์ device scene's (prompt-story/frames.tsx).
+ * One show at scene time t in อินโฟกราฟิก, or in a drawn look's hand face — ปากกาพล็อตเตอร์ with the machine over the
+ * sheet: a knowledge scene's (infoBody), or a คลิปตามโจทย์ device scene's (prompt-story/frames.tsx).
  */
 export function infoDrawn(shown: KnowShow, c: StoryContext, t: number, key?: KnowSceneKey) {
-  K = plot(c.input) ? PLOT_KIT : INFO_KIT;
-  if (!K.plot) return infoShow(shown, c, t, key);
+  K = kitFor(c.input);
+  if (!K.hand) return infoShow(shown, c, t, key);
+  if (!K.machine) return <div style={abs({ left: 0, top: 0, width: SIZES[c.size].w, height: SIZES[c.size].h, fontFamily: K.hand })}>{infoShow(shown, c, t, key)}</div>;
   // ปากกาพล็อตเตอร์: the same scene in the pen's hand, with the machine's rail and carriage over the sheet; the
   // carriage rides with the piece being written, and waits at the right when nothing is
   const { w: fw, h: fh } = SIZES[c.size];
@@ -186,7 +235,7 @@ export function infoDrawn(shown: KnowShow, c: StoryContext, t: number, key?: Kno
   const railY = GEO[c.size].bottom - Math.round(30 * gk);
   const x = side + Math.round((fw - side * 2 - 110 * gk) * p);
   return (
-    <div style={abs({ left: 0, top: 0, width: fw, height: fh, fontFamily: HAND })}>
+    <div style={abs({ left: 0, top: 0, width: fw, height: fh, fontFamily: K.hand })}>
       {infoShow(shown, c, t, key)}
       <div style={abs({ left: Math.round(side * 0.3), top: railY, width: fw - Math.round(side * 0.6), height: Math.round(22 * gk), borderRadius: 999, background: S.plotRail, border: `2px solid ${S.plotRailEdge}` })} />
       <div style={abs({ left: x, top: railY - Math.round(26 * gk), width: Math.round(110 * gk), height: Math.round(74 * gk), borderRadius: Math.round(12 * gk), background: S.plotHead })} />
@@ -197,15 +246,23 @@ export function infoDrawn(shown: KnowShow, c: StoryContext, t: number, key?: Kno
 }
 
 /**
- * A piece of a scene. อินโฟกราฟิก brings it in by its own entrance; the pen writes it, left to right, over the
- * same moments, and it is whole from then on.
+ * A piece of a scene. อินโฟกราฟิก brings it in by its own entrance; the pen (and ไวต์บอร์ด's marker, บลูพริ้นท์'s
+ * ruling pen) writes it, left to right, over the same moments; นีออน switches it on: dark, two quick dips, then
+ * full. It is whole from then on.
  */
 function E({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSProperties; children?: React.ReactNode }) {
-  if (!K.plot || !an) return <El an={an} t={t} style={style}>{children}</El>;
+  if (K.reveal === "fade" || !an) return <El an={an} t={t} style={style}>{children}</El>;
   const p = Math.max(0, Math.min(1, (t - an.at) / an.dur));
   if (p <= 0) return <div style={{ display: "flex", ...style, opacity: 0 }}>{children}</div>;
+  if (K.reveal === "switch") {
+    const lit = flicker(p);
+    return <div style={{ display: "flex", ...style, ...(lit < 1 ? { opacity: lit } : {}) }}>{children}</div>;
+  }
   return <div style={{ display: "flex", ...style, ...(p < 1 ? { clipPath: `inset(-40% ${((1 - p) * 100).toFixed(1)}% -40% -10%)` } : {}) }}>{children}</div>;
 }
+
+/** a neon tube coming on, over its piece's moments: two quick dips, at about a quarter and a little under half */
+export const flicker = (p: number) => (p >= 0.2 && p < 0.3 ? 0.15 : p >= 0.4 && p < 0.5 ? 0.3 : 1);
 
 /**
  * One show drawn in อินโฟกราฟิก or ปากกาพล็อตเตอร์ at scene time t, with no episode around it: a knowledge scene's
@@ -213,7 +270,7 @@ function E({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSP
  * ปากกาพล็อตเตอร์'s machine over it.
  */
 export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowSceneKey) {
-  K = plot(c.input) ? PLOT_KIT : INFO_KIT;
+  K = kitFor(c.input);
   const s = kspec(show);
   const { w } = SIZES[c.size];
   const g = GEO[c.size];
@@ -233,7 +290,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
             </E>
             <E an={s.marks} t={t} style={{ position: "absolute", left: 0, top: 0, width: w - g.side * 2, height: g.bottom - g.top }}>
               {[[-0.42, -0.3, 120], [0.36, -0.36, 90], [0.4, 0.22, 70]].map(([dx, dy, size], i) => (
-                <div key={i} style={abs({ left: Math.round((w - g.side * 2) / 2 + dx * hero * 1.6), top: Math.round((g.bottom - g.top) / 2 + dy * hero * 1.6), fontSize: Math.round(size * k), fontWeight: 600, color: K.gold })}>?</div>
+                <div key={i} style={abs({ left: Math.round((w - g.side * 2) / 2 + dx * hero * 1.6), top: Math.round((g.bottom - g.top) / 2 + dy * hero * 1.6), fontSize: Math.round(size * k), fontWeight: 600, ...ink(K.gold) })}>?</div>
               ))}
             </E>
           </div>
@@ -265,7 +322,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
           <div style={abs(area)}>
             <E an={s.crossed} t={t} style={{ position: "relative", fontSize: Math.round(80 * k), color: K.dim, fontWeight: 600 }}>
               {show.crossed}
-              <div style={abs({ left: 0, top: Math.round(80 * k * 0.62), width: `${Math.round(strike * 100)}%`, height: Math.max(4, Math.round(9 * k)), background: K.red, borderRadius: 6 })} />
+              <div style={abs({ left: 0, top: Math.round(80 * k * K.strike), width: `${Math.round(strike * 100)}%`, height: Math.max(4, Math.round(9 * k)), background: K.red, borderRadius: 6, ...glowBox(K.red) })} />
             </E>
             <E an={s.note} t={t} style={{ flexDirection: g.row ? "row" : "column", alignItems: "center", marginTop: Math.round(60 * k) }}>
               {icon ? <div style={box({ margin: g.row ? `0 ${Math.round(56 * k)}px 0 0` : `0 0 ${Math.round(44 * k)}px 0` })}><Tile kind={icon} size={Math.round(220 * k)} bg={K.green} /></div> : null}
@@ -285,7 +342,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
             <div style={box({ alignItems: "center" })}>
               <E an={s.face} t={t} style={{}}><Tile kind="person" size={Math.round(230 * k)} /></E>
               <div style={box({ width: aw, height: Math.round(40 * k), alignItems: "center", margin: `0 ${Math.round(28 * k)}px` })}>
-                <div style={box({ width: Math.round((aw - 30 * k) * arrow), height: Math.round(12 * k), background: K.gold, borderRadius: 6 })} />
+                <div style={box({ width: Math.round((aw - 30 * k) * arrow), height: Math.round(12 * k), background: K.gold, borderRadius: 6, ...glowBox(K.gold) })} />
                 {arrow > 0.9 ? <div style={box({ width: 0, height: 0, borderTop: `${Math.round(20 * k)}px solid transparent`, borderBottom: `${Math.round(20 * k)}px solid transparent`, borderLeft: `${Math.round(30 * k)}px solid ${K.gold}` })} /> : null}
               </div>
               <E an={s.icon} t={t} style={{}}><Tile kind={show.dir === "out" ? "coins" : "shield"} size={Math.round(230 * k)} bg={K.gold} color={K.ground} /></E>
@@ -334,8 +391,8 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
               const p = itemParts(it, i, show.mark);
               const on = i === now;
               return (
-                <E key={i} an={s[`item${i}`]} t={t} style={{ alignItems: "center", minHeight: tileH, marginTop: i ? Math.round(26 * k) : 0, background: on ? K.on : K.tile, border: `${Math.max(2, Math.round(4 * k))}px solid ${on ? K.onLine : K.tileLine}`, borderRadius: Math.round(30 * k), padding: `${Math.round(20 * k)}px ${Math.round(30 * k)}px` }}>
-                  <div style={box({ width: Math.round(70 * k), justifyContent: "center", fontSize: Math.round(76 * k), fontWeight: 600, color: show.mark === "check" ? K.tick : show.mark === "cross" ? K.red : K.gold, flexShrink: 0 })}>{p.badge}</div>
+                <E key={i} an={s[`item${i}`]} t={t} style={{ alignItems: "center", minHeight: tileH, marginTop: i ? Math.round(26 * k) : 0, background: on ? K.on : K.tile, border: `${Math.max(2, Math.round(4 * k))}px solid ${on ? K.onLine : K.tileLine}`, borderRadius: Math.round(30 * k), padding: `${Math.round(20 * k)}px ${Math.round(30 * k)}px`, ...glowBox(on ? K.onLine : K.tileLine) }}>
+                  <div style={box({ width: Math.round(70 * k), justifyContent: "center", fontSize: Math.round(76 * k), fontWeight: 600, ...ink(show.mark === "check" ? K.tick : show.mark === "cross" ? K.red : K.gold), flexShrink: 0 })}>{p.badge}</div>
                   {icons[i] ? <div style={box({ marginLeft: Math.round(22 * k) })}><Tile kind={icons[i]} size={Math.round(110 * k)} bg={K.gold} color={K.ground} radius={Math.round(26 * k)} /></div> : null}
                   <div style={box({ flexDirection: "column", marginLeft: Math.round(30 * k), flexShrink: 1 })}>
                     <div style={box({ fontSize: fitSize(p.head, Math.round(58 * k), room), fontWeight: 600, color: K.white, lineHeight: 1.25 })}>{p.head}</div>
@@ -353,9 +410,9 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
         <>
           <Title text={["จำง่าย ๆ", ""]} an={s.title} t={t} w={w} g={g} />
           <div style={abs(area)}>
-            <E an={s.card} t={t} style={{ flexDirection: "column", alignItems: "center", background: K.card, border: `${Math.round((K.plot ? 4 : 8) * k)}px solid ${K.gold}`, borderRadius: Math.round(44 * k), padding: `${Math.round(56 * k)}px ${Math.round(60 * k)}px`, maxWidth: w - g.side * 2 }}>
+            <E an={s.card} t={t} style={{ flexDirection: "column", alignItems: "center", background: K.card, border: `${K.drawn ? pen(4 * k) : Math.round(8 * k)}px solid ${K.gold}`, borderRadius: Math.round(44 * k), padding: `${Math.round(56 * k)}px ${Math.round(60 * k)}px`, maxWidth: w - g.side * 2, ...glowBox(K.gold) }}>
               {show.lines.map((l, i) => (
-                <div key={i} style={box({ fontSize: Math.round((l.big ? 80 : 48) * k), fontWeight: l.big ? 600 : 400, color: l.tone === "red" ? K.red : l.tone === "green" ? K.green : l.big ? K.ground : K.mute, lineHeight: 1.3, textAlign: "center" })}>{l.text}</div>
+                <div key={i} style={box({ fontSize: Math.round((l.big ? 80 : 48) * k), fontWeight: l.big ? 600 : 400, ...ink(l.tone === "red" ? K.red : l.tone === "green" ? K.green : l.big ? K.ground : K.mute), lineHeight: 1.3, textAlign: "center" })}>{l.text}</div>
               ))}
             </E>
           </div>
@@ -371,7 +428,7 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
           </E>
           <div style={abs({ ...area, alignItems: "stretch" })}>
             <E an={s.lead} t={t} style={{ flexDirection: "column", alignItems: "center", marginBottom: Math.round(60 * k) }}>
-              <div style={box({ fontSize: Math.round(88 * k), fontWeight: 600, color: K.gold })}>{show.lead[0]}</div>
+              <div style={box({ fontSize: Math.round(88 * k), fontWeight: 600, ...ink(K.gold) })}>{show.lead[0]}</div>
               <div style={box({ fontSize: Math.round(64 * k), fontWeight: 600, color: K.white })}>{show.lead[1]}</div>
             </E>
             {show.rows.map((row, i) => {
@@ -380,8 +437,8 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
                 <div key={i} style={box({ alignItems: "center", marginTop: i ? Math.round(30 * k) : 0 })}>
                   <div style={box({ width: Math.round(230 * k), fontSize: Math.round(48 * k), color: K.white, flexShrink: 0 })}>{row.label}</div>
                   <div style={box({ alignItems: "center", width: track })}>
-                    <div style={box({ width: Math.max(8, Math.round(track * 0.72 * (row.value / max) * p)), height: Math.round(70 * k), ...(K.plot ? { background: hatch(i === show.rows.length - 1 ? K.red : K.gold), border: `3px solid ${i === show.rows.length - 1 ? K.red : K.gold}` } : { background: i === show.rows.length - 1 ? K.red : K.gold, borderRadius: Math.round(16 * k) }) })} />
-                    <div style={box({ marginLeft: Math.round(20 * k), fontSize: Math.round(52 * k), fontWeight: 600, color: K.white, opacity: p > 0.6 ? 1 : 0 })}>{row.text}</div>
+                    <div style={box({ width: Math.max(8, Math.round(track * 0.72 * (row.value / max) * p)), height: Math.round(70 * k), ...fill(i === show.rows.length - 1 ? K.red : K.gold, Math.round(16 * k)) })} />
+                    <div style={box({ marginLeft: Math.round(20 * k), fontSize: Math.round(52 * k), fontWeight: 600, color: K.white, opacity: p > 0.6 ? 1 : 0 })}>{dimmed(row.text, k)}</div>
                   </div>
                 </div>
               );
@@ -428,12 +485,12 @@ function healthInfo(d: Dev, show: Show<"split" | "limit" | "room" | "overflow" |
 /** the size a line wrapped at its spaces is set in so its longest piece fits `room` */
 const fitWords = (text: string, size: number, room: number) => Math.min(...text.split(" ").map((x) => fitSize(x, size, room)));
 /** a bar's ink: the pen hatches it inside its outline; the navy fills it */
-const fill = (color: string, radius: number | string): React.CSSProperties => (K.plot ? { background: hatch(color), border: `3px solid ${color}` } : { background: color, borderRadius: radius });
+const fill = (color: string, radius: number | string): React.CSSProperties => (K.hatch ? { background: hatch(color), border: `${pen(3)}px solid ${color}` } : { background: color, borderRadius: radius, ...glowBox(color) });
 
 /** a card of words: the pen's thin outline on the sheet, or the navy's tile */
 function Card({ an, t, k, style, edge, children }: { an?: Anim; t: number; k: number; style?: React.CSSProperties; edge?: string; children: React.ReactNode }) {
   return (
-    <E an={an} t={t} style={{ flexDirection: "column", alignItems: "center", background: K.tile, border: `${K.plot ? 3 : 2}px solid ${edge ?? K.tileLine}`, borderRadius: Math.round(32 * k), padding: `${Math.round(32 * k)}px ${Math.round(40 * k)}px`, ...style }}>
+    <E an={an} t={t} style={{ flexDirection: "column", alignItems: "center", background: K.tile, border: `${K.drawn ? pen(3) : 2}px solid ${edge ?? K.tileLine}`, borderRadius: Math.round(32 * k), padding: `${Math.round(32 * k)}px ${Math.round(40 * k)}px`, ...glowBox(edge ?? K.tileLine), ...style }}>
       {children}
     </E>
   );
@@ -444,7 +501,25 @@ function Figure({ label, value, color, k, room, size = 76 }: { label?: string; v
   return (
     <div style={box({ flexDirection: "column" })}>
       {label ? <div style={box({ fontSize: Math.round(44 * k), color: K.soft, lineHeight: 1.3 })}>{label}</div> : null}
-      <div style={box({ fontSize: fitSize(value, Math.round(size * k), room), fontWeight: 600, color, lineHeight: 1.2 })}>{value}</div>
+      {dimmed(<div style={box({ fontSize: fitSize(value, Math.round(size * k), room), fontWeight: 600, ...ink(color), lineHeight: 1.2 })}>{value}</div>, k, true)}
+    </div>
+  );
+}
+
+/**
+ * บลูพริ้นท์'s dimension line under a figure, as wide as it, with a tick at each end in the accent; the figure as it
+ * is in every other look. `column`: the figure stands in a column, which would stretch the line across it
+ */
+function dimmed(figure: React.ReactNode, k: number, column = false) {
+  if (!K.dims) return figure;
+  const line = pen(3 * k);
+  const tick = Math.max(10, Math.round(18 * k));
+  return (
+    <div style={box({ flexDirection: "column", alignItems: "stretch", ...(column ? { alignSelf: "flex-start" } : {}) })}>
+      {figure}
+      <div data-dim="" style={box({ position: "relative", height: tick, marginTop: Math.round(6 * k), borderLeft: `${line}px solid ${K.gold}`, borderRight: `${line}px solid ${K.gold}` })}>
+        <div style={abs({ left: 0, top: Math.round((tick - line) / 2), width: "100%", height: 0, borderTop: `${line}px solid ${K.gold}` })} />
+      </div>
     </div>
   );
 }
@@ -515,7 +590,7 @@ function split(d: Dev, show: Show<"split">) {
   const wl = look(s.whole, t);
   const lumpW = Math.round(inner * 0.85);
   const lumpH = ch - pad * 2 - Math.round(head * 1.8);
-  const heading = (text: string) => <div style={box({ fontSize: head, fontWeight: 600, color: K.gold, lineHeight: 1.25 })}>{text}</div>;
+  const heading = (text: string) => <div style={box({ fontSize: head, fontWeight: 600, ...ink(K.gold), lineHeight: 1.25 })}>{text}</div>;
   const card: React.CSSProperties = { position: "absolute", top: a.y, width: cw, height: ch, padding: pad, justifyContent: "flex-start" };
   return (
     <>
@@ -541,7 +616,7 @@ function split(d: Dev, show: Show<"split">) {
         {heading(HW.lump)}
         <div style={box({ flexGrow: 1, justifyContent: "center", alignItems: "flex-end" })}>
           <div style={box({ width: lumpW, height: Math.round(lumpH * wl.p), opacity: wl.opacity, justifyContent: "center", alignItems: "center", ...fill(K.green, Math.round(14 * k)) })}>
-            <div style={box({ fontSize: fitWords(show.whole, Math.round(52 * k), lumpW - 40), fontWeight: 600, lineHeight: 1.25, textAlign: "center", justifyContent: "center", color: K.plot ? K.green : K.white, background: K.plot ? S.plotPaper : "transparent", padding: `0 ${Math.round(10 * k)}px`, opacity: wl.p > 0.5 ? 1 : 0 })}>{show.whole}</div>
+            <div style={box({ fontSize: fitWords(show.whole, Math.round(52 * k), lumpW - 40), fontWeight: 600, lineHeight: 1.25, textAlign: "center", justifyContent: "center", ...(K.drawn ? ink(K.green) : { color: K.white }), background: K.drawn ? K.page : "transparent", padding: `0 ${Math.round(10 * k)}px`, opacity: wl.p > 0.5 ? 1 : 0 })}>{show.whole}</div>
           </div>
         </div>
       </Card>
@@ -570,9 +645,9 @@ function limit(d: Dev, show: Show<"limit">) {
   return (
     <>
       <Title text={show.title} an={s.title} t={t} w={w} g={g} />
-      <E an={s.tube} t={t} style={{ position: "absolute", left: tx, top: ty, width: tubeW, height: tubeH, borderRadius: tubeW, border: `${edge}px solid ${K.gold}`, background: K.tile, overflow: "hidden", flexDirection: "column", justifyContent: "flex-end" }}>
+      <E an={s.tube} t={t} style={{ position: "absolute", left: tx, top: ty, width: tubeW, height: tubeH, borderRadius: tubeW, border: `${edge}px solid ${K.gold}`, background: K.tile, overflow: "hidden", ...glowBox(K.gold), flexDirection: "column", justifyContent: "flex-end" }}>
         {[0.25, 0.5, 0.75].map((f) => <div key={f} style={abs({ right: 0, top: Math.round(inside * f), width: Math.round(tubeW * 0.24), height: 0, borderTop: `3px solid ${K.dim}` })} />)}
-        <div style={box({ width: tubeW - edge * 2, height: level, flexShrink: 0, background: K.plot ? hatch(K.gold) : K.gold, opacity: level > 0 ? 1 : 0 })} />
+        <div style={box({ width: tubeW - edge * 2, height: level, flexShrink: 0, background: K.hatch ? hatch(K.gold) : K.gold, opacity: level > 0 ? 1 : 0 })} />
       </E>
       <E an={s.top} t={t} style={{ position: "absolute", left: lx, top: ty, width: lw, flexDirection: "column" }}>
         <Figure value={baht(most)} color={K.gold} k={k} room={lw} size={88} />
@@ -605,7 +680,7 @@ function room(d: Dev, show: Show<"room">) {
   const row = (an: Anim | undefined, label: string, value: string, color: string, size: number) => (
     <E an={an} t={t} style={{ width: inner, justifyContent: "space-between", alignItems: "center", marginTop: Math.round(18 * k) }}>
       <div style={box({ fontSize: Math.round(48 * k), color: K.white, flexShrink: 0 })}>{label}</div>
-      <div style={box({ fontSize: Math.round(size * k), fontWeight: 600, color })}>{value}</div>
+      {dimmed(<div style={box({ fontSize: Math.round(size * k), fontWeight: 600, ...ink(color) })}>{value}</div>, k)}
     </E>
   );
   const rule = <div style={box({ width: inner, height: 0, borderTop: `3px dashed ${K.tileLine}`, marginTop: Math.round(20 * k) })} />;
@@ -626,7 +701,7 @@ function room(d: Dev, show: Show<"room">) {
               {/* a room within what the plan pays is paid: no difference to show, never a negative one */}
               {real > plan
                 ? row(s.own, HW.ownNight, n(countAt(real - plan, look(s.count, t).p)), K.red, 84)
-                : <E an={s.own} t={t} style={{ width: inner, justifyContent: "center", marginTop: Math.round(18 * k), fontSize: fitSize(HW.enough, Math.round(76 * k), inner), fontWeight: 600, color: K.green }}>{HW.enough}</E>}
+                : <E an={s.own} t={t} style={{ width: inner, justifyContent: "center", marginTop: Math.round(18 * k), fontSize: fitSize(HW.enough, Math.round(76 * k), inner), fontWeight: 600, ...ink(K.green) }}>{HW.enough}</E>}
               <div style={box({ width: inner, justifyContent: "flex-end", marginTop: Math.round(10 * k), fontSize: Math.round(30 * k), color: K.soft })}>{HW.example}</div>
             </div>
           ) : (
@@ -671,7 +746,7 @@ function overflow(d: Dev, show: Show<"overflow">) {
       {overH ? part(limitY - Math.round(overH * op), Math.round(overH * op), K.red) : null}
       <E an={s.line} t={t} style={{ position: "absolute", left: bx - Math.round(30 * k), top: limitY - 3, width: lineEnd - bx + Math.round(30 * k), height: 0, borderTop: `${Math.max(4, Math.round(6 * k))}px dashed ${K.red}` }} />
       {/* the limit's word with its own figure, so the bill's figure beside it is never read as the limit */}
-      <E an={s.line} t={t} style={{ position: "absolute", left: bx + barW + Math.round(16 * k), top: limitY - Math.round(104 * k), flexDirection: "column", color: K.red, lineHeight: 1.2 }}>
+      <E an={s.line} t={t} style={{ position: "absolute", left: bx + barW + Math.round(16 * k), top: limitY - Math.round(104 * k), flexDirection: "column", ...ink(K.red), lineHeight: 1.2 }}>
         <div style={box({ fontSize: Math.round(36 * k) })}>{HW.limit}</div>
         <div style={box({ fontSize: fitSize(n(cap), Math.round(42 * k), lineEnd - bx - barW - Math.round(24 * k)), fontWeight: 600 })}>{n(cap)}</div>
       </E>
@@ -726,11 +801,11 @@ function waiting(d: Dev, show: Show<"waiting">) {
   return (
     <>
       <Title text={show.title} an={s.title} t={t} w={w} g={g} />
-      {len > 0 ? <div style={abs({ left: x0, top: ly - Math.round(5 * k), width: Math.round(len * lp), height: Math.max(4, Math.round(10 * k)), background: K.gold, borderRadius: 6 })} /> : null}
+      {len > 0 ? <div style={abs({ left: x0, top: ly - Math.round(5 * k), width: Math.round(len * lp), height: Math.max(4, Math.round(10 * k)), background: K.gold, borderRadius: 6, ...glowBox(K.gold) })} /> : null}
       {rows.map((row, i) => (
         <E key={i} an={s[`row${i}`]} t={t} style={{ position: "absolute", left: a.x + i * col, top: ly - atH - Math.round(dot / 2), width: col, flexDirection: "column", alignItems: "center" }}>
-          <div style={box({ height: atH, alignItems: "flex-end", fontSize: atSize, fontWeight: 600, lineHeight: 1.2, color: i === 0 ? K.green : K.gold })}>{row.at}</div>
-          <div style={box({ width: dot, height: dot, borderRadius: dot, flexShrink: 0, background: K.plot ? S.plotPaper : dotColor(i), border: `${Math.max(4, Math.round(7 * k))}px solid ${dotColor(i)}` })} />
+          <div style={box({ height: atH, alignItems: "flex-end", fontSize: atSize, fontWeight: 600, lineHeight: 1.2, ...ink(i === 0 ? K.green : K.gold) })}>{row.at}</div>
+          <div style={box({ width: dot, height: dot, borderRadius: dot, flexShrink: 0, background: K.drawn ? K.page : dotColor(i), border: `${Math.max(4, Math.round(7 * k))}px solid ${dotColor(i)}`, ...glowBox(dotColor(i)) })} />
           <div style={box({ marginTop: margin, width: col - 24, justifyContent: "center", fontSize: labelSize, fontWeight: 600, color: K.white, lineHeight: 1.3, textAlign: "center" })}>{row.label}</div>
         </E>
       ))}
@@ -760,10 +835,10 @@ function cashless(d: Dev, show: Show<"cashless">) {
           <E an={s.card} t={t} style={{ position: "absolute", left: Math.round(hs * 0.78), top: Math.round(hs * 0.48), transform: "rotate(-8deg)" }}><Tile kind="badge" size={cs} bg={K.gold} color={K.ground} /></E>
         </div>
         <div style={box({ flexDirection: "column", alignItems: "center", width: side })}>
-          <E an={s.tick} t={t} style={{ width: tick, height: tick, borderRadius: tick, alignItems: "center", justifyContent: "center", background: K.plot ? S.plotPaper : K.green, border: `${Math.max(4, Math.round(8 * k))}px solid ${K.green}` }}>
-            <svg width={Math.round(tick * 0.62)} height={Math.round(tick * 0.62)} viewBox="0 0 100 100"><path d="M18 52 L40 73 L82 28" fill="none" stroke={K.plot ? K.green : K.white} strokeWidth={13} strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <E an={s.tick} t={t} style={{ width: tick, height: tick, borderRadius: tick, alignItems: "center", justifyContent: "center", background: K.drawn ? K.page : K.green, border: `${Math.max(4, Math.round(8 * k))}px solid ${K.green}`, ...glowBox(K.green) }}>
+            <svg width={Math.round(tick * 0.62)} height={Math.round(tick * 0.62)} viewBox="0 0 100 100"><path d="M18 52 L40 73 L82 28" fill="none" stroke={K.drawn ? K.green : K.white} strokeWidth={13} strokeLinecap="round" strokeLinejoin="round" /></svg>
           </E>
-          <E an={s.word} t={t} style={{ marginTop: Math.round(30 * k), fontSize: fitSize(HW.network, Math.round(84 * k), side - 20), fontWeight: 600, color: K.gold }}>{HW.network}</E>
+          <E an={s.word} t={t} style={{ marginTop: Math.round(30 * k), fontSize: fitSize(HW.network, Math.round(84 * k), side - 20), fontWeight: 600, ...ink(K.gold) }}>{HW.network}</E>
           <E an={s.note} t={t} style={{ marginTop: Math.round(12 * k), width: side - 20, justifyContent: "center", fontSize: fitWords(show.note, Math.round(48 * k), side - 20), color: K.soft, lineHeight: 1.35, textAlign: "center" }}>{show.note}</E>
         </div>
       </div>
@@ -797,7 +872,7 @@ function groupgap(d: Dev, show: Show<"groupgap">) {
           <div style={box({ width: track, height: barH, flexShrink: 0 })}>
             <div style={box({ width: Math.round(len * p), height: barH, opacity: p > 0 ? 1 : 0, ...fill(color, Math.round(12 * k)) })} />
           </div>
-          <E an={s[`${an}Fig`]} t={t} style={{ marginLeft: Math.round(24 * k), width: figW, fontSize: fitSize(n(value), Math.round(64 * k), figW), fontWeight: 600, color }}>{n(value)}</E>
+          <E an={s[`${an}Fig`]} t={t} style={{ marginLeft: Math.round(24 * k), width: figW, fontSize: fitSize(n(value), Math.round(64 * k), figW), fontWeight: 600, ...ink(color) }}>{dimmed(<div style={box({})}>{n(value)}</div>, k)}</E>
         </div>
       </div>
     );
@@ -813,9 +888,9 @@ function groupgap(d: Dev, show: Show<"groupgap">) {
           {bill > group ? (
             <div style={box({ flexDirection: "column", alignItems: "center" })}>
               <div style={box({ fontSize: Math.round(52 * k), fontWeight: 600, color: K.white, lineHeight: 1.3 })}>{HW.short}</div>
-              <div style={box({ fontSize: fitSize(baht(bill - group), Math.round(88 * k), inner), fontWeight: 600, color: K.red, lineHeight: 1.25 })}>{baht(countAt(bill - group, look(s.count, t).p))}</div>
+              <div style={box({ fontSize: fitSize(baht(bill - group), Math.round(88 * k), inner), fontWeight: 600, ...ink(K.red), lineHeight: 1.25 })}>{baht(countAt(bill - group, look(s.count, t).p))}</div>
             </div>
-          ) : <div style={box({ fontSize: fitSize(HW.groupEnough, Math.round(72 * k), inner), fontWeight: 600, color: K.green })}>{HW.groupEnough}</div>}
+          ) : <div style={box({ fontSize: fitSize(HW.groupEnough, Math.round(72 * k), inner), fontWeight: 600, ...ink(K.green) })}>{HW.groupEnough}</div>}
         </Card>
       </div>
     </>
@@ -850,14 +925,14 @@ function agecost(d: Dev, show: Show<"agecost">) {
         const color = i === last ? K.red : K.gold;
         return (
           <div key={i} style={abs({ left: chart.x + i * slot, top: base - Math.round(h * p) - Math.round(figSize * 1.4), width: slot, flexDirection: "column", alignItems: "center" })}>
-            <div style={box({ height: Math.round(figSize * 1.4), alignItems: "flex-end", fontSize: figSize, fontWeight: 600, color: i === last ? K.red : K.white, opacity: p > 0.6 ? 1 : 0 })}>{n(row.annual)}</div>
-            <div style={box({ width: barW, height: Math.round(h * p), opacity: p > 0 ? 1 : 0, ...fill(color, `${Math.round(14 * k)}px ${Math.round(14 * k)}px 0 0`), ...(K.plot ? { borderBottom: "none" } : {}) })} />
+            <div style={box({ height: Math.round(figSize * 1.4), alignItems: "flex-end", fontSize: figSize, fontWeight: 600, ...ink(i === last ? K.red : K.white), opacity: p > 0.6 ? 1 : 0 })}>{n(row.annual)}</div>
+            <div style={box({ width: barW, height: Math.round(h * p), opacity: p > 0 ? 1 : 0, ...fill(color, `${Math.round(14 * k)}px ${Math.round(14 * k)}px 0 0`), ...(K.hatch ? { borderBottom: "none" } : {}) })} />
           </div>
         );
       })}
-      <div style={abs({ left: chart.x - Math.round(20 * k), top: base - 2, width: chart.w + Math.round(40 * k), height: Math.max(3, Math.round(5 * k)), background: K.gold, borderRadius: 3 })} />
+      <div style={abs({ left: chart.x - Math.round(20 * k), top: base - 2, width: chart.w + Math.round(40 * k), height: Math.max(3, Math.round(5 * k)), background: K.gold, borderRadius: 3, ...glowBox(K.gold) })} />
       {labels.map((label, i) => (
-        <div key={i} style={abs({ left: chart.x + i * slot, top: base + Math.round(labelSize * 0.25), width: slot, justifyContent: "center", fontSize: labelSize, fontWeight: 600, color: i === last ? K.red : K.white })}>{label}</div>
+        <div key={i} style={abs({ left: chart.x + i * slot, top: base + Math.round(labelSize * 0.25), width: slot, justifyContent: "center", fontSize: labelSize, fontWeight: 600, ...ink(i === last ? K.red : K.white) })}>{label}</div>
       ))}
       <E an={s.source} t={t} style={{ position: "absolute", left: a.x + 20, width: a.w - 40, top: base + Math.round(labelSize * 1.7), justifyContent: "center", fontSize: sourceSize, color: K.soft, lineHeight: 1.35, textAlign: "center" }}>{show.source}</E>
     </>

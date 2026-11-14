@@ -3,7 +3,7 @@ import { CARD_PALETTE as P, QUOTE_VIDEO_COLORS, STORY_CLIP_COLORS } from "@/lib/
 import { CROWD_HERO, FACE_PAPER } from "@/lib/story/faces";
 import { blend, Figure, GROUNDS, lookFromId, type GroundColors, POSES, type Drawn, type Pose, type PoseName } from "@/lib/story/figure";
 import { dollLook, PaperDoll } from "@/lib/story/paper-doll";
-import { topicOf } from "@/lib/story/topics";
+import { infoArt, topicOf } from "@/lib/story/topics";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import { heroName, planName, storyEvent, termShort, type StorySceneKey, type StoryVideoInput } from "./story";
 import { AFTER_CLOSE, type AfterTopic } from "./story-after";
@@ -253,8 +253,11 @@ export const dolls = (input: StoryVideoInput) => input.art === "paper" || input.
 export const whole = (input: StoryVideoInput) => input.art === "minimal" || dolls(input);
 /** the colour of words written straight on the ground: light on the dark one */
 export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(input).ink : plot(input) ? C.plotInk : info(input) ? C.white : INK);
-/** อินโฟกราฟิก (story-info-motion.tsx): tiles and icons on วิดีโอนำเสนอ Motion's navy, no faces */
-export const info = (input: StoryVideoInput) => input.art === "info" || input.art === "plot";
+/**
+ * อินโฟกราฟิก's route (story-info-motion.tsx), no faces: อินโฟกราฟิก's tiles and icons on วิดีโอนำเสนอ Motion's navy, and
+ * the looks drawn with its drawers in their own Kit (topics.ts INFO_ARTS: ปากกาพล็อตเตอร์, ไวต์บอร์ด, นีออน, บลูพริ้นท์)
+ */
+export const info = (input: StoryVideoInput) => input.art === "info" || infoArt(input.art);
 /** ปากกาพล็อตเตอร์ (owner, 2026-11-12): อินโฟกราฟิก's scenes on cream paper, written by one pen as the voice goes */
 export const plot = (input: StoryVideoInput) => input.art === "plot";
 export const INFO_GROUND = QUOTE_VIDEO_COLORS.motionNavy;
