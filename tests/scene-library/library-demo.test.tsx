@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({ viewer: null as unknown as Viewer, board: null
 
 vi.mock("@/lib/auth/viewer", () => ({ gatePage: async () => state.viewer, requireMember: async () => state.viewer }));
 vi.mock("@/lib/scene-library/marks", () => ({ marksOf: async () => ({ saved: [], wanted: [] }), wantCounts: async () => ({}) }));
+vi.mock("@/lib/scene-library/uploads", () => ({ uploadViews: async () => ({ mine: [], shared: [], waiting: [] }) }));
 vi.mock("@/lib/switches/store", () => ({ closedFor: async () => null }));
 vi.mock("@/app/studio/library/LibraryBoard", () => ({ LibraryBoard: (p: Record<string, unknown>) => { state.board = p; return null; } }));
 

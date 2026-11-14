@@ -13,9 +13,9 @@ export const KIND_NAME: Record<UploadKind, string> = {
 };
 
 export const KIND_TELLS: Record<UploadKind, string> = {
-  part: "ภาพ PNG พื้นโปร่งใส ไว้วางเป็นภาพของฉากในคลิป",
-  style: "ภาพอ้างอิงสไตล์ ให้ AI วาดตามสีและเส้น",
-  ask: "บอกชิ้นที่อยากได้ เป็นคำ ลิงก์ หรือภาพหน้าจอ",
+  part: "ตัวละคร ไอคอน ฉากหลัง ใช้เป็นภาพของฉากแทนภาพ AI",
+  style: "ภาพที่ชอบโทนสีหรือลายเส้น ใช้เป็นแนวให้ AI วาดภาพ",
+  ask: "อยากได้อุปกรณ์หรือรูปแบบที่ยังไม่มี ส่งเป็นข้อความ ลิงก์ หรือภาพหน้าจอ",
 };
 
 export const KIND_HINT: Record<UploadKind, string> = {

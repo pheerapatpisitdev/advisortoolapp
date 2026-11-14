@@ -13,6 +13,8 @@ const state = vi.hoisted(() => ({
   marks: null as null | { saved: string[]; wanted: string[] },
   counts: null as null | Record<string, number>,
   closed: {} as Record<string, string | null>,
+  uploads: { mine: [], shared: [], waiting: [] } as null | { mine: unknown[]; shared: unknown[]; waiting: unknown[] },
+  asked: [] as unknown[],
 }));
 
 vi.mock("@/lib/auth/viewer", () => ({
@@ -23,6 +25,7 @@ vi.mock("@/lib/scene-library/marks", () => ({
   marksOf: async () => { if (!state.marks) throw new Error("relation \"ins_library_marks\" does not exist"); return state.marks; },
   wantCounts: async () => { if (!state.counts) throw new Error("relation \"ins_library_marks\" does not exist"); return state.counts; },
 }));
+vi.mock("@/lib/scene-library/uploads", () => ({ uploadViews: async (who: unknown) => { state.asked.push(who); return state.uploads; } }));
 vi.mock("@/lib/switches/store", () => ({ closedFor: async (_v: unknown, key: string) => state.closed[key] ?? null }));
 vi.mock("@/app/studio/library/actions", () => ({ toggleLibraryMark: vi.fn() }));
 
@@ -41,6 +44,29 @@ beforeEach(() => {
   state.marks = { saved: [], wanted: [] };
   state.counts = {};
   state.closed = {};
+  state.uploads = { mine: [], shared: [], waiting: [] };
+  state.asked = [];
+});
+
+describe("the page and the members' uploads", () => {
+  it("reads the uploads for this viewer, and for the owner as the owner", async () => {
+    await page();
+    expect(state.asked).toEqual([{ agentId: AGENT.agentId, owner: false }]);
+    state.viewer = OWNER;
+    await page();
+    expect(state.asked[1]).toEqual({ agentId: OWNER.agentId, owner: true });
+  });
+  it("shows the upload tabs when they can be read", async () => {
+    expect(await page()).toContain(">อัปโหลด<");
+  });
+  it("says so, and leaves the upload tabs out, when they cannot be read", async () => {
+    state.uploads = null;
+    const html = await page();
+    expect(html).toMatch(/role="alert"[^>]*>โหลดไฟล์ที่อัปโหลดไม่สำเร็จ/);
+    expect(html).not.toContain(">อัปโหลด<");
+    expect(html).not.toContain("คิวตรวจ");
+    expect(html).toContain("ค่าห้องต่อคืน");
+  });
 });
 
 describe("the page", () => {
@@ -79,8 +105,16 @@ describe("the page", () => {
     expect(html).toMatch(/ของฉัน<span[^>]*>1<\/span>/);
   });
 
+  it("with the marks unread but the uploads readable, ของฉัน stays for ไฟล์ที่ฉันส่ง", async () => {
+    state.marks = null;
+    const html = await page();
+    expect(html).toMatch(/role="tab"[^>]*>ของฉัน</);
+    expect(html).not.toContain('aria-label="บันทึก ');
+  });
+
   it("still shows the catalogue when the marks cannot be read, saying so for that part alone", async () => {
     state.marks = null;
+    state.uploads = null;
     const html = await page();
     expect(html).toMatch(/role="alert"[^>]*>โหลดรายการที่บันทึกและจำนวนคนอยากได้ไม่สำเร็จ/);
     expect(html).toContain("ค่าห้องต่อคืน");

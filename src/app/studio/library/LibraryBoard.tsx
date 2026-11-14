@@ -5,24 +5,34 @@ import { PRODUCT_NAME, TYPE_NAME, usesFor, type LibraryItem, type LibraryProduct
 import { filterLibrary, type LibraryFilter, type LibraryState } from "@/lib/scene-library/filter";
 import { cleanMarks, hasMark, pressMark, withMark, type Marks } from "@/lib/scene-library/mark-state";
 import type { MarkKind, Toggled } from "@/lib/scene-library/marks";
-import { toggleLibraryMark } from "./actions";
+import { uploadsFor, withoutUpload, withSent, withVerdict, type UploadSet } from "@/lib/scene-library/upload-flow";
+import type { UploadView } from "@/lib/scene-library/upload-rules";
+import type { Sent } from "@/lib/scene-library/uploads";
+import { decideLibraryUpload, removeLibraryUpload, toggleLibraryMark } from "./actions";
+import { MyFiles, ReviewQueue, UploadCard } from "./UploadList";
+import { UploadTab } from "./UploadTab";
 import { MegaphoneIcon, PenIcon, QuoteIcon, SearchIcon, SlidersIcon } from "../ui/icons";
 
 /**
  * คลังแอนิเมชัน's board, as the owner-approved mockup v5 draws its หน้าเมนู (2026-11-14): tabs
  * เลือกดู / ของฉัน / อยากได้มากสุด (the owner's), a search and three chip rows, a card per piece, and the
- * detail above the cards when a preview is pressed. Uploads and the file queue are a later phase.
+ * detail above the cards when a preview is pressed. Phase 3 adds the members' uploads: tabs อัปโหลด / ของฉัน's
+ * ไฟล์ที่ฉันส่ง / คิวตรวจ (the owner's), and the shared parts and styles as cards (UploadTab, UploadList).
  *
  * ★ and อยากได้ change at once and follow the server's answer; a refusal or a failed call puts the mark
  * back with a line under the card, and the button waits while its press is on its way. With the marks
  * unreadable (`marksFailed`) there is no ★, no vote and no ของฉัน: the page says why above the board.
  */
 
-type Tab = "browse" | "mine" | "top";
+type Tab = "browse" | "upload" | "mine" | "queue" | "top";
+type TypeChip = LibraryFilter["type"] | "upload";
+type Chips = Omit<LibraryFilter, "type"> & { type: TypeChip };
+type Done = { ok: true } | { ok: false; error: string };
+type Verdict = "ok" | "no" | "queue" | "closed";
 
 /** the forms by the names the menu gives them */
 const TOOL_NAME: Record<LibraryTool, string> = { "quote-video": "วิดีโอนำเสนอ", "story-clip": "คลิปเล่าเรื่อง", "prompt-story": "คลิปตามโจทย์" };
-const TYPES: [LibraryFilter["type"], string][] = [["any", "ทั้งหมด"], ...(Object.entries(TYPE_NAME) as [LibraryType, string][])];
+const TYPES: [TypeChip, string][] = [["any", "ทั้งหมด"], ...(Object.entries(TYPE_NAME) as [LibraryType, string][])];
 /** the product chips: catalog.ts's names, its `all` on the chip that shows every product */
 const PRODUCTS: [LibraryFilter["product"], string][] = [
   ["any", PRODUCT_NAME.all],
@@ -153,24 +163,44 @@ interface BoardProps {
   marksFailed?: boolean;
   /** the viewer is the shared demo account: its votes are left out of every count, so its own press does not move one */
   demo?: boolean;
+  /** the members' uploads; null when the table cannot be read (no upload tabs, no upload cards), undefined before phase 3's page */
+  uploads?: UploadSet | null;
   /** the server's toggle; a stand-in where nothing may be written */
   toggle?: (item: string, kind: MarkKind) => Promise<Toggled>;
+  /** the upload route, the owner's verdict, the sender's delete; stand-ins where nothing may be written */
+  send?: (form: FormData) => Promise<Sent>;
+  decide?: (id: string, verdict: Verdict, reason?: string) => Promise<Done>;
+  remove?: (id: string) => Promise<Done>;
 }
 
-export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksFailed = false, demo = false, toggle = toggleLibraryMark }: BoardProps) {
+/** the route's POST; a reply that is not ours reads as a failed send */
+async function postUpload(form: FormData): Promise<Sent> {
+  const res = await fetch("/api/library-upload", { method: "POST", body: form });
+  const out = (await res.json().catch(() => null)) as Sent | null;
+  return out && typeof out.ok === "boolean" ? out : { ok: false, error: "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง" };
+}
+
+export function LibraryBoard({
+  items, open, saved, wanted, counts, owner, marksFailed = false, demo = false, uploads = null,
+  toggle = toggleLibraryMark, send = postUpload,
+  decide = (id, verdict, reason) => decideLibraryUpload(id, verdict, reason),
+  remove = (id) => removeLibraryUpload(id),
+}: BoardProps) {
   const [marks, setMarks] = useState<Marks>(() => cleanMarks(items, { saved, wanted, counts }));
   // the marks as they are this moment, for a press that starts before React has drawn the last one
   const now = useRef(marks);
   const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<Tab>("browse");
-  const [filter, setFilter] = useState<LibraryFilter>({ q: "", type: "any", product: "any", state: "ready" });
+  const [filter, setFilter] = useState<Chips>({ q: "", type: "any", product: "any", state: "ready" });
+  const [ups, setUps] = useState<UploadSet | null>(uploads);
   const [sel, setSel] = useState<string | null>(null);
   const [look, setLook] = useState("paper");
   const searchId = useId();
   const detailRef = useRef<HTMLElement>(null);
 
-  const shown = useMemo(() => filterLibrary(items, filter), [items, filter]);
+  const shown = useMemo(() => (filter.type === "upload" ? [] : filterLibrary(items, { ...filter, type: filter.type })), [items, filter]);
+  const shownUploads = useMemo(() => (ups ? uploadsFor(ups.shared, filter) : []), [ups, filter]);
   const selected = sel ? items.find((i) => i.id === sel) : undefined;
   const mine = marksFailed ? null : marks;
 
@@ -210,8 +240,8 @@ export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksF
   const card = (i: LibraryItem) => (
     <LibraryCard key={i.id} item={i} open={open} marks={mine} busy={busy} error={errors[i.id]} onOpen={() => openItem(i.id)} onMark={(k) => press(i.id, k)} />
   );
-  const set = <K extends keyof LibraryFilter>(k: K, v: LibraryFilter[K]) => setFilter((f) => ({ ...f, [k]: v }));
-  const chips = <K extends "type" | "product" | "state">(k: K, label: string, opts: [LibraryFilter[K], string][]) => (
+  const set = <K extends keyof Chips>(k: K, v: Chips[K]) => setFilter((f) => ({ ...f, [k]: v }));
+  const chips = <K extends "type" | "product" | "state">(k: K, label: string, opts: [Chips[K], string][]) => (
     // one row each, scrolled sideways on a phone, so the cards are not pushed below the fold
     <div role="group" aria-label={label} className="-mx-1 flex gap-2 overflow-x-auto px-1 py-0.5 [scrollbar-width:none] sm:flex-wrap">
       {opts.map(([v, name]) => (
@@ -220,9 +250,29 @@ export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksF
     </div>
   );
 
+  const onSent = (row: UploadView) => {
+    setUps((u) => (u ? withSent(u, row, owner) : u));
+    // a member lands on ของฉัน; the owner stays, with "ส่งแล้ว"
+    if (!owner) setTab("mine");
+  };
+  const onRemove = async (id: string): Promise<Done> => {
+    const done = await remove(id);
+    if (done.ok) setUps((u) => (u ? withoutUpload(u, id) : u));
+    return done;
+  };
+  const onDecide = async (id: string, verdict: Verdict, reason?: string): Promise<Done> => {
+    const done = await decide(id, verdict, reason);
+    if (done.ok) setUps((u) => (u ? withVerdict(u, id, verdict, reason) : u));
+    // someone decided it first: it leaves the queue (the list keeps its message under the row)
+    else if (done.error === "ไฟล์นี้ตรวจไปแล้ว") setUps((u) => (u ? { ...u, waiting: u.waiting.filter((r) => r.id !== id) } : u));
+    return done;
+  };
+
   const tabs: [Tab, string, number?][] = [
     ["browse", "เลือกดู"],
-    ...(mine ? [["mine", "ของฉัน", mine.saved.length] as [Tab, string, number]] : []),
+    ...(ups ? [["upload", "อัปโหลด"] as [Tab, string]] : []),
+    ...(mine || ups ? [["mine", "ของฉัน", mine?.saved.length] as [Tab, string, number | undefined]] : []),
+    ...(ups && owner ? [["queue", "คิวตรวจ", ups.waiting.length] as [Tab, string, number]] : []),
     ...(mine && owner ? [["top", "อยากได้มากสุด"] as [Tab, string]] : []),
   ];
 
@@ -260,15 +310,18 @@ export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksF
               </div>
             </div>
             <div className="grid gap-2">
-              {chips("type", "ประเภท", TYPES)}
+              {chips("type", "ประเภท", ups ? [...TYPES, ["upload", "ไฟล์จากสมาชิก"]] : TYPES)}
               {chips("product", "สินค้า", PRODUCTS)}
               {chips("state", "สถานะ", STATES)}
             </div>
             {detail}
-            {shown.length ? (
+            {shown.length + shownUploads.length ? (
               <>
-                <p className="text-xs text-[var(--ct-mute)]" aria-live="polite">{shown.length} รายการ</p>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{shown.map(card)}</div>
+                <p className="text-xs text-[var(--ct-mute)]" aria-live="polite">{shown.length + shownUploads.length} รายการ</p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {shown.map(card)}
+                  {shownUploads.map((v) => <UploadCard key={v.id} view={v} open={open} />)}
+                </div>
               </>
             ) : (
               <p className="rounded-xl border border-dashed border-[var(--ct-line)] p-6 text-center text-sm text-[var(--ct-mute)]">ไม่พบรายการที่ตรงกับตัวกรอง ลองเลือก “ทั้งหมด”</p>
@@ -276,20 +329,29 @@ export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksF
           </>
         )}
 
-        {tab === "mine" && mine && (
+        {tab === "upload" && ups && <UploadTab sent={ups.mine.length} owner={owner} demo={demo} send={send} onSent={onSent} />}
+
+        {tab === "mine" && (mine || ups) && (
           <>
-            {detail}
-            <h2 className="text-base font-semibold">ที่บันทึกไว้ ({mine.saved.length})</h2>
-            {mine.saved.length ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {mine.saved.map((id) => items.find((i) => i.id === id)).filter((i): i is LibraryItem => Boolean(i)).map(card)}
-              </div>
-            ) : (
-              <p className="text-sm text-[var(--ct-mute)]">กด ★ บนการ์ดเพื่อเก็บไว้ใช้บ่อย</p>
+            {mine && (
+              <>
+                {detail}
+                <h2 className="text-base font-semibold">ที่บันทึกไว้ ({mine.saved.length})</h2>
+                {mine.saved.length ? (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {mine.saved.map((id) => items.find((i) => i.id === id)).filter((i): i is LibraryItem => Boolean(i)).map(card)}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[var(--ct-mute)]">กด ★ บนการ์ดเพื่อเก็บไว้ใช้บ่อย</p>
+                )}
+                <p className="text-sm text-[var(--ct-mute)]">กดอยากได้ไว้ {mine.wanted.length} ชิ้น</p>
+              </>
             )}
-            <p className="text-sm text-[var(--ct-mute)]">กดอยากได้ไว้ {mine.wanted.length} ชิ้น</p>
+            {ups && <MyFiles rows={ups.mine} onRemove={onRemove} />}
           </>
         )}
+
+        {tab === "queue" && ups && owner && <ReviewQueue rows={ups.waiting} onDecide={onDecide} />}
 
         {tab === "top" && mine && owner && <MostWanted items={items} counts={mine.counts} />}
       </div>

@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   FILE_MAX, isUploadId, isUploadKind, NAME_MAX, NOTE_MAX, PER_PERSON, REASONS, SHOTS_MAX, sniff,
-  type UploadKind, type UploadRow, type UploadState,
+  type UploadKind, type UploadRow, type UploadState, type UploadView,
 } from "./upload-rules";
 
 /**
@@ -167,4 +167,34 @@ export async function okUploads(ids: string[], kind: "part" | "style"): Promise<
   const asked = ids.filter(isUploadId);
   if (!asked.length) return [];
   return rowsOf(supabaseAdmin().from(TABLE).select("*").in("id", asked).eq("state", "ok").eq("kind", kind));
+}
+
+const toView = (r: UploadRow, who: string, by?: string): UploadView => ({
+  id: r.id, kind: r.kind, name: r.name, note: r.note, files: r.paths.length, state: r.state, reason: r.reason,
+  mine: r.agentId === who, ...(by ? { by } : {}),
+});
+
+/**
+ * What the page may hold of the three lists: no agentId anywhere, and the sender's name only on the owner's
+ * waiting rows. A non-owner's `waiting` is empty and never read. null when the table cannot be read
+ * (trouble, or not migrated yet): the page then leaves the upload tabs out.
+ */
+export async function uploadViews(who: { agentId: string; owner: boolean }): Promise<{ mine: UploadView[]; shared: UploadView[]; waiting: UploadView[] } | null> {
+  try {
+    const [mine, shared, waiting] = await Promise.all([
+      myUploads(who.agentId), sharedUploads(), who.owner ? waitingUploads() : Promise.resolve([] as UploadRow[]),
+    ]);
+    // a name that cannot be read leaves the row without one; the lists still show
+    const names = waiting.length
+      ? await import("@/lib/auth/viewer").then((m) => m.displayNames(waiting.map((r) => r.agentId))).catch(() => ({} as Record<string, string>))
+      : ({} as Record<string, string>);
+    return {
+      mine: mine.map((r) => toView(r, who.agentId)),
+      shared: shared.map((r) => toView(r, who.agentId)),
+      waiting: waiting.map((r) => toView(r, who.agentId, names[r.agentId])),
+    };
+  } catch (e) {
+    console.error("library uploads not read:", e);
+    return null;
+  }
 }
