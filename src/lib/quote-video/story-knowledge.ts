@@ -92,8 +92,12 @@ export type KnowShow =
    */
   /** ร่มกันฝน */
   | { layout: "umbrella"; title: [string, string]; note?: string }
-  /** เสาหลักของบ้าน: `label` on the pillar (default "รายได้"); a `spare` word brings a second pillar */
-  | { layout: "housepillar"; title: [string, string]; note?: string; label?: string; spare?: string }
+  /**
+   * เสาหลักของบ้าน: `label` on the pillar (default "รายได้"); a `spare` word brings a second pillar. `people`: the
+   * household under the roof, left to right (the pillar episode's own kin row, set by the story only, never by a prompt
+   * clip); without it the family of three every metaphor draws
+   */
+  | { layout: "housepillar"; title: [string, string]; note?: string; label?: string; spare?: string; people?: Kin[] }
   /** ห่วงชูชีพ */
   | { layout: "lifering"; title: [string, string]; note?: string }
   /** ตาข่ายนิรภัย */

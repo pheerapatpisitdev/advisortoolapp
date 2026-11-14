@@ -2,12 +2,12 @@ import type React from "react";
 import type { ReactNode } from "react";
 import { abs, box, type Anim } from "./motion";
 import { devArea, E, flicker, GEO, glowBox, ink, kit, pen, Title, type Dev } from "./story-info-motion";
-import type { MetaShow } from "./story-knowledge";
+import type { Kin, MetaShow } from "./story-knowledge";
 import { geoOf } from "./story-knowledge-motion";
 import { handWidth } from "./story-life-motion";
 import {
   aboutFeet, ARM, arrowD, BALANCE_FOOT, BALANCE_GLEAM, balanceGeo, beamAngle, beamEnds, BEAM, BRIDGE, BRIDGE_SUN, bridgeShape,
-  CANOPY, clamp01, cliff, CLIFFS, cloudD, CLOUDS, CRESTS, easeOut, FALL_LINE, FLOOR, gapAmp, gapWaterD, GAP_RIPPLES, GAP_SURFACE, GROUND, grownAt, HANG,
+  CANOPY, clamp01, cliff, CLIFFS, cloudD, CLOUDS, CRESTS, easeOut, enterOf, FALL_LINE, FLOOR, gapAmp, gapWaterD, GAP_RIPPLES, GAP_SURFACE, GROUND, grownAt, HANG,
   HIGH, hitD, JETTY, MAIN_X, metaFigures, metaGeo, NET_Y, netShape, PAN, PEBBLES, pillarAt, pillarGeo, PIVOT, PLANTS, POSTS, prog,
   r1, raysD, ringAt, ringD, RING, rockLines, ROOF, ROOF_LINE, ROOTS, SEA, seedGeo, SEED_SUN, SEED_WORD_TOP, SEED_X, SH, SHAKE_MARKS, SHEET,
   SHIELD_GLEAM, SHIELD_GROUND, SHIELD_INNER, SHIELD_PATH, SHIELD_TICK, shieldAt, shieldGeo, SOIL, SOIL_TOP, SPARE_X, sparkleD, SWIM_X,
@@ -196,8 +196,8 @@ function figure(act: Act, color: string, t: number) {
   );
 }
 
-/** someone standing in their box `f` on the sheet (where metaFigures puts them), written in on `an` */
-function Person({ geo, f, who, act, color, t, an, transform, clipBelow, held }: { geo: MetaGeo; f: MetaFigure; who: number; act: Act; color: string; t: number; an?: Anim; transform?: string; clipBelow?: number; held?: ReactNode }) {
+/** someone standing in their box `f` on the sheet (where metaFigures puts them), written in on `an` (scene time); their movement `phase` s ahead */
+function Person({ geo, f, who, act, color, t, an, transform, clipBelow, held, phase = 0 }: { geo: MetaGeo; f: MetaFigure; who: number; act: Act; color: string; t: number; an?: Anim; transform?: string; clipBelow?: number; held?: ReactNode; phase?: number }) {
   const W = Math.round(f.w * geo.k);
   const H = Math.round(f.h * geo.k);
   const top = Math.round(f.foot * geo.k) - H;
@@ -206,7 +206,7 @@ function Person({ geo, f, who, act, color, t, an, transform, clipBelow, held }: 
   return (
     <div data-who={who} style={abs({ left: Math.round((f.x - f.w / 2) * geo.k), top, width: W, height: H, ...(transform ? { transform } : {}), ...(cut ? { clipPath: `inset(0px 0px ${cut}px 0px)` } : {}) })}>
       <E an={an} t={t} style={{ position: "absolute", left: 0, top: 0, width: W, height: H }}>
-        <svg width={W} height={H} viewBox="0 0 100 130">{figure(act, color, t)}</svg>
+        <svg width={W} height={H} viewBox="0 0 100 130">{figure(act, color, t + phase)}</svg>
       </E>
       {held ? <E an={an} t={t} style={{ position: "absolute", left: 0, top: 0, width: W, height: H }}>{held}</E> : null}
     </div>
@@ -215,6 +215,8 @@ function Person({ geo, f, who, act, color, t, an, transform, clipBelow, held }: 
 
 /** the family's inks: the partner, the child, the hero */
 const familyInks = () => { const K = kit(); return [K.sky, K.gold, K.white]; };
+/** a household's inks by who they are, as the family's: the hero white, a child gold, the grown-ups sky */
+const kinInks = (people: Kin[]) => { const K = kit(); return people.map((p) => (p.size === "hero" ? K.white : p.size === "kid" ? K.gold : K.sky)); };
 
 /* ---------- umbrella: ร่มกันฝน ---------- */
 
@@ -241,7 +243,7 @@ function umbrella(d: Dev, show: MetaShow<"umbrella">) {
             {shape("pr", ovalD(356, GROUND + 6, 26 * u.rain, 4.5 * u.rain), water(), 1.6)}
           </>
         ), { opacity: easeOut(u.rain) }) : null}
-        {figs.map((f, i) => <Person key={i} geo={geo} f={f} who={i} act={act(i)} color={inks[i]} t={t + i * 0.4} an={s.set} />)}
+        {figs.map((f, i) => <Person key={i} geo={geo} f={f} who={i} act={act(i)} color={inks[i]} t={t} phase={i * 0.4} an={enterOf(s.set, i)} />)}
         {svg(geo, (
           <>
             {u.drops.map((p) => ln(`d${p.i}`, `M${p.x} ${r1(p.y)} l-3 12`, water(), 2.4))}
@@ -296,8 +298,9 @@ function housepillar(d: Dev, show: MetaShow<"housepillar">) {
   const spare = pg.spare && h.spared ? pg.spare : null;
   const safe = !!spare && h.spareIn > 0.7;
   const figs = metaFigures(show, c, t);
-  const inks = familyInks();
-  const act = (i: number): Act => (h.shaking ? "worried" : safe && i === 1 ? "up" : "stand");
+  const inks = show.people ? kinInks(show.people) : familyInks();
+  const waver = show.people ? show.people.findIndex((p) => p.size === "kid") : 1;
+  const act = (i: number): Act => (h.shaking ? "worried" : safe && i === waver ? "up" : "stand");
   const plaqueDx = Math.sin((h.rot * Math.PI) / 180) * (FLOOR - 128 - 18) * geo.k;
   return (
     <>
@@ -327,7 +330,7 @@ function housepillar(d: Dev, show: MetaShow<"housepillar">) {
             <Plaque p={spare} at={geo.art} dx={h.slide * geo.k} spare />
           </div>
         ) : null}
-        {figs.map((f, i) => <Person key={i} geo={geo} f={f} who={i} act={act(i)} color={inks[i]} t={t + i * 0.4} an={s.set} />)}
+        {figs.map((f, i) => <Person key={i} geo={geo} f={f} who={i} act={act(i)} color={inks[i]} t={t} phase={i * 0.4} an={enterOf(s.set, i)} />)}
       </Sheet>
       <Note d={d} geo={geo} />
     </>
@@ -434,7 +437,7 @@ function safetynet(d: Dev, show: MetaShow<"safetynet">) {
             </>
           ))}
         </SetIn>
-        {n.slip > 0 && !n.caught ? svg(geo, ln("fall", FALL_LINE, K.white, 2, { strokeDasharray: "5 7" }), { opacity: 0.65 * easeOut(n.slip), helper: true }) : null}
+        {n.fallLine > 0 ? svg(geo, ln("fall", FALL_LINE, K.white, 2, { strokeDasharray: "5 7" }), { opacity: n.fallLine, helper: true }) : null}
         <Person geo={geo} f={f} who={0} act={act} color={K.white} t={t} an={s.set} transform={turn} held={n.caught ? null : pole} />
         {n.strung > 0 ? svg(geo, (
           <>
@@ -644,7 +647,7 @@ function shield(d: Dev, show: MetaShow<"shield">) {
     <>
       <MetaTitle d={d} show={show} />
       <Sheet geo={geo}>
-        {figs.map((f, i) => <Person key={i} geo={geo} f={f} who={i} act={act(i)} color={inks[i]} t={t + i * 0.4} an={s.set} />)}
+        {figs.map((f, i) => <Person key={i} geo={geo} f={f} who={i} act={act(i)} color={inks[i]} t={t} phase={i * 0.4} an={enterOf(s.set, i)} />)}
         {svg(geo, (
           <>
             {sg.arrows.map((a, i) => {

@@ -5,9 +5,10 @@ import { describe, expect, it } from "vitest";
 import { checkDevice } from "@/lib/prompt-story/check";
 import { checkedStory, storyScript } from "@/lib/quote-video/story";
 import { clipFrame } from "@/lib/quote-video/story-frames";
-import { isDevice, isMeta, knowEpisode, META_LIMITS, metaWords, type KnowShow, type MetaShow } from "@/lib/quote-video/story-knowledge";
+import { isDevice, isMeta, knowEpisode, META_LIMITS, metaWords, partnerFace, type KnowShow, type MetaShow } from "@/lib/quote-video/story-knowledge";
 import { deviceTail, knowTail } from "@/lib/quote-video/story-knowledge-motion";
 import type { StoryContext } from "@/lib/quote-video/story-motion";
+import { familyOf } from "@/lib/story/faces";
 import { DEFAULT_CAST } from "@/lib/story/figure";
 import { INFO_SHELVES, topicOf } from "@/lib/story/topics";
 import { OPENER_TOPICS, openerInput, openerSnapshot, VARIANTS, type OpenerTopic } from "./story-openers-variants";
@@ -58,9 +59,12 @@ describe("the eight story openers are metaphors", () => {
   for (const topic of OPENER_TOPICS) {
     it(`${topic}: the first scene is the ${OPENER[topic].layout}, as the spec's table says, with the old two lines as its title`, () => {
       for (const v of VARIANTS[topic]) {
-        const first = knowEpisode(openerInput(topic, v.over), "", "F").scenes[0];
+        const e = knowEpisode(openerInput(topic, v.over), "", "F");
+        const first = e.scenes[0];
         expect(first.key).toBe("knowAsk");
-        expect(first.show).toEqual(OPENER[topic]);
+        // the pillar's house shelters the household the next scene shows (final review #4); the rest carry no one
+        const next = e.scenes[1].show;
+        expect(first.show).toEqual(topic === "pillar" && next.layout === "kin" ? { ...OPENER[topic], people: next.people } : OPENER[topic]);
         expect((first.show as MetaShow).title).toEqual(OLD_LINES[topic]);
       }
     });
@@ -114,6 +118,33 @@ describe("the eight story openers are metaphors", () => {
     expect(voice(man, "เอก")).toBe("นี่คือครอบครัวของคุณเอก รายได้หลักของบ้าน มาจากคุณเอกคนเดียวค่ะ");
     // and the later scenes still say who goes (knowTwo)
     expect(knowEpisode(openerInput("pillar", { faces: man }), "", "F").scenes[2].voice).toBe("ถ้าวันหนึ่งพ่อไม่อยู่ รายได้หายไปในวันเดียว แต่ค่าใช้จ่ายทุกอย่างยังอยู่ค่ะ");
+  });
+
+  it("pillar: the opener draws the very people of the next scene's kin row, in its order and faces, in every variant and look", () => {
+    const contact = { name: "ภีรพัฒน์ ตัวอย่าง", phone: "081-234-5678", line: "@unitclub" };
+    for (const v of VARIANTS.pillar) for (const customer of ["", "เอก"]) {
+      const input = openerInput("pillar", v.over);
+      const e = knowEpisode(input, customer, "F");
+      const opener = e.scenes[0].show as MetaShow<"housepillar">;
+      const row = e.scenes[1].show;
+      if (row.layout !== "kin") throw new Error("knowOne is the kin row");
+      const label = `${v.label} ${JSON.stringify(customer)}`;
+      // the same members, sexes and faces, in the same order: the partner, the hero, the two children
+      expect(opener.people, label).toEqual(row.people.map(({ id, size }) => ({ id, size })));
+      expect(opener.people!.map((p) => p.id), label).toEqual([partnerFace(input), input.faces.hero, ...familyOf(input.faces.hero).kids]);
+      expect(opener.people!.map((p) => p.size), label).toEqual(["adult", "hero", "kid", "kid"]);
+      // and the drawing draws exactly them, left to right, in each look the topic offers
+      const man = (v.over.faces as { hero: string }).hero.startsWith("m");
+      const minimal = { art: "minimal", ground: "warm", cast: { hero: DEFAULT_CAST.hero[man ? "M" : "F"], narrator: DEFAULT_CAST.narrator } };
+      for (const art of [{}, { art: "paper" }, { art: "line" }, minimal]) {
+        const clip = checkedStory({ topic: "pillar", ...v.over, ...art } as never, "F");
+        if (typeof clip === "string") throw new Error(clip);
+        const s = storyScript(clip, customer, "F")[0];
+        const c: StoryContext = { input: { ...clip, size: "portrait" }, size: "portrait", customer, narrator: "F", contact, crowd: [], faces: {}, words: s.voice.split(" "), voiceSec: 5 };
+        const faces = [...renderToStaticMarkup(clipFrame(s.key, c, 150)).matchAll(/data-face="([^"]+)"/g)].map((m) => m[1]);
+        expect(faces, `${label} ${JSON.stringify(art)}`).toEqual(row.people.map((p) => p.id));
+      }
+    }
   });
 
   it("nothing else changes: every other scene, its show and voice, and the opener's key and voice, equal the snapshot taken before", () => {

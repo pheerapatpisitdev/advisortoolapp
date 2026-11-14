@@ -4,7 +4,7 @@ import { CHILDREN } from "@/lib/story/faces";
 import type { ReactNode } from "react";
 import { a, abs, type Anim } from "./motion";
 import type { Dev } from "./story-health-motion";
-import { META_DEFAULTS, META_LIMITS, partnerFace, type MetaShow } from "./story-knowledge";
+import { META_DEFAULTS, META_LIMITS, partnerFace, type Kin, type MetaShow } from "./story-knowledge";
 import { geoOf, Title, type Rect } from "./story-knowledge-motion";
 import { Card, fitWrap, handWidth, Lines, wrapHand } from "./story-life-motion";
 import { line, minimal, paper, Pic, type StoryContext } from "./story-motion";
@@ -204,7 +204,7 @@ export function metaFigures(show: MetaShow, c: StoryContext, t: number): MetaFig
   const at = (x: number, foot: number, w: number): MetaFigure => ({ x, foot, ...boxOf(c, w) });
   switch (show.layout) {
     case "umbrella": return UMB_PEOPLE.map(([x, w]) => at(x, GROUND, w));
-    case "housepillar": return pillarPeople(!!show.spare).map(([x, w]) => at(x, FLOOR, w));
+    case "housepillar": return (show.people ? householdPlaces(show.people, !!show.spare) : pillarPeople(!!show.spare)).map(([x, w]) => at(x, FLOOR, w));
     // the sea up to their chest: a doll's under its big head; มินิมอล's higher up its slim body
     case "lifering": return [at(SWIM_X, SEA + (1 - (minimal(c.input) ? 0.36 : 0.62)) * SWIM_W * TALL + bobAt(t), SWIM_W)];
     case "safetynet": return [at(WALK_X, walkerAt(metaSpec(show), t).foot, WALK_W)];
@@ -220,14 +220,22 @@ export const aboutFeet = (rot: number, h: number) => {
   return `translate(${r1((h / 2) * Math.sin(th))}px, ${r1((h / 2) * (1 - Math.cos(th)))}px) rotate(${r1(rot)}deg)`;
 };
 
-/** someone standing in their box `f` on the sheet, in `pose`; popping in on `an` */
-function Who({ c, k, id, f, pose, t, an }: { c: StoryContext; k: number; id: string; f: MetaFigure; pose: PoseName | Pose; t: number; an?: Anim }) {
+/**
+ * how the people come in: on the scene's set beat, a moment after its own pieces start, one after another from the
+ * left. Person `i` (counted from the left) enters on its own movement; their poses keep their own phase apart
+ * (`phase`), which never moves an entrance.
+ */
+export const ENTER = { after: 0.15, gap: 0.12, dur: 0.4 };
+export const enterOf = (set: Anim | undefined, i: number): Anim | undefined => (set ? { ...set, at: set.at + ENTER.after + i * ENTER.gap, dur: ENTER.dur } : undefined);
+
+/** someone standing in their box `f` on the sheet, in `pose`; popping in on `an` (scene time); their pose `phase` s ahead */
+function Who({ c, k, id, f, pose, t, an, who = 0, phase = 0 }: { c: StoryContext; k: number; id: string; f: MetaFigure; pose: PoseName | Pose; t: number; an?: Anim; who?: number; phase?: number }) {
   const W = Math.round(f.w * k);
   const H = Math.round(f.h * k);
   const p = prog(an, t);
   return (
-    <div style={abs({ left: Math.round((f.x - f.w / 2) * k), top: Math.round(f.foot * k) - H, width: W, height: H, opacity: an && p <= 0 ? 0 : 1, ...(p < 1 ? { transform: `scale(${popScale(p).toFixed(3)})` } : {}) })}>
-      <Pic c={c} id={id} r={{ x: 0, y: 0, w: W, h: H }} pose={pose} t={t} />
+    <div data-who={who} data-face={id} style={abs({ left: Math.round((f.x - f.w / 2) * k), top: Math.round(f.foot * k) - H, width: W, height: H, opacity: an && p <= 0 ? 0 : 1, ...(p < 1 ? { transform: `scale(${popScale(p).toFixed(3)})` } : {}) })}>
+      <Pic c={c} id={id} r={{ x: 0, y: 0, w: W, h: H }} pose={pose} t={t + phase} />
     </div>
   );
 }
@@ -333,7 +341,7 @@ function Umbrella({ d, show }: { d: Dev; show: MetaShow<"umbrella"> }) {
           </>
         ), rain > 0 ? easeOut(rain) : 0)}
         {[left, kid, right].map((id, i) => (
-          <Who key={i} c={c} k={geo.k} id={id} f={figs[i]} t={t + i * 0.4} an={s.set}
+          <Who key={i} who={i} c={c} k={geo.k} id={id} f={figs[i]} t={t} phase={i * 0.4} an={enterOf(s.set, i)}
             pose={sad ? worried(t + i * 0.4) : glad && i === 1 ? "wave" : smiling(POSES.stand(t + i * 0.4), glad)} />
         ))}
         {layer(geo, (
@@ -375,6 +383,29 @@ const MAIN_RIGHT = 263;
 const SPARE_LEFT = 269;
 /** the family in the house, each a doll's width: the right one stands between the pillars when a spare comes, as far from the pillar as the left two otherwise */
 const pillarPeople = (spare: boolean): [number, number][] => [[72, 80], [132, 60], [spare ? 262 : 300, 80]];
+/** a doll's width under the roof by who they are, as the kin row sizes them as far as the house allows: the hero a little larger, a child smaller */
+const HOUSEHOLD_W: Record<Kin["size"], number> = { hero: 84, adult: 80, old: 80, kid: 60 };
+/**
+ * the household's places under the roof (the pillar episode's kin row, in its order): the first half left of the
+ * pillar, the rest right of it (short of the spare when one comes), each side's people close as a row in the middle
+ * of their side, their boxes just overlapping, as the family of three's do
+ */
+export function householdPlaces(people: Kin[], spare: boolean): [number, number][] {
+  const ws = people.map((p) => HOUSEHOLD_W[p.size]);
+  const left = Math.ceil(ws.length / 2);
+  const side = (w: number[], a: number, b: number): [number, number][] => {
+    if (!w.length) return [];
+    const steps = w.slice(1).map((x, i) => ((w[i] + x) / 2) * 0.85);
+    const ends = w[0] / 2 + w[w.length - 1] / 2;
+    const sum = steps.reduce((x, y) => x + y, 0);
+    const k = sum > 0 && ends + sum > b - a ? Math.max(0, b - a - ends) / sum : 1;
+    let x = a + (b - a - (ends + sum * k)) / 2 + w[0] / 2;
+    return w.map((wi, i) => { if (i) x += steps[i - 1] * k; return [r1(x), wi]; });
+  };
+  return [...side(ws.slice(0, left), 34, 184), ...side(ws.slice(left), 216, spare ? 312 : 366)];
+}
+/** who stands under the roof, left to right: the household the show carries, else the family of three */
+export const pillarCast = (show: MetaShow<"housepillar">, c: StoryContext) => (show.people ? show.people.map((p) => p.id) : family(c));
 
 /**
  * a word's plaque, sized: its word set on one line in the largest size, up to `cap`, at which it fits `maxW` of the
@@ -466,9 +497,11 @@ function HousePillar({ d, show }: { d: Dev; show: MetaShow<"housepillar"> }) {
   const set = prog(s.set, t);
   const { shaking, rot, jolt, spareIn, slide, spared } = pillarAt(s, t);
   const spare = pg.spare && spared ? pg.spare : null;
-  const [left, kid, right] = family(c);
+  const cast = pillarCast(show, c);
+  // the child waves once the spare holds: the family's child, or the household's first
+  const waver = show.people ? show.people.findIndex((p) => p.size === "kid") : 1;
   const safe = !!spare && spareIn > 0.7;
-  const pose = (i: number): PoseName | Pose => (shaking ? worried(t + i * 0.4) : safe ? (i === 1 ? "wave" : smiling(POSES.stand(t + i * 0.4), true)) : POSES.stand(t + i * 0.4));
+  const pose = (i: number): PoseName | Pose => (shaking ? worried(t + i * 0.4) : safe ? (i === waver ? "wave" : smiling(POSES.stand(t + i * 0.4), true)) : POSES.stand(t + i * 0.4));
   const figs = metaFigures(show, c, t);
   // the plaque rocks with the pillar: turned as it is, carried sideways as far as its height up the pillar
   const plaqueDx = Math.sin((rot * Math.PI) / 180) * (FLOOR - PLAQUE_TOP - 18) * geo.k;
@@ -504,7 +537,7 @@ function HousePillar({ d, show }: { d: Dev; show: MetaShow<"housepillar"> }) {
           <Plaque p={pg.main} at={geo.art} rot={rot} dx={plaqueDx} />
           {spare ? <Plaque p={spare} at={geo.art} dx={slide * geo.k} /> : null}
         </div>
-        {[left, kid, right].map((id, i) => <Who key={i} c={c} k={geo.k} id={id} f={figs[i]} t={t + i * 0.4} an={s.set} pose={pose(i)} />)}
+        {cast.map((id, i) => <Who key={i} who={i} c={c} k={geo.k} id={id} f={figs[i]} t={t} phase={i * 0.4} an={enterOf(s.set, i)} pose={pose(i)} />)}
       </Sheet>
       <MetaNote d={d} geo={geo} />
     </>
@@ -594,7 +627,7 @@ function LifeRing({ d, show }: { d: Dev; show: MetaShow<"lifering"> }) {
           </>
         ), set > 0 ? 1 : 0)}
         {/* the one in the water, the sea up to their chest */}
-        <Who c={c} k={geo.k} id={c.input.faces.hero} f={metaFigures(show, c, t)[0]} t={t} an={s.set} pose={pose} />
+        <Who who={0} c={c} k={geo.k} id={c.input.faces.hero} f={metaFigures(show, c, t)[0]} t={t} an={s.set} pose={pose} />
         {layer(geo, (
           <>
             <path d={seaD(amp, t)} fill={C.blanket} stroke={C.waterInk} strokeWidth={2.6} strokeLinejoin="round" />
@@ -632,6 +665,11 @@ export const SINK = 12;
 /** the net's top rope at x, sagging `sag` in its middle */
 export const netAt = (x: number, sag: number) => NET_Y + sag * (1 - ((x - WALK_X) / (POSTS[1] - WALK_X)) ** 2);
 
+/** how much of the fall beat the drop to the net takes; the rest is the net giving and springing back */
+export const FALL_DROP = 0.32;
+/** how long the dashed fall line takes to go once they have landed */
+export const FALL_LINE_GOES = 0.3;
+
 /**
  * the walker at time t: on the line, wobbling as they slip; then down to the net in the fall's first part, gathering
  * speed; then the net gives and springs back, dying away, with them in it
@@ -640,7 +678,7 @@ export function walkerAt(s: Record<string, Anim>, t: number) {
   const slip = prog(s.trouble, t);
   const fall = prog(s.fall, t);
   const falling = !!s.fall && t >= s.fall.at;
-  const DROP = 0.32;
+  const DROP = FALL_DROP;
   const rest = 26;
   const tau = Math.max(0, (fall - DROP) * (s.fall?.dur ?? 1));
   const give = fall > DROP ? 26 * Math.exp(-3.4 * tau) * Math.cos(2 * Math.PI * 1.6 * tau) : 0;
@@ -671,7 +709,11 @@ export function netShape(s: Record<string, Anim>, t: number) {
   }));
   /** a rope's runs: one whole, or (still being strung) one from each post until they meet in the middle */
   const runs = (pts: [number, string][]) => (strung >= 1 ? [pts] : [pts.filter((p) => p[0] <= WALK_X), pts.filter((p) => p[0] >= WALK_X)]).map((r) => (r.length > 1 ? `M${r.map((p) => p[1]).join(" L")}` : null));
-  return { ...w, strung, ropeTop, ropeLow, mesh, runs };
+  // the dashed fall line: from the slip, while they fall; it fades away in a few tenths of a second once they land (left
+  // on, it reads as a string they hang from in the final hold)
+  const since = w.caught && s.fall ? t - (s.fall.at + s.fall.dur * FALL_DROP) : 0;
+  const fallLine = w.slip > 0 ? 0.65 * easeOut(w.slip) * (1 - clamp01(since / FALL_LINE_GOES)) : 0;
+  return { ...w, strung, ropeTop, ropeLow, mesh, runs, fallLine };
 }
 /** where they will fall, from the line to the net */
 export const FALL_LINE = `M${WALK_X} ${HIGH + 8} V${NET_Y + 16}`;
@@ -714,11 +756,11 @@ function SafetyNet({ d, show }: { d: Dev; show: MetaShow<"safetynet"> }) {
             {POSTS.map((x) => <rect key={x} x={x - 6} y={HIGH - 8} width={12} height={290 - HIGH + 8} rx={3} fill={C.wood} stroke={C.ink} strokeWidth={2.6} />)}
             <rect x={14} y={286} width={372} height={8} rx={3} fill={C.paperChair} stroke={C.ink} strokeWidth={2.2} />
             <path d={`M${POSTS[0]} ${HIGH} H${POSTS[1]}`} stroke={C.ink} strokeWidth={3.2} strokeLinecap="round" />
-            {/* where they will fall, dashed, from the moment they slip */}
-            {slip > 0 ? <path d={FALL_LINE} stroke={C.ink} strokeWidth={2} strokeDasharray="5 7" strokeLinecap="round" opacity={r1(0.65 * easeOut(slip))} /> : null}
+            {/* where they will fall, dashed, from the moment they slip; gone soon after they land */}
+            {net.fallLine > 0 ? <path d={FALL_LINE} stroke={C.ink} strokeWidth={2} strokeDasharray="5 7" strokeLinecap="round" opacity={r1(net.fallLine)} /> : null}
           </>
         ), set > 0 ? 1 : 0)}
-        <div style={abs({ left: Math.round((f.x - f.w / 2) * geo.k), top: Math.round(f.foot * geo.k) - H, width: W, height: H, opacity: set > 0 ? 1 : 0, ...(transform ? { transform } : {}) })}>
+        <div data-who={0} data-face={c.input.faces.hero} style={abs({ left: Math.round((f.x - f.w / 2) * geo.k), top: Math.round(f.foot * geo.k) - H, width: W, height: H, opacity: set > 0 ? 1 : 0, ...(transform ? { transform } : {}) })}>
           <Pic c={c} id={c.input.faces.hero} r={{ x: 0, y: 0, w: W, h: H }} pose={pose} t={t} />
           {/* the pole is let go of as they land */}
           {caught ? null : pole}
@@ -1105,7 +1147,7 @@ function Bridge({ d, show }: { d: Dev; show: MetaShow<"bridge"> }) {
               ) : null}
             </>
           ))}
-          <Who c={c} k={geo.k} id={c.input.faces.hero} f={f} t={t} pose={pose} />
+          <Who who={0} c={c} k={geo.k} id={c.input.faces.hero} f={f} t={t} pose={pose} />
         </div>
       </Sheet>
       <MetaNote d={d} geo={geo} />
@@ -1215,7 +1257,7 @@ function Shield({ d, show }: { d: Dev; show: MetaShow<"shield"> }) {
     <>
       <MetaTitle d={d} text={show.title} />
       <Sheet geo={geo}>
-        {SHIELD_PEOPLE.map((_, i) => family(c)[i]).map((id, i) => <Who key={i} c={c} k={geo.k} id={id} f={figs[i]} t={t + i * 0.4} an={s.set} pose={pose(i)} />)}
+        {SHIELD_PEOPLE.map((_, i) => family(c)[i]).map((id, i) => <Who key={i} who={i} c={c} k={geo.k} id={id} f={figs[i]} t={t} phase={i * 0.4} an={enterOf(s.set, i)} pose={pose(i)} />)}
         {/* the arrows: their shafts, feathers and heads, flying in from the left as their words do */}
         {layer(geo, (
           <>

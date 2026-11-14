@@ -227,9 +227,13 @@ describe("checkDevice: metaphors", () => {
   it("shield: one to five arrows, each a word (Review Focus 5)", () => {
     const arrows = (n: number) => Array.from({ length: n }, (_, i) => `เรื่อง${"กขคงจ"[i]}`);
     for (const n of [1, 2, 3, 4, 5]) expect(checkDevice({ ...BARE[7], arrows: arrows(n) }, NONE), String(n)).toEqual({ ...BARE[7], arrows: arrows(n) });
-    for (const bad of [undefined, [], arrows(6), "ก", [1], ["ก", ""], [["ก"]]]) {
+    // every arrow blank is no arrow (final review #5): refused
+    for (const bad of [undefined, [], arrows(6), "ก", [1], [""], ["", " ", null], [["ก"]]]) {
       expect(typeof checkDevice({ ...BARE[7], arrows: bad }, NONE), JSON.stringify(bad)).toBe("string");
     }
+    // a blank arrow (cleared in the editor) is dropped before the count
+    expect(checkDevice({ ...BARE[7], arrows: ["ก", ""] }, NONE)).toEqual({ ...BARE[7], arrows: ["ก"] });
+    expect(checkDevice({ ...BARE[7], arrows: [...arrows(5), " "] }, NONE)).toEqual({ ...BARE[7], arrows: arrows(5) });
   });
   it("housepillar and seedtree: label, spare, from and to are optional, never carried empty", () => {
     expect(checkDevice({ ...BARE[1], label: "", spare: "  " }, NONE)).toEqual(BARE[1]);

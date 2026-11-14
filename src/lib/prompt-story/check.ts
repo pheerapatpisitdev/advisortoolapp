@@ -185,7 +185,7 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     return t ? { [field]: t } : {};
   };
 
-  // an อุปมา device carries words only (spec 2026-11-15): no Arabic or Thai digit in any word, each within its own
+  // an อุปมา device carries words only (spec 2026-11-15): no digit of any script in any word, each within its own
   // length (META_LIMITS), refused when over, never cut; the script's forbidden words apply as to any word
   const meta = (field: string, x: unknown, max: number, need: boolean): string => {
     if (x === undefined && !need) return "";
@@ -196,7 +196,8 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     const t = x.replace(/\s+/g, " ").trim();
     if (need && !t) fail.push(`${field}: ว่างอยู่`);
     if ([...t].length > max) fail.push(`${field}: ยาวเกิน ${max} ตัวอักษร`);
-    if (/[\d๐-๙]/.test(t)) fail.push(`${field}: มีตัวเลข`);
+    // a digit of any script: Arabic, Thai, full-width ０-９, Arabic-Indic, … (Unicode's decimal digits)
+    if (/\p{Nd}/u.test(t)) fail.push(`${field}: มีตัวเลข`);
     for (const f of [...FORBIDDEN, ...FREE_FORBIDDEN]) if (f.re.test(t)) fail.push(`${field}: ${f.why}`);
     return t;
   };
@@ -299,7 +300,9 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
       break;
     }
     case "shield": {
-      const raw = Array.isArray(o.arrows) && o.arrows.length >= 1 && o.arrows.length <= META_LIMITS.arrows ? o.arrows : null;
+      // an arrow left blank (cleared in the editor: "", spaces, null) is no arrow: dropped before the count
+      const given = Array.isArray(o.arrows) ? o.arrows.filter((x) => !(x === null || (typeof x === "string" && !x.trim()))) : null;
+      const raw = given && given.length >= 1 && given.length <= META_LIMITS.arrows ? given : null;
       if (!raw) fail.push(`arrows: ใส่ลูกศร 1–${META_LIMITS.arrows} คำ`);
       out = { layout, title, ...note, arrows: (raw ?? []).map((x) => meta("arrows", x, META_LIMITS.arrow, true)) };
       break;

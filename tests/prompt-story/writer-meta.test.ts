@@ -58,6 +58,9 @@ describe("writeStory with the eight อุปมา devices", () => {
   const BAD: [string, Record<string, unknown>][] = [
     ["a digit in umbrella's title", { ...GOOD.umbrella, title: ["ร่ม 2 คัน", ""] }],
     ["a Thai digit in umbrella's note", { ...GOOD.umbrella, note: "กางไว้ ๓ ครั้ง" }],
+    ["a full-width digit in umbrella's note", { ...GOOD.umbrella, note: "กางไว้ ３ ครั้ง" }],
+    ["a full-width digit in a shield arrow", { ...GOOD.shield, arrows: ["ป่วยหนัก", "ค่ารักษา１ล้าน"] }],
+    ["an Arabic-Indic digit in housepillar's label", { ...GOOD.housepillar, label: "รายได้ ٣" }],
     ["a digit in housepillar's label", { ...GOOD.housepillar, label: "รายได้ 1" }],
     ["a digit in housepillar's spare", { ...GOOD.housepillar, spare: "ประกัน5" }],
     ["a digit in seedtree's from", { ...GOOD.seedtree, from: "ปี 2569" }],
@@ -143,6 +146,27 @@ describe("the script editor with the อุปมา devices", () => {
     const k = sceneKind({ voice: "ก", screen: "ก", picture: "ก", device: edited }, deviceAllowed(BRIEF));
     expect(k).toEqual({ kind: "broken", reason: "ลูกศร มีตัวเลข", name: "โล่กันลูกศร" });
     expect(sceneKind({ voice: "ก", screen: "ก", picture: "ก", device: setDeviceWord(GOOD.shield, ["arrows", 1], "ตกงาน") }, deviceAllowed(BRIEF)).kind).toBe("device");
+  });
+
+  it("a shield arrow can be cleared: blank arrows are dropped before the count, the rest kept in order", () => {
+    const cleared = setDeviceWord(GOOD.shield, ["arrows", 1], "");
+    expect(sceneKind({ voice: "ก", screen: "ก", picture: "ก", device: cleared }, deviceAllowed(BRIEF)).kind).toBe("device");
+    expect(checkDevice(cleared, deviceAllowed(BRIEF))).toEqual({ ...GOOD.shield, arrows: ["ป่วยหนัก", "รายได้หาย"] });
+    // spaces only, or null, are as blank; six given with one blank are five
+    expect(checkDevice({ ...GOOD.shield, arrows: ["ก", "  ", null, "ข"] }, deviceAllowed(BRIEF))).toEqual({ ...GOOD.shield, arrows: ["ก", "ข"] });
+    expect(checkDevice({ ...GOOD.shield, arrows: ["ก", "ข", "", "ค", "ง", "จ"] }, deviceAllowed(BRIEF))).toEqual({ ...GOOD.shield, arrows: ["ก", "ข", "ค", "ง", "จ"] });
+    // every arrow blank is no arrow: refused as before
+    const none = setDeviceWord(setDeviceWord(setDeviceWord(GOOD.shield, ["arrows", 0], ""), ["arrows", 1], " "), ["arrows", 2], "");
+    expect(checkDevice(none, deviceAllowed(BRIEF))).toBe("arrows: ใส่ลูกศร 1–5 คำ");
+    expect(sceneKind({ voice: "ก", screen: "ก", picture: "ก", device: none }, deviceAllowed(BRIEF)).kind).toBe("broken");
+    // a non-word is still refused, not dropped
+    expect(checkDevice({ ...GOOD.shield, arrows: ["ก", 5] }, deviceAllowed(BRIEF))).toBe("arrows: ต้องเป็นข้อความ");
+  });
+
+  it("a digit of any script in a metaphor word breaks the scene: full-width, Arabic-Indic, Thai, Arabic", () => {
+    for (const digit of ["１", "٣", "๓", "3", "໓"]) {
+      expect(checkDevice({ ...GOOD.umbrella, note: `กางไว้${digit}ครั้ง` }, deviceAllowed(BRIEF)), digit).toBe("note: มีตัวเลข");
+    }
   });
 
   it("says the metaphor fields in Thai in a reason", () => {
