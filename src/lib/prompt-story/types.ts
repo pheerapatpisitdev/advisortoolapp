@@ -63,6 +63,11 @@ export interface PromptStoryInput {
   /** the writer's structure; none on rows made before 2026-11-13 */
   format?: PromptFormat;
   style: PictureStyle;
+  /**
+   * ภาพสไตล์ (คลังแอนิเมชัน phase 3): an approved style picture's upload id, sent to the painter as the
+   * reference whose palette and line it follows; the words, subtitles and cards still follow `style`
+   */
+  styleRef?: string;
   painter: "standard" | "sharp" | "gemini";
   size?: VideoSize;
   narrator?: "F" | "M";

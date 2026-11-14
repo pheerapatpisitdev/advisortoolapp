@@ -1,5 +1,5 @@
 import { drawImage } from "@/lib/ai/client";
-import type { Aspect } from "@/lib/ai/images";
+import type { Aspect, ReferenceImage } from "@/lib/ai/images";
 import { PAINTERS } from "@/lib/content/models";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import type { PictureStyle, PromptScene, PromptStoryInput } from "./types";
@@ -19,17 +19,28 @@ const SUFFIX = "no text, no numbers, no logos, no real person's likeness";
 
 const ASPECT: Record<VideoSize, Aspect> = { portrait: "9:16", square: "1:1", landscape: "16:9" };
 
-export const picturePrompt = (scene: PromptScene, style: PictureStyle): string =>
-  `${STYLE_PREFIX[style]} ${scene.picture}. ${SUFFIX}`;
+/**
+ * The painter's words for a scene. With a style reference (ภาพสไตล์, spec 2026-11-14-library-uploads) the
+ * reference stands for the look, so the style's own words are left out and the painter is told not to copy it.
+ */
+export const picturePrompt = (scene: PromptScene, style: PictureStyle, withRef = false): string =>
+  withRef
+    ? `${scene.picture}. Paint it in the colour palette, texture and line style of the reference image. Do not copy the reference image's subject, people, objects or any text in it. ${SUFFIX}`
+    : `${STYLE_PREFIX[style]} ${scene.picture}. ${SUFFIX}`;
 
-type Draw = (a: { task: string; prompt: string; prefer?: string; aspect?: Aspect }) => Promise<{ bytes: Buffer }>;
+type Draw = (a: { task: string; prompt: string; prefer?: string; aspect?: Aspect; references?: ReferenceImage[] }) => Promise<{ bytes: Buffer }>;
 
-/** one picture for a scene; one retry, then null so the caller falls back to paper */
+/**
+ * one picture for a scene; one retry, then null so the caller falls back to paper. With `ref` the draw is
+ * sent the style picture too (drawImage then takes its image-face lane, whichever painter was picked).
+ */
 export async function drawScenePicture(
-  scene: PromptScene, style: PictureStyle, painter: PromptStoryInput["painter"], size: VideoSize, draw: Draw = drawImage,
+  scene: PromptScene, style: PictureStyle, painter: PromptStoryInput["painter"], size: VideoSize, draw: Draw = drawImage, ref?: ReferenceImage,
 ): Promise<Buffer | null> {
   const prefer = PAINTERS.find((p) => p.id === painter)?.modelId ?? undefined;
-  const args = { task: "prompt-story-picture", prompt: picturePrompt(scene, style), prefer, aspect: ASPECT[size] };
+  const args = {
+    task: "prompt-story-picture", prompt: picturePrompt(scene, style, Boolean(ref)), prefer, aspect: ASPECT[size], ...(ref ? { references: [ref] } : {}),
+  };
   for (let i = 0; i < 2; i++) {
     try {
       return (await draw(args)).bytes;

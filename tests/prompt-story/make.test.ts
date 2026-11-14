@@ -754,3 +754,103 @@ describe("ภาพจากคลัง scenes: the library's part laid on the 
     expect(rowOf(id).status).toBe("done");
   });
 });
+
+describe("ภาพสไตล์: the library's style picture sent to the painter as its reference", () => {
+  const S = "33333333-3333-4333-8333-333333333333";
+  const style = { bytes: Buffer.from("style-bytes"), type: "image/jpeg" };
+  const styleRow = { id: S, agentId: "a2", kind: "style", name: "สีพาสเทล", note: "", paths: [`library/${S}.jpg`], state: "ok", reason: null, createdAt: "" };
+  const refLines = () => vi.mocked(console.error).mock.calls.filter((c) => String(c[0]).includes("style reference"));
+
+  beforeEach(() => {
+    for (const f of Object.values(lib)) f.mockReset();
+    lib.okUploads.mockImplementation(async (ids: string[], kind: string) => (kind === "style" && ids.includes(S) ? [styleRow] : []));
+    lib.uploadFile.mockResolvedValue(style);
+    vi.mocked(console.error).mockClear();
+  });
+
+  it("reads the reference once and hands it to every picture, with the reference's prompt", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, input({ styleRef: S }), "");
+    const id = (made as { id: string }).id;
+    expect((rowOf(id).input as PromptStoryInput).styleRef).toBe(S);
+    await produce(id, "ตัวแทน");
+    expect(lib.okUploads).toHaveBeenCalledTimes(1);
+    expect(lib.okUploads).toHaveBeenCalledWith([S], "style");
+    expect(lib.uploadFile).toHaveBeenCalledTimes(1);
+    expect(lib.uploadFile).toHaveBeenCalledWith(`library/${S}.jpg`);
+    expect(ai.draw).toHaveBeenCalledTimes(3);
+    for (const [arg] of ai.draw.mock.calls) {
+      expect(arg.references).toEqual([{ bytes: style.bytes, mimeType: "image/jpeg" }]);
+      expect(arg.prompt).toContain("colour palette, texture and line style of the reference image");
+    }
+    expect(rowOf(id).status).toBe("rendering");
+  });
+
+  it("a reference that cannot be read draws without it, logs one line, and the clip goes on", async () => {
+    freeUsedUp();
+    lib.uploadFile.mockResolvedValue(null);
+    const made = await createPromptStory(agent, input({ styleRef: S }), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    expect(ai.draw).toHaveBeenCalledTimes(3);
+    for (const [arg] of ai.draw.mock.calls) expect("references" in arg).toBe(false);
+    expect((rowOf(id).input as PromptStoryInput).pictures).toEqual([0, 1, 2].map((n) => `${id}/pic-${n}.png`));
+    expect(rowOf(id).status).toBe("rendering");
+    expect(refLines()).toHaveLength(1);
+  });
+
+  it("a style withdrawn since, or a store that cannot be read, draws without it too", async () => {
+    freeUsedUp();
+    lib.okUploads.mockResolvedValue([]);
+    const first = await createPromptStory(agent, input({ styleRef: S }), "");
+    await produce((first as { id: string }).id, "ตัวแทน");
+    expect(rowOf((first as { id: string }).id).status).toBe("rendering");
+
+    db.drafts[0].made_clip_id = null;
+    lib.okUploads.mockRejectedValue(new Error("relation does not exist"));
+    const second = await createPromptStory(agent, input({ styleRef: S }), "");
+    await produce((second as { id: string }).id, "ตัวแทน");
+    expect(rowOf((second as { id: string }).id).status).toBe("rendering");
+    expect(lib.uploadFile).not.toHaveBeenCalled();
+    expect(ai.draw).toHaveBeenCalledTimes(6);
+    for (const [arg] of ai.draw.mock.calls) expect("references" in arg).toBe(false);
+    expect(refLines()).toHaveLength(2);
+  });
+
+  it("asks nothing of the library without a style reference", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, input(), "");
+    await produce((made as { id: string }).id, "ตัวแทน");
+    expect(lib.okUploads).not.toHaveBeenCalled();
+    for (const [arg] of ai.draw.mock.calls) expect("references" in arg).toBe(false);
+  });
+
+  it("a redrawn picture follows the clip's reference, read once", async () => {
+    const made = await createPromptStory(agent, input({ styleRef: S }), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
+    ai.draw.mockClear();
+    lib.uploadFile.mockClear();
+    expect(await redrawPicture(agent, id, 1)).toEqual({ ok: true });
+    expect(lib.uploadFile).toHaveBeenCalledTimes(1);
+    expect(ai.draw).toHaveBeenCalledTimes(1);
+    expect(ai.draw.mock.calls[0][0].references).toEqual([{ bytes: style.bytes, mimeType: "image/jpeg" }]);
+    expect(rowOf(id).status).toBe("rendering");
+  });
+
+  it("a redraw whose reference cannot be read draws without it", async () => {
+    const made = await createPromptStory(agent, input({ styleRef: S }), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
+    ai.draw.mockClear();
+    lib.uploadFile.mockResolvedValue(null);
+    vi.mocked(console.error).mockClear();
+    expect(await redrawPicture(agent, id, 0)).toEqual({ ok: true });
+    expect(ai.draw).toHaveBeenCalledTimes(1);
+    expect("references" in ai.draw.mock.calls[0][0]).toBe(false);
+    expect(rowOf(id).status).toBe("rendering");
+    expect(refLines()).toHaveLength(1);
+  });
+});

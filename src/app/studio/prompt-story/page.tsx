@@ -51,13 +51,17 @@ export default async function PromptStoryPage({ searchParams }: { searchParams: 
   const [cost, prices, quota] = await Promise.all([myCost(), walletPrices(), voiceQuota()]);
   // คลังแอนิเมชัน's "ใช้แบบนี้": the format and style the link asked for (spec 2026-11-14)
   const start = promptStartFrom(await searchParams);
-  // คลังแอนิเมชัน's approved parts, for a scene's ภาพจากคลัง (spec 2026-11-14-library-uploads); none when unreadable
-  const assets = await sharedUploads()
-    .then((rows) => rows.filter((r) => r.kind === "part").map((r) => ({ id: r.id, name: r.name })))
-    .catch((e) => {
-      console.error("library parts not read:", e);
-      return [];
-    });
+  // คลังแอนิเมชัน's approved parts and styles, for a scene's ภาพจากคลัง and the ภาพสไตล์ (spec
+  // 2026-11-14-library-uploads), from one read; none of either when unreadable
+  const shared = await sharedUploads().catch((e) => {
+    console.error("library uploads not read:", e);
+    return [];
+  });
+  const ofKind = (kind: "part" | "style") => shared.filter((r) => r.kind === kind).map((r) => ({ id: r.id, name: r.name }));
+  const assets = ofKind("part");
+  const styles = ofKind("style");
+  // ?ref= only when it names one of the approved styles; anything else is ignored
+  const startRef = styles.some((s) => s.id === start.ref) ? start.ref : undefined;
   const initial = await myVideos("prompt").catch((e) => {
     console.error("prompt story videos not read:", e);
     return null;
@@ -69,7 +73,7 @@ export default async function PromptStoryPage({ searchParams }: { searchParams: 
         พิมพ์โจทย์ของลูกค้าเอง AI เขียนบทให้ฟรี แก้ได้ทุกช่อง แล้วค่อยสร้างเป็นคลิปพร้อมรูป เสียง และการ์ดตัวแทนท้ายคลิป
       </p>
       <ClosedNotice viewer={viewer} feature="prompt-story" />
-      <PromptStoryBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} start={start} assets={assets} startAsset={start.asset} />
+      <PromptStoryBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} start={start} assets={assets} startAsset={start.asset} styles={styles} startRef={startRef} />
     </div>
   );
 }

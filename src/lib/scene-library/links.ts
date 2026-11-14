@@ -16,8 +16,11 @@ export type PromptStyle = "paper" | "warm" | "plot" | "line";
 const PROMPT_STYLES: readonly PromptStyle[] = ["paper", "warm", "plot", "line"];
 
 export interface StoryStart { topic?: StoryTopic; look?: StoryLook }
-/** `asset`: a library part's id (spec 2026-11-14-library-uploads), the script editor's picker opens with it first */
-export interface PromptStart { format?: PromptFormat; style?: PromptStyle; asset?: string }
+/**
+ * `asset`: a library part's id (spec 2026-11-14-library-uploads), the script editor's picker opens with it first;
+ * `ref`: a library style's id, the form opens with it as the picture style reference
+ */
+export interface PromptStart { format?: PromptFormat; style?: PromptStyle; asset?: string; ref?: string }
 type Params = Record<string, string | string[] | undefined>;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -55,11 +58,14 @@ export function promptStartFrom(params: Params): PromptStart {
   const format = one(params.format);
   const style = one(params.style) as PromptStyle | undefined;
   const asset = one(params.asset);
+  const ref = one(params.ref);
   return {
     ...(isPromptFormat(format) ? { format } : {}),
     ...(style !== undefined && PROMPT_STYLES.includes(style) ? { style } : {}),
     // whether it is an approved part the page's list says; an id that is not one is passed over there
     ...(isUploadId(asset) ? { asset } : {}),
+    // likewise an approved style, checked against the page's list of styles
+    ...(isUploadId(ref) ? { ref } : {}),
   };
 }
 

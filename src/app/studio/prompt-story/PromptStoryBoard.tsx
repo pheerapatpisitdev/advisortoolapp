@@ -61,7 +61,7 @@ interface Written {
   nums: FigureNums | null;
 }
 
-export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven, start, assets = [], startAsset }: {
+export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven, start, assets = [], startAsset, styles = [], startRef }: {
   initial: VideoItem[] | null;
   cost: CostView | null;
   prices: Prices;
@@ -74,11 +74,17 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   assets?: LibraryPart[];
   /** the part a library link named (?asset=), first in the script editor's row */
   startAsset?: string;
+  /** คลังแอนิเมชัน's approved style pictures, for ภาพสไตล์; none when the library cannot be read (the group is then not drawn) */
+  styles?: LibraryPart[];
+  /** the style a library link named (?ref=), chosen when the form opens */
+  startRef?: string;
 }) {
   const [brief, setBrief] = useState("");
   const [scenes, setScenes] = useState<SceneCount>(5);
   const [style, setStyle] = useState<PictureStyle>(start?.style ?? "paper");
   const [painter, setPainter] = useState<PromptStoryInput["painter"]>("standard");
+  // ภาพสไตล์: "" is ไม่ใช้; a linked style only when it is one of the approved styles
+  const [styleRef, setStyleRef] = useState(() => (startRef && styles.some((s) => s.id === startRef) ? startRef : ""));
   const [withFigure, setWithFigure] = useState(false);
   const [figure, setFigure] = useState<FigureChoice>(DEFAULT_FIGURE);
   const [premium, setPremium] = useState<{ annual: number; monthly: number } | null>(null);
@@ -172,7 +178,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     try {
       const r = await makePromptStory({
         draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption, scenes: draft.scenes, format: written.format,
-        style, painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
+        style, ...(styleRef ? { styleRef } : {}), painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         faces: { narrator: face }, ...(written.figure ? { figure: written.figure } : {}),
       }, customer);
       if (!r.ok) {
@@ -221,6 +227,28 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="สไตล์รูป">
             {STYLES.map((s) => <button key={s.id} type="button" role="radio" aria-checked={style === s.id} className={chip(style === s.id)} onClick={() => setStyle(s.id)}>{s.name}</button>)}
           </div>
+          {styles.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium">ภาพอ้างอิงสไตล์จากคลัง (ไม่บังคับ)</p>
+              <div role="radiogroup" aria-label="ภาพอ้างอิงสไตล์จากคลัง (ไม่บังคับ)" className="flex gap-2 overflow-x-auto pb-1">
+                <button type="button" role="radio" aria-checked={!styleRef} className={`shrink-0 self-center ${chip(!styleRef)}`} onClick={() => setStyleRef("")}>ไม่ใช้</button>
+                {styles.map((s) => {
+                  const on = styleRef === s.id;
+                  return (
+                    <button
+                      key={s.id} type="button" role="radio" aria-checked={on} aria-label={s.name} onClick={() => setStyleRef(s.id)}
+                      className={`flex min-h-11 w-20 shrink-0 flex-col items-center gap-1 rounded-lg border-2 bg-[var(--ct-ground)] p-1 ${on ? "border-[var(--ct-solid)]" : "border-[var(--ct-line)] hover:border-[var(--ct-accent)]"}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- the upload route's own picture, behind the viewer's sign-in */}
+                      <img src={`/api/library-upload?id=${s.id}&n=0`} alt="" loading="lazy" className="size-16 rounded object-cover" />
+                      <span className={`w-full truncate text-center text-xs ${on ? "font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)]"}`}>{s.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-[var(--ct-mute)]">AI เลียนโทนสีและลายเส้นได้คร่าวๆ ไม่ตรงทุกเส้น</p>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="คุณภาพรูป">
             {PAINTERS.map((p) => <button key={p.id} type="button" role="radio" aria-checked={painter === p.id} className={chip(painter === p.id)} onClick={() => setPainter(p.id)}>{p.name} {painterWord(p.id)}</button>)}
           </div>

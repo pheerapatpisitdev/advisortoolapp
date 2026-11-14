@@ -33,6 +33,7 @@ import { assetPicture } from "@/lib/prompt-story/asset-picture";
 import { claimDraft, releaseDraft } from "@/lib/prompt-story/drafts";
 import { freeLook, freeTail, freeWindows } from "@/lib/prompt-story/frames";
 import { okUploads, uploadFile } from "@/lib/scene-library/uploads";
+import type { ReferenceImage } from "@/lib/ai/images";
 import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { contactSpec } from "./story-motion";
@@ -556,18 +557,39 @@ async function partPicture(path: string | undefined, input: PromptStoryInput, si
 }
 
 /**
+ * The clip's ภาพสไตล์ (styleRef), read once for the pictures about to be painted: the approved style's first
+ * file. undefined when there is none, or it is withdrawn, or it cannot be read: the pictures are then
+ * painted without it (one line logged) and the clip goes on.
+ */
+async function styleReference(input: PromptStoryInput): Promise<ReferenceImage | undefined> {
+  if (!input.styleRef) return undefined;
+  try {
+    const [row] = await okUploads([input.styleRef], "style");
+    const file = row?.paths[0] ? await uploadFile(row.paths[0]) : null;
+    if (file) return { bytes: file.bytes, mimeType: file.type };
+    console.error(`style reference ${input.styleRef} not read: painted without it`);
+  } catch (e) {
+    console.error(`style reference ${input.styleRef} not read: painted without it:`, e instanceof Error ? e.message : e);
+  }
+  return undefined;
+}
+
+/**
  * A คลิปตามโจทย์'s pictures, three at a time, each filed as "<id>/pic-<n>.png" and named on the
  * row's input. A picture that fails twice leaves its scene on paper, and is not charged: the
  * clip's hold settles that much less (redrawing it later is one picture's price). A device scene
  * is drawn by the system: never painted, its picture null, never held for so never given back. A
  * library part (ภาพจากคลัง) is laid on the look's ground and filed as the scene's picture: never painted,
- * never held for, and one that cannot be read leaves its scene on paper as a failed painting does.
+ * never held for, and one that cannot be read leaves its scene on paper as a failed painting does. With a
+ * ภาพสไตล์ every painted picture is sent it as the reference (styleReference).
  */
 async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Bar): Promise<{ input: PromptStoryInput; costThb: number }> {
   const { id, input } = row;
   const size = clipSize(input);
   const of = pictureScenes(input);
   const parts = await partsOf(input.scenes);
+  // the style reference is read once for every picture painted, and only when one is
+  const ref = of > 0 ? await styleReference(input) : undefined;
   let done = 0;
   // a clip of device scenes only paints nothing: no "วาดรูปประกอบ 0/0" step, the bar goes straight to the voice
   if (of > 0) bar.note({ step: "pictures", done: 0, of });
@@ -577,7 +599,7 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
     let png: Buffer | null;
     if (scene.asset) png = await partPicture(parts.get(scene.asset), input, size);
     else {
-      png = await drawScenePicture(scene, input.style, input.painter, size);
+      png = await drawScenePicture(scene, input.style, input.painter, size, undefined, ref);
       bar.note({ step: "pictures", done: ++done, of });
     }
     if (!png) return null;
@@ -985,7 +1007,9 @@ export async function redrawScene({ id, scene, agentName, hold, price }: RedrawJ
     const pcms = await keptVoice(id, input.scenes.length + 1);
     if (!pcms) throw new Error("no kept voice");
     bar.note({ step: "pictures", done: 0, of: 1 });
-    const png = await drawScenePicture(input.scenes[scene], input.style, input.painter, clipSize(input));
+    // the clip's style reference too, so the new picture matches the others
+    const ref = await styleReference(input);
+    const png = await drawScenePicture(input.scenes[scene], input.style, input.painter, clipSize(input), undefined, ref);
     if (!png) {
       await giveBack();
       await bar.flush();

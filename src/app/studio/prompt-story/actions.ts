@@ -87,6 +87,7 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
   if (typeof asked === "string") return { ok: false, error: asked };
   const gone = await withdrawnPart(asked.scenes);
   if (gone !== null) return { ok: false, error: `ภาพจากคลังของฉากที่ ${gone + 1} ใช้ไม่ได้แล้ว เลือกภาพใหม่` };
+  if (asked.styleRef && !(await styleStillOk(asked.styleRef))) return { ok: false, error: "ภาพสไตล์ที่เลือกใช้ไม่ได้แล้ว เลือกใหม่หรือเอาออก" };
   const input = gemini ? { ...asked, gemini: gemini.name } : asked;
   const contact = await getContact(viewer.agentId);
   if (!(contact.name || viewer.name).trim() || !contact.phone) {
@@ -119,6 +120,15 @@ async function withdrawnPart(scenes: PromptScene[]): Promise<number | null> {
   })).map((r) => r.id));
   const i = scenes.findIndex((s) => s.asset && !ok.has(s.asset));
   return i < 0 ? null : i;
+}
+
+/** whether the ภาพสไตล์ is still an approved style, before anything is held; a store that cannot be read says no */
+async function styleStillOk(id: string): Promise<boolean> {
+  const rows = await okUploads([id], "style").catch((e) => {
+    console.error("library style not read:", e instanceof Error ? e.message : "unknown error");
+    return [];
+  });
+  return rows.some((r) => r.id === id);
 }
 
 /**

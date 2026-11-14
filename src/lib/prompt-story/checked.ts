@@ -74,6 +74,8 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
     product: "FREESTORY", draftId: v.draftId, brief, title, caption, scenes,
     ...(isPromptFormat(v.format) ? { format: v.format } : {}),
     style: v.style as PictureStyle, painter: v.painter as PromptStoryInput["painter"],
+    // ภาพสไตล์: an upload's id; whether it is still an approved style is makePromptStory's to ask
+    ...(isUploadId(v.styleRef) ? { styleRef: v.styleRef } : {}),
     size: sizeOf(v), narrator, ...(voice ? { voice } : {}),
     faces: { narrator: typeof face === "string" && FACES.some((f) => f.id === face) ? face : DEFAULT_NARRATOR_FACE },
     ...(figure ? { figure } : {}),
