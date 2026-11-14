@@ -140,6 +140,22 @@ describe("freeFrame with a device", () => {
     expect(at("plot")).toContain(STORY_CLIP_COLORS.plotRail);
   });
 
+  it("draws every frame of the seven AI styles as it draws the retired plain styles, devices too", () => {
+    // สไตล์ภาพ AI (spec 2026-11-14-ai-picture-styles-design): the plain paper band, no look of their own
+    const AI: PromptStoryInput["style"][] = ["cartoon3d", "clay", "anime", "watercolor", "isometric", "collage", "pixel"];
+    const all = (style: PromptStoryInput["style"]) => {
+      const out: string[] = [];
+      for (const size of SIZE_LIST) for (const pic of [true, false]) {
+        const i = input(3, { style, scenes: [scene(1, "คำฉากหนึ่ง"), { ...scene(2, "ฉากตัวเลข"), showFigure: true }, deviceScene(SPLIT), deviceScene(LIMIT)] });
+        for (const sc of i.scenes) for (const t of [0, 1.3, 6]) out.push(renderToStaticMarkup(freeFrame(sc, pic, ctx(i, size), t)));
+      }
+      return out.join("\n");
+    };
+    const plain = all("real");
+    expect(all("cartoon")).toBe(plain);
+    for (const style of AI) expect(all(style) === plain, style).toBe(true);
+  });
+
   it("lets the device win over the figure card on a device scene, and keeps the card on a picture scene", () => {
     const i = input(2, { style: "paper", scenes: [deviceScene(SPLIT, { showFigure: true }), { ...scene(2, "คำฉากสอง"), showFigure: true }] });
     const dev = shown(renderToStaticMarkup(freeFrame(i.scenes[0], false, ctx(i, "portrait"), 6)));

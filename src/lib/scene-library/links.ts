@@ -11,9 +11,13 @@ import { isUploadId } from "./upload-rules";
 /** คลิปเล่าเรื่อง's seven looks, as its form names them (`art`): the four, then ไวต์บอร์ด นีออน บลูพริ้นท์ (2026-11-14) */
 export type StoryLook = "paper" | "minimal" | "line" | InfoArt;
 const STORY_LOOKS: readonly StoryLook[] = ["paper", "minimal", "plot", "line", "board", "neon", "blueprint"];
-/** คลิปตามโจทย์'s seven styles a link may name (the form calls แสงอุ่น "warm") */
-export type PromptStyle = "paper" | "warm" | "plot" | "line" | "board" | "neon" | "blueprint";
-const PROMPT_STYLES: readonly PromptStyle[] = ["paper", "warm", "plot", "line", "board", "neon", "blueprint"];
+/** คลิปตามโจทย์'s styles a link may name (the form calls แสงอุ่น "warm"): the seven drawn looks, then the seven AI styles (2026-11-14) */
+export type PromptStyle =
+  | "paper" | "warm" | "plot" | "line" | "board" | "neon" | "blueprint"
+  | "cartoon3d" | "clay" | "anime" | "watercolor" | "isometric" | "collage" | "pixel";
+const PROMPT_STYLES: readonly PromptStyle[] = [
+  "paper", "warm", "plot", "line", "board", "neon", "blueprint", "cartoon3d", "clay", "anime", "watercolor", "isometric", "collage", "pixel",
+];
 
 export interface StoryStart { topic?: StoryTopic; look?: StoryLook }
 /**

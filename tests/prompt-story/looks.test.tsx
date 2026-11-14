@@ -10,12 +10,28 @@ const scene = { voice: "ทดสอบ เสียง", screen: "ดูแล�
 const input = (style: PromptStoryInput["style"]) => ({ product: "FREESTORY", brief: "x", title: "t", caption: "", scenes: [scene], style, painter: "sharp", faces: { narrator: "m03" } }) as PromptStoryInput;
 const ctx = (style: PromptStoryInput["style"]): FreeContext => ({ input: input(style), size: "portrait", customer: "", narrator: "F", contact: { name: "ก", phone: "081" }, crowd: [], faces: {}, words: ["ทดสอบ", "เสียง"], voiceSec: 2 });
 const frame = (style: PromptStoryInput["style"]) => renderToStaticMarkup(freeFrame(scene, true, ctx(style), 1));
+/** สไตล์ภาพ AI (owner, 2026-11-14): the seven, in the form's order, by these names */
+const AI = [
+  { id: "cartoon3d", name: "การ์ตูน 3D" }, { id: "clay", name: "ดินเคลย์" }, { id: "anime", name: "อนิเมะ" }, { id: "watercolor", name: "สีน้ำ" },
+  { id: "isometric", name: "ไอโซเมตริก" }, { id: "collage", name: "ตัดแปะนิตยสาร" }, { id: "pixel", name: "พิกเซล" },
+] as const;
 
 describe("คลิปตามโจทย์'s looks", () => {
-  it("offers the seven looks, in that order, and no other", () => {
-    expect(PICTURE_STYLES.map((s) => s.id)).toEqual(["paper", "warm", "plot", "line", "board", "neon", "blueprint"]);
+  it("offers the seven drawn looks, then the seven AI styles, in that order, and no other", () => {
+    expect(PICTURE_STYLES.map((s) => s.id)).toEqual(["paper", "warm", "plot", "line", "board", "neon", "blueprint", ...AI.map((a) => a.id)]);
     // ไวต์บอร์ด นีออน บลูพริ้นท์ (owner, 2026-11-14) after the four, by these names
-    expect(PICTURE_STYLES.slice(4)).toEqual([{ id: "board", name: "ไวต์บอร์ด" }, { id: "neon", name: "นีออน" }, { id: "blueprint", name: "บลูพริ้นท์" }]);
+    expect(PICTURE_STYLES.slice(4, 7)).toEqual([{ id: "board", name: "ไวต์บอร์ด" }, { id: "neon", name: "นีออน" }, { id: "blueprint", name: "บลูพริ้นท์" }]);
+    // สไตล์ภาพ AI (owner, 2026-11-14, spec 2026-11-14-ai-picture-styles-design) after them, marked as AI, by these names
+    expect(PICTURE_STYLES.slice(7)).toEqual(AI.map((a) => ({ ...a, ai: true })));
+    expect(PICTURE_STYLES.slice(0, 7).every((s) => !s.ai)).toBe(true);
+  });
+
+  it("leaves the seven AI styles on the plain paper band, as the retired styles", () => {
+    for (const { id } of AI) {
+      expect(freeLook(input(id)), id).toEqual({});
+      expect(frame(id), id).toBe(frame("real"));
+      expect(frame(id), id).toContain("rgba(236,232,223,0.9)");
+    }
   });
 
   it("dresses ไวต์บอร์ด นีออน บลูพริ้นท์ in คลิปเล่าเรื่อง's look of the same id", () => {
@@ -46,7 +62,8 @@ describe("คลิปตามโจทย์'s looks", () => {
 
   it("takes every style a clip may be in, old ones too, and no other", () => {
     const sent = (style: string) => checkedPromptStory({ draftId: "00000000-0000-0000-0000-000000000000", brief: "โจทย์", title: "ชื่อ", caption: "", scenes: [scene, scene, scene], style, painter: "sharp" }, "F");
-    for (const s of ["paper", "warm", "plot", "line", "board", "neon", "blueprint", "real", "cartoon", "flat"]) expect(typeof sent(s), s).toBe("object");
+    for (const s of ["paper", "warm", "plot", "line", "board", "neon", "blueprint", ...AI.map((a) => a.id), "real", "cartoon", "flat"]) expect(typeof sent(s), s).toBe("object");
+    expect(sent("thai")).toBe("เลือกแบบภาพ");
     expect(sent("oil")).toBe("เลือกแบบภาพ");
   });
 

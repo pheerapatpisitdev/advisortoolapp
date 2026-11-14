@@ -1,6 +1,6 @@
 import { DEVICES } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
-import { PROMPT_FORMATS } from "@/lib/prompt-story/types";
+import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
 import type { HealthLayout } from "@/lib/quote-video/story-knowledge";
@@ -104,11 +104,23 @@ const readyFormats: LibraryItem[] = [
   })),
 ];
 
+/** each AI style's line on its card */
+const AI_TELLS: Partial<Record<PictureStyle, string>> = {
+  cartoon3d: "ภาพ AI ตัวการ์ตูนสามมิติสีสด", clay: "ภาพ AI เหมือนปั้นจากดินน้ำมัน", anime: "ภาพ AI สไตล์อนิเมะญี่ปุ่น", watercolor: "ภาพ AI สีน้ำนุ่มๆ",
+  isometric: "ภาพ AI มุมมองสามมิติแบบเมืองจำลอง", collage: "ภาพ AI แบบตัดแปะจากนิตยสาร", pixel: "ภาพ AI แบบเกมพิกเซล",
+};
+
 const readyLooks: LibraryItem[] = [
   ...STORY_LOOKS.map((l): LibraryItem => ({
     id: `look-${l.art}`, type: "look", name: l.name, tells: l.tells, product: "all", ready: true,
     uses: [storyUse("ทำคลิปเล่าเรื่อง", { look: l.art, ...(infoArt(l.art) ? { topic: PLOT_TOPIC } : {}) }), promptUse("ทำคลิปตามโจทย์", { style: l.style })],
     preview: `/library/look-${l.art}.jpg`,
+  })),
+  // สไตล์ภาพ AI (owner, 2026-11-14, spec 2026-11-14-ai-picture-styles-design): คลิปตามโจทย์'s seven AI styles, each still
+  // cut from the sample the owner saw (ลายไทยร่วมสมัย was dropped on seeing its sample)
+  ...PICTURE_STYLES.filter((s) => s.ai).map((s): LibraryItem => ({
+    id: `ai-style-${s.id}`, type: "look", name: s.name, tells: AI_TELLS[s.id] ?? "", product: "all", ready: true,
+    uses: [promptUse("ทำคลิปตามโจทย์", { style: s.id })], preview: `/library/ai-${s.id}.jpg`,
   })),
   { id: "look-glass", type: "look", name: THEME_LABELS.glass.name, tells: "การ์ดโปร่งแสงซ้อนกัน หน้าตาทันสมัย", product: "all", ready: true, uses: [quoteUse()] },
   { id: "look-sticky", type: "look", name: THEME_LABELS.sticky.name, tells: "ข้อความเป็นโน้ตกระดาษแปะบนโต๊ะ", product: "all", ready: true, uses: [quoteUse()] },
@@ -138,15 +150,6 @@ const unbuilt: LibraryItem[] = [
   n("format", "all", "format-agent-talk", "ตัวแทนพูดหน้ากล้อง + กราฟิก", "ตัวแทนพูด มีกราฟิกเด้งประกอบ แล้วปิดด้วยการติดต่อ"),
   n("format", "all", "format-mascot-series", "ซีรีส์น้องโล่", "ตอนสั้นที่มีมาสคอตเป็นตัวละครประจำ"),
   n("format", "all", "format-long-infographic", "อินโฟกราฟิกยาว", "บทนำ 3–5 ช่วง สรุป ความยาว 3–5 นาที สำหรับ YouTube"),
-  // looks: AI picture styles (the system-drawn ไวต์บอร์ด นีออน บลูพริ้นท์ are built, in STORY_LOOKS)
-  n("look", "all", "ai-style-3d", "การ์ตูน 3D", "ภาพ AI ตัวการ์ตูนสามมิติสีสด"),
-  n("look", "all", "ai-style-clay", "ดินเคลย์", "ภาพ AI เหมือนปั้นจากดินน้ำมัน"),
-  n("look", "all", "ai-style-anime", "อนิเมะ", "ภาพ AI สไตล์อนิเมะญี่ปุ่น"),
-  n("look", "all", "ai-style-watercolor", "สีน้ำ", "ภาพ AI สีน้ำนุ่มๆ"),
-  n("look", "all", "ai-style-isometric", "ไอโซเมตริก", "ภาพ AI มุมมองสามมิติแบบเมืองจำลอง"),
-  n("look", "all", "ai-style-magazine-collage", "ตัดแปะนิตยสาร", "ภาพ AI แบบตัดแปะจากนิตยสาร"),
-  n("look", "all", "ai-style-thai-pattern", "ลายไทยร่วมสมัย", "ภาพ AI ลายไทยในโทนสมัยใหม่"),
-  n("look", "all", "ai-style-pixel", "พิกเซล", "ภาพ AI แบบเกมพิกเซล"),
   // devices: general (family)
   dev("all", "doctor-patient", "หมอ–คนไข้", "ฉากหมอคุยกับคนไข้ในห้องตรวจ"),
   dev("all", "agent-with-client", "ตัวแทนนั่งคุยกับลูกค้า", "ตัวแทนนั่งอธิบายแผนกับลูกค้าที่โต๊ะ"),

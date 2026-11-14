@@ -58,6 +58,14 @@ describe("prompt-story links", () => {
     expect(promptStartFrom({ style: "board" })).toEqual({ style: "board" });
     expect(promptStartFrom(paramsOf(promptLibraryHref({ format: "drama3", style: "neon" })))).toEqual({ format: "drama3", style: "neon" });
   });
+  it("keeps the seven AI styles, on any format, and not the dropped ลายไทย", () => {
+    for (const style of ["cartoon3d", "clay", "anime", "watercolor", "isometric", "collage", "pixel"]) {
+      expect(promptStartFrom({ style }), style).toEqual({ style });
+      expect(promptStartFrom(paramsOf(promptLibraryHref({ format: "drama3", style }))), style).toEqual({ format: "drama3", style });
+    }
+    expect(promptStartFrom({ style: "thai-pattern" })).toEqual({});
+    expect(promptStartFrom({ style: "3d" })).toEqual({});
+  });
   it("drops unknown values", () => {
     expect(promptStartFrom({ format: "x" })).toEqual({});
     expect(promptStartFrom({ format: "free", style: "real" })).toEqual({ format: "free" });

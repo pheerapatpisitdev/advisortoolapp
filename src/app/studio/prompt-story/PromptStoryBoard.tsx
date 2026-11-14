@@ -31,7 +31,11 @@ import type { PromptStart } from "@/lib/scene-library/links";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
-const STYLES = PICTURE_STYLES;
+/** the picture styles in the form's two groups: what the system draws around the picture, then สไตล์ภาพ AI on the plain band */
+const STYLE_GROUPS = [
+  { label: "หน้าตาที่ระบบวาด", styles: PICTURE_STYLES.filter((s) => !s.ai) },
+  { label: "สไตล์ภาพ AI", styles: PICTURE_STYLES.filter((s) => s.ai), note: "คำบนจอใช้แถบกระดาษเรียบ ภาพวาดโดย AI" },
+];
 const PAINTERS: { id: PromptStoryInput["painter"]; name: string }[] = [{ id: "standard", name: "มาตรฐาน" }, { id: "sharp", name: "คมชัด" }, { id: "gemini", name: "Gemini" }];
 const SCENES = SCENE_COUNTS;
 const LOOK_KEY = "prompt-story-look";
@@ -224,8 +228,17 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="จำนวนฉาก">
             {SCENES.map((n) => <button key={n} type="button" role="radio" aria-checked={scenes === n} className={chip(scenes === n)} onClick={() => setScenes(n)}>{n} ฉาก</button>)}
           </div>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="สไตล์รูป">
-            {STYLES.map((s) => <button key={s.id} type="button" role="radio" aria-checked={style === s.id} className={chip(style === s.id)} onClick={() => setStyle(s.id)}>{s.name}</button>)}
+          {/* one choice in two groups (owner, 2026-11-14, spec 2026-11-14-ai-picture-styles-design): the looks the system draws, then สไตล์ภาพ AI */}
+          <div className="space-y-3" role="radiogroup" aria-label="สไตล์รูป">
+            {STYLE_GROUPS.map((g) => (
+              <div key={g.label} className="space-y-1.5">
+                <p className="text-xs font-medium">{g.label}</p>
+                <div className="flex flex-wrap gap-2">
+                  {g.styles.map((s) => <button key={s.id} type="button" role="radio" aria-checked={style === s.id} className={chip(style === s.id)} onClick={() => setStyle(s.id)}>{s.name}</button>)}
+                </div>
+                {g.note && <p className="text-xs text-[var(--ct-mute)]">{g.note}</p>}
+              </div>
+            ))}
           </div>
           {styles.length > 0 && (
             <div className="space-y-1.5">

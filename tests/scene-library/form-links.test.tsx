@@ -96,6 +96,12 @@ describe("คลิปเล่าเรื่อง's three new looks", () => {
   });
 });
 
+/** คลิปตามโจทย์'s styles (spec 2026-11-14-ai-picture-styles-design): the system-drawn seven, then the seven AI styles */
+const DRAWN = ["สต็อปโมชันกระดาษ", "ฉากกระดาษใต้แสงอุ่น", "ปากกาพล็อตเตอร์", "การ์ตูนลายเส้น", "ไวต์บอร์ด", "นีออน", "บลูพริ้นท์"];
+const AI_STYLES = [
+  ["cartoon3d", "การ์ตูน 3D"], ["clay", "ดินเคลย์"], ["anime", "อนิเมะ"], ["watercolor", "สีน้ำ"], ["isometric", "ไอโซเมตริก"], ["collage", "ตัดแปะนิตยสาร"], ["pixel", "พิกเซล"],
+] as const;
+
 describe("คลิปตามโจทย์ opened from a link", () => {
   it("opens on the linked format and style", () => {
     const html = prompt({ format: "drama3", style: "line" });
@@ -103,6 +109,37 @@ describe("คลิปตามโจทย์ opened from a link", () => {
     expect(html).toMatch(/aria-checked="false"[^>]*>สต็อปโมชันกระดาษ</);
     expect(html).toMatch(/aria-checked="true"[^>]*>ละครสั้น 3 ฉาก</);
     expect(html).toMatch(/aria-checked="false"[^>]*>ตามโจทย์</);
+  });
+  it("opens on a linked AI style, the one chip chosen across both groups", () => {
+    for (const [id, name] of AI_STYLES) {
+      const html = prompt({ style: id });
+      expect(html, id).toMatch(new RegExp(`aria-checked="true"[^>]*>${name}<`));
+      expect(html.match(/aria-checked="true"[^>]*>[^<]*</g)?.filter((m) => [...DRAWN, ...AI_STYLES.map(([, n]) => n)].some((n) => m.endsWith(`>${n}<`))), id).toHaveLength(1);
+    }
+  });
+  it("draws the styles in two labelled groups: the system-drawn seven, then the seven AI styles with their line", () => {
+    const html = prompt();
+    const drawnAt = html.indexOf(">หน้าตาที่ระบบวาด<");
+    const aiAt = html.indexOf(">สไตล์ภาพ AI<");
+    const lineAt = html.indexOf(">คำบนจอใช้แถบกระดาษเรียบ ภาพวาดโดย AI<");
+    expect(drawnAt).toBeGreaterThan(-1);
+    expect(aiAt).toBeGreaterThan(drawnAt);
+    expect(lineAt).toBeGreaterThan(aiAt);
+    const chipAt = (name: string) => html.indexOf(`>${name}</button>`);
+    for (const name of DRAWN) {
+      expect(chipAt(name), name).toBeGreaterThan(drawnAt);
+      expect(chipAt(name), name).toBeLessThan(aiAt);
+    }
+    for (const [, name] of AI_STYLES) {
+      expect(chipAt(name), name).toBeGreaterThan(aiAt);
+      expect(chipAt(name), name).toBeLessThan(lineAt);
+      expect(html, name).toMatch(new RegExp(`aria-checked="false"[^>]*>${name}</button>`));
+    }
+    // in the form's order
+    const order = [...DRAWN, ...AI_STYLES.map(([, n]) => n)].map(chipAt);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    // the retired and the dropped are not offered
+    for (const gone of ["ลายไทยร่วมสมัย", "ภาพสมจริง", "มินิมอลแบน"]) expect(html, gone).not.toContain(`>${gone}</button>`);
   });
   it("opens as today with no link or an unknown one", () => {
     for (const html of [prompt(), prompt({ format: "x", style: "real" })]) {

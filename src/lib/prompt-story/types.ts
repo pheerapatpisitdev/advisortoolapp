@@ -18,12 +18,20 @@ export const isSceneCount = (v: unknown): v is SceneCount => (SCENE_COUNTS as re
  * https://claude.ai/artifact/HHcQYn3umUREhMELrGQyKu) are on the form; "cartoon", "flat" and, on the owner's word
  * after seeing a picture of it the same day, "real" left it, and are kept for the clips made in them.
  * ไวต์บอร์ด นีออน บลูพริ้นท์ (owner, 2026-11-14, spec 2026-11-14-story-looks-board-neon-blueprint) follow the four.
+ * Then สไตล์ภาพ AI (owner, 2026-11-14, spec 2026-11-14-ai-picture-styles-design): seven styles only the painter's
+ * words make, their screen words on the plain paper band as the retired styles' ("cartoon" was taken, hence "cartoon3d").
  */
-export type PictureStyle = "paper" | "warm" | "plot" | "line" | "board" | "neon" | "blueprint" | "real" | "cartoon" | "flat";
-/** the styles the form offers, in its order */
-export const PICTURE_STYLES: { id: PictureStyle; name: string }[] = [
+export type PictureStyle =
+  | "paper" | "warm" | "plot" | "line" | "board" | "neon" | "blueprint"
+  | "cartoon3d" | "clay" | "anime" | "watercolor" | "isometric" | "collage" | "pixel"
+  | "real" | "cartoon" | "flat";
+/** the styles the form offers, in its order; `ai`: a สไตล์ภาพ AI, drawn in its own group on the form */
+export const PICTURE_STYLES: { id: PictureStyle; name: string; ai?: true }[] = [
   { id: "paper", name: "สต็อปโมชันกระดาษ" }, { id: "warm", name: "ฉากกระดาษใต้แสงอุ่น" }, { id: "plot", name: "ปากกาพล็อตเตอร์" },
   { id: "line", name: "การ์ตูนลายเส้น" }, { id: "board", name: "ไวต์บอร์ด" }, { id: "neon", name: "นีออน" }, { id: "blueprint", name: "บลูพริ้นท์" },
+  { id: "cartoon3d", name: "การ์ตูน 3D", ai: true }, { id: "clay", name: "ดินเคลย์", ai: true }, { id: "anime", name: "อนิเมะ", ai: true },
+  { id: "watercolor", name: "สีน้ำ", ai: true }, { id: "isometric", name: "ไอโซเมตริก", ai: true }, { id: "collage", name: "ตัดแปะนิตยสาร", ai: true },
+  { id: "pixel", name: "พิกเซล", ai: true },
 ];
 
 /**

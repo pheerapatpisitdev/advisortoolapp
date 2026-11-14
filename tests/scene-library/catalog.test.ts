@@ -128,6 +128,28 @@ describe("catalogue", () => {
     }
     expect(LIBRARY.filter((i) => ["look-board", "look-neon", "look-blueprint"].includes(i.id))).toHaveLength(3);
   });
+  it("the seven AI styles are ready, with the owner-seen sample as still and a link into คลิปตามโจทย์", () => {
+    // spec 2026-11-14-ai-picture-styles-design; tells as the catalogue had them
+    const AI = [
+      ["cartoon3d", "การ์ตูน 3D", "ภาพ AI ตัวการ์ตูนสามมิติสีสด"], ["clay", "ดินเคลย์", "ภาพ AI เหมือนปั้นจากดินน้ำมัน"],
+      ["anime", "อนิเมะ", "ภาพ AI สไตล์อนิเมะญี่ปุ่น"], ["watercolor", "สีน้ำ", "ภาพ AI สีน้ำนุ่มๆ"],
+      ["isometric", "ไอโซเมตริก", "ภาพ AI มุมมองสามมิติแบบเมืองจำลอง"], ["collage", "ตัดแปะนิตยสาร", "ภาพ AI แบบตัดแปะจากนิตยสาร"],
+      ["pixel", "พิกเซล", "ภาพ AI แบบเกมพิกเซล"],
+    ] as const;
+    for (const [id, name, tells] of AI) {
+      const item = libraryItem(`ai-style-${id}`)!;
+      expect(item, id).toBeDefined();
+      expect([item.type, item.name, item.tells, item.product, item.ready], id).toEqual(["look", name, tells, "all", true]);
+      expect(item.preview, id).toBe(`/library/ai-${id}.jpg`);
+      expect(item.uses.map((u) => [u.tool, u.href]), id).toEqual([["prompt-story", `/studio/prompt-story?style=${id}`]]);
+      expect(PICTURE_STYLES.find((s) => s.id === id)?.name, id).toBe(name);
+    }
+    expect(LIBRARY.filter((i) => i.id.startsWith("ai-style-")).map((i) => i.id)).toEqual(AI.map(([id]) => `ai-style-${id}`));
+  });
+  it("drops ลายไทยร่วมสมัย and the old ids of การ์ตูน 3D and ตัดแปะนิตยสาร", () => {
+    for (const id of ["ai-style-thai-pattern", "ai-style-3d", "ai-style-magazine-collage"]) expect(libraryItem(id), id).toBeUndefined();
+    expect(LIBRARY.some((i) => i.name.includes("ลายไทย"))).toBe(false);
+  });
   it("every device lists the seven looks, the three new ones kept on its topic", () => {
     for (const d of DEVICES) {
       const looks = libraryItem(d.key)!.looks!;

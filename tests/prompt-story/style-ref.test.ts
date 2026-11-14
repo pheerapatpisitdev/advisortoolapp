@@ -34,7 +34,8 @@ describe("picturePrompt and a style reference", () => {
   });
 
   it("with one: the scene's words, both instructions and the suffix, and none of the style's words", () => {
-    for (const s of ["paper", "warm", "plot", "line"] as const) {
+    // สไตล์ภาพ AI too (spec 2026-11-14-ai-picture-styles-design): a library style still overrides the prefix
+    for (const s of ["paper", "warm", "plot", "line", "cartoon3d", "clay", "anime", "watercolor", "isometric", "collage", "pixel"] as const) {
       const p = picturePrompt(pic(), s, true);
       expect(p).toBe(`a family at the table. ${WITH_REF} ${SUFFIX}`);
       expect(p).not.toContain(STYLE_PREFIX[s]);
