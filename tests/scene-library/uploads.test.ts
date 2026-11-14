@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -338,7 +338,7 @@ describe("uploadFile", () => {
 });
 
 describe("migration", () => {
-  const sql = readFileSync("supabase/migrations/20261211_library_uploads.sql", "utf8");
+  const sql = readFileSync("supabase/migrations/20261215_library_uploads.sql", "utf8");
   const fn = (s: string) => {
     const at = s.indexOf("create or replace function public.ins_member_delete");
     expect(at).toBeGreaterThanOrEqual(0);
@@ -363,7 +363,10 @@ describe("migration", () => {
   });
   it("member delete takes the unapproved uploads and returns their paths, the live function otherwise unchanged", () => {
     const mine = fn(sql);
-    const live = fn(readFileSync("supabase/migrations/20261210_library_marks.sql", "utf8"));
+    // the latest body before this one (20261213 added มีอะไรใหม่'s reads): previous live body + only the additions
+    const before = readdirSync("supabase/migrations").filter((f) => f < "20261215_library_uploads.sql" && /function public\.ins_member_delete/.test(readFileSync(`supabase/migrations/${f}`, "utf8"))).sort();
+    expect(before.at(-1)).toBe("20261213_whats_new.sql");
+    const live = fn(readFileSync("supabase/migrations/20261213_whats_new.sql", "utf8"));
     expect(mine).toMatch(/delete from ins_library_uploads where agent_id = p_member and state <> 'ok';/);
     expect(mine).toMatch(/'library', v_library/);
     // the collection happens before the delete, and the delete before the member row goes

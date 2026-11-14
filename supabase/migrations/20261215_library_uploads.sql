@@ -26,7 +26,7 @@ grant all on public.ins_library_uploads to service_role;
 comment on table public.ins_library_uploads is 'advisortool: a member''s upload to คลังแอนิเมชัน (part, style or ask) and the owner''s verdict. service_role only.';
 
 -- ลบสมาชิกทั่วไป takes the member's uploads that are not approved, and returns their file paths (library) for
--- Storage to clear: the live function as 20261210_library_marks.sql left it, with those lines added.
+-- Storage to clear: the live function as 20261213_whats_new.sql left it, with those lines added.
 create or replace function public.ins_member_delete(p_member uuid)
 returns jsonb
 language plpgsql
@@ -64,7 +64,9 @@ begin
   delete from ins_prompt_drafts where agent_id = p_member;
   -- คลังแอนิเมชัน's saved pieces and votes (20261210): no files either
   delete from ins_library_marks where agent_id = p_member;
-  -- คลังแอนิเมชัน's uploads (20261211): the ones not approved; their files are returned for Storage
+  -- มีอะไรใหม่'s reads (20261213)
+  delete from ins_update_reads where agent_id = p_member;
+  -- คลังแอนิเมชัน's uploads (20261215): the ones not approved; their files are returned for Storage
   delete from ins_library_uploads where agent_id = p_member and state <> 'ok';
 
   delete from ins_wallet_holds where agent_id = p_member;

@@ -80,7 +80,7 @@ export interface MemberFiles {
   videos: string[];
   /** content-media paths of the member's logos */
   logos: string[];
-  /** content-media paths of the member's library uploads that were not approved (20261211; none before it) */
+  /** content-media paths of the member's library uploads that were not approved (20261215; none before it) */
   library: string[];
 }
 
