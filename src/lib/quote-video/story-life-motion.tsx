@@ -245,15 +245,17 @@ function NeedRows({ d, tot, partial, inner }: { d: Dev; tot: ReturnType<typeof l
     );
   };
   const need = tot.need ?? 0;
+  const gap = partial ? undefined : tot.gap;
   return (
     <div style={box({ flexDirection: "column" })}>
       {row(undefined, partial ? LW.partial : LW.need, need, countAt(need, look(s.count, t).p), C.ink, Math.round(g.text * 1.4), true)}
       {tot.have !== undefined ? row(s.have, LW.have, tot.have, tot.have, GREEN, Math.round(g.text * 1.4)) : null}
       {/* (each piece a child of its own: satori lays a fragment's children out apart from the column) */}
-      {tot.gap !== undefined ? <El an={s.gap} t={t} style={{ height: 0, borderTop: `3px dashed ${C.ink}`, marginTop: Math.round(g.text * 0.45) }} /> : null}
+      {/* a partial sum is not the need: no gap (nor enough) is drawn against it, only what was typed and what is had */}
+      {gap !== undefined ? <El an={s.gap} t={t} style={{ height: 0, borderTop: `3px dashed ${C.ink}`, marginTop: Math.round(g.text * 0.45) }} /> : null}
       {/* what is had meets the need: it is enough, never a gap of nought or a negative */}
-      {tot.gap === undefined ? null : tot.gap > 0
-        ? row(s.gap, LW.gap, tot.gap, tot.gap, C.red, Math.round(g.text * 1.7))
+      {gap === undefined ? null : gap > 0
+        ? row(s.gap, LW.gap, gap, gap, C.red, Math.round(g.text * 1.7))
         : <El an={s.gap} t={t} style={{ justifyContent: "center", marginTop: Math.round(g.text * 0.4), fontSize: fitHand(LW.enough, inner, Math.round(g.text * 1.5)), fontWeight: 700, color: GREEN }}>{LW.enough}</El>}
     </div>
   );
@@ -491,7 +493,9 @@ function IncomeStop({ d, show }: { d: Dev; show: LifeShow<"incomestop"> }) {
   const pad = Math.round(g.text * 0.6);
   const inner = card.w - pad * 2 - 8;
   const product = `${n(show.monthly ?? 0)} × ${show.months ?? 0} ${LW.months}`;
-  const lossLine = lost !== undefined ? `= ${baht(lost)}` : show.monthly !== undefined ? `${baht(show.monthly)} ${LW.perMonth}` : "";
+  const lossLine = lost !== undefined ? `= ${baht(lost)}` : "";
+  // a month's income with no months is no loss yet: its figure under a neutral label, in ink
+  const monthWord = `${LW.income}${LW.perMonth}`;
   return (
     <>
       <DevTitle d={d} text={show.title} />
@@ -508,11 +512,18 @@ function IncomeStop({ d, show }: { d: Dev; show: LifeShow<"incomestop"> }) {
       </Piece>
       <El an={s.gap} t={t} style={{ position: "absolute", left: gr.x, width: gr.w, top: yLo + Math.round(g.text * 0.3), justifyContent: "center", fontFamily: HAND, fontSize: stopSize, fontWeight: 700, color: C.red }}>{stopWord}</El>
       <Sheet r={card} an={s.card} t={t} tilt={0.8} pad={pad} middle>
-        <div style={box({ flexDirection: "column", alignItems: "center" })}>
-          <div style={box({ fontSize: lossLine ? Math.round(g.text * 1.05) : fitHand(LW.lost, inner, Math.round(g.text * 1.6)), fontWeight: lossLine ? 600 : 700, lineHeight: 1.3, color: lossLine ? C.ink : C.red })}>{LW.lost}</div>
-          {lost !== undefined ? <div style={box({ fontSize: fitSize(product, inner, Math.round(g.text * 1.2)), fontWeight: 600, lineHeight: 1.3 })}>{product}</div> : null}
-          {lossLine ? <div style={box({ fontSize: fitSize(lossLine, inner, Math.round(g.text * 1.6)), fontWeight: 700, lineHeight: 1.25, color: C.red })}>{lost !== undefined ? `= ${baht(countAt(lost, look(s.count, t).p))}` : lossLine}</div> : null}
-        </div>
+        {lost !== undefined ? (
+          <div style={box({ flexDirection: "column", alignItems: "center" })}>
+            <div style={box({ fontSize: Math.round(g.text * 1.05), fontWeight: 600, lineHeight: 1.3 })}>{LW.lost}</div>
+            <div style={box({ fontSize: fitSize(product, inner, Math.round(g.text * 1.2)), fontWeight: 600, lineHeight: 1.3 })}>{product}</div>
+            <div style={box({ fontSize: fitSize(lossLine, inner, Math.round(g.text * 1.6)), fontWeight: 700, lineHeight: 1.25, color: C.red })}>{`= ${baht(countAt(lost, look(s.count, t).p))}`}</div>
+          </div>
+        ) : show.monthly !== undefined ? (
+          <div style={box({ flexDirection: "column", alignItems: "center" })}>
+            <div style={box({ fontSize: fitHand(monthWord, inner, Math.round(g.text * 1.05)), fontWeight: 600, lineHeight: 1.3 })}>{monthWord}</div>
+            <div style={box({ fontSize: fitSize(baht(show.monthly), inner, Math.round(g.text * 1.6)), fontWeight: 700, lineHeight: 1.25, color: C.ink })}>{baht(show.monthly)}</div>
+          </div>
+        ) : <div style={box({ justifyContent: "center", fontSize: fitHand(LW.lost, inner, Math.round(g.text * 1.6)), fontWeight: 700, lineHeight: 1.3, color: C.red })}>{LW.lost}</div>}
       </Sheet>
     </>
   );

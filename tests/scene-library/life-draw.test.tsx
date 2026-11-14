@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { drawPngHere } from "@/lib/draw/core";
 import type { DrawFont } from "@/lib/draw/fonts";
 import type { StoryVideoInput } from "@/lib/quote-video/story";
@@ -110,8 +111,24 @@ describe("lifeneed", () => {
       expect(LW.partial).toBe("รวมที่กรอกไว้");
       expect(out).not.toContain(LW.need);
       expect(out).toContain("1,800,000");
-      expect(out).toContain("1,300,000");
+      expect(out).toContain("500,000");
+      expect(out).toContain(LW.have);
     }
+  });
+
+  it("some inputs missing: no gap against the partial sum (no ขาดอีก, no enough words), in every look and size", () => {
+    const covered = { layout: "lifeneed", title: ["ทุนชีวิต", ""], debts: 300_000, have: 1_000_000 } as KnowShow;
+    for (const x of [SHOWS[2], covered]) for (const size of SIZES) for (const art of ARTS) {
+      const out = words(html(x, end(x), size, art));
+      expect(out, `${size} ${art.art}`).toContain(LW.partial);
+      expect(out, `${size} ${art.art}`).toContain(LW.have);
+      expect(out, `${size} ${art.art}`).not.toContain(LW.gap);
+      expect(out, `${size} ${art.art}`).not.toContain(LW.enough);
+      expect(out, `${size} ${art.art}`).not.toContain("1,300,000");
+      expect(out, `${size} ${art.art}`).not.toContain("700,000");
+    }
+    // all three blocks: the gap is drawn
+    expect(words(html(SHOWS[0]))).toContain(LW.gap);
   });
 
   it("no figures: the blocks named, no number, and the words line", () => {
@@ -204,6 +221,19 @@ describe("incomestop", () => {
       for (const w of [`${LW.stop} 6 ${LW.months}`, LW.lost, "30,000", "× 6", n(incomestopLost(show)!), LW.income]) expect(out, `${size} ${art.art} ${w}`).toContain(w);
     }
     expect(words(html(show))).toContain("180,000");
+  });
+
+  it("a month's income without the months: a neutral รายได้ต่อเดือน over the figure in ink, no loss", () => {
+    for (const size of SIZES) for (const art of ARTS) {
+      const markup = html(SHOWS[11], end(SHOWS[11]), size, art);
+      const out = words(markup);
+      expect(out, `${size} ${art.art}`).toContain(`${LW.income}${LW.perMonth}`);
+      expect(out, `${size} ${art.art}`).toContain("30,000 บาท");
+      expect(out, `${size} ${art.art}`).not.toContain(LW.lost);
+      expect(out, `${size} ${art.art}`).not.toContain("=");
+      // the figure is not red: it is no loss
+      expect(markup, `${size} ${art.art}`).not.toMatch(new RegExp(`color:${STORY_CLIP_COLORS.red}[^>]*>30,000`));
+    }
   });
 
   it("without both inputs: no product, no stray figures", () => {
