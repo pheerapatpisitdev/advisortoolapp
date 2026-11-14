@@ -53,6 +53,7 @@ export default async function LibraryPage() {
         counts={counts ?? {}}
         owner={can(viewer, "owner")}
         marksFailed={!marksRead}
+        demo={viewer.kind === "demo"}
       />
     </div>
   );

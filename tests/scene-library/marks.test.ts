@@ -67,6 +67,7 @@ import { marksOf, toggleMark, wantCounts } from "@/lib/scene-library/marks";
 import { toggleLibraryMark } from "@/app/studio/library/actions";
 import { OWNER } from "../helpers/signed-in";
 import { DEMO_ID } from "@/lib/auth/demo";
+import { MARK_FAILED } from "@/lib/scene-library/mark-state";
 
 const READY = LIBRARY.find((i) => i.ready)!.id;
 const UNBUILT = LIBRARY.filter((i) => !i.ready).map((i) => i.id);
@@ -114,6 +115,8 @@ describe("toggleMark", () => {
     const r = await toggleMark(A, READY, "save");
     expect(r.ok).toBe(false);
     expect(!r.ok && /[ก-๙]/.test(r.error) && !/connection/.test(r.error)).toBe(true);
+    // the board's own line for a failed call: one string for both
+    expect(r).toEqual({ ok: false, error: MARK_FAILED });
   });
   it("keeps each viewer's marks apart", async () => {
     await toggleMark(A, READY, "save");

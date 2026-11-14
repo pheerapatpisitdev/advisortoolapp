@@ -29,14 +29,22 @@ describe("withMark", () => {
   it("never counts below nothing", () => {
     expect(withMark({ ...none, wanted: [U1] }, "want", U1, false).counts[U1] ?? 0).toBe(0);
   });
+  it("a viewer whose votes are not counted (the demo) moves their own mark, never the count", () => {
+    const start = { ...none, counts: { [U1]: 2 } };
+    const on = withMark(start, "want", U1, true, false);
+    expect(on).toEqual({ saved: [], wanted: [U1], counts: { [U1]: 2 } });
+    expect(withMark(on, "want", U1, false, false)).toEqual(start);
+    // a save is the same either way
+    expect(withMark(none, "save", READY, true, false)).toEqual(withMark(none, "save", READY, true));
+  });
 });
 
 describe("pressMark", () => {
   /** the board's marks, as React would hold them */
-  const board = (start: Marks) => {
+  const board = (start: Marks, counted = true) => {
     let m = start;
     const seen: Marks[] = [];
-    return { apply: (kind: "save" | "want", id: string, on: boolean) => { m = withMark(m, kind, id, on); seen.push(m); }, now: () => m, seen };
+    return { apply: (kind: "save" | "want", id: string, on: boolean) => { m = withMark(m, kind, id, on, counted); seen.push(m); }, now: () => m, seen };
   };
 
   it("shows the mark at once, then keeps the server's answer", async () => {
@@ -46,6 +54,12 @@ describe("pressMark", () => {
     expect(toggle).toHaveBeenCalledWith(U1, "want");
     expect(b.seen[0].wanted).toEqual([U1]);
     expect(b.now()).toEqual({ saved: [], wanted: [U1], counts: { [U1]: 1 } });
+  });
+  it("the demo's own press shows its vote but keeps the count the server gave (its votes are not counted)", async () => {
+    const b = board({ ...none, counts: { [U1]: 5 } }, false);
+    expect(await pressMark(async () => ({ ok: true, on: true }), U1, "want", b.now(), b.apply)).toBeNull();
+    expect(b.seen.every((m) => m.counts[U1] === 5)).toBe(true);
+    expect(b.now()).toEqual({ saved: [], wanted: [U1], counts: { [U1]: 5 } });
   });
   it("takes the server's answer when it differs from the guess (a second press landed first)", async () => {
     const b = board(none);

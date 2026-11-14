@@ -1,6 +1,7 @@
 import { DEMO_ID } from "@/lib/auth/demo";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { libraryItem } from "./catalog";
+import { MARK_FAILED } from "./mark-state";
 
 /**
  * คลังแอนิเมชัน's marks (spec 2026-11-14, "Saved pieces and votes"): each viewer's saved pieces (save,
@@ -20,7 +21,6 @@ const PAGE = 1000;
 
 export const NOT_IN_LIBRARY = "ไม่พบรายการนี้ในคลัง";
 export const ALREADY_READY = "ชิ้นนี้ใช้ได้แล้ว ไม่ต้องกดอยากได้";
-const NOT_SAVED = "บันทึกไม่สำเร็จ ลองกดอีกครั้งนะครับ";
 
 export const isMarkKind = (v: unknown): v is MarkKind => v === "save" || v === "want";
 
@@ -70,14 +70,14 @@ export async function toggleMark(agentId: string, item: string, kind: MarkKind):
     .eq("agent_id", agentId).eq("item", item).eq("kind", kind).select("item");
   if (delErr) {
     console.error("library mark not changed:", delErr.message);
-    return { ok: false, error: NOT_SAVED };
+    return { ok: false, error: MARK_FAILED };
   }
   if (gone?.length) return { ok: true, on: false };
 
   const { error } = await db.from(TABLE).insert({ agent_id: agentId, item, kind });
   if (error && error.code !== DUPLICATE) {
     console.error("library mark not saved:", error.message);
-    return { ok: false, error: NOT_SAVED };
+    return { ok: false, error: MARK_FAILED };
   }
   return { ok: true, on: true };
 }

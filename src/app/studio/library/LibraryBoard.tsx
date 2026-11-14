@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { TYPE_NAME, usesFor, type LibraryItem, type LibraryProduct, type LibraryTool, type LibraryType } from "@/lib/scene-library/catalog";
+import { PRODUCT_NAME, TYPE_NAME, usesFor, type LibraryItem, type LibraryProduct, type LibraryTool, type LibraryType } from "@/lib/scene-library/catalog";
 import { filterLibrary, type LibraryFilter, type LibraryState } from "@/lib/scene-library/filter";
 import { cleanMarks, hasMark, pressMark, withMark, type Marks } from "@/lib/scene-library/mark-state";
 import type { MarkKind, Toggled } from "@/lib/scene-library/marks";
@@ -22,10 +22,12 @@ type Tab = "browse" | "mine" | "top";
 
 /** the forms by the names the menu gives them */
 const TOOL_NAME: Record<LibraryTool, string> = { "quote-video": "วิดีโอนำเสนอ", "story-clip": "คลิปเล่าเรื่อง", "prompt-story": "คลิปตามโจทย์" };
-/** the product chips as the spec words them; a piece for every product has no tag */
-const PRODUCT_CHIP: Record<Exclude<LibraryProduct, "all">, string> = { health: "สุขภาพ", life: "ชีวิต", saving: "ออม บำนาญ มรดก" };
 const TYPES: [LibraryFilter["type"], string][] = [["any", "ทั้งหมด"], ...(Object.entries(TYPE_NAME) as [LibraryType, string][])];
-const PRODUCTS: [LibraryFilter["product"], string][] = [["any", "ทุกสินค้า"], ...(Object.entries(PRODUCT_CHIP) as [Exclude<LibraryProduct, "all">, string][])];
+/** the product chips: catalog.ts's names, its `all` on the chip that shows every product */
+const PRODUCTS: [LibraryFilter["product"], string][] = [
+  ["any", PRODUCT_NAME.all],
+  ...(["health", "life", "saving"] as const).map((p): [Exclude<LibraryProduct, "all">, string] => [p, PRODUCT_NAME[p]]),
+];
 const STATES: [LibraryState, string][] = [["ready", "ใช้ได้แล้ว"], ["soon", "เร็วๆ นี้"], ["all", "ทั้งหมด"]];
 const TYPE_MARK: Record<LibraryType, (p: { className?: string }) => React.ReactNode> = { format: QuoteIcon, device: SlidersIcon, look: PenIcon, fx: MegaphoneIcon };
 
@@ -64,7 +66,7 @@ function Tags({ item }: { item: LibraryItem }) {
   return (
     <div className="flex flex-wrap gap-1">
       <span className={`${tag} border border-[var(--ct-hair)] text-[var(--ct-mute)]`}>{TYPE_NAME[item.type]}</span>
-      {item.product !== "all" && <span className={`${tag} bg-[var(--ct-soft)] text-[var(--ct-accent)]`}>{PRODUCT_CHIP[item.product]}</span>}
+      {item.product !== "all" && <span className={`${tag} bg-[var(--ct-soft)] text-[var(--ct-accent)]`}>{PRODUCT_NAME[item.product]}</span>}
       {!item.ready && <span className={`${tag} bg-[var(--ct-warn-bg)] text-[var(--ct-warn-ink)]`}>เร็วๆ นี้</span>}
     </div>
   );
@@ -149,11 +151,13 @@ interface BoardProps {
   counts: Record<string, number>;
   owner: boolean;
   marksFailed?: boolean;
+  /** the viewer is the shared demo account: its votes are left out of every count, so its own press does not move one */
+  demo?: boolean;
   /** the server's toggle; a stand-in where nothing may be written */
   toggle?: (item: string, kind: MarkKind) => Promise<Toggled>;
 }
 
-export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksFailed = false, toggle = toggleLibraryMark }: BoardProps) {
+export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksFailed = false, demo = false, toggle = toggleLibraryMark }: BoardProps) {
   const [marks, setMarks] = useState<Marks>(() => cleanMarks(items, { saved, wanted, counts }));
   // the marks as they are this moment, for a press that starts before React has drawn the last one
   const now = useRef(marks);
@@ -177,7 +181,7 @@ export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksF
   }, [sel]);
 
   const apply = (kind: MarkKind, id: string, on: boolean) => {
-    now.current = withMark(now.current, kind, id, on);
+    now.current = withMark(now.current, kind, id, on, !demo);
     setMarks(now.current);
   };
 
@@ -223,7 +227,7 @@ export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksF
   ];
 
   const detail = selected && (
-    <Detail
+    <LibraryDetail
       item={selected} open={open} marks={mine} busy={busy} error={errors[selected.id]} look={look} onLook={setLook}
       onClose={() => setSel(null)} onMark={(k) => press(selected.id, k)} innerRef={detailRef}
     />
@@ -293,17 +297,20 @@ export function LibraryBoard({ items, open, saved, wanted, counts, owner, marksF
   );
 }
 
-interface DetailProps extends Omit<CardProps, "onOpen"> {
+export interface DetailProps extends Omit<CardProps, "onOpen"> {
   look: string;
   onLook: (id: string) => void;
   onClose: () => void;
   innerRef: React.Ref<HTMLElement>;
 }
 
-/** the larger preview, what it tells, a device's looks, and one way into each form it works in */
-function Detail({ item, open, marks, busy, error, look, onLook, onClose, onMark, innerRef }: DetailProps) {
-  const uses = usesFor(item, open);
+/**
+ * the larger preview, what it tells, a device's looks, and one way into each form it works in; on a device
+ * the links are the shown look's, so the form opens in the look the viewer picked here
+ */
+export function LibraryDetail({ item, open, marks, busy, error, look, onLook, onClose, onMark, innerRef }: DetailProps) {
   const shownLook = item.looks?.find((l) => l.id === look) ?? item.looks?.[0];
+  const uses = usesFor(shownLook ?? item, open);
   const wanted = Boolean(marks && hasMark(marks, "want", item.id));
   return (
     <section ref={innerRef} aria-label={`รายละเอียด ${item.name}`} className="grid gap-4 rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-3 sm:grid-cols-[minmax(0,200px)_minmax(0,1fr)]">
@@ -339,7 +346,7 @@ function Detail({ item, open, marks, busy, error, look, onLook, onClose, onMark,
         ) : marks ? (
           <>
             <p className="rounded-lg bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]">
-              ยังไม่เปิดใช้ มีสมาชิก {marks.counts[item.id] ?? 0} คนอยากได้ ยิ่งคนอยากได้มาก แอดมินยิ่งทำก่อน
+              เร็วๆ นี้ มีสมาชิก {marks.counts[item.id] ?? 0} คนอยากได้ ยิ่งคนอยากได้มาก แอดมินยิ่งทำก่อน
             </p>
             <div>
               <button type="button" disabled={busy.has(busyKey("want", item.id))} aria-pressed={wanted} onClick={() => onMark("want")} className={voteCls(wanted)}>
@@ -348,7 +355,7 @@ function Detail({ item, open, marks, busy, error, look, onLook, onClose, onMark,
             </div>
           </>
         ) : (
-          <p className="text-sm text-[var(--ct-mute)]">ยังไม่เปิดใช้</p>
+          <p className="text-sm text-[var(--ct-mute)]">เร็วๆ นี้</p>
         )}
         {error && <p role="alert" className="text-xs text-[var(--ct-alert)]">{error}</p>}
       </div>

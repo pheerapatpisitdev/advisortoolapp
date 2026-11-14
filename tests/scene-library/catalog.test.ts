@@ -11,6 +11,9 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 const KNOWN = new Set(["topic", "look", "format", "style"]);
+/** every link the catalogue draws: each piece's, and each device look's */
+const allUses = (i: (typeof LIBRARY)[number]) => [...i.uses, ...(i.looks ?? []).flatMap((l) => l.uses)];
+const q = (href: string) => new URL(href, "http://x").searchParams;
 
 describe("catalogue", () => {
   it("has unique kebab-case ids", () => {
@@ -29,7 +32,7 @@ describe("catalogue", () => {
     }
   });
   it("every ready href is a studio link with known params", () => {
-    for (const i of LIBRARY) for (const u of i.uses) {
+    for (const i of LIBRARY) for (const u of allUses(i)) {
       expect(u.href.startsWith("/studio/"), u.href).toBe(true);
       for (const k of new URL(u.href, "http://x").searchParams.keys()) expect(KNOWN.has(k), `${i.id} ${k}`).toBe(true);
     }
@@ -48,6 +51,29 @@ describe("catalogue", () => {
     expect(libraryItem("room")?.looks?.map((l) => l.id)).toEqual(["paper", "minimal", "line", "plot"]);
     expect(libraryItem("room")?.preview).toBe("/library/room-paper.jpg");
   });
+  it("each device look opens the forms in that look, on the device's topic", () => {
+    const STYLE: Record<string, string> = { paper: "paper", minimal: "warm", line: "line", plot: "plot" };
+    for (const d of DEVICES) {
+      const item = libraryItem(d.key)!;
+      const topic = q(item.uses.find((u) => u.tool === "story-clip")!.href).get("topic");
+      for (const l of item.looks!) {
+        expect(l.uses.map((u) => u.tool), `${d.key} ${l.id}`).toEqual(["story-clip", "prompt-story"]);
+        const story = q(l.uses[0].href);
+        expect(story.get("topic"), `${d.key} ${l.id}`).toBe(topic);
+        // every device topic is on a shelf told in points, so every look, ปากกาพล็อตเตอร์ too, is kept
+        expect(story.get("look"), `${d.key} ${l.id}`).toBe(l.id);
+        expect(q(l.uses[1].href).get("style"), `${d.key} ${l.id}`).toBe(STYLE[l.id]);
+        expect(PICTURE_STYLES.map((s) => s.id)).toContain(STYLE[l.id]);
+      }
+    }
+    // ประกันกลุ่ม's topic is on the objection shelf, which ปากกาพล็อตเตอร์ draws
+    expect(libraryItem("groupgap")!.looks!.find((l) => l.id === "plot")!.uses[0].href).toBe("/studio/story-clip?topic=groupins&look=plot");
+    expect(libraryItem("room")!.looks!.find((l) => l.id === "minimal")!.uses[1].href).toBe("/studio/prompt-story?style=warm");
+  });
+  it("usesFor takes a look's links as it takes a piece's", () => {
+    const line = libraryItem("room")!.looks!.find((l) => l.id === "line")!;
+    expect(usesFor(line, { "quote-video": true, "story-clip": true, "prompt-story": false }).map((u) => u.href)).toEqual(["/studio/story-clip?topic=roomcost&look=line"]);
+  });
   it("href builders omit absent params", () => {
     expect(storyLibraryHref({})).toBe("/studio/story-clip");
     expect(storyLibraryHref({ topic: "waiting", look: "plot" })).toBe("/studio/story-clip?topic=waiting&look=plot");
@@ -57,6 +83,8 @@ describe("catalogue", () => {
   it("names the types and products", () => {
     expect(TYPE_NAME.format).toBe("รูปแบบรายการ");
     expect(Object.keys(PRODUCT_NAME).sort()).toEqual(["all", "health", "life", "saving"]);
+    // the spec's chip words, which the board draws
+    expect(PRODUCT_NAME).toEqual({ all: "ทุกสินค้า", health: "สุขภาพ", life: "ชีวิต", saving: "ออม บำนาญ มรดก" });
   });
 
   it("ties looks, themes, music and sounds to the code's own lists", () => {
@@ -82,7 +110,7 @@ describe("catalogue", () => {
     for (const s of SOUNDS) expect(existsSync(join(process.cwd(), "remotion/public/fx", `${s}.mp3`)), s).toBe(true);
   });
   it("a plot story link opens on a topic plot can draw", () => {
-    const plots = LIBRARY.flatMap((i) => i.uses).filter((u) => u.tool === "story-clip")
+    const plots = LIBRARY.flatMap(allUses).filter((u) => u.tool === "story-clip")
       .map((u) => new URL(u.href, "http://x").searchParams).filter((q) => q.get("look") === "plot");
     expect(plots.length).toBeGreaterThan(0);
     for (const q of plots) {

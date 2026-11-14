@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
@@ -27,9 +27,9 @@ vi.mock("@/lib/switches/store", () => ({ closedFor: async (_v: unknown, key: str
 vi.mock("@/app/studio/library/actions", () => ({ toggleLibraryMark: vi.fn() }));
 
 import { OWNER } from "../helpers/signed-in";
-import { LIBRARY, libraryItem, storyLibraryHref, type LibraryTool } from "@/lib/scene-library/catalog";
+import { LIBRARY, libraryItem, PRODUCT_NAME, storyLibraryHref, type LibraryTool } from "@/lib/scene-library/catalog";
 import LibraryPage from "@/app/studio/library/page";
-import { LibraryBoard, LibraryCard, MostWanted } from "@/app/studio/library/LibraryBoard";
+import { LibraryBoard, LibraryCard, LibraryDetail, MostWanted, type DetailProps } from "@/app/studio/library/LibraryBoard";
 
 const AGENT: Viewer = { ...OWNER, agentId: "00000000-0000-4000-8000-0000000000a1", code: "123456", name: "ตัวแทน", staff: null };
 const page = async () => renderToStaticMarkup(await LibraryPage());
@@ -142,6 +142,13 @@ describe("the board", () => {
     expect(card("room", { error: "บันทึกไม่สำเร็จ ลองกดอีกครั้งนะครับ" })).toMatch(/role="alert"[^>]*>บันทึกไม่สำเร็จ ลองกดอีกครั้งนะครับ</);
   });
 
+  it("draws the product chips and tags in catalog.ts's words", () => {
+    const html = renderToStaticMarkup(createElement(LibraryBoard, { items: LIBRARY, open: open(), saved: [], wanted: [], counts: {}, owner: false }));
+    for (const name of Object.values(PRODUCT_NAME)) expect(html, name).toMatch(new RegExp(`aria-pressed="(true|false)"[^>]*>${name}</button>`));
+    // a health device's tag
+    expect(card("room")).toContain(`>${PRODUCT_NAME.health}</span>`);
+  });
+
   it("the owner's list: unfinished pieces by votes, most first, ready ones left out", () => {
     const [a, b] = unbuilt;
     const html = renderToStaticMarkup(createElement(MostWanted, { items: LIBRARY, counts: { [a.id]: 2, [b.id]: 9, room: 50 } }));
@@ -149,5 +156,58 @@ describe("the board", () => {
     expect(html.indexOf(b.name)).toBeLessThan(html.indexOf(a.name));
     expect(html).not.toContain("ค่าห้องต่อคืน");
     expect(html).toContain("9 คน");
+  });
+});
+
+/** the elements a drawn tree holds, children first-class (the detail's own markup; its parts are not expanded) */
+function elements(node: ReactNode): ReactElement<Record<string, unknown>>[] {
+  if (Array.isArray(node)) return node.flatMap(elements);
+  if (!isValidElement<Record<string, unknown>>(node)) return [];
+  return [node, ...elements(node.props.children as ReactNode)];
+}
+
+describe("the detail", () => {
+  const props = (o: Partial<DetailProps> = {}): DetailProps => ({
+    item: libraryItem("room")!, open: open(), marks: { saved: [], wanted: [], counts: {} }, busy: new Set<string>(), look: "paper",
+    onLook: () => {}, onClose: () => {}, onMark: () => {}, innerRef: null, ...o,
+  });
+  const detail = (o: Partial<DetailProps> = {}) => renderToStaticMarkup(createElement(LibraryDetail, props(o)));
+  const storyHref = (html: string) => html.match(/href="(\/studio\/story-clip[^"]*)"/)?.[1].replaceAll("&amp;", "&");
+
+  it("choosing a look changes the story link's look=", () => {
+    let chosen = "paper";
+    const tree = LibraryDetail(props({ onLook: (id) => { chosen = id; } }));
+    const chip = elements(tree).find((e) => e.type === "button" && e.props.children === "การ์ตูนลายเส้น")!;
+    expect(chip.props["aria-pressed"]).toBe(false);
+    (chip.props.onClick as () => void)();
+    expect(chosen).toBe("line");
+
+    expect(storyHref(detail())).toBe("/studio/story-clip?topic=roomcost&look=paper");
+    expect(storyHref(detail({ look: chosen }))).toBe("/studio/story-clip?topic=roomcost&look=line");
+    expect(storyHref(detail({ look: "plot" }))).toBe("/studio/story-clip?topic=roomcost&look=plot");
+  });
+
+  it("the คลิปตามโจทย์ link follows the look too, แสงอุ่น as the form names it", () => {
+    const html = detail({ look: "minimal", open: open({ "prompt-story": true }) });
+    expect(html).toContain('href="/studio/prompt-story?style=warm"');
+    expect(html).toContain(`href="${amp(storyLibraryHref({ topic: "roomcost", look: "minimal" }))}"`);
+  });
+
+  it("a piece with no looks keeps its own links", () => {
+    expect(storyHref(detail({ item: libraryItem("look-line")! }))).toBe("/studio/story-clip?look=line");
+  });
+
+  it("an unbuilt piece says เร็วๆ นี้ with its votes, or plain เร็วๆ นี้ with the marks unread", () => {
+    const id = unbuilt[0].id;
+    const html = detail({ item: unbuilt[0], marks: { saved: [], wanted: [], counts: { [id]: 4 } } });
+    expect(html).toContain("เร็วๆ นี้ มีสมาชิก 4 คนอยากได้ ยิ่งคนอยากได้มาก แอดมินยิ่งทำก่อน");
+    expect(html).not.toContain("ยังไม่เปิด");
+    const unread = detail({ item: unbuilt[0], marks: null });
+    expect(unread).toMatch(/<p[^>]*>เร็วๆ นี้<\/p>/);
+    expect(unread).not.toContain("ยังไม่เปิด");
+  });
+
+  it("a ready piece the viewer cannot open still says ยังไม่เปิดให้ใช้", () => {
+    expect(detail({ open: open({ "story-clip": false }) })).toContain("ยังไม่เปิดให้ใช้");
   });
 });

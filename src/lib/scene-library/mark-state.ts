@@ -8,7 +8,8 @@ import type { MarkKind, Toggled } from "./marks";
  */
 export interface Marks { saved: string[]; wanted: string[]; counts: Record<string, number> }
 
-/** what the board says when the call itself failed (signed out, the network gone) */
+/** the line when a mark was not saved: the call itself failed (signed out, the network gone), or the
+ * server could not write it (marks.ts uses this same line) */
 export const MARK_FAILED = "บันทึกไม่สำเร็จ ลองกดอีกครั้งนะครับ";
 
 export function cleanMarks(items: readonly LibraryItem[], m: Marks): Marks {
@@ -21,10 +22,14 @@ export function cleanMarks(items: readonly LibraryItem[], m: Marks): Marks {
 
 export const hasMark = (m: Marks, kind: MarkKind, id: string): boolean => (kind === "save" ? m.saved : m.wanted).includes(id);
 
-/** the viewer's mark on or off; their own vote moves the piece's count with it */
-export function withMark(m: Marks, kind: MarkKind, id: string, on: boolean): Marks {
+/**
+ * the viewer's mark on or off; their own vote moves the piece's count with it, unless their votes are not
+ * counted (`counted: false`, the shared demo account, whose votes the server leaves out of every count)
+ */
+export function withMark(m: Marks, kind: MarkKind, id: string, on: boolean, counted = true): Marks {
   if (hasMark(m, kind, id) === on) return m;
   if (kind === "save") return { ...m, saved: on ? [...m.saved, id] : m.saved.filter((x) => x !== id) };
+  if (!counted) return { ...m, wanted: on ? [...m.wanted, id] : m.wanted.filter((x) => x !== id) };
   const n = Math.max(0, (m.counts[id] ?? 0) + (on ? 1 : -1));
   const counts = { ...m.counts };
   if (n) counts[id] = n;

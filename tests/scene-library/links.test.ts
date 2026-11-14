@@ -50,8 +50,8 @@ describe("prompt-story links", () => {
 });
 
 describe("the catalogue's links", () => {
-  it("every ready href parses to a start, or has no params", () => {
-    for (const item of LIBRARY) for (const u of item.uses) {
+  it("every ready href parses to a start, or has no params, a device look's own links too", () => {
+    for (const item of LIBRARY) for (const u of [...item.uses, ...(item.looks ?? []).flatMap((l) => l.uses)]) {
       const params = paramsOf(u.href);
       if (Object.keys(params).length === 0) continue;
       const start = u.tool === "story-clip" ? storyStartFrom(params) : u.tool === "prompt-story" ? promptStartFrom(params) : null;

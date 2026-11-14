@@ -4,7 +4,7 @@ import { PROMPT_FORMATS } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
 import type { HealthLayout } from "@/lib/quote-video/story-knowledge";
-import type { StoryTopic } from "@/lib/story/topics";
+import { INFO_SHELVES, topicOf, type StoryTopic } from "@/lib/story/topics";
 
 /**
  * คลังแอนิเมชัน: every clip building block the Studio has, or has planned, in one list (owner-approved
@@ -16,6 +16,8 @@ export type LibraryProduct = "all" | "health" | "life" | "saving";
 export type LibraryTool = "quote-video" | "story-clip" | "prompt-story";
 
 export interface LibraryUse { tool: LibraryTool; label: string; href: string }
+/** one of a device's looks: its still, and the links that open the forms in that look */
+export interface LibraryLook { id: string; name: string; preview: string; uses: LibraryUse[] }
 export interface LibraryItem {
   id: string;
   type: LibraryType;
@@ -25,11 +27,12 @@ export interface LibraryItem {
   ready: boolean;
   uses: LibraryUse[];
   preview?: string;
-  looks?: { id: string; name: string; preview: string }[];
+  looks?: LibraryLook[];
 }
 
 export const TYPE_NAME: Record<LibraryType, string> = { format: "รูปแบบรายการ", device: "อุปกรณ์ภาพ", look: "สไตล์ภาพ", fx: "ลูกเล่น" };
-export const PRODUCT_NAME: Record<LibraryProduct, string> = { all: "ทุกแผน", health: "ประกันสุขภาพ", life: "ประกันชีวิต", saving: "ออม บำนาญ ลงทุน" };
+/** the product chips as the spec words them; `all` names the chip that shows every piece (a piece for every product has no tag) */
+export const PRODUCT_NAME: Record<LibraryProduct, string> = { all: "ทุกสินค้า", health: "สุขภาพ", life: "ชีวิต", saving: "ออม บำนาญ มรดก" };
 
 export { storyLibraryHref, promptLibraryHref } from "./links";
 
@@ -66,12 +69,24 @@ const DEVICE_TELLS: Record<HealthLayout, string> = {
   groupgap: "สวัสดิการประกันกลุ่มจากที่ทำงานที่จ่ายได้ไม่พอ",
   agecost: "เบี้ยสุขภาพต่อปีที่สูงขึ้นตามช่วงอายุ",
 };
-const readyDevices: LibraryItem[] = DEVICES.map((d) => ({
-  id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: "health", ready: true,
-  uses: [storyUse("ทำคลิปเล่าเรื่อง", { topic: DEVICE_TOPIC[d.key] }), promptUse("ทำคลิปตามโจทย์")],
-  preview: `/library/${d.key}-paper.jpg`,
-  looks: DEVICE_LOOK_ORDER.map((id) => ({ id, name: STORY_LOOKS.find((l) => l.art === id)!.name, preview: `/library/${d.key}-${id}.jpg` })),
-}));
+/** whether คลิปเล่าเรื่อง keeps this look on this topic: ปากกาพล็อตเตอร์ only on the shelves told in points */
+const lookFits = (topic: StoryTopic, look: string): boolean => look !== "plot" || INFO_SHELVES.includes(topicOf(topic)!.shelf);
+const readyDevices: LibraryItem[] = DEVICES.map((d) => {
+  const topic = DEVICE_TOPIC[d.key];
+  return {
+    id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: "health", ready: true,
+    uses: [storyUse("ทำคลิปเล่าเรื่อง", { topic }), promptUse("ทำคลิปตามโจทย์")],
+    preview: `/library/${d.key}-paper.jpg`,
+    // the look shown in the detail goes with its links; a look the topic cannot keep is left out of the link, not sent to be dropped
+    looks: DEVICE_LOOK_ORDER.map((id): LibraryLook => {
+      const look = STORY_LOOKS.find((l) => l.art === id)!;
+      return {
+        id, name: look.name, preview: `/library/${d.key}-${id}.jpg`,
+        uses: [storyUse("ทำคลิปเล่าเรื่อง", { topic, ...(lookFits(topic, id) ? { look: id } : {}) }), promptUse("ทำคลิปตามโจทย์", { style: look.style })],
+      };
+    }),
+  };
+});
 
 const readyFormats: LibraryItem[] = [
   { id: "format-quote", type: "format", name: "คลิปขายแผน", tells: "จากใบเสนอ เปิดด้วยตัวเลข ราคา ทุน เงื่อนไข ติดต่อ", product: "all", ready: true, uses: [quoteUse()] },
@@ -239,5 +254,5 @@ export const LIBRARY: LibraryItem[] = [...readyFormats, ...readyDevices, ...read
 const BY_ID = new Map(LIBRARY.map((i) => [i.id, i]));
 export const libraryItem = (id: string): LibraryItem | undefined => BY_ID.get(id);
 
-/** the uses a viewer may follow: those whose tool is open to them */
-export const usesFor = (item: LibraryItem, open: Record<LibraryTool, boolean>): LibraryUse[] => item.uses.filter((u) => open[u.tool]);
+/** the uses a viewer may follow, of a piece or one of its looks: those whose tool is open to them */
+export const usesFor = (item: { uses: readonly LibraryUse[] }, open: Record<LibraryTool, boolean>): LibraryUse[] => item.uses.filter((u) => open[u.tool]);
