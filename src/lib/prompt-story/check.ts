@@ -2,7 +2,7 @@ import { FORBIDDEN, numbersIn } from "@/lib/quote-video/brief";
 import type { StoryFigure } from "@/lib/quote-video/story";
 import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { deviceInfo } from "@/lib/scene-library/devices";
-import { isTaxRate, TAX_FIGURES } from "@/lib/scene-library/tax-th";
+import { isTaxRate, TAX_FIGURES, TAXBACK_FIGURES } from "@/lib/scene-library/tax-th";
 import { SCREEN_MAX, type DeviceScene, type PromptScene } from "./types";
 
 /**
@@ -97,11 +97,14 @@ function wordReasons(field: string, t: string, allowed: Set<number>): string[] {
  * kept (a total, gap or refund the writer adds is dropped: the drawer computes those); every word at most
  * SCREEN_MAX and held to the script's rules; a list at most four (moneysplit's parts two or three,
  * threegen's rows three); every number a whole number above nought that the brief or the plan gave
- * (deviceAllowed), the figures inside words too, and a tax device's words may also say the tax table's
- * (TAX_FIGURES). Anything else is the first reason, naming its field: the device is dropped and the scene
+ * (deviceAllowed), the figures inside words too; taxcap's words may also say the tax table's figures
+ * (TAX_FIGURES), taxback's only its year, life cap and bracket thresholds (TAXBACK_FIGURES: never a figure a
+ * refund could be). Anything else is the first reason, naming its field: the device is dropped and the scene
  * painted. Three things are not reasons but drawn without (spec, Review Focus 2): beneficiary shares not all
  * given or not totalling 100, moneysplit amounts not all given or over the total (or with no total), and a
- * taxback bracket that is not one of the table's rates.
+ * taxback bracket that is not one of the table's rates or not in `allowed`. The client's bracket is an input,
+ * never the AI's pick: a คลิปตามโจทย์ brief states it ("ฐานภาษี 20%", deviceAllowed reads the 20); the story
+ * form adds its chip's rate to `allowed`.
  */
 export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | string {
   if (!d || typeof d !== "object" || Array.isArray(d)) return "layout: ไม่มีอุปกรณ์";
@@ -109,8 +112,10 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
   // the registry (browser-safe) rather than story-knowledge's list, so the page may check a device too
   if (typeof o.layout !== "string" || !deviceInfo(o.layout)) return "layout: ไม่รู้จักอุปกรณ์นี้";
   const layout = o.layout as DeviceLayout;
-  // the tax devices' words may name the table's own figures ("ลดหย่อนได้ 100,000"); their numbers may not
-  const wordAllowed = layout === "taxback" || layout === "taxcap" ? new Set([...allowed, ...TAX_FIGURES]) : allowed;
+  // the tax devices' words may name the table's own figures ("ลดหย่อนได้ 100,000"); their numbers may not.
+  // taxback's words a narrower set: a cap such as 15,000 is also a refund, and a refund is never written by the AI
+  const wordAllowed = layout === "taxcap" ? new Set([...allowed, ...TAX_FIGURES])
+    : layout === "taxback" ? new Set([...allowed, ...TAXBACK_FIGURES]) : allowed;
   const fail: string[] = [];
   const word = (field: string, x: unknown, need: boolean): string => {
     if (x === undefined && !need) return "";
@@ -148,8 +153,9 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
     const n = num(field, x, false);
     return n === undefined ? {} : { [field]: n };
   };
+  // an optional word left null is absent, as left out
   const optWord = (field: string, x: unknown) => {
-    const t = word(field, x, false);
+    const t = x === null ? "" : word(field, x, false);
     return t ? { [field]: t } : {};
   };
 
@@ -204,8 +210,8 @@ export function checkDevice(d: unknown, allowed: Set<number>): DeviceScene | str
       out = { layout, title, ...opt("monthly", o.monthly), ...opt("months", o.months) };
       break;
     case "taxback":
-      // the bracket is the tax table's (one of its rates), not the brief's: any other is left off
-      out = { layout, title, ...opt("premium", o.premium), ...(isTaxRate(o.bracket) ? { bracket: o.bracket } : {}) };
+      // the bracket: one of the tax table's rates that the brief (or the story form) gave; any other is left off
+      out = { layout, title, ...opt("premium", o.premium), ...(isTaxRate(o.bracket) && allowed.has(o.bracket) ? { bracket: o.bracket } : {}) };
       break;
     case "taxcap":
       out = { layout, title };

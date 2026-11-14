@@ -23,7 +23,8 @@ const FULL: KnowShow[] = [
   { layout: "moneysplit", title: ["แบ่งเงิน", "ให้คนในบ้าน"], total: 3_000_000, parts: [{ label: "ภรรยา", amount: 1_500_000 }, { label: "ลูก", amount: 1_000_000 }] },
   { layout: "threegen", title: ["ส่งต่อ", "สามรุ่น"], rows: ["พ่อแม่", "เรา", "ลูก"], note: "เงินก้อนส่งต่อ" },
 ];
-const ALL = new Set([2_000_000, 300_000, 10, 1_000_000, 50, 40_000, 6, 50_000, 3_000_000, 1_500_000]);
+/** every input FULL draws, as a brief would state them: the tax bracket (20) too, an input as the others */
+const ALL = new Set([2_000_000, 300_000, 10, 1_000_000, 50, 40_000, 6, 50_000, 20, 3_000_000, 1_500_000]);
 
 describe("life, CI, tax and legacy devices: registry", () => {
   it("lists the eight layouts after the health ones", () => {
@@ -170,7 +171,7 @@ describe("checkDevice: number sourcing for the new devices", () => {
     }
   });
   it("takes a figure from the plan: CI sum and the split total from the sum assured", () => {
-    const allowed = deviceAllowed("คุยเรื่องโรคร้าย", { age: 35, sumAssured: 1_000_000, annual: 20_000, monthly: 1_800 });
+    const allowed = deviceAllowed("คุยเรื่องโรคร้าย ลูกค้าฐานภาษี 10%", { age: 35, sumAssured: 1_000_000, annual: 20_000, monthly: 1_800 });
     expect(checkDevice({ layout: "cilump", title: T, sum: 1_000_000 }, allowed)).toEqual({ layout: "cilump", title: T, sum: 1_000_000 });
     expect(checkDevice({ layout: "moneysplit", title: T, total: 1_000_000, parts: [{ label: "ก" }, { label: "ข" }] }, allowed)).toMatchObject({ total: 1_000_000 });
     expect(checkDevice({ layout: "taxback", title: T, premium: 20_000, bracket: 10 }, allowed)).toMatchObject({ premium: 20_000, bracket: 10 });
@@ -202,14 +203,39 @@ describe("checkDevice: number sourcing for the new devices", () => {
     expect(typeof checkDevice({ ...bare(), parts: [{ label: "ก" }] }, allowed)).toBe("string");
     expect(typeof checkDevice({ ...bare(), parts: [{ label: "ก" }, { label: "ข" }, { label: "ค" }, { label: "ง" }] }, allowed)).toBe("string");
   });
-  it("taxback: the bracket is one of the table's rates, else drawn without it (Review Focus 2)", () => {
-    const allowed = new Set([50_000]);
-    // the bracket comes from the table, not the brief
+  it("taxback: the bracket is a table rate the brief states, else drawn without it (Review Focus 2)", () => {
+    // the client's bracket is an input: one of the table's rates, and stated in the brief (or the story form's chip)
+    const allowed = new Set([50_000, 25, 12, 40]);
     expect(checkDevice({ layout: "taxback", title: T, premium: 50_000, bracket: 25 }, allowed)).toEqual({ layout: "taxback", title: T, premium: 50_000, bracket: 25 });
-    for (const bracket of [12, 40, 0, 5.5, "20"]) {
+    for (const bracket of [12, 40, 0, 5.5, "25", null]) {
       expect(checkDevice({ layout: "taxback", title: T, premium: 50_000, bracket }, allowed), String(bracket)).toEqual({ layout: "taxback", title: T, premium: 50_000 });
     }
+    // a table rate the AI picked, no brief saying so: left off, the ladder drawn with no rate marked
+    expect(checkDevice({ layout: "taxback", title: T, premium: 50_000, bracket: 20 }, allowed)).toEqual({ layout: "taxback", title: T, premium: 50_000 });
     expect(checkDevice({ layout: "taxback", title: T }, new Set())).toEqual({ layout: "taxback", title: T });
+  });
+  it("taxback: a bracket the brief states as a percent, through deviceAllowed and checkScript", () => {
+    const device = { layout: "taxback" as const, title: T, premium: 50_000, bracket: 20 };
+    const scene: PromptScene = { voice: "ลดหย่อนภาษีได้", screen: "ภาษีที่ได้คืน", picture: "เอกสารภาษี", device };
+    expect(checkDevice(device, deviceAllowed("ค่าประกัน 50,000 ต่อปี ฐานภาษี 20%"))).toEqual(device);
+    expect(checkDevice(device, deviceAllowed("ค่าประกัน 50,000 ต่อปี"))).toEqual({ layout: "taxback", title: T, premium: 50_000 });
+    // the story form's chip: its rate added to the allowed figures
+    expect(checkDevice(device, new Set([...deviceAllowed("ค่าประกัน 50,000 ต่อปี"), 20]))).toEqual(device);
+    expect(checkScript([scene], "ค่าประกัน 50,000 ต่อปี ฐานภาษี 20%")).toEqual([]);
+  });
+  it("taxback's words never carry a refund the AI worked out", () => {
+    const allowed = deviceAllowed("ค่าประกัน 50,000 ต่อปี");
+    for (const refund of ["15,000", "25,000", "7,500", "10,000"]) {
+      const got = checkDevice({ layout: "taxback", title: ["จ่าย 50,000", `ได้คืน ${refund}`], premium: 50_000 }, allowed);
+      expect(typeof got, refund).toBe("string");
+      expect(got as string, refund).toContain("title");
+    }
+    const scene: PromptScene = { voice: "ลดหย่อนภาษีได้", screen: "ภาษีที่ได้คืน", picture: "เอกสารภาษี", device: { layout: "taxback", title: ["จ่าย 50,000", "ได้คืน 15,000"], premium: 50_000 } };
+    expect(checkScript([scene], "ค่าประกัน 50,000 ต่อปี")[0]?.reasons.join(" ")).toContain("device");
+    // the year, the life cap and the bracket thresholds may still be named
+    for (const title of [[TAX_YEAR, ""], ["ลดหย่อนได้", "ไม่เกิน 100,000"], ["เงินได้สุทธิ", "เกิน 1,000,000"]]) {
+      expect(checkDevice({ layout: "taxback", title }, new Set()), title.join(" ")).toEqual({ layout: "taxback", title });
+    }
   });
   it("taxcap: no figure of its own; its words may name the table's", () => {
     expect(checkDevice({ layout: "taxcap", title: ["ลดหย่อนได้", "สูงสุด 100,000"], cap: 5 }, new Set())).toEqual({ layout: "taxcap", title: ["ลดหย่อนได้", "สูงสุด 100,000"] });
@@ -227,6 +253,10 @@ describe("checkDevice: number sourcing for the new devices", () => {
     expect(checkDevice({ layout: "threegen", title: T, rows: ["ก", "ข", "ค"] }, new Set())).toEqual({ layout: "threegen", title: T, rows: ["ก", "ข", "ค"] });
     expect(typeof checkDevice({ layout: "threegen", title: T, rows: ["ก", "ข"] }, new Set())).toBe("string");
     expect(checkDevice({ layout: "cilump", title: T }, new Set())).toEqual({ layout: "cilump", title: T });
+    // a null note is no note, not a broken device
+    expect(checkDevice({ layout: "cilump", title: T, note: null }, new Set())).toEqual({ layout: "cilump", title: T });
+    expect(checkDevice({ layout: "threegen", title: T, rows: ["ก", "ข", "ค"], note: null }, new Set())).toEqual({ layout: "threegen", title: T, rows: ["ก", "ข", "ค"] });
+    expect(typeof checkDevice({ layout: "cilump", title: T, note: 5 }, new Set())).toBe("string");
   });
   it("holds every new word to the script's rules and length", () => {
     expect(checkDevice({ layout: "beneficiary", title: T, rows: [{ name: "ลูก การันตี" }] }, new Set())).toContain("rows");

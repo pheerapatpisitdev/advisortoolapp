@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   HEALTH_PARENTS_CAP, HEALTH_SELF_CAP, HEALTH_WITH_LIFE_CAP, isTaxRate, LIFE_CAP, PENSION_CAP, PENSION_PERCENT, PENSION_RETIRE_CAP,
-  refundAt, TAX_BRACKETS, TAX_CAPS, TAX_FIGURES, TAX_FOOT, TAX_RATES, TAX_YEAR,
+  refundAt, TAX_BRACKETS, TAX_CAPS, TAX_FIGURES, TAXBACK_FIGURES, TAX_FOOT, TAX_RATES, TAX_YEAR,
 } from "@/lib/scene-library/tax-th";
 
 /** the spec's table (2026-11-14-devices-life-tax-design.md), pinned: a change here is a change the owner must see */
@@ -46,6 +46,13 @@ describe("tax table", () => {
   });
   it("gives every figure of the table, for a tax device's words", () => {
     for (const n of [2569, 100_000, 25_000, 15_000, 200_000, 500_000, 15, 10, 35, 150_000, 5_000_000]) expect(TAX_FIGURES.has(n), String(n)).toBe(true);
+  });
+  it("gives taxback's words only the year, the life cap and the bracket thresholds: no figure a refund could be", () => {
+    expect([...TAXBACK_FIGURES].sort((a, b) => a - b)).toEqual([
+      2569, 100_000, 150_000, 150_001, 300_000, 300_001, 500_000, 500_001, 750_000, 750_001,
+      1_000_000, 1_000_001, 2_000_000, 2_000_001, 5_000_000, 5_000_001,
+    ]);
+    for (const n of [15_000, 25_000, 35, 20, 10]) expect(TAXBACK_FIGURES.has(n), String(n)).toBe(false);
   });
   it("refundAt: the premium, capped at the life cap, times the rate", () => {
     expect(refundAt(50_000, 10)).toBe(5_000);

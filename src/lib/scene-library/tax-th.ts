@@ -50,13 +50,23 @@ export const TAX_CAPS: { label: string; cap: number; note?: string }[] = [
 /** the line under every tax device */
 export const TAX_FOOT = "ตามเกณฑ์กรมสรรพากร ตรวจสอบเงื่อนไขก่อนใช้สิทธิ";
 
-/** every figure of the table: a tax device's words may say these as the brief's own (check.ts) */
+/** every figure of the table: taxcap's words may say these as the brief's own (check.ts) */
 export const TAX_FIGURES: ReadonlySet<number> = new Set([
   YEAR,
   ...TAX_BRACKETS.flatMap((b) => [b.from, ...(b.to === null ? [] : [b.to]), b.rate]).filter((v) => v > 0),
   LIFE_CAP, HEALTH_SELF_CAP, HEALTH_WITH_LIFE_CAP, HEALTH_PARENTS_CAP, PENSION_PERCENT, PENSION_CAP, PENSION_RETIRE_CAP,
   // "กรมธรรม์ 10 ปีขึ้นไป"
   10,
+]);
+
+/**
+ * the figures taxback's words may say beside the brief's: the year, the life cap and the bracket thresholds. Not
+ * the other caps or the rates: 15,000 and 25,000 are what common premiums give back (50,000 at 30%, 100,000 at
+ * 15% or 25%), and a refund is the drawer's sum, never a figure the AI writes.
+ */
+export const TAXBACK_FIGURES: ReadonlySet<number> = new Set([
+  YEAR, LIFE_CAP,
+  ...TAX_BRACKETS.flatMap((b) => [b.from, ...(b.to === null ? [] : [b.to])]).filter((v) => v > 0),
 ]);
 
 /** the tax a life premium gives back at a rate: the premium, at most LIFE_CAP, times the rate, to the baht */
