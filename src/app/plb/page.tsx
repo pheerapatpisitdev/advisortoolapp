@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { shareTemplateOnPage } from "@/lib/share-text/store";
 import { hiddenOnPage, penOnPage } from "@/lib/pay-prefs-store";
 import { PlbCalculator } from "@/components/PlbCalculator";
 import { plbTable } from "@/lib/plb-table";
@@ -23,6 +24,8 @@ export default async function PlbPage({
 }) {
   // members only, trial included (owner, 2026-10-20)
   const viewer = await gateCalc("/plb");
+  // ข้อความส่งให้ลูกค้า: the member's own wording for this plan, where they saved one
+  const shareTemplate = await shareTemplateOnPage(viewer, "plb");
   // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
   const hide = await hiddenOnPage(viewer, await searchParams);
   // แสดงคำอธิบายในตาราง: the pen notes on the value table
@@ -33,7 +36,7 @@ export default async function PlbPage({
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Protection Life" kind="ประกันชีวิตแบบคุ้มครอง" facts={["คุ้มครอง 5 10 12 หรือ 15 ปี", `รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`, `ทุนเริ่ม ${facts.saMinShort}`]} />
       <section id="calc" className="scroll-mt-4">
-        <PlbCalculator table={table} hide={hide} pen={pen} sticky />
+        <PlbCalculator shareTemplate={shareTemplate} table={table} hide={hide} pen={pen} sticky />
       </section>
       <Disclaimer facts={facts} />
     </main>

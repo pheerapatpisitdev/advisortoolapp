@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, cancerSlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useMemo, useState } from "react";
 import type { ModePremium } from "@/calc/mode-premiums";
 import type { PayMode, Sex } from "@/calc/types";
@@ -39,7 +41,9 @@ function rowToModes(row: readonly number[] | null | undefined): ModePremium[] | 
  * arrangement was designed. Every tier is priced for the same person underneath, because
  * "and how much for two million?" is the question that always comes next.
  */
-export function CancerCalculator({ table, sticky = false, hide = [] }: {
+export function CancerCalculator({ table, sticky = false, hide = [], shareTemplate }: {
+  /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+  shareTemplate?: string;
   table: CancerTable;
   sticky?: boolean;
   /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
@@ -65,8 +69,12 @@ export function CancerCalculator({ table, sticky = false, hide = [] }: {
   const card = typeof age === "number" && headline
     ? cardPath({ kind: "bundle", bundleCode: table.bundleCode, tier, age, sex, mode: headline.mode, hide })
     : undefined;
-  const quoteText = typeof age === "number" && modes && headline
-    ? cancerQuoteText({ cpr: t.cpr, hic: t.hic, baseSum: t.baseSum, age, sex, modes, minMonthly: table.minMonthlyTotal })
+  const quoteFacts = typeof age === "number" && modes && headline
+    ? { cpr: t.cpr, hic: t.hic, baseSum: t.baseSum, age, sex, modes, minMonthly: table.minMonthlyTotal }
+    : undefined;
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว), with this quote's figures
+  const quoteText = quoteFacts
+    ? shareText(shareTemplate, cancerQuoteText(quoteFacts), cancerSlots(quoteFacts), SHARE_PLANS.cancer.blocks)
     : undefined;
 
   return (

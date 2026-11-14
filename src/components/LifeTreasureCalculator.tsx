@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, lifeTreasureSlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useEffect, useMemo, useState } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { PayMode, Sex } from "@/calc/types";
@@ -38,6 +40,8 @@ export interface LifeTreasureCalculatorProps {
   hide?: PayMode[];
   /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
   pen?: boolean;
+  /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+  shareTemplate?: string;
 }
 
 /**
@@ -48,7 +52,7 @@ export interface LifeTreasureCalculatorProps {
  * they are deciding whether the money is better left here than anywhere else, and that is a
  * comparison between two totals.
  */
-export function LifeTreasureCalculator({ table, sticky = false, hide = [], pen = true }: LifeTreasureCalculatorProps) {
+export function LifeTreasureCalculator({ table, sticky = false, hide = [], pen = true, shareTemplate }: LifeTreasureCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -122,12 +126,16 @@ export function LifeTreasureCalculator({ table, sticky = false, hide = [], pen =
   const tableCard = who && projection
     ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured, hide, pen })
     : undefined;
-  const quoteText = who && headline && total !== null
-    ? lifeTreasureQuoteText({
+  const quoteFacts = who && headline && total !== null
+    ? {
       sumAssured, termLabel: term.label, age: who.age, sex, years: term.payTerm,
       coverToAge: table.coverToAge, modes: [headline, ...others], total, leverage: times,
       cash, premiumFloorPercent: table.topUp.premiumPercent,
-    })
+    }
+    : undefined;
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว), with this quote's figures
+  const quoteText = quoteFacts
+    ? shareText(shareTemplate, lifeTreasureQuoteText(quoteFacts), lifeTreasureSlots(quoteFacts), SHARE_PLANS.lifetreasure.blocks)
     : undefined;
 
   /** The figure on a term button: that term's yearly premium, once there is an age. */

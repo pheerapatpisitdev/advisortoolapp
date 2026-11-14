@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, plbSlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useEffect, useMemo, useState } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { PayMode, Sex } from "@/calc/types";
@@ -35,6 +37,8 @@ export interface PlbCalculatorProps {
   hide?: PayMode[];
   /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
   pen?: boolean;
+  /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+  shareTemplate?: string;
 }
 
 /**
@@ -46,7 +50,7 @@ export interface PlbCalculatorProps {
  * costs — the day rate, the total over the term, and the price per million, which is the only
  * way the sum-assured discount is visible.
  */
-export function PlbCalculator({ table, sticky = false, hide = [], pen = true }: PlbCalculatorProps) {
+export function PlbCalculator({ table, sticky = false, hide = [], pen = true, shareTemplate }: PlbCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -123,12 +127,16 @@ export function PlbCalculator({ table, sticky = false, hide = [], pen = true }: 
     })
     : [];
 
-  const quoteText = who && headline && annual
-    ? plbQuoteText({
+  const quoteFacts = who && headline && annual
+    ? {
         sumAssured, termLabel: term.label, age: who.age, sex, years: term.years,
         endsAtAge: coverEndsAt(term, who.age), modes: [headline, ...others],
         total: totalPaid(annual.total, term),
-      })
+      }
+    : undefined;
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว), with this quote's figures
+  const quoteText = quoteFacts
+    ? shareText(shareTemplate, plbQuoteText(quoteFacts), plbSlots(quoteFacts), SHARE_PLANS.plb.blocks)
     : undefined;
 
   /** The figure on a term button: that term's yearly premium, once there is an age. */

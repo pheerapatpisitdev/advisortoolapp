@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { shareTemplateOnPage } from "@/lib/share-text/store";
 import { hiddenOnPage, penOnPage } from "@/lib/pay-prefs-store";
 import { EasyProtectCalculator } from "@/components/EasyProtectCalculator";
 import { easyProtectTable } from "@/lib/easyprotect-table";
@@ -23,6 +24,8 @@ export default async function EasyProtectPage({
 }) {
   // members only, trial included (owner, 2026-10-20)
   const viewer = await gateCalc("/easyprotect");
+  // ข้อความส่งให้ลูกค้า: the member's own wording for this plan, where they saved one
+  const shareTemplate = await shareTemplateOnPage(viewer, "easyprotect");
   // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
   const hide = await hiddenOnPage(viewer, await searchParams);
   // แสดงคำอธิบายในตาราง: the pen notes on the value table
@@ -33,7 +36,7 @@ export default async function EasyProtectPage({
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Easy Protect 6" kind="ประกันชีวิตตลอดชีพ" facts={[`คุ้มครองถึงอายุ ${facts.coverToAge}`, `รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`, `ทุนเริ่ม ${facts.saMinShort}`]} />
       <section id="calc" className="scroll-mt-4">
-        <EasyProtectCalculator table={table} hide={hide} pen={pen} sticky />
+        <EasyProtectCalculator shareTemplate={shareTemplate} table={table} hide={hide} pen={pen} sticky />
       </section>
       <Disclaimer facts={facts} />
     </main>
