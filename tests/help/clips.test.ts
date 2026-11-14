@@ -28,6 +28,8 @@ describe("วิธีใช้งาน's clips", () => {
     expect(helpClip("quote-video")).toBeDefined();
     // ตั้งค่าส่วนตัว links to its clip from ข้อความส่งให้ลูกค้า
     expect(helpClip("share-text")).toBeDefined();
+    // คำนวณภาษี 2569 links to its clip under the mode buttons
+    expect(helpClip("tax")).toBeDefined();
   });
 
   it("writes a length the way a player does", () => {

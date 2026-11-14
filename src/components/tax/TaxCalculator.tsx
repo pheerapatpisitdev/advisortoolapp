@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
+import { clipLength, helpClip } from "@/lib/help/clips";
 import { loadState, saveState } from "@/lib/tax/storage";
 import { useHydrated } from "@/lib/tax/useHydrated";
 import { CompanyTab } from "./CompanyTab";
@@ -50,6 +52,11 @@ function Modes() {
           </button>
         ))}
       </nav>
+      {/* the how-to clip (owner, 2026-11-15, ก on question 3) */}
+      <Link href="/help#tax" className="-mt-2 mb-4 inline-flex items-center gap-1.5 self-start text-sm font-semibold text-tx-accent underline-offset-2 hover:underline">
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm-2 5.2 6 3.8-6 3.8z" /></svg>
+        ดูวิธีใช้ ({clipLength(helpClip("tax")?.seconds ?? 0)} นาที)
+      </Link>
       {mode === "personal" && <PersonalTab />}
       {mode === "company" && <CompanyTab />}
       {mode === "compare" && <CompareTab />}

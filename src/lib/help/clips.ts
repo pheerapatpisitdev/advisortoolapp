@@ -35,6 +35,13 @@ export const HELP_GROUPS: { title: string; clips: HelpClip[] }[] = [
     ],
   },
   {
+    title: "วางแผนภาษี",
+    clips: [
+      // owner, 2026-11-15, ก ก ก on storyboard https://claude.ai/artifact/3o8ySDFycSW2TEjdMiwWmW
+      { id: "tax", title: "คำนวณภาษี 2569 ให้ลูกค้า", about: "5 ขั้น จากเลือกอาชีพจนคัดลอกสรุปส่งลูกค้า", seconds: 128, go: { href: "/tax", label: "ไปหน้า คำนวณภาษี 2569" } },
+    ],
+  },
+  {
     title: "Studio",
     clips: [
       { id: "quote-video", title: "ทำวิดีโอนำเสนอแบบประกัน", about: "5 ขั้น จากเลือกแบบจนได้คลิปส่งลูกค้า", seconds: 108, go: { href: "/studio/quote-video", label: "ไปหน้า วิดีโอนำเสนอ" } },
