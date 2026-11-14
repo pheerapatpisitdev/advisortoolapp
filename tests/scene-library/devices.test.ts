@@ -5,8 +5,8 @@ import { HEALTH_LAYOUTS, knowText, type KnowEpisode, type KnowShow } from "@/lib
 describe("health devices", () => {
   it("registers the eight layouts", () => {
     expect(DEVICES.filter(isHealthDevice).map((d) => d.key)).toEqual([...HEALTH_LAYOUTS]);
-    // and round 2's eight after them (devices-life.test.ts)
-    expect(DEVICES).toHaveLength(16);
+    // and round 2's eight (devices-life.test.ts), round 3's eight (devices-metaphor.test.ts) after them
+    expect(DEVICES).toHaveLength(24);
   });
   it("looks a device up by key", () => {
     expect(deviceInfo("room")?.name).toBe("ค่าห้องต่อคืน");

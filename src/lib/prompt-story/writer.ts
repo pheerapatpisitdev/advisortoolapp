@@ -2,7 +2,7 @@ import { chat } from "@/lib/ai/client";
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
 import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
-import { DEVICES } from "@/lib/scene-library/devices";
+import { DEVICES, isMetaDevice } from "@/lib/scene-library/devices";
 import { allowedFor, briefTax, checkDevice, checkScene, checkScript, deviceAllowed, forbiddenForPrompt, type TaxSources } from "./check";
 import { SCREEN_MAX, TITLE_MAX, type PromptFormat, type PromptScene, type SceneCount } from "./types";
 
@@ -67,6 +67,15 @@ const SHAPES: Record<DeviceLayout, string> = {
   taxcap: `{"layout":"taxcap","title":["บรรทัดแรก","บรรทัดสอง"]}`,
   moneysplit: `{"layout":"moneysplit","title":["บรรทัดแรก","บรรทัดสอง"],"total":ตัวเลขเงินก้อน (ละได้),"parts":[{"label":"คำเรียกคนในบ้าน","amount":ตัวเลข (ละได้)}] 2–3 ส่วน ยอดรวมไม่เกินเงินก้อน}`,
   threegen: `{"layout":"threegen","title":["บรรทัดแรก","บรรทัดสอง"],"rows":["รุ่นปู่ย่า","รุ่นพ่อแม่","รุ่นลูก"] 3 แถวพอดี,"note":"ข้อความสั้น (ละได้)"}`,
+  // อุปมา (round 3): words only, no digit anywhere; title lines ≤ 20, note ≤ 34, other words ≤ 12, arrows ≤ 14
+  umbrella: `{"layout":"umbrella","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)"}`,
+  housepillar: `{"layout":"housepillar","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","label":"คำบนเสา (ละได้)","spare":"คำบนเสาสำรอง (ละได้)"}`,
+  lifering: `{"layout":"lifering","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)"}`,
+  safetynet: `{"layout":"safetynet","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)"}`,
+  seedtree: `{"layout":"seedtree","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","from":"คำใต้ภาพซ้าย (ละได้)","to":"คำใต้ภาพขวา (ละได้)"}`,
+  balance: `{"layout":"balance","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","sides":["คำข้างซ้าย","คำข้างขวา"],"tilt":"left หรือ right หรือ even (ละได้)"}`,
+  bridge: `{"layout":"bridge","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)"}`,
+  shield: `{"layout":"shield","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","arrows":["เรื่องร้ายที่อาจมาถึง"] 1–5 คำ}`,
 };
 
 /** the format's order of beats (owner, 2026-11-13, 2ก); ตามโจทย์ adds nothing */
@@ -124,7 +133,8 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     "",
     "อุปกรณ์: ภาพที่ระบบวาดเองแทนรูป AI ใส่ใน device ของฉากได้ เมื่อฉากนั้นพูดเรื่องที่อุปกรณ์อธิบายได้ ฉากอื่นใส่ device เป็น null",
     `- ใช้อุปกรณ์ได้ไม่เกิน ${deviceMax(count)} ฉาก (ไม่เกินครึ่งหนึ่งของจำนวนฉาก) ฉากที่เหลือเป็นรูป AI`,
-    ...DEVICES.map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
+    // Task 6: the อุปมา devices join the list; until then the writer does not offer them (no drawer yet)
+    ...DEVICES.filter((d) => !isMetaDevice(d)).map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
     "กฎของอุปกรณ์:",
     "- ตัวเลขในอุปกรณ์เป็นจำนวนเต็มมากกว่าศูนย์ ไม่ใส่จุลภาค และต้องเป็นตัวเลขที่อยู่ในโจทย์หรือตัวเลขแผนเท่านั้น ห้ามคิดตัวเลขเอง",
     nums.length ? `- ตัวเลขที่ใช้ในอุปกรณ์ได้: ${nums.join(", ")}` : "- โจทย์ไม่มีตัวเลข ใช้ได้เฉพาะอุปกรณ์ที่ไม่ต้องมีตัวเลข",

@@ -29,7 +29,7 @@ const ALL = new Set([2_000_000, 300_000, 10, 1_000_000, 50, 40_000, 6, 50_000, 2
 describe("life, CI, tax and legacy devices: registry", () => {
   it("lists the eight layouts after the health ones", () => {
     expect([...LIFE_LAYOUTS]).toEqual(["lifeneed", "beneficiary", "cilump", "incomestop", "taxback", "taxcap", "moneysplit", "threegen"]);
-    expect(DEVICES.map((d) => d.key)).toEqual([...HEALTH_LAYOUTS, ...LIFE_LAYOUTS]);
+    expect(DEVICES.map((d) => d.key).slice(0, 16)).toEqual([...HEALTH_LAYOUTS, ...LIFE_LAYOUTS]);
   });
   it("gives each its family, product, name and fields", () => {
     const product = { lifeneed: "life", beneficiary: "life", moneysplit: "life", threegen: "life", cilump: "health", incomestop: "health", taxback: "saving", taxcap: "saving" };

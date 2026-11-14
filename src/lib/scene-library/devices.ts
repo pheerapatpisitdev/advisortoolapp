@@ -1,4 +1,4 @@
-import type { DeviceLayout, HealthLayout, LifeLayout } from "@/lib/quote-video/story-knowledge";
+import type { DeviceLayout, HealthLayout, LifeLayout, MetaLayout } from "@/lib/quote-video/story-knowledge";
 
 /** One system-drawn device (a story-scene layout). Browser-safe: names and fields only. */
 export interface DeviceInfo {
@@ -6,10 +6,10 @@ export interface DeviceInfo {
   name: string;
   /** when a script should pick it: one line the คลิปตามโจทย์ writer reads */
   when: string;
-  /** สุขภาพ: round 1's health devices; ชีวิต ภาษี มรดก: round 2's */
-  family: "สุขภาพ" | "ชีวิต ภาษี มรดก";
-  /** the catalogue's product */
-  product: "health" | "life" | "saving";
+  /** สุขภาพ: round 1's health devices; ชีวิต ภาษี มรดก: round 2's; อุปมา: round 3's metaphors */
+  family: "สุขภาพ" | "ชีวิต ภาษี มรดก" | "อุปมา";
+  /** the catalogue's product ("all": a metaphor is for any product) */
+  product: "health" | "life" | "saving" | "all";
   clips: ("story" | "prompt")[];
   /** fields that hold a number: each is checked against its source before it is drawn */
   numberFields: string[];
@@ -21,6 +21,10 @@ const dev = (key: HealthLayout, name: string, when: string, numberFields: string
   ({ key, name, when, family: "สุขภาพ", product: "health", clips: both, numberFields, wordFields });
 const dev2 = (key: LifeLayout, name: string, product: DeviceInfo["product"], when: string, numberFields: string[], wordFields: string[]): DeviceInfo =>
   ({ key, name, when, family: "ชีวิต ภาษี มรดก", product, clips: both, numberFields, wordFields });
+
+/** a metaphor carries words only: no number field, never a figure (checkDevice refuses a digit in any word) */
+const dev3 = (key: MetaLayout, name: string, when: string, wordFields: string[]): DeviceInfo =>
+  ({ key, name, when, family: "อุปมา", product: "all", clips: both, numberFields: [], wordFields });
 
 export const DEVICES: DeviceInfo[] = [
   dev("split", "เหมาจ่าย vs แยกจ่าย", "เทียบแผนแยกจ่ายที่มีเพดานแต่ละหมวด กับแผนเหมาจ่ายที่จ่ายตามจริงในวงเงินเดียว", [], ["title", "parts", "whole"]),
@@ -41,9 +45,21 @@ export const DEVICES: DeviceInfo[] = [
   dev2("taxcap", "เพดานลดหย่อนรวม", "saving", "สรุปเพดานลดหย่อนภาษีของประกันชีวิต ประกันสุขภาพ และประกันแบบบำนาญ", [], ["title"]),
   dev2("moneysplit", "แบ่งเงินให้คนในบ้าน", "life", "เงินก้อนจากประกันแบ่งให้คนในบ้าน 2–3 คน แต่ละคนได้เท่าไร", ["total", "parts"], ["title", "parts"]),
   dev2("threegen", "ส่งต่อสามรุ่น", "life", "วางแผนส่งต่อเงินก้อนเป็นมรดกจากรุ่นหนึ่งไปอีกรุ่น สามรุ่นในครอบครัว", [], ["title", "rows", "note"]),
+  // อุปมาเล่าเรื่อง (round 3, spec 2026-11-15-devices-metaphor-design.md); no `when` line says a FORBIDDEN word
+  dev3("umbrella", "ร่มกันฝน", "เปรียบประกันกับร่มที่กางไว้ก่อนฝนตก ใช้กับความเชื่อว่าซื้อประกันเหมือนแช่งตัวเอง หรือเตรียมไว้ก่อนเกิดเรื่อง", ["title", "note"]),
+  dev3("housepillar", "เสาหลักของบ้าน", "เปรียบคนหารายได้หลักกับเสาหลักของบ้าน ถ้าเสาล้มทั้งบ้านรับไม่ไหว ใส่เสาสำรองได้เมื่ออยากให้เห็นว่ามีอะไรมาแทน", ["title", "note", "label", "spare"]),
+  dev3("lifering", "ห่วงชูชีพ", "เปรียบเงินก้อนที่มาทันเวลากับห่วงชูชีพที่โยนให้คนที่กำลังจมน้ำ ใช้กับตอนที่รายได้หายไปกะทันหัน", ["title", "note"]),
+  dev3("safetynet", "ตาข่ายนิรภัย", "เปรียบการเตรียมไว้ก่อนกับตาข่ายใต้เชือกที่คอยรับตอนพลาด ใช้กับคนทำงานอิสระที่ไม่มีสวัสดิการจากที่ทำงาน", ["title", "note"]),
+  dev3("seedtree", "เมล็ดโตเป็นต้นไม้", "เปรียบการเริ่มทีละน้อยกับเมล็ดที่โตเป็นต้นไม้ใหญ่ ใช้กับคนที่ลังเลเพราะรู้สึกว่าเริ่มตอนนี้ไม่ไหว", ["title", "note", "from", "to"]),
+  dev3("balance", "ตาชั่ง", "เทียบสองสิ่งบนตาชั่ง เช่น ออมกับประกัน ว่าแต่ละอย่างทำหน้าที่ต่างกันและควรมีทั้งคู่", ["title", "note", "sides", "tilt"]),
+  dev3("bridge", "สะพานข้ามช่วงยาก", "เปรียบสิ่งที่ช่วยให้ข้ามช่วงลำบากกับสะพาน ใช้กับตอนป่วยแล้วรายได้หายที่สวัสดิการอื่นรับไม่ครบ", ["title", "note"]),
+  dev3("shield", "โล่กันลูกศร", "เปรียบเรื่องร้ายที่อาจมาถึงกับลูกศร และกรมธรรม์กับโล่ที่รับแทน ใส่เรื่องที่อยากพูดถึงได้หนึ่งถึงห้าเรื่อง", ["title", "note", "arrows"]),
 ];
 
 export const deviceInfo = (key: string): DeviceInfo | undefined => DEVICES.find((d) => d.key === key);
 
 /** a round-1 health device (family สุขภาพ); every consumer lists all sixteen since round 2 */
 export const isHealthDevice = (d: DeviceInfo): d is DeviceInfo & { key: HealthLayout } => d.family === "สุขภาพ";
+
+/** an อุปมา device (round 3); the registry lists all twenty-four since round 3 */
+export const isMetaDevice = (d: DeviceInfo): d is DeviceInfo & { key: MetaLayout } => d.family === "อุปมา";

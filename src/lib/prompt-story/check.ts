@@ -1,6 +1,6 @@
 import { FORBIDDEN, numbersIn } from "@/lib/quote-video/brief";
 import type { StoryFigure } from "@/lib/quote-video/story";
-import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
+import { META_LAYOUTS, META_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { deviceInfo } from "@/lib/scene-library/devices";
 import { isTaxRate, TAX_WORD_FIGURES } from "@/lib/scene-library/tax-th";
 import { SCREEN_MAX, type DeviceScene, type PromptScene } from "./types";
@@ -185,9 +185,33 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     return t ? { [field]: t } : {};
   };
 
+  // an อุปมา device carries words only (spec 2026-11-15): no Arabic or Thai digit in any word, each within its own
+  // length (META_LIMITS), refused when over, never cut; the script's forbidden words apply as to any word
+  const meta = (field: string, x: unknown, max: number, need: boolean): string => {
+    if (x === undefined && !need) return "";
+    if (typeof x !== "string") {
+      fail.push(`${field}: ต้องเป็นข้อความ`);
+      return "";
+    }
+    const t = x.replace(/\s+/g, " ").trim();
+    if (need && !t) fail.push(`${field}: ว่างอยู่`);
+    if ([...t].length > max) fail.push(`${field}: ยาวเกิน ${max} ตัวอักษร`);
+    if (/[\d๐-๙]/.test(t)) fail.push(`${field}: มีตัวเลข`);
+    for (const f of [...FORBIDDEN, ...FREE_FORBIDDEN]) if (f.re.test(t)) fail.push(`${field}: ${f.why}`);
+    return t;
+  };
+  const metaOpt = (field: string, x: unknown, max: number) => {
+    const t = x === null ? "" : meta(field, x, max, false);
+    return t ? { [field]: t } : {};
+  };
+  const isMetaLayout = (META_LAYOUTS as readonly string[]).includes(layout);
+
   const rawTitle = Array.isArray(o.title) && o.title.length >= 1 && o.title.length <= 2 ? o.title : null;
   if (!rawTitle) fail.push("title: ใส่หัวข้อ 1–2 บรรทัด");
-  const title: [string, string] = [word("title", rawTitle?.[0], true), word("title", rawTitle?.[1], false)];
+  const title: [string, string] = isMetaLayout
+    ? [meta("title", rawTitle?.[0], META_LIMITS.titleLine, true), meta("title", rawTitle?.[1], META_LIMITS.titleLine, false)]
+    : [word("title", rawTitle?.[0], true), word("title", rawTitle?.[1], false)];
+  const note = isMetaLayout ? metaOpt("note", o.note, META_LIMITS.note) : {};
 
   let out: DeviceScene;
   switch (layout) {
@@ -257,6 +281,29 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     case "threegen":
       out = { layout, title, rows: list("rows", o.rows, 3, 3).map((r) => word("rows", r.value, true)), ...optWord("note", o.note) };
       break;
+    case "umbrella": case "lifering": case "safetynet": case "bridge":
+      out = { layout, title, ...note };
+      break;
+    case "housepillar":
+      out = { layout, title, ...note, ...metaOpt("label", o.label, META_LIMITS.word), ...metaOpt("spare", o.spare, META_LIMITS.word) };
+      break;
+    case "seedtree":
+      out = { layout, title, ...note, ...metaOpt("from", o.from, META_LIMITS.word), ...metaOpt("to", o.to, META_LIMITS.word) };
+      break;
+    case "balance": {
+      const raw = Array.isArray(o.sides) && o.sides.length === 2 ? o.sides : null;
+      if (!raw) fail.push("sides: ใส่คำสองข้างพอดี");
+      const sides: [string, string] = [meta("sides", raw?.[0], META_LIMITS.word, true), meta("sides", raw?.[1], META_LIMITS.word, true)];
+      if (o.tilt !== undefined && o.tilt !== null && o.tilt !== "left" && o.tilt !== "right" && o.tilt !== "even") fail.push("tilt: ต้องเป็น left, right หรือ even");
+      out = { layout, title, ...note, sides, ...(o.tilt === "left" || o.tilt === "right" || o.tilt === "even" ? { tilt: o.tilt } : {}) };
+      break;
+    }
+    case "shield": {
+      const raw = Array.isArray(o.arrows) && o.arrows.length >= 1 && o.arrows.length <= META_LIMITS.arrows ? o.arrows : null;
+      if (!raw) fail.push(`arrows: ใส่ลูกศร 1–${META_LIMITS.arrows} คำ`);
+      out = { layout, title, ...note, arrows: (raw ?? []).map((x) => meta("arrows", x, META_LIMITS.arrow, true)) };
+      break;
+    }
   }
   return fail.length ? fail[0] : out;
 }

@@ -85,16 +85,44 @@ export type KnowShow =
   /** แบ่งเงินให้คนในบ้าน: a total split into two or three, amounts all given and within the total, or none */
   | { layout: "moneysplit"; title: [string, string]; total?: number; parts: { label: string; amount?: number }[] }
   /** ส่งต่อสามรุ่น: three generations, the money passed on */
-  | { layout: "threegen"; title: [string, string]; rows: string[]; note?: string };
+  | { layout: "threegen"; title: [string, string]; rows: string[]; note?: string }
+  /*
+   * อุปมาเล่าเรื่อง devices (round 3, spec 2026-11-15-devices-metaphor-design.md): words only, never a figure; every
+   * word field is digit-free and within META_LIMITS (checkDevice refuses otherwise). `note` is the line under the picture.
+   */
+  /** ร่มกันฝน */
+  | { layout: "umbrella"; title: [string, string]; note?: string }
+  /** เสาหลักของบ้าน: `label` on the pillar (default "รายได้"); a `spare` word brings a second pillar */
+  | { layout: "housepillar"; title: [string, string]; note?: string; label?: string; spare?: string }
+  /** ห่วงชูชีพ */
+  | { layout: "lifering"; title: [string, string]; note?: string }
+  /** ตาข่ายนิรภัย */
+  | { layout: "safetynet"; title: [string, string]; note?: string }
+  /** เมล็ดโตเป็นต้นไม้: ground labels, default "วันนี้" / "วันข้างหน้า" */
+  | { layout: "seedtree"; title: [string, string]; note?: string; from?: string; to?: string }
+  /** ตาชั่ง: a word on each pan; the beam settles to `tilt` (default even) */
+  | { layout: "balance"; title: [string, string]; note?: string; sides: [string, string]; tilt?: "left" | "right" | "even" }
+  /** สะพานข้ามช่วงยาก */
+  | { layout: "bridge"; title: [string, string]; note?: string }
+  /** โล่กันลูกศร: one to five words, each an arrow */
+  | { layout: "shield"; title: [string, string]; note?: string; arrows: string[] };
 
 export const HEALTH_LAYOUTS = ["split", "limit", "room", "overflow", "waiting", "cashless", "groupgap", "agecost"] as const;
 export type HealthLayout = (typeof HEALTH_LAYOUTS)[number];
 export const LIFE_LAYOUTS = ["lifeneed", "beneficiary", "cilump", "incomestop", "taxback", "taxcap", "moneysplit", "threegen"] as const;
 export type LifeLayout = (typeof LIFE_LAYOUTS)[number];
-/** any system-drawn device: health (round 1) or ชีวิต ภาษี มรดก (round 2) */
-export type DeviceLayout = HealthLayout | LifeLayout;
-export const DEVICE_LAYOUTS: readonly DeviceLayout[] = [...HEALTH_LAYOUTS, ...LIFE_LAYOUTS];
+export const META_LAYOUTS = ["umbrella", "housepillar", "lifering", "safetynet", "seedtree", "balance", "bridge", "shield"] as const;
+export type MetaLayout = (typeof META_LAYOUTS)[number];
+/** any system-drawn device: health (round 1), ชีวิต ภาษี มรดก (round 2) or อุปมา (round 3) */
+export type DeviceLayout = HealthLayout | LifeLayout | MetaLayout;
+export const DEVICE_LAYOUTS: readonly DeviceLayout[] = [...HEALTH_LAYOUTS, ...LIFE_LAYOUTS, ...META_LAYOUTS];
 export type LifeShow<L extends LifeLayout = LifeLayout> = Extract<KnowShow, { layout: L }>;
+export type MetaShow<L extends MetaLayout = MetaLayout> = Extract<KnowShow, { layout: L }>;
+
+/** the longest each metaphor word may be, in characters (spec: refused, not cut) */
+export const META_LIMITS = { titleLine: 20, note: 34, word: 12, arrow: 14, arrows: 5 } as const;
+/** the words a metaphor draws when its optional field is left out */
+export const META_DEFAULTS = { label: "รายได้", from: "วันนี้", to: "วันข้างหน้า" } as const;
 
 /**
  * The words the round-2 devices draw themselves, beside their fields and the tax table's rows (tax-th.ts):
@@ -406,13 +434,15 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
 export const isHealth = (show: KnowShow): boolean => (HEALTH_LAYOUTS as readonly string[]).includes(show.layout);
 /** a ชีวิต ภาษี มรดก device (round 2): drawn with digits, "บาท" and "%", and words of its own (LIFE_WORDS, the tax table's rows) */
 export const isLife = (show: KnowShow): boolean => (LIFE_LAYOUTS as readonly string[]).includes(show.layout);
-/** any system-drawn device, either round */
-export const isDevice = (show: KnowShow): boolean => isHealth(show) || isLife(show);
+/** an อุปมา device (round 3): words only, no digit or "บาท" */
+export const isMeta = (show: KnowShow): boolean => (META_LAYOUTS as readonly string[]).includes(show.layout);
+/** any system-drawn device, any round */
+export const isDevice = (show: KnowShow): boolean => isHealth(show) || isLife(show) || isMeta(show);
 
 /** the words one show puts on screen from its own fields (a device's own words and digits are showText's) */
 function showWords(show: KnowShow): string[] {
   const words: string[] = [];
-  if ("title" in show) words.push(...show.title);
+  if ("title" in show && !isMeta(show)) words.push(...show.title);
   if ("note" in show && show.note && typeof show.note !== "string") words.push(...show.note.map((l) => l.text));
   if (show.layout === "card") words.push(...show.lines.map((l) => l.text));
   if (show.layout === "myth") words.push(...show.quote, "ความเชื่อ");
@@ -432,7 +462,21 @@ function showWords(show: KnowShow): string[] {
   if (show.layout === "cilump" && show.note) words.push(show.note);
   if (show.layout === "moneysplit") words.push(...show.parts.map((p) => p.label));
   if (show.layout === "threegen") words.push(...show.rows, ...(show.note ? [show.note] : []));
+  if (isMeta(show)) words.push(...metaWords(show as MetaShow));
   return words;
+}
+
+/** every word an อุปมา device puts on screen from its fields, its defaults included (the note is the line under the picture) */
+export function metaWords(show: MetaShow): string[] {
+  const out: string[] = [...show.title];
+  if (show.note) out.push(show.note);
+  switch (show.layout) {
+    case "housepillar": out.push(show.label ?? META_DEFAULTS.label, ...(show.spare ? [show.spare] : [])); break;
+    case "seedtree": out.push(show.from ?? META_DEFAULTS.from, show.to ?? META_DEFAULTS.to); break;
+    case "balance": out.push(...show.sides); break;
+    case "shield": out.push(...show.arrows); break;
+  }
+  return out;
 }
 
 /** health devices draw their numbers with digits and "บาท", and words of their own */

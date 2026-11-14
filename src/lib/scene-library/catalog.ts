@@ -1,4 +1,4 @@
-import { DEVICES } from "./devices";
+import { DEVICES, isMetaDevice } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
@@ -62,6 +62,9 @@ const DEVICE_TOPIC: Record<DeviceLayout, StoryTopic> = {
   waiting: "waiting", cashless: "waiting", groupgap: "groupins", agecost: "agecost",
   lifeneed: "lifeneed", beneficiary: "lifeneed", moneysplit: "lifeneed", threegen: "lifeneed",
   incomestop: "ciincome", cilump: "ciincome", taxcap: "taxback", taxback: "taxback",
+  // อุปมา (round 3): the topic whose opening scene each metaphor now is (spec, "คลิปเล่าเรื่อง: eight opening scenes")
+  housepillar: "pillar", umbrella: "mythjinx", safetynet: "selfemployed", seedtree: "pricey",
+  balance: "bank", bridge: "welfare", lifering: "ciincome", shield: "fiverisks",
 };
 
 /** what a viewer reads under each device (the DEVICES `when` lines are for the script writer) */
@@ -83,11 +86,21 @@ const DEVICE_TELLS: Record<DeviceLayout, string> = {
   taxcap: "เพดานลดหย่อนภาษีของเบี้ยประกันชีวิต สุขภาพ และบำนาญ",
   moneysplit: "เงินก้อนแบ่งไปถึงคนในครอบครัว",
   threegen: "ส่งต่อเงินจากรุ่นสู่รุ่นสามรุ่น",
+  // อุปมา (round 3)
+  umbrella: "ร่มที่กางไว้ก่อนฝนตก เปรียบกับการเตรียมไว้ก่อนเกิดเรื่อง",
+  housepillar: "เสาหลักของบ้านที่สั่นไหว และเสาสำรองที่เข้ามารับ",
+  lifering: "ห่วงชูชีพที่โยนให้ถึงมือตอนที่ต้องการที่สุด",
+  safetynet: "ตาข่ายนิรภัยใต้เชือก คอยรับตอนพลาด",
+  seedtree: "เมล็ดเล็กๆ ที่ค่อยๆ โตเป็นต้นไม้ใหญ่",
+  balance: "ตาชั่งสองข้าง เทียบสองสิ่งที่ทำหน้าที่ต่างกัน",
+  bridge: "สะพานที่พาข้ามช่วงยากลำบาก",
+  shield: "โล่ที่รับลูกศรของเรื่องร้ายแทนเรา",
 };
 /** whether คลิปเล่าเรื่อง keeps this look on this topic: the info-route looks (INFO_ARTS) only on the shelves told in points */
 const lookFits = (topic: StoryTopic, look: string): boolean => !infoArt(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
 /** all sixteen devices, health and ชีวิต ภาษี มรดก, each with a still in every look */
-const readyDevices: LibraryItem[] = DEVICES.map((d) => {
+// Task 7: the อุปมา devices become ready (stills, previews); until then their unbuilt entries below stand
+const readyDevices: LibraryItem[] = DEVICES.filter((d) => !isMetaDevice(d)).map((d) => {
   const topic = DEVICE_TOPIC[d.key];
   return {
     id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: d.product, ready: true,

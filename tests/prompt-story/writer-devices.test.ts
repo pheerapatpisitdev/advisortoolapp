@@ -3,7 +3,9 @@ import { promptDeviceName, rewriteScene, writeStory } from "@/lib/prompt-story/w
 import { checkedPromptStory, REWRITES_DONE, REWRITES_PER_DRAFT } from "@/lib/prompt-story/checked";
 import { checkDevice, checkScript, deviceAllowed } from "@/lib/prompt-story/check";
 import { FORBIDDEN } from "@/lib/quote-video/brief";
-import { DEVICES } from "@/lib/scene-library/devices";
+import { DEVICES as ALL_DEVICES, isMetaDevice } from "@/lib/scene-library/devices";
+/** the sixteen health and ชีวิต ภาษี มรดก devices; Task 6 widens these checks to the eight อุปมา devices */
+const DEVICES = ALL_DEVICES.filter((d) => !isMetaDevice(d));
 
 /** devices picked by the writer (the health eight and, since round 2, the ชีวิต ภาษี มรดก eight), its formats, and one scene written again (Task 9) */
 
