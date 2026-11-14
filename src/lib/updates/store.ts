@@ -86,22 +86,26 @@ export async function readCounts(ids: string[]): Promise<Record<string, number>>
   }
 }
 
-/** live today: the day it went out is the day it is listed under */
-const goingLive = (now: Date) => ({ status: "live" as const, day: bangkokDay(now), published_at: now.toISOString() });
+/**
+ * Published now. The row keeps its day: the day the change reached the app (the push a draft was written
+ * from), not the day it was published, so drafts written for the last 60 days (owner, 2026-11-14) sit under
+ * their own dates.
+ */
+const goingLive = (now: Date) => ({ status: "live" as const, published_at: now.toISOString() });
 
 /** a new row, as a draft or straight out */
 export async function createUpdate(input: UpdateInput, status: UpdateStatus): Promise<string> {
   const now = new Date();
   const row: UpdateInput & { status: UpdateStatus; day: string; published_at: string | null } =
-    { ...input, ...(status === "live" ? goingLive(now) : { status, day: bangkokDay(now), published_at: null }) };
+    { ...input, day: bangkokDay(now), ...(status === "live" ? goingLive(now) : { status, published_at: null }) };
   const { data, error } = await supabaseAdmin().from(UPDATES).insert(row).select("id").single();
   if (error) throw new Error(`บันทึกไม่สำเร็จ: ${error.message}`);
   return (data as { id: string }).id;
 }
 
 /**
- * A row's words and its status. Going live for the first time dates it today; a row already live keeps its
- * day when its words are mended, and nobody is told twice (the reads stay).
+ * A row's words and its status. Going live for the first time stamps published_at; the day never moves. A
+ * row already live whose words are mended is not told twice (the reads stay).
  */
 export async function saveUpdate(id: string, input: UpdateInput, status: UpdateStatus): Promise<void> {
   const db = supabaseAdmin();
