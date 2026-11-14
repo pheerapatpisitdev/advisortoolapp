@@ -1,5 +1,5 @@
 import type { StoryFigure } from "@/lib/quote-video/story";
-import type { HealthLayout, KnowShow } from "@/lib/quote-video/story-knowledge";
+import type { DeviceLayout, KnowShow } from "@/lib/quote-video/story-knowledge";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { pictureSatang, type Prices } from "@/lib/wallet/prices";
 
@@ -35,10 +35,11 @@ export const PICTURE_STYLES: { id: PictureStyle; name: string; ai?: true }[] = [
 ];
 
 /**
- * A system-drawn health device (scene library, 2026-11-13) in place of a scene's AI picture: drawn by the
- * story looks, never painted, never charged as a picture. Its numbers pass checkDevice (check.ts).
+ * A system-drawn device (scene library: health 2026-11-13, ชีวิต ภาษี มรดก 2026-11-14) in place of a scene's
+ * AI picture: drawn by the story looks, never painted, never charged as a picture. Its numbers pass
+ * checkDevice (check.ts).
  */
-export type DeviceScene = Extract<KnowShow, { layout: HealthLayout }>;
+export type DeviceScene = Extract<KnowShow, { layout: DeviceLayout }>;
 
 /**
  * a scene: its picture words are drawn by the painter, unless it carries a device or a library part

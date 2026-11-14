@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import { totalLine } from "@/lib/prompt-story/total";
 import { BRIEF_MAX, PICTURE_STYLES, PROMPT_FORMATS, REWRITES_PER_DRAFT, SCENE_COUNTS, type PictureStyle, type PromptFormat, type PromptStoryInput, type SceneCount } from "@/lib/prompt-story/types";
-import { deviceAllowed } from "@/lib/prompt-story/check";
+import { briefTax, deviceAllowed } from "@/lib/prompt-story/check";
 import { missingPicture, needPictureWords, pictureCount } from "@/lib/prompt-story/editor-state";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
@@ -149,9 +149,11 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const stale = Boolean(written) && (written!.brief !== brief || written!.scenes !== scenes || written!.format !== format || JSON.stringify(written!.figure) !== JSON.stringify(figureAsked));
   // the figures a device may show, from what the script was written from: the server's very test (checkedPromptStory)
   const forDevice = useMemo(() => (written ? deviceAllowed(written.brief, written.nums ?? undefined) : new Set<number>()), [written]);
+  // a taxback's bracket and premium: the brief's own, never the plan's (briefTax)
+  const tax = useMemo(() => briefTax(written?.brief ?? ""), [written]);
   // a device that fails is a picture scene to the server, and is charged as one
-  const pictures = draft ? pictureCount(draft.scenes, forDevice) : undefined;
-  const missing = draft ? missingPicture(draft.scenes, forDevice) : null;
+  const pictures = draft ? pictureCount(draft.scenes, forDevice, tax) : undefined;
+  const missing = draft ? missingPicture(draft.scenes, forDevice, tax) : null;
   const elevenIsOff = useElevenOff(eleven.length > 0);
   const notice = look.voice && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && !look.voice ? voiceNotice(quota, true) : null;
   const voiceBlocked = Boolean(notice?.blocked);
@@ -317,7 +319,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       </aside>
 
       <section aria-label="บทและวิดีโอ" className="studio-desk min-w-0 space-y-4 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
-        {draft && <ScriptEditor draft={draft} notes={notes} onChange={setDraft} forDevice={forDevice} assets={assets} startAsset={startAsset} />}
+        {draft && <ScriptEditor draft={draft} notes={notes} onChange={setDraft} forDevice={forDevice} tax={tax} assets={assets} startAsset={startAsset} />}
         <ClipList items={items} setItems={setItems} pages={pages} />
       </section>
     </div>

@@ -15,8 +15,8 @@ const info = (over: Record<string, unknown> = {}): StoryVideoInput => {
 };
 
 describe("อินโฟกราฟิก's input (story.ts checkedStory)", () => {
-  it("keeps the look on ความรู้ประกัน, ตอบข้อโต้แย้ง and ประกันสุขภาพ, and on no other shelf", () => {
-    expect(INFO_SHELVES).toEqual(["knowledge", "objection", "health"]);
+  it("keeps the look on ความรู้ประกัน, ตอบข้อโต้แย้ง, ประกันสุขภาพ and ทุนชีวิต ภาษี มรดก, and on no other shelf", () => {
+    expect(INFO_SHELVES).toEqual(["knowledge", "objection", "health", "money"]);
     for (const t of STORY_TOPICS) {
       const s = checkedStory({ topic: t.key, faces: { narrator: "w26", hero: "m09" }, art: "info", health: HEALTH, festival: "newyear", due: { date: "2026-12-01" } } as never, "F");
       if (typeof s === "string") continue;

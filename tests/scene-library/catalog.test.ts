@@ -171,6 +171,29 @@ describe("catalogue", () => {
       expect(INFO_SHELVES).toContain(topic!.shelf);
     }
   });
+  it("the ชีวิต ภาษี มรดก devices are ready, on their products and topics, their planned entries gone", () => {
+    // spec 2026-11-14-devices-life-tax-design "The library": threegen is in no episode and links to ทุนชีวิตเท่าไหร่ถึงพอ
+    const EIGHT = [
+      ["lifeneed", "life", "lifeneed"], ["beneficiary", "life", "lifeneed"], ["moneysplit", "life", "lifeneed"], ["threegen", "life", "lifeneed"],
+      ["cilump", "health", "ciincome"], ["incomestop", "health", "ciincome"], ["taxback", "saving", "taxback"], ["taxcap", "saving", "taxback"],
+    ] as const;
+    expect(DEVICES).toHaveLength(16);
+    for (const [key, product, topic] of EIGHT) {
+      const item = libraryItem(key)!;
+      expect([item.type, item.ready, item.product], key).toEqual(["device", true, product]);
+      expect(item.preview, key).toBe(`/library/${key}-paper.jpg`);
+      expect(item.uses.map((u) => u.href), key).toEqual([`/studio/story-clip?topic=${topic}`, "/studio/prompt-story"]);
+      expect(item.looks!.map((l) => l.preview), key).toEqual(["paper", "minimal", "line", "plot", "board", "neon", "blueprint"].map((l) => `/library/${key}-${l}.jpg`));
+      expect(topicOf(topic)?.shelf, key).toBe("money");
+    }
+    for (const id of ["beneficiary", "life-sum-needed", "ci-lump-sum", "ci-income-stops", "tax-refund-by-bracket", "tax-cap-total", "split-money-home", "three-generations"]) {
+      expect(libraryItem(`device-${id}`), id).toBeUndefined();
+    }
+    // the planned devices that are not these eight stay planned
+    expect(libraryItem("device-tax-health-premium")?.ready).toBe(false);
+    expect(libraryItem("device-health-for-parents")?.ready).toBe(false);
+    expect(LIBRARY.filter((i) => i.type === "device" && i.ready)).toHaveLength(16);
+  });
   it("cashless says the plan's conditions apply", () => {
     expect(libraryItem("cashless")?.tells).toContain("ตามเงื่อนไขของแผน");
   });

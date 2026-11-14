@@ -2,9 +2,10 @@ import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { StoryTopic } from "@/lib/story/topics";
 import type React from "react";
 import { abs, box, El, look, type Anim } from "./motion";
-import { HEALTH_WORDS as HW, n, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine } from "./story-knowledge";
+import { HEALTH_WORDS as HW, isLife, n, type KnowEpisode, type KnowSceneKey, type KnowShow, type LifeShow, type NoteLine } from "./story-knowledge";
 import { ageRows, baht, groupBars, limitFigs, overflowBar, PART_FILL, roomFigs, splitParts, wrapLines } from "./story-health-motion";
 import { kspec } from "./story-knowledge-motion";
+import { lifeInfo } from "./story-life-info";
 import { infoIcon, type InfoIcon } from "./story-info-icons";
 import { Contact, type StoryContext } from "./story-motion";
 import { INFO_KIT, kitFor, type Kit } from "./story-kits";
@@ -26,20 +27,22 @@ export { kitFor, type Kit };
  * clip is drawn in one look from its first frame to its last, and its pieces are run straight after the frame is asked for.
  */
 let K: Kit = INFO_KIT;
+/** the look the frame being drawn is in (story-life-info.tsx's drawers read it, as this file's do) */
+export const kit = (): Kit => K;
 /** a pen's shading: fine slanted lines in its ink */
-const hatch = (ink: string) => `repeating-linear-gradient(45deg, ${ink} 0px, ${ink} 2px, transparent 2px, transparent 10px)`;
+export const hatch = (ink: string) => `repeating-linear-gradient(45deg, ${ink} 0px, ${ink} 2px, transparent 2px, transparent 10px)`;
 /** นีออน's glow, in the line's own colour, on the words and the outlines: a shadow, never a blur over the frame */
-const glowText = (c: string): React.CSSProperties => (K.glow ? { textShadow: `0 0 8px ${c}, 0 0 20px ${c}` } : {});
-const glowBox = (c: string): React.CSSProperties => (K.glow ? { boxShadow: `0 0 8px ${c}, 0 0 18px ${c}` } : {});
+export const glowText = (c: string): React.CSSProperties => (K.glow ? { textShadow: `0 0 8px ${c}, 0 0 20px ${c}` } : {});
+export const glowBox = (c: string): React.CSSProperties => (K.glow ? { boxShadow: `0 0 8px ${c}, 0 0 18px ${c}` } : {});
 /** words in `c`, glowing in นีออน when `c` is a tube's colour and not the plain words' */
-const ink = (c: string): React.CSSProperties => ({ color: c, ...(c === K.white || c === K.soft || c === K.dim || c === K.mute ? {} : glowText(c)) });
+export const ink = (c: string): React.CSSProperties => ({ color: c, ...(c === K.white || c === K.soft || c === K.dim || c === K.mute ? {} : glowText(c)) });
 /** a drawn line's width: the pen's `px`, thinner in บลูพริ้นท์ */
-const pen = (px: number) => Math.max(2, Math.round(px * K.line));
+export const pen = (px: number) => Math.max(2, Math.round(px * K.line));
 /** what masks a drawn piece's own ground: the sheet behind ปากกาพล็อตเตอร์'s shading, nothing elsewhere */
-const patch = () => (K.shade ? K.page : "transparent");
+export const patch = () => (K.shade ? K.page : "transparent");
 
 /** where things stand, for each shape: `k` scales every size set for the portrait */
-const GEO: Record<VideoSize, { k: number; title: number; top: number; bottom: number; side: number; row: boolean }> = {
+export const GEO: Record<VideoSize, { k: number; title: number; top: number; bottom: number; side: number; row: boolean }> = {
   portrait: { k: 1, title: 170, top: 470, bottom: 1640, side: 80, row: false },
   square: { k: 0.66, title: 48, top: 250, bottom: 900, side: 70, row: false },
   landscape: { k: 0.84, title: 40, top: 250, bottom: 900, side: 260, row: true },
@@ -68,13 +71,15 @@ const OWN: Partial<Record<KnowShow["layout"], InfoIcon>> = {
   ask: "question", myth: "speech", fact: "shield", note: "doc", card: "doc", family: "family", gift: "gift",
   // ชุดประกันสุขภาพ: the bed and the hospital are the thing drawn; the rest stand on a words-only card when a figure is missing
   split: "doc", limit: "shield", room: "bed", overflow: "warn", waiting: "clock", cashless: "hospital", groupgap: "briefcase", agecost: "chart",
+  // ชีวิต โรคร้าย ภาษี มรดก (device round 2)
+  lifeneed: "shield", beneficiary: "family", cilump: "hospital", incomestop: "clock", taxback: "coins", taxcap: "book", moneysplit: "bag", threegen: "home",
 };
 
 const HEALTH_LAYOUTS: ReadonlySet<KnowShow["layout"]> = new Set(["split", "limit", "room", "overflow", "waiting", "cashless", "groupgap", "agecost"]);
 
-/** a scene's tile: a health device's own icon first (its words-only card is about the device, not the episode), else the episode's, else the layout's */
+/** a scene's tile: a device's own icon first (its words-only card is about the device, not the episode), else the episode's, else the layout's */
 export function iconOf(topic: StoryTopic, key: KnowSceneKey, show: KnowShow): InfoIcon | undefined {
-  if (HEALTH_LAYOUTS.has(show.layout)) return OWN[show.layout];
+  if (HEALTH_LAYOUTS.has(show.layout) || isLife(show)) return OWN[show.layout];
   const named = ICONS[topic]?.[key];
   return typeof named === "string" ? named : OWN[show.layout];
 }
@@ -84,7 +89,7 @@ const itemIcons = (topic: StoryTopic, key: KnowSceneKey): InfoIcon[] => {
 };
 
 /** a square tile with an icon in it */
-function Tile({ kind, size, bg = K.sky, color = K.white, radius }: { kind: InfoIcon; size: number; bg?: string; color?: string; radius?: number }) {
+export function Tile({ kind, size, bg = K.sky, color = K.white, radius }: { kind: InfoIcon; size: number; bg?: string; color?: string; radius?: number }) {
   const r = radius ?? Math.round(size * 0.24);
   if (K.drawn) {
     // a drawn tile: its outline and the icon in one ink (glowing in นีออน); the pen sets a hatched block off behind it
@@ -127,7 +132,7 @@ function Lines({ lines, k, center = true }: { lines: NoteLine[]; k: number; cent
 }
 
 /** the scene's title: the first line gold and large, the second white under it */
-function Title({ text, an, t, w, g }: { text: [string, string]; an?: Anim; t: number; w: number; g: (typeof GEO)[VideoSize] }) {
+export function Title({ text, an, t, w, g }: { text: [string, string]; an?: Anim; t: number; w: number; g: (typeof GEO)[VideoSize] }) {
   return (
     <E an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title + (K.drawn && g.title < 100 ? Math.round(44 * g.k) : 0), flexDirection: "column", alignItems: "center" }}>
       <div style={box({ fontSize: Math.round((K.drawn && g.title < 100 ? 88 : 104) * g.k), fontWeight: K.bold, lineHeight: 1.15, textAlign: "center", ...(K.hollowTitle ? { color: "transparent", WebkitTextStroke: `${Math.max(2, Math.round(3 * g.k))}px ${K.gold}` } : ink(K.gold)) })}>{text[0]}</div>
@@ -221,7 +226,7 @@ export function infoDrawn(shown: KnowShow, c: StoryContext, t: number, key?: Kno
  * ruling pen) writes it, left to right, over the same moments; นีออน switches it on: dark, two quick dips, then
  * full. It is whole from then on.
  */
-function E({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSProperties; children?: React.ReactNode }) {
+export function E({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSProperties; children?: React.ReactNode }) {
   if (K.reveal === "fade" || !an) return <El an={an} t={t} style={style}>{children}</El>;
   const p = Math.max(0, Math.min(1, (t - an.at) / an.dur));
   if (p <= 0) return <div style={{ display: "flex", ...style, opacity: 0 }}>{children}</div>;
@@ -422,6 +427,9 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
     case "split": case "limit": case "room": case "overflow": case "waiting": case "cashless": case "groupgap": case "agecost":
       // the room under the title, above the plotter's rail and carriage
       return healthInfo({ c, t, s, g, w, k, a: devArea(c.size), icon: icon ?? "doc" }, show);
+    case "lifeneed": case "beneficiary": case "cilump": case "incomestop": case "taxback": case "taxcap": case "moneysplit": case "threegen":
+      // device round 2: in story-life-info.tsx, with this file's Kit and pieces
+      return lifeInfo({ c, t, s, g, w, k, a: devArea(c.size), icon: icon ?? "doc" }, show as LifeShow);
     default:
       // the shelves that tell a family's story (kin, timeline, pic) are not offered in this look
       return null;
@@ -436,9 +444,9 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
  */
 
 type Show<L extends KnowShow["layout"]> = Extract<KnowShow, { layout: L }>;
-type Box = { x: number; y: number; w: number; h: number };
+export type Box = { x: number; y: number; w: number; h: number };
 /** what a device draws with: the frame and its time, its movements, where things stand, the room under the title, the layout's icon */
-interface Dev { c: StoryContext; t: number; s: Record<string, Anim>; g: (typeof GEO)[VideoSize]; w: number; k: number; a: Box; icon: InfoIcon }
+export interface Dev { c: StoryContext; t: number; s: Record<string, Anim>; g: (typeof GEO)[VideoSize]; w: number; k: number; a: Box; icon: InfoIcon }
 
 function healthInfo(d: Dev, show: Show<"split" | "limit" | "room" | "overflow" | "waiting" | "cashless" | "groupgap" | "agecost">) {
   switch (show.layout) {
@@ -454,12 +462,12 @@ function healthInfo(d: Dev, show: Show<"split" | "limit" | "room" | "overflow" |
 }
 
 /** the size a line wrapped at its spaces is set in so its longest piece fits `room` */
-const fitWords = (text: string, size: number, room: number) => Math.min(...text.split(" ").map((x) => fitSize(x, size, room)));
+export const fitWords = (text: string, size: number, room: number) => Math.min(...text.split(" ").map((x) => fitSize(x, size, room)));
 /** a bar's ink: the pen hatches it inside its outline; the navy fills it */
-const fill = (color: string, radius: number | string): React.CSSProperties => (K.hatch ? { background: hatch(color), border: `${pen(3)}px solid ${color}` } : { background: color, borderRadius: radius, ...glowBox(color) });
+export const fill = (color: string, radius: number | string): React.CSSProperties => (K.hatch ? { background: hatch(color), border: `${pen(3)}px solid ${color}` } : { background: color, borderRadius: radius, ...glowBox(color) });
 
 /** a card of words: the pen's thin outline on the sheet, or the navy's tile */
-function Card({ an, t, k, style, edge, children }: { an?: Anim; t: number; k: number; style?: React.CSSProperties; edge?: string; children: React.ReactNode }) {
+export function Card({ an, t, k, style, edge, children }: { an?: Anim; t: number; k: number; style?: React.CSSProperties; edge?: string; children: React.ReactNode }) {
   return (
     <E an={an} t={t} style={{ flexDirection: "column", alignItems: "center", background: K.tile, border: `${K.drawn ? pen(3) : 2}px solid ${edge ?? K.tileLine}`, borderRadius: Math.round(32 * k), padding: `${Math.round(32 * k)}px ${Math.round(40 * k)}px`, ...glowBox(edge ?? K.tileLine), ...style }}>
       {children}
@@ -468,7 +476,7 @@ function Card({ an, t, k, style, edge, children }: { an?: Anim; t: number; k: nu
 }
 
 /** a label over its figure, the figure set to fit `room` */
-function Figure({ label, value, color, k, room, size = 76 }: { label?: string; value: string; color: string; k: number; room: number; size?: number }) {
+export function Figure({ label, value, color, k, room, size = 76 }: { label?: string; value: string; color: string; k: number; room: number; size?: number }) {
   return (
     <div style={box({ flexDirection: "column" })}>
       {label ? <div style={box({ fontSize: Math.round(44 * k), color: K.soft, lineHeight: 1.3 })}>{label}</div> : null}
@@ -481,7 +489,7 @@ function Figure({ label, value, color, k, room, size = 76 }: { label?: string; v
  * บลูพริ้นท์'s dimension line under a figure, as wide as it, with a tick at each end in the accent; the figure as it
  * is in every other look. `column`: the figure stands in a column, which would stretch the line across it
  */
-function dimmed(figure: React.ReactNode, k: number, column = false) {
+export function dimmed(figure: React.ReactNode, k: number, column = false) {
   if (!K.dims) return figure;
   const line = pen(3 * k);
   const tick = Math.max(10, Math.round(18 * k));
@@ -496,7 +504,7 @@ function dimmed(figure: React.ReactNode, k: number, column = false) {
 }
 
 /** a words-only card under the title: the layout's icon on its tile, the lines on a card */
-function wordsCard(d: Dev, an: Anim | undefined, lines: NoteLine[], title?: [string, string]) {
+export function wordsCard(d: Dev, an: Anim | undefined, lines: NoteLine[], title?: [string, string]) {
   const { t, s, g, w, k, a } = d;
   const room = a.w - Math.round(80 * k);
   return (
@@ -520,7 +528,7 @@ function wordsCard(d: Dev, an: Anim | undefined, lines: NoteLine[], title?: [str
  * a health device's room under the title, above the plotter's rail and carriage; in the square a little in from the
  * sides, so a bar or card that starts at the room's edge stands clear of the plotter's frame line
  */
-function devArea(size: VideoSize): Box {
+export function devArea(size: VideoSize): Box {
   const g = GEO[size];
   const { w } = SIZES[size];
   const side = g.side + (size === "square" ? 24 : 0);

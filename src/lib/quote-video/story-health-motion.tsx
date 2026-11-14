@@ -119,7 +119,7 @@ export const ageRows = (show: Show<"agecost">) => show.rows.slice(0, 6).map((x) 
  * a card on paper, as the list's is (each look restyles `cut`), turned a little, popping in. `r.h` is its height;
  * with `middle`, it is the band the card, as tall as its lines, stands in the middle of
  */
-function Sheet({ r, an, t, tilt, pad, middle, children }: { r: Rect; an?: Anim; t: number; tilt: number; pad: number; middle?: boolean; children: React.ReactNode }) {
+export function Sheet({ r, an, t, tilt, pad, middle, children }: { r: Rect; an?: Anim; t: number; tilt: number; pad: number; middle?: boolean; children: React.ReactNode }) {
   const l = look(an, t);
   const card = (
     <div className="cut" style={{ display: "flex", ...(middle ? {} : { position: "absolute", left: r.x, top: r.y, height: r.h }), width: r.w, flexDirection: "column", background: C.note, border: `4px solid ${C.ink}`, borderRadius: 16, padding: pad, opacity: l.opacity, transform: `rotate(${tilt}deg)${l.transform ? ` ${l.transform}` : ""}`, fontFamily: HAND, color: C.ink }}>

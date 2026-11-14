@@ -2,7 +2,7 @@ import { isUploadId } from "@/lib/scene-library/upload-rules";
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
-import { checkDevice, deviceAllowed } from "./check";
+import { briefTax, checkDevice, deviceAllowed } from "./check";
 import { BRIEF_MAX, isPromptFormat, REWRITES_DONE, REWRITES_PER_DRAFT, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
@@ -51,10 +51,12 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
   let shown = false;
   // a device's figures as the brief and plan write them, never the spoken millions
   const allowed = deviceAllowed(brief, figure);
+  // a taxback's bracket and premium from the brief alone, never the plan
+  const tax = briefTax(brief);
   for (const [i, raw] of (v.scenes as unknown[]).entries()) {
     const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
     // a device that fails its check is dropped: the scene is a picture scene, and is priced as one
-    const device = o.device === undefined || o.device === null ? undefined : checkDevice(o.device, allowed);
+    const device = o.device === undefined || o.device === null ? undefined : checkDevice(o.device, allowed, tax);
     // a library part (an upload's id; whether it is still approved is makePromptStory's to ask) on a scene with no device
     const asset = typeof device !== "object" && isUploadId(o.asset) ? o.asset : undefined;
     const sc: PromptScene = {
