@@ -55,7 +55,7 @@ describe("the back office's members", () => {
 });
 
 describe("deleting a member for good (owner, 2026-10-14)", () => {
-  const FILES = { pieces: ["p1"], people: [], videos: ["v1"], logos: [] };
+  const FILES = { pieces: ["p1"], people: [], videos: ["v1"], logos: [], library: [] };
   const suspended = () => viewer.memberById.mockResolvedValue({ id: ID, email: "Somchai@gmail.com", name: "สมชาย", status: "suspended", revoked_at: "x" });
 
   it("deletes a suspended member once their email is typed, clears the files and writes it down", async () => {

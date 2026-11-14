@@ -3,7 +3,7 @@ import type { MemberFiles } from "@/lib/auth/member-store";
 
 /**
  * The Storage half of ลบสมาชิก (owner, 2026-10-14), after the rows are gone: each folder a deleted
- * row named, the member's own folders, and their logos. Best effort: nothing points at these
+ * row named, the member's own folders, and their logos and library uploads. Best effort: nothing points at these
  * files any more, so one left behind is invisible; it is logged rather than failing the delete.
  */
 export async function clearMemberFiles(memberId: string, files: MemberFiles): Promise<void> {
@@ -16,6 +16,7 @@ export async function clearMemberFiles(memberId: string, files: MemberFiles): Pr
   const results = await Promise.allSettled([
     ...folders.map(([bucket, folder]) => emptyFolder(bucket, folder)),
     files.logos.length ? remove("content-media", files.logos) : Promise.resolve(),
+    files.library.length ? remove("content-media", files.library) : Promise.resolve(),
   ]);
   for (const r of results) if (r.status === "rejected") console.error(`member ${memberId} files not cleared:`, r.reason);
 }

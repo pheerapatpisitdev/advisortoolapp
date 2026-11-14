@@ -130,9 +130,14 @@ describe("listMembers", () => {
 
 describe("purgeMember", () => {
   it("runs the one-transaction delete and hands back the files to clear", async () => {
-    db.on("rpc:ins_member_delete", { data: { pieces: ["p1"], people: ["h1"], videos: [], logos: ["logos/a.png", 3] } });
-    expect(await store.purgeMember("m1")).toEqual({ ok: true, files: { pieces: ["p1"], people: ["h1"], videos: [], logos: ["logos/a.png"] } });
+    db.on("rpc:ins_member_delete", { data: { pieces: ["p1"], people: ["h1"], videos: [], logos: ["logos/a.png", 3], library: ["library/u.png", null] } });
+    expect(await store.purgeMember("m1")).toEqual({ ok: true, files: { pieces: ["p1"], people: ["h1"], videos: [], logos: ["logos/a.png"], library: ["library/u.png"] } });
     expect(db.log.find((l) => l.table === "rpc:ins_member_delete")?.steps[0].args[0]).toEqual({ p_member: "m1" });
+  });
+
+  it("takes an empty library list when the function is not migrated yet (no library in its answer)", async () => {
+    db.on("rpc:ins_member_delete", { data: { pieces: [], people: [], videos: [], logos: [] } });
+    expect(await store.purgeMember("m1")).toEqual({ ok: true, files: { pieces: [], people: [], videos: [], logos: [], library: [] } });
   });
 
   it("names the two refusals the database raises", async () => {

@@ -80,6 +80,8 @@ export interface MemberFiles {
   videos: string[];
   /** content-media paths of the member's logos */
   logos: string[];
+  /** content-media paths of the member's library uploads that were not approved (20261211; none before it) */
+  library: string[];
 }
 
 /**
@@ -94,7 +96,7 @@ export async function purgeMember(id: string): Promise<{ ok: true; files: Member
   if (error) throw new Error(`ลบสมาชิกไม่สำเร็จ: ${error.message}`);
   const d = (data ?? {}) as Partial<Record<keyof MemberFiles, unknown>>;
   const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
-  return { ok: true, files: { pieces: list(d.pieces), people: list(d.people), videos: list(d.videos), logos: list(d.logos) } };
+  return { ok: true, files: { pieces: list(d.pieces), people: list(d.people), videos: list(d.videos), logos: list(d.logos), library: list(d.library) } };
 }
 
 export async function signupsFromIp(ip: string, since: Date): Promise<number> {

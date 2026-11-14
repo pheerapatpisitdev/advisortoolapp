@@ -205,9 +205,10 @@ describe("migration", () => {
     // the nightly job already exists (20261209): scheduling it again would add a second one
     expect(sql).not.toMatch(/cron\.schedule/);
   });
-  it("no later migration redefines either function", () => {
-    const later = readdirSync("supabase/migrations").filter((f) => f > "20261210_library_marks.sql");
+  it("no later migration redefines either function, bar the uploads one's member delete (kept in step in uploads.test.ts)", () => {
+    const later = readdirSync("supabase/migrations").filter((f) => f > "20261210_library_marks.sql" && f !== "20261211_library_uploads.sql");
     for (const f of later) expect(readFileSync(`supabase/migrations/${f}`, "utf8"), f).not.toMatch(/function public\.ins_(member_delete|demo_wipe)/);
+    expect(readFileSync("supabase/migrations/20261211_library_uploads.sql", "utf8")).not.toMatch(/function public\.ins_demo_wipe/);
   });
 });
 
