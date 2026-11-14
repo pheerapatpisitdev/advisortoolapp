@@ -45,5 +45,5 @@ export const DEVICES: DeviceInfo[] = [
 
 export const deviceInfo = (key: string): DeviceInfo | undefined => DEVICES.find((d) => d.key === key);
 
-/** a round-1 health device: consumers not yet taught round 2's (the writer until Task 6, the catalogue until Task 7) list only these */
+/** a round-1 health device: consumers not yet taught round 2's (the catalogue until Task 7; the writer lists all since Task 6) list only these */
 export const isHealthDevice = (d: DeviceInfo): d is DeviceInfo & { key: HealthLayout } => d.family === "สุขภาพ";

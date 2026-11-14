@@ -6,7 +6,7 @@ import { TRANSITIONS } from "@/lib/quote-video/job";
 import { freeFrame, freeHandText, freeWindows, type FreeContext } from "@/lib/prompt-story/frames";
 import type { DeviceScene, PromptScene, PromptStoryInput } from "@/lib/prompt-story/types";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
-import { HEALTH_WORDS } from "@/lib/quote-video/story-knowledge";
+import { HEALTH_WORDS, LIFE_WORDS } from "@/lib/quote-video/story-knowledge";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
 
 const SIZE_LIST: VideoSize[] = ["portrait", "square", "landscape"];
@@ -174,6 +174,53 @@ describe("freeFrame with a device", () => {
       expect(png.length, `${style} ${size}`).toBeGreaterThan(1000);
     }
   }, 60_000);
+});
+
+/** the ชีวิต ภาษี มรดก devices (round 2, Task 6): each drawn in a prompt clip, every look and size */
+const LIFE: DeviceScene[] = [
+  { layout: "lifeneed", title: ["ทุนชีวิต", "ควรมีเท่าไหร่"], debts: 2_000_000, expenses: 300_000, years: 15, education: 1_000_000, have: 1_500_000 },
+  { layout: "beneficiary", title: ["ผู้รับประโยชน์", "ใครได้รับเงิน"], rows: [{ name: "ภรรยา", share: 60 }, { name: "ลูกคนเล็ก", share: 40 }] },
+  { layout: "cilump", title: ["เงินก้อน", "ตอนวินิจฉัย"], sum: 1_000_000, note: "ใช้รักษาหรือทดแทนรายได้" },
+  { layout: "incomestop", title: ["รายได้หยุด", "ระหว่างรักษา"], monthly: 50_000, months: 6 },
+  { layout: "taxback", title: ["ลดหย่อนภาษี", "ได้คืนเท่าไหร่"], premium: 60_000, bracket: 20 },
+  { layout: "taxcap", title: ["เพดานลดหย่อน", "รวมทุกแบบ"] },
+  { layout: "moneysplit", title: ["แบ่งเงินก้อน", "ให้คนในบ้าน"], total: 1_500_000, parts: [{ label: "ภรรยา", amount: 1_000_000 }, { label: "ลูก", amount: 500_000 }] },
+  { layout: "threegen", title: ["ส่งต่อ", "สามรุ่น"], rows: ["รุ่นปู่ย่า", "รุ่นพ่อแม่", "รุ่นลูก"], note: "ส่งต่อเงินก้อนให้ลูกหลาน" },
+];
+/** the word each device draws once it is all in, beside its title */
+const LIFE_SHOWN: Record<string, string> = {
+  lifeneed: "2,000,000", beneficiary: "ลูกคนเล็ก", cilump: "1,000,000", incomestop: "50,000", taxback: "20%", taxcap: "100,000", moneysplit: "500,000", threegen: "รุ่นพ่อแม่",
+};
+const ALL_LOOKS: PromptStoryInput["style"][] = ["paper", "warm", "line", "plot", "board", "neon", "blueprint"];
+
+describe("freeFrame with a ชีวิต ภาษี มรดก device", () => {
+  it("draws each of the eight in every look and size: its title and words, no picture, no screen words", () => {
+    for (const d of LIFE) for (const style of ALL_LOOKS) for (const size of SIZE_LIST) {
+      const i = input(1, { style, scenes: [deviceScene(d)] });
+      const at = (t: number) => renderToStaticMarkup(freeFrame(i.scenes[0], false, ctx(i, size), t));
+      expect(at(0), `${d.layout} ${style} ${size}`).not.toContain("<img");
+      const out = shown(at(12));
+      for (const w of [d.title[0], LIFE_SHOWN[d.layout]]) expect(out, `${d.layout} ${style} ${size}: ${w}`).toContain(w);
+      expect(out, `${d.layout} ${style} ${size}`).not.toContain("คำบนจอซ่อนไว้");
+      expect(out).toContain("เสียงที่");
+    }
+  });
+
+  it("renders each in satori, paper and one dark look, every size", async () => {
+    for (const d of LIFE) for (const style of ["paper", "neon"] as const) for (const size of SIZE_LIST) {
+      const i = input(1, { style, scenes: [deviceScene(d)] });
+      const { w, h } = SIZES[size];
+      const png = await renderPng(freeFrame(i.scenes[0], false, ctx(i, size), 12), { width: w, height: h }, { hand: freeHandText(i) });
+      expect(png.length, `${d.layout} ${style} ${size}`).toBeGreaterThan(1000);
+    }
+  }, 120_000);
+
+  it("cuts the hand face to each device's own words, the drawn fixed words and marks", () => {
+    const i = input(LIFE.length, { scenes: LIFE.map((d) => deviceScene(d)) });
+    const hand = freeHandText(i);
+    for (const w of [...LIFE.flatMap((d) => d.title), "ลูกคนเล็ก", "รุ่นปู่ย่า", "ส่งต่อเงินก้อนให้ลูกหลาน", ...Object.values(LIFE_WORDS)]) expect(hand).toContain(w);
+    expect(hand).not.toContain("คำบนจอซ่อนไว้");
+  });
 });
 
 describe("freeHandText with a device", () => {

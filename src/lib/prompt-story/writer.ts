@@ -1,8 +1,8 @@
 import { chat } from "@/lib/ai/client";
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
-import type { HealthLayout } from "@/lib/quote-video/story-knowledge";
-import { DEVICES, isHealthDevice } from "@/lib/scene-library/devices";
+import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
+import { DEVICES } from "@/lib/scene-library/devices";
 import { allowedFor, checkDevice, checkScene, checkScript, deviceAllowed, forbiddenForPrompt } from "./check";
 import { SCREEN_MAX, TITLE_MAX, type PromptFormat, type PromptScene, type SceneCount } from "./types";
 
@@ -15,7 +15,10 @@ import { SCREEN_MAX, TITLE_MAX, type PromptFormat, type PromptScene, type SceneC
  *
  * Since 2026-11-13 the model may also put a health device (scene-library/devices.ts) on at most half
  * the scenes, drawn by the system instead of painted; a device whose numbers the brief or the plan do
- * not give is dropped and the scene painted. A format (ละครสั้น 3 ฉาก, รีวิวเคสเคลม) adds its order of
+ * not give is dropped and the scene painted. Since 2026-11-14 (device round 2) the ชีวิต ภาษี มรดก devices
+ * join them: their figures from the brief or the plan (taxcap's only from the tax table the system draws,
+ * taxback's bracket only a rate the brief states), every total, gap, loss and refund computed by the system,
+ * never written by the model. A format (ละครสั้น 3 ฉาก, รีวิวเคสเคลม) adds its order of
  * beats. One scene may be written again (rewriteScene).
  */
 
@@ -45,7 +48,7 @@ const plainLine = (i: number): PromptScene => ({ ...PLAIN[i % PLAIN.length] });
 const clean = (v: unknown, max: number): string => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
 
 /** each device's JSON, as the model writes it: "ตัวเลข" a whole number the brief or the plan gives */
-const SHAPES: Record<HealthLayout, string> = {
+const SHAPES: Record<DeviceLayout, string> = {
   split: `{"layout":"split","title":["บรรทัดแรก","บรรทัดสอง"],"parts":["หมวดที่มีเพดาน 1–4 ช่อง"],"whole":"คำของแผนเหมาจ่าย"}`,
   limit: `{"layout":"limit","title":["บรรทัดแรก","บรรทัดสอง"],"limit":ตัวเลข,"used":ตัวเลข (ละได้),"planName":"ชื่อแผน (ไม่มีให้ใส่ว่าง)"}`,
   room: `{"layout":"room","title":["บรรทัดแรก","บรรทัดสอง"],"plan":ตัวเลข,"real":ตัวเลข (ละได้),"planName":"ชื่อแผน (ไม่มีให้ใส่ว่าง)"}`,
@@ -54,6 +57,15 @@ const SHAPES: Record<HealthLayout, string> = {
   cashless: `{"layout":"cashless","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความสั้น"}`,
   groupgap: `{"layout":"groupgap","title":["บรรทัดแรก","บรรทัดสอง"],"bill":ตัวเลข (ละได้),"group":ตัวเลข (ละได้)}`,
   agecost: `{"layout":"agecost","title":["บรรทัดแรก","บรรทัดสอง"],"rows":[{"age":ตัวเลข,"annual":ตัวเลข}] 0–4 แถว,"source":"ที่มาของตัวเลข"}`,
+  // ชีวิต ภาษี มรดก (round 2): every figure an input; the drawers add up the totals, gaps, losses and refunds
+  lifeneed: `{"layout":"lifeneed","title":["บรรทัดแรก","บรรทัดสอง"],"debts":ตัวเลขหนี้คงเหลือ (ละได้),"expenses":ตัวเลขค่าใช้จ่ายครอบครัวต่อปี (ละได้),"years":จำนวนปีที่ต้องดูแล (ละได้),"education":ตัวเลขค่าการศึกษาลูก (ละได้),"have":ตัวเลขทุนประกันที่มีอยู่ (ละได้)}`,
+  beneficiary: `{"layout":"beneficiary","title":["บรรทัดแรก","บรรทัดสอง"],"rows":[{"name":"คำเรียก เช่น ภรรยา ลูกคนโต","share":ตัวเลขสัดส่วน (ละได้)}] 1–4 แถว สัดส่วนต้องรวมกันได้ 100 หรือละทุกแถว}`,
+  cilump: `{"layout":"cilump","title":["บรรทัดแรก","บรรทัดสอง"],"sum":ตัวเลขทุนโรคร้ายแรง (ละได้),"note":"ข้อความสั้น (ละได้)"}`,
+  incomestop: `{"layout":"incomestop","title":["บรรทัดแรก","บรรทัดสอง"],"monthly":ตัวเลขรายได้ต่อเดือน (ละได้),"months":จำนวนเดือนที่หยุดรักษา (ละได้)}`,
+  taxback: `{"layout":"taxback","title":["บรรทัดแรก","บรรทัดสอง"],"premium":ตัวเลขค่าประกันชีวิตต่อปี (ละได้),"bracket":อัตราภาษีของลูกค้าตามโจทย์ (ละได้)}`,
+  taxcap: `{"layout":"taxcap","title":["บรรทัดแรก","บรรทัดสอง"]}`,
+  moneysplit: `{"layout":"moneysplit","title":["บรรทัดแรก","บรรทัดสอง"],"total":ตัวเลขเงินก้อน (ละได้),"parts":[{"label":"คำเรียกคนในบ้าน","amount":ตัวเลข (ละได้)}] 2–3 ส่วน ยอดรวมไม่เกินเงินก้อน}`,
+  threegen: `{"layout":"threegen","title":["บรรทัดแรก","บรรทัดสอง"],"rows":["รุ่นปู่ย่า","รุ่นพ่อแม่","รุ่นลูก"] 3 แถวพอดี,"note":"ข้อความสั้น (ละได้)"}`,
 };
 
 /** the format's order of beats (owner, 2026-11-13, 2ก); ตามโจทย์ adds nothing */
@@ -71,8 +83,8 @@ const FORMAT_LINES: Record<PromptFormat, string[]> = {
  * A device as the model is told of it: the registry's name, unless that name says a word no script may
  * (agecost's "เบี้ยขึ้นตามอายุ"); the page keeps the registry's name.
  */
-const PROMPT_NAMES: Partial<Record<HealthLayout, string>> = { agecost: "ค่าประกันสุขภาพขึ้นตามอายุ" };
-export const promptDeviceName = (d: { key: HealthLayout; name: string }) => PROMPT_NAMES[d.key] ?? d.name;
+const PROMPT_NAMES: Partial<Record<DeviceLayout, string>> = { agecost: "ค่าประกันสุขภาพขึ้นตามอายุ" };
+export const promptDeviceName = (d: { key: DeviceLayout; name: string }) => PROMPT_NAMES[d.key] ?? d.name;
 
 /** what no word may say, from the lists checkScene holds them to (check.ts) */
 const FORBIDDEN_LINE = (() => {
@@ -109,16 +121,20 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     ...(figure && !figure.monthly ? ["- ห้ามพูดถึงเบี้ยรายเดือน การแบ่งจ่ายรายเดือน หรือยอดต่อเดือน ให้พูดเป็นรายปีหรือวันละเท่านั้น"] : []),
     ...(format ? FORMAT_LINES[format] : []),
     "",
-    "อุปกรณ์สุขภาพ: ภาพที่ระบบวาดเองแทนรูป AI ใส่ใน device ของฉากได้ เมื่อฉากนั้นพูดเรื่องที่อุปกรณ์อธิบายได้ ฉากอื่นใส่ device เป็น null",
+    "อุปกรณ์: ภาพที่ระบบวาดเองแทนรูป AI ใส่ใน device ของฉากได้ เมื่อฉากนั้นพูดเรื่องที่อุปกรณ์อธิบายได้ ฉากอื่นใส่ device เป็น null",
     `- ใช้อุปกรณ์ได้ไม่เกิน ${deviceMax(count)} ฉาก (ไม่เกินครึ่งหนึ่งของจำนวนฉาก) ฉากที่เหลือเป็นรูป AI`,
-    // Task 6: the ชีวิต ภาษี มรดก devices join the list with their shapes and sources
-    ...DEVICES.filter(isHealthDevice).map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
+    ...DEVICES.map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
     "กฎของอุปกรณ์:",
     "- ตัวเลขในอุปกรณ์เป็นจำนวนเต็มมากกว่าศูนย์ ไม่ใส่จุลภาค และต้องเป็นตัวเลขที่อยู่ในโจทย์หรือตัวเลขแผนเท่านั้น ห้ามคิดตัวเลขเอง",
     nums.length ? `- ตัวเลขที่ใช้ในอุปกรณ์ได้: ${nums.join(", ")}` : "- โจทย์ไม่มีตัวเลข ใช้ได้เฉพาะอุปกรณ์ที่ไม่ต้องมีตัวเลข",
     "- ถ้าไม่มีตัวเลขที่เข้ากับอุปกรณ์ ให้ละช่องตัวเลขที่ละได้ หรือเลือกอุปกรณ์ที่ไม่มีตัวเลข หรือไม่ใช้อุปกรณ์เลย",
-    `- คำในอุปกรณ์ทุกช่อง (title, parts, whole, planName, rows, note, source) ช่องละไม่เกิน ${SCREEN_MAX} ตัวอักษร และทำตามกฎเดียวกับคำพูดข้างบนทุกข้อ`,
+    `- คำในอุปกรณ์ทุกช่อง (title, parts, whole, planName, rows, note, source, name, label) ช่องละไม่เกิน ${SCREEN_MAX} ตัวอักษร และทำตามกฎเดียวกับคำพูดข้างบนทุกข้อ`,
     "- agecost: ทุกช่องข้อความ (title และ source) ห้ามใช้คำว่า เบี้ย ให้ใช้ ค่าประกันสุขภาพ แทน",
+    // round 2 (spec 2026-11-14-devices-life-tax): the inputs only; the tax table is the system's, never pasted here
+    "- คำที่เขียนในอุปกรณ์ทุกตัวห้ามมีคำต้องห้ามข้างบน แม้ระบบจะวาดคำอย่าง เบี้ยปีละ หรือ % บนอุปกรณ์เอง ให้ใช้ ค่าประกัน แทน เบี้ย",
+    "- ห้ามเขียนยอดที่ระบบคิดเอง ทั้งในช่องตัวเลขและในคำของอุปกรณ์: ยอดรวม ทุนที่ขาด รายได้ที่หาย ภาษีที่ได้คืน เงินที่เหลือ",
+    "- taxcap: ไม่มีช่องตัวเลข ระบบวาดตารางเพดานลดหย่อนตามเกณฑ์กรมสรรพากรเอง",
+    "- taxback: ใส่ bracket ได้เฉพาะเมื่อโจทย์บอกอัตราภาษีของลูกค้า และต้องเป็นอัตราตามโจทย์ ถ้าโจทย์ไม่บอกให้ละ bracket",
     "- ฉากที่มี device ยังต้องมี voice และ screen และใส่ picture เป็นภาพสำรองไว้ด้วย",
     "",
   ];

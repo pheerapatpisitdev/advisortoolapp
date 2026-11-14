@@ -23,8 +23,21 @@ const FIELD: Record<string, string> = {
   layout: "อุปกรณ์", title: "หัวข้อ", parts: "หมวด", whole: "เหมาจ่าย", planName: "ชื่อแผน", rows: "แถว", note: "ข้อความ",
   source: "ที่มา", limit: "วงเงิน", used: "ใช้ไป", plan: "แผนจ่าย", real: "ค่าห้องจริง", bill: "ค่ารักษา", group: "ประกันกลุ่ม",
   at: "เมื่อ", label: "รายการ", age: "อายุ", annual: "ปีละ",
+  // ชีวิต ภาษี มรดก (round 2)
+  debts: "ภาระหนี้", expenses: "ค่าใช้จ่ายต่อปี", years: "จำนวนปี", education: "ค่าการศึกษา", have: "ทุนที่มี", name: "ชื่อ", share: "สัดส่วน",
+  sum: "ทุนโรคร้าย", monthly: "รายได้ต่อเดือน", months: "จำนวนเดือน", premium: "เบี้ยต่อปี", bracket: "ฐานภาษี", total: "เงินก้อน", amount: "จำนวนเงิน",
 };
 export const fieldName = (f: string): string => FIELD[f] ?? f;
+
+/** a list's item by what it holds on this device: a beneficiary's row is a person, a moneysplit part a share of the sum */
+const ITEM: Partial<Record<DeviceScene["layout"], Record<string, string>>> = {
+  beneficiary: { rows: "ผู้รับ" }, moneysplit: { parts: "ส่วน" }, threegen: { rows: "รุ่น" },
+};
+const itemName = (layout: DeviceScene["layout"], f: string): string => ITEM[layout]?.[f] ?? fieldName(f);
+
+/** a figure as the editor shows it: a share or a tax rate as a percentage, anything else 1,234,567 */
+const PERCENT = new Set(["share", "bracket"]);
+const shownAs = (f: string, n: unknown) => (typeof n === "number" ? (PERCENT.has(f) ? `${n}%` : n.toLocaleString("en-US")) : "");
 
 /** checkDevice's reason ("real: ตัวเลข 7000 …") with its field said in Thai and its figure as 7,000 */
 export function deviceReason(reason: string): string {
@@ -99,7 +112,7 @@ export interface DeviceWord { path: (string | number)[]; label: string; value: s
 /** one of a device's figures, shown and never typed (the writer took it from the brief or the plan) */
 export interface DeviceNumber { label: string; value: string }
 
-const baht = (n: unknown) => (typeof n === "number" ? n.toLocaleString("en-US") : "");
+const baht = (n: unknown) => shownAs("", n);
 
 /** a device's words to edit and its figures to show, in its fields' order (devices.ts) */
 export function deviceFields(d: DeviceScene): { words: DeviceWord[]; numbers: DeviceNumber[] } {
@@ -115,10 +128,10 @@ export function deviceFields(d: DeviceScene): { words: DeviceWord[]; numbers: De
       words.push({ path: ["title", 1], label: "หัวข้อ บรรทัด 2", value: typeof t[1] === "string" ? t[1] : "" });
     } else if (Array.isArray(v)) {
       v.forEach((item, i) => {
-        if (typeof item === "string") words.push({ path: [f, i], label: `${fieldName(f)} ${i + 1}`, value: item });
+        if (typeof item === "string") words.push({ path: [f, i], label: `${itemName(d.layout, f)} ${i + 1}`, value: item });
         else if (item && typeof item === "object") {
           for (const [k, x] of Object.entries(item as Record<string, unknown>)) {
-            if (typeof x === "string") words.push({ path: [f, i, k], label: `${fieldName(f)} ${i + 1} · ${fieldName(k)}`, value: x });
+            if (typeof x === "string") words.push({ path: [f, i, k], label: `${itemName(d.layout, f)} ${i + 1} · ${fieldName(k)}`, value: x });
           }
         }
       });
@@ -126,13 +139,15 @@ export function deviceFields(d: DeviceScene): { words: DeviceWord[]; numbers: De
   }
   for (const f of info?.numberFields ?? []) {
     const v = o[f];
-    if (typeof v === "number") numbers.push({ label: fieldName(f), value: baht(v) });
+    if (typeof v === "number") numbers.push({ label: fieldName(f), value: shownAs(f, v) });
     else if (Array.isArray(v)) {
-      // agecost's rows: อายุ 30 · ปีละ 12,000
-      v.forEach((r) => {
+      v.forEach((r, i) => {
         if (r && typeof r === "object") {
           const parts = Object.entries(r as Record<string, unknown>).filter(([, x]) => typeof x === "number");
-          if (parts.length) numbers.push({ label: `${fieldName(parts[0][0])} ${baht(parts[0][1])}`, value: parts.slice(1).map(([k, x]) => `${fieldName(k)} ${baht(x)}`).join(" · ") });
+          // one figure an item (a beneficiary's share, a moneysplit part's amount): ผู้รับ 1 · สัดส่วน 60%
+          if (parts.length === 1) numbers.push({ label: `${itemName(d.layout, f)} ${i + 1} · ${fieldName(parts[0][0])}`, value: shownAs(parts[0][0], parts[0][1]) });
+          // agecost's rows: อายุ 30 · ปีละ 12,000
+          else if (parts.length) numbers.push({ label: `${fieldName(parts[0][0])} ${baht(parts[0][1])}`, value: parts.slice(1).map(([k, x]) => `${fieldName(k)} ${baht(x)}`).join(" · ") });
         }
       });
     }
