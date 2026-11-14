@@ -9,6 +9,7 @@ import { walletPrices } from "@/lib/wallet/store";
 import { myCost, myVideos, voiceQuota } from "../quote-video/actions";
 import { StoryClipBoard } from "./StoryClipBoard";
 import { ToolLogo } from "@/components/shell/ToolLogo";
+import { storyStartFrom } from "@/lib/scene-library/links";
 
 export const dynamic = "force-dynamic";
 // a clip is drawn after the request is answered (after()), inside this page's time
@@ -23,7 +24,7 @@ export const metadata = {
  * คลิปเล่าเรื่อง (owner, 2026-10-15, mockup https://claude.ai/artifact/FmDZmdTf6Mwgb2Dza8hQtM):
  * every agent's, paid like วิดีโอนำเสนอ — the same free clips, then the wallet at its own price.
  */
-export default async function StoryClipPage() {
+export default async function StoryClipPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await gatePage("/studio/story-clip");
   // switched off by the Super Admin: locked, nothing of the tool shown (owner, 2026-10-17)
   const locked = await closedFor(viewer, "story-clip");
@@ -33,6 +34,8 @@ export default async function StoryClipPage() {
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));
   const eleven = keyed ? ELEVEN_VOICES : [];
   const [cost, prices, quota] = await Promise.all([myCost(), walletPrices(), voiceQuota()]);
+  // คลังแอนิเมชัน's "ใช้แบบนี้": the topic and look the link asked for (spec 2026-11-14)
+  const start = storyStartFrom(await searchParams);
   const initial = await myVideos("story").catch((e) => {
     console.error("story videos not read:", e);
     return null;
@@ -44,7 +47,7 @@ export default async function StoryClipPage() {
         คลิปการ์ตูนลายเส้น อธิบายให้ลูกค้าเข้าใจว่าทำไมต้องมีประกัน ไม่ได้ขายแผนไหน ใช้ส่งก่อนคุย ลงเพจ หรือทำแอด
       </p>
       <ClosedNotice viewer={viewer} feature="story-clip" />
-      <StoryClipBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} />
+      <StoryClipBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} start={start} />
     </div>
   );
 }

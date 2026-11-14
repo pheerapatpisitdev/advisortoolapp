@@ -779,6 +779,7 @@ body:has(.theme-legacy) {
 .tool-logo-ca { background: #002b26; color: #2fe0c3; } /* ปฏิทินโพสต์ */
 .tool-logo-hk { background: #2a2400; color: #f5d000; } /* คลังสูตรประโยคเปิด */
 .tool-logo-pe { background: #0f2e1c; color: #4fd18b; } /* คลังบุคคล */
+.tool-logo-an { background: #2b1200; color: #ff8a3d; } /* คลังแอนิเมชัน */
 
 /* the button on a phone, given the same lip and shadow so it belongs to the same set */
 .shell-hamburger {
