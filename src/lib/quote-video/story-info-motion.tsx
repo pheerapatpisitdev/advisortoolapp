@@ -2,10 +2,11 @@ import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { StoryTopic } from "@/lib/story/topics";
 import type React from "react";
 import { abs, box, El, look, type Anim } from "./motion";
-import { HEALTH_WORDS as HW, isLife, n, type KnowEpisode, type KnowSceneKey, type KnowShow, type LifeShow, type NoteLine } from "./story-knowledge";
+import { HEALTH_WORDS as HW, isLife, n, type KnowEpisode, type KnowSceneKey, type KnowShow, type LifeShow, type MetaShow, type NoteLine } from "./story-knowledge";
 import { ageRows, baht, groupBars, limitFigs, overflowBar, PART_FILL, roomFigs, splitParts, wrapLines } from "./story-health-motion";
 import { kspec } from "./story-knowledge-motion";
 import { lifeInfo } from "./story-life-info";
+import { metaInfo } from "./story-meta-info";
 import { infoIcon, type InfoIcon } from "./story-info-icons";
 import { Contact, type StoryContext } from "./story-motion";
 import { INFO_KIT, kitFor, type Kit } from "./story-kits";
@@ -131,12 +132,12 @@ function Lines({ lines, k, center = true }: { lines: NoteLine[]; k: number; cent
   );
 }
 
-/** the scene's title: the first line gold and large, the second white under it */
-export function Title({ text, an, t, w, g }: { text: [string, string]; an?: Anim; t: number; w: number; g: (typeof GEO)[VideoSize] }) {
+/** the scene's title: the first line gold and large, the second white under it; `sizes` sets the two lines smaller to fit */
+export function Title({ text, an, t, w, g, sizes }: { text: [string, string]; an?: Anim; t: number; w: number; g: (typeof GEO)[VideoSize]; sizes?: { first: number; second: number } }) {
   return (
     <E an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title + (K.drawn && g.title < 100 ? Math.round(44 * g.k) : 0), flexDirection: "column", alignItems: "center" }}>
-      <div style={box({ fontSize: Math.round((K.drawn && g.title < 100 ? 88 : 104) * g.k), fontWeight: K.bold, lineHeight: 1.15, textAlign: "center", ...(K.hollowTitle ? { color: "transparent", WebkitTextStroke: `${Math.max(2, Math.round(3 * g.k))}px ${K.gold}` } : ink(K.gold)) })}>{text[0]}</div>
-      {text[1] ? <div style={box({ fontSize: Math.round(56 * g.k), ...ink(K.sub), marginTop: Math.round(8 * g.k), textAlign: "center" })}>{text[1]}</div> : null}
+      <div style={box({ fontSize: sizes?.first ?? Math.round((K.drawn && g.title < 100 ? 88 : 104) * g.k), fontWeight: K.bold, lineHeight: 1.15, textAlign: "center", ...(K.hollowTitle ? { color: "transparent", WebkitTextStroke: `${Math.max(2, Math.round(3 * g.k))}px ${K.gold}` } : ink(K.gold)) })}>{text[0]}</div>
+      {text[1] ? <div style={box({ fontSize: sizes?.second ?? Math.round(56 * g.k), ...ink(K.sub), marginTop: Math.round(8 * g.k), textAlign: "center" })}>{text[1]}</div> : null}
       {/* landscape's tall figure cards rise to the title: บลูพริ้นท์'s dimension line would cross them there */}
       {K.underline || (K.dims && !g.row) ? <TitleRule w={Math.round(Math.min((w - 80) * 0.5, 560 * g.k))} k={g.k} /> : null}
     </E>
@@ -430,6 +431,9 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
     case "lifeneed": case "beneficiary": case "cilump": case "incomestop": case "taxback": case "taxcap": case "moneysplit": case "threegen":
       // device round 2: in story-life-info.tsx, with this file's Kit and pieces
       return lifeInfo({ c, t, s, g, w, k, a: devArea(c.size), icon: icon ?? "doc" }, show as LifeShow);
+    case "umbrella": case "housepillar": case "lifering": case "safetynet": case "seedtree": case "balance": case "bridge": case "shield":
+      // device round 3: in story-meta-info.tsx, the paper's sheet drawn with this file's Kit and pieces
+      return metaInfo({ c, t, s, g, w, k, a: devArea(c.size), icon: icon ?? "doc" }, show as MetaShow);
     default:
       // the shelves that tell a family's story (kin, timeline, pic) are not offered in this look
       return null;
