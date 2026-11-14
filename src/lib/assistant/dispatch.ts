@@ -19,6 +19,7 @@ import { planNamedIn, priceNamedPlan } from "@/lib/copilot/price";
 import { asksPensionPrice, pensionNamedIn, pricePension } from "@/lib/copilot/pension-price";
 import { asksCi123Price, ci123NamedIn, priceCi123 } from "@/lib/copilot/ci123-price";
 import { asksCancerPrice, cancerNamedIn, priceCancer } from "@/lib/copilot/cancer-price";
+import { continuesPa, lastWasPa, paNamedIn, pricePa } from "@/lib/copilot/pa-price";
 import type { GuideItem } from "@/lib/copilot/guide";
 import { writtenFor, type Channel } from "./channel";
 import { answerFromLibrary } from "@/lib/copilot/library";
@@ -78,7 +79,7 @@ export type AnyAnswer = Reply & {
  */
 function opensWithNothing(asked: string): boolean {
   return !productNamedIn(asked) && !productByTopic(asked) && !planNamedIn(asked)
-    && !pensionNamedIn(asked) && !ci123NamedIn(asked) && !cancerNamedIn(asked)
+    && !pensionNamedIn(asked) && !ci123NamedIn(asked) && !cancerNamedIn(asked) && !paNamedIn(asked)
     && !aboutAGroup(asked) && !recruitReply(asked, undefined)
     && !peopleIn(asked).length && ageIn(asked) === undefined
     && !/[0-9๐-๙]/.test(asked) && !ASKS_SOMETHING.test(asked);
@@ -376,6 +377,30 @@ async function routeAny(
       ...(priced.guide?.length ? { guide: priced.guide } : {}),
       slots: stored ?? { product: "undecided", ...personIn(stored) },
     };
+  }
+
+  /**
+   * PA, the accident cover (owner, 2026-11-14, ก ก ก on mockup 1ax81iJFMjK7tG4dAX95sk), answered
+   * without a model whatever conversation it interrupts, like the cancer set above. Named, or a
+   * follow-up ("32 ปี ทุน 1 ล้าน") to a PA answer. A rules question about it goes straight to the
+   * library, which carries the PA section, rather than to whichever brain owns "อุบัติเหตุ".
+   * Wanting to apply is left to the form below.
+   */
+  const paLast = [...history].reverse().find((m) => m.role === "assistant")?.content;
+  if ((paNamedIn(asked) || (lastWasPa(paLast) && continuesPa(asked))) && !wantsToBuy(asked, false)) {
+    const earlier = history.filter((m) => m.role === "user").map((m) => m.content).slice(0, -1);
+    const pa = pricePa(asked, earlier);
+    const kept = stored ?? { product: "undecided" as const, ...personIn(stored) };
+    if (pa) {
+      return {
+        messages: [{ text: writtenFor(channel, pa.text) }],
+        priced: pa.priced,
+        ...(pa.guide?.length ? { guide: pa.guide } : {}),
+        slots: kept,
+      };
+    }
+    const answer = await answerFromLibrary(history, asked, channel);
+    if (answer) return { messages: [{ text: answer }], slots: kept, fromLibrary: true };
   }
 
   /**
