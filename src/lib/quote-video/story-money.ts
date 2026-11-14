@@ -3,7 +3,7 @@ import { isTaxRate, LIFE_CAP } from "@/lib/scene-library/tax-th";
 import { isMoneyTopic, MONEY_INPUTS, type MoneyField, type MoneyTopic } from "@/lib/story/topics";
 import type { StoryVideoInput } from "./story";
 import {
-  big, incomestopLost, lifeneedTotals, moneysplitRemainder, small, taxbackRefund, withBaht,
+  big, incomestopLost, lifeneedTotals, small, taxbackRefund, withBaht,
   type DeviceLayout, type KnowScene, type KnowShow, type LifeShow,
 } from "./story-knowledge";
 
@@ -99,18 +99,26 @@ function lifeneed(m: StoryMoney): KnowScene[] {
     ...(m.debts !== undefined ? { debts: m.debts } : {}), ...(living ? { expenses: m.expenses, years: m.years } : {}),
     ...(m.education !== undefined ? { education: m.education } : {}), ...(anyBlock && m.have !== undefined ? { have: m.have } : {}),
   }, allowed) as LifeShow<"lifeneed">;
+  const t = lifeneedTotals(need);
   const heirs = sourced({ layout: "beneficiary", title: ["ผู้รับประโยชน์", "เงินไปถึงใคร"], rows: [{ name: "คู่ชีวิต" }, { name: "ลูก" }] }, allowed);
-  // the sum had, paying the debts and the school fees, the rest left for the home; in words when it does not stretch
-  const fits = m.have !== undefined && m.debts !== undefined && m.education !== undefined && m.debts + m.education <= m.have;
-  const split = sourced(fits
-    ? { layout: "moneysplit", title: ["เงินก้อนนี้", "ช่วยคนในบ้าน"], total: m.have, parts: [{ label: "ปิดหนี้", amount: m.debts }, { label: "ค่าเรียนลูก", amount: m.education }] }
-    : { layout: "moneysplit", title: ["เงินก้อนนี้", "ช่วยคนในบ้าน"], ...(m.have !== undefined ? { total: m.have } : {}), parts: [{ label: "ปิดหนี้" }, { label: "ค่าเรียนลูก" }, { label: "ใช้จ่ายในบ้าน" }] },
-  allowed) as LifeShow<"moneysplit">;
-  const [debts, school] = split.parts;
-  const left = moneysplitRemainder(split);
-  const splitVoice = split.total !== undefined && debts?.amount !== undefined && school?.amount !== undefined
-    ? `ถ้าวันหนึ่งเราไม่อยู่ ทุน ${withBaht(split.total)} ปิดหนี้ ${withBaht(debts.amount)} เก็บเป็นค่าเรียนลูก ${withBaht(school.amount)}${left !== undefined ? ` ยังเหลือ ${withBaht(left)} ไว้ใช้จ่ายในบ้าน` : ""}ค่ะ`
-    : `ถ้าวันหนึ่งเราไม่อยู่ เงินก้อน${split.total !== undefined ? ` ${withBaht(split.total)}` : "จากประกัน"} ช่วยปิดหนี้ เป็นค่าเรียนลูก และค่าใช้จ่ายในบ้านค่ะ`;
+  // Fix round 1, controller ruling (2026-11-14): the split is of the NEEDED cover, never of what is had, so it cannot
+  // contradict scene 2's gap. Its total is lifeneedTotals' need and its parts the typed blocks (debts, expenses × years,
+  // education); these derived figures, worked out here from typed numbers, join the allowed set for this one device.
+  // A split needs two or three parts (checkDevice), so with fewer than two blocks it is drawn in words.
+  const LABEL = { debts: "ปิดหนี้", living: "ใช้จ่ายในบ้าน", education: "ค่าเรียนลูก" } as const;
+  const whole = t.blocks.length === 3;
+  const split = sourced(t.blocks.length >= 2 && t.need !== undefined
+    ? { layout: "moneysplit", title: whole ? ["ทุนที่ควรมี", "แบ่งไปใช้อะไร"] : ["รวมที่กรอกไว้", "แบ่งไปใช้อะไร"], total: t.need, parts: t.blocks.map((b) => ({ label: LABEL[b.key], amount: b.amount })) }
+    : { layout: "moneysplit", title: ["เงินก้อนนี้", "ช่วยคนในบ้าน"], parts: [{ label: LABEL.debts }, { label: LABEL.living }, { label: LABEL.education }] },
+  new Set([...allowed, ...t.blocks.map((b) => b.amount), ...(t.need !== undefined ? [t.need] : [])])) as LifeShow<"moneysplit">;
+  const drawn = split.total !== undefined && split.parts.every((p) => p.amount !== undefined);
+  const said = (key: keyof typeof LABEL, amount: number) => key === "debts" ? `ปิดหนี้ ${withBaht(amount)}`
+    : key === "living" ? `ให้ครอบครัวใช้จ่ายในบ้านอีก ${need.years} ปี ${withBaht(amount)}` : `เก็บเป็นค่าเรียนลูก ${withBaht(amount)}`;
+  const splitVoice = !drawn || t.need === undefined
+    ? "ถ้าวันหนึ่งเราไม่อยู่ เงินก้อนจากประกัน ช่วยปิดหนี้ เป็นค่าใช้จ่ายในบ้าน และค่าเรียนลูกค่ะ"
+    : whole
+      ? `ทุนที่ควรมี ${withBaht(t.need)} มีไว้ทำสามอย่างค่ะ ${t.blocks.map((b) => said(b.key, b.amount)).join(" ")} ถ้ามีทุนเท่านี้ วันหนึ่งที่เราไม่อยู่ ครอบครัวก็ยังเดินต่อได้`
+      : `เฉพาะที่กรอกไว้ รวม ${withBaht(t.need)} มีไว้${t.blocks.map((b) => said(b.key, b.amount)).join(" และ")}ค่ะ ยังไม่รวมค่าใช้จ่ายที่ไม่ได้กรอก`;
   return [
     scene("knowAsk", { layout: "ask", title: ["ทุนชีวิต", "เท่าไหร่ถึงพอ?"] }, "ทุนประกันชีวิต ควรมีเท่าไหร่ถึงจะพอคะ"),
     scene("knowOne", need, lifeneedVoice(need)),
@@ -153,15 +161,16 @@ function taxback(m: StoryMoney): KnowScene[] {
   const allowed = typed(m);
   const cap = sourced({ layout: "taxcap", title: ["เพดานลดหย่อน", "แต่ละแบบประกัน"] }, allowed);
   const back = sourced({
-    layout: "taxback", title: ["ภาษีที่ลดได้", "ตามฐานภาษี"],
+    layout: "taxback", title: ["ภาษีที่ได้คืน", "ตามฐานภาษี"],
     ...(m.premium !== undefined ? { premium: m.premium } : {}), ...(m.bracket !== undefined ? { bracket: m.bracket } : {}),
   }, allowed) as LifeShow<"taxback">;
   const refund = taxbackRefund(back);
+  // one tax word everywhere, as the device draws it (controller ruling, fix round 1): ได้คืน
   const backVoice = refund !== undefined
-    ? `ถ้าจ่ายเบี้ยประกันชีวิตปีละ ${withBaht(back.premium!)} ฐานภาษี ${back.bracket} เปอร์เซ็นต์ ภาษีจะลดลงราว ${withBaht(refund)}ค่ะ${back.premium! > LIFE_CAP ? " ส่วนที่ใช้ลดหย่อนได้ ไม่เกินเพดานของประกันชีวิต" : ""}`
-    : back.premium !== undefined ? `เบี้ยปีละ ${withBaht(back.premium)} ลดภาษีได้มากน้อยตามฐานภาษีของแต่ละคนค่ะ ฐานยิ่งสูง ภาษีที่ลดได้ยิ่งมาก`
-      : back.bracket !== undefined ? `ฐานภาษี ${back.bracket} เปอร์เซ็นต์ ยิ่งลดหย่อนได้มาก ภาษีก็ยิ่งลดลงค่ะ`
-        : "ภาษีที่ลดได้ ขึ้นกับฐานภาษีของแต่ละคนค่ะ ฐานยิ่งสูง ภาษีที่ลดได้ยิ่งมาก";
+    ? `ถ้าจ่ายเบี้ยประกันชีวิตปีละ ${withBaht(back.premium!)} ฐานภาษี ${back.bracket} เปอร์เซ็นต์ ได้ภาษีคืนราว ${withBaht(refund)}ค่ะ${back.premium! > LIFE_CAP ? " ส่วนที่ใช้ลดหย่อนได้ ไม่เกินเพดานของประกันชีวิต" : ""}`
+    : back.premium !== undefined ? `เบี้ยปีละ ${withBaht(back.premium)} ได้ภาษีคืนมากน้อยตามฐานภาษีของแต่ละคนค่ะ ยิ่งฐานภาษีสูง ยิ่งได้คืนมาก`
+      : back.bracket !== undefined ? `ฐานภาษี ${back.bracket} เปอร์เซ็นต์ ยิ่งลดหย่อนได้มาก ยิ่งได้ภาษีคืนมากค่ะ`
+        : "ภาษีที่ได้คืน ขึ้นกับฐานภาษีของแต่ละคนค่ะ ยิ่งฐานภาษีสูง ยิ่งได้คืนมาก";
   return [
     scene("knowAsk", { layout: "ask", title: ["เบี้ยประกัน", "ลดหย่อนได้เท่าไหร่?"] }, "เบี้ยประกันชีวิตที่จ่ายไปทุกปี ลดหย่อนภาษีได้เท่าไหร่คะ"),
     scene("knowOne", cap, "ประกันแต่ละแบบ มีเพดานลดหย่อนของตัวเองค่ะ ทั้งประกันชีวิต ประกันสุขภาพของเราและของพ่อแม่ และประกันแบบบำนาญ ตามเกณฑ์กรมสรรพากร"),

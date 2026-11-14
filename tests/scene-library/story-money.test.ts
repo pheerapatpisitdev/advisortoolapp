@@ -99,11 +99,15 @@ describe("the ทุนชีวิต ภาษี มรดก shelf", () => {
       expect(storyScript(input(topic)).map((s) => s.key)).toEqual([...KNOW_KEYS, "storyContact"]);
     });
 
-    it(`${topic}: every device passes checkDevice with the typed inputs as its only source`, () => {
+    it(`${topic}: every device passes checkDevice with the typed inputs as its only source (the split: and the need worked out from them)`, () => {
       const inp = input(topic, FULL[topic]);
-      const allowed = new Set(Object.values(FULL[topic]));
+      const typedOnly = new Set(Object.values(FULL[topic]));
+      // fix round 1 ruling: moneysplit splits the needed cover, so its total and parts are lifeneed's blocks and need
+      const need = moneyScenes(topic, inp).find((x) => x.show.layout === "lifeneed")?.show as LifeShow<"lifeneed"> | undefined;
+      const t = need ? lifeneedTotals(need) : undefined;
+      const withNeed = new Set([...typedOnly, ...(t ? [...t.blocks.map((b) => b.amount), t.need!] : [])]);
       for (const s of moneyScenes(topic, inp).filter((x) => isDevice(x.show))) {
-        expect(checkDevice(s.show, allowed), `${topic} ${s.show.layout}`).toEqual(s.show);
+        expect(checkDevice(s.show, s.show.layout === "moneysplit" ? withNeed : typedOnly), `${topic} ${s.show.layout}`).toEqual(s.show);
       }
     });
 
@@ -141,7 +145,7 @@ describe("the ทุนชีวิต ภาษี มรดก shelf", () => {
     });
   }
 
-  it("lifeneed: the agent's numbers fill the blocks, the split takes debts and school fees from the sum had", () => {
+  it("lifeneed: the agent's numbers fill the blocks; the split is of the needed cover, so it agrees with the gap", () => {
     const scenes = moneyScenes("lifeneed", input("lifeneed", FULL.lifeneed));
     expect(scenes[1].show).toMatchObject({ layout: "lifeneed", debts: 2_000_000, expenses: 300_000, years: 10, education: 800_000, have: 3_000_000 });
     expect(lifeneedTotals(scenes[1].show as LifeShow<"lifeneed">)).toMatchObject({ need: 5_800_000, gap: 2_800_000 });
@@ -150,15 +154,39 @@ describe("the ทุนชีวิต ภาษี มรดก shelf", () => {
     const ben = scenes[2].show as LifeShow<"beneficiary">;
     expect(ben.rows.length).toBeGreaterThan(0);
     for (const r of ben.rows) expect(r.share).toBeUndefined();
-    expect(scenes[3].show).toMatchObject({ layout: "moneysplit", total: 3_000_000, parts: [{ amount: 2_000_000 }, { amount: 800_000 }] });
-    expect(moneysplitRemainder(scenes[3].show as LifeShow<"moneysplit">)).toBe(200_000);
+    expect(scenes[3].show).toEqual({
+      layout: "moneysplit", title: ["ทุนที่ควรมี", "แบ่งไปใช้อะไร"], total: 5_800_000,
+      parts: [{ label: "ปิดหนี้", amount: 2_000_000 }, { label: "ใช้จ่ายในบ้าน", amount: 3_000_000 }, { label: "ค่าเรียนลูก", amount: 800_000 }],
+    });
+    expect(moneysplitRemainder(scenes[3].show as LifeShow<"moneysplit">)).toBeUndefined();
+    expect(scenes[3].voice).toBe("ทุนที่ควรมี 5.8 ล้านบาท มีไว้ทำสามอย่างค่ะ ปิดหนี้ 2 ล้านบาท ให้ครอบครัวใช้จ่ายในบ้านอีก 10 ปี 3 ล้านบาท เก็บเป็นค่าเรียนลูก 800,000 บาท ถ้ามีทุนเท่านี้ วันหนึ่งที่เราไม่อยู่ ครอบครัวก็ยังเดินต่อได้");
+    // never the existing cover split as if it were enough
+    expect(scenes[3].voice).not.toMatch(/3 ล้านบาท ปิดหนี้|ยังเหลือ/);
   });
 
-  it("lifeneed: a sum had too small for debts and school fees splits in words, never over the total", () => {
+  it("lifeneed: with little cover had, the split still shows the need, and no line says the cover pays the debts", () => {
     const scenes = moneyScenes("lifeneed", input("lifeneed", { ...FULL.lifeneed, have: 1_000_000 }));
-    const split = scenes[3].show as LifeShow<"moneysplit">;
-    expect(split.total).toBe(1_000_000);
-    for (const p of split.parts) expect(p.amount).toBeUndefined();
+    expect(scenes[1].voice).toMatch(/ยังขาดอีก 4\.8 ล้านบาท/);
+    expect(scenes[3].show).toMatchObject({ total: 5_800_000 });
+    for (const s of scenes) expect(s.voice).not.toMatch(/เงินก้อน 1 ล้านบาท|ทุน 1 ล้านบาท/);
+  });
+
+  it("lifeneed: two blocks typed split only those, and never call it the whole need", () => {
+    const scenes = moneyScenes("lifeneed", input("lifeneed", { debts: 2_000_000, education: 800_000, have: 500_000 }));
+    expect(scenes[3].show).toEqual({
+      layout: "moneysplit", title: ["รวมที่กรอกไว้", "แบ่งไปใช้อะไร"], total: 2_800_000,
+      parts: [{ label: "ปิดหนี้", amount: 2_000_000 }, { label: "ค่าเรียนลูก", amount: 800_000 }],
+    });
+    expect(scenes[3].voice).toBe("เฉพาะที่กรอกไว้ รวม 2.8 ล้านบาท มีไว้ปิดหนี้ 2 ล้านบาท และเก็บเป็นค่าเรียนลูก 800,000 บาทค่ะ ยังไม่รวมค่าใช้จ่ายที่ไม่ได้กรอก");
+    expect(scenes[3].voice).not.toContain("ทุนที่ควรมี");
+  });
+
+  it("lifeneed: fewer than two blocks, the split is in words with no total", () => {
+    for (const money of [undefined, { debts: 2_000_000, have: 3_000_000 }, { have: 3_000_000 }]) {
+      const split = moneyScenes("lifeneed", input("lifeneed", money))[3];
+      expect(split.show).toEqual({ layout: "moneysplit", title: ["เงินก้อนนี้", "ช่วยคนในบ้าน"], parts: [{ label: "ปิดหนี้" }, { label: "ใช้จ่ายในบ้าน" }, { label: "ค่าเรียนลูก" }] });
+      expect(split.voice).toBe("ถ้าวันหนึ่งเราไม่อยู่ เงินก้อนจากประกัน ช่วยปิดหนี้ เป็นค่าใช้จ่ายในบ้าน และค่าเรียนลูกค่ะ");
+    }
   });
 
   it("lifeneed: a partial form draws only what was typed", () => {
@@ -178,7 +206,8 @@ describe("the ทุนชีวิต ภาษี มรดก shelf", () => {
     const scenes = moneyScenes("taxback", input("taxback", FULL.taxback));
     expect(scenes[1].show).toEqual({ layout: "taxcap", title: expect.any(Array) });
     expect(scenes[2].show).toMatchObject({ layout: "taxback", premium: 50_000, bracket: 20 });
-    expect(scenes[2].voice).toContain("10,000");
+    expect(scenes[2].show).toMatchObject({ title: ["ภาษีที่ได้คืน", "ตามฐานภาษี"] });
+    expect(scenes[2].voice).toBe("ถ้าจ่ายเบี้ยประกันชีวิตปีละ 50,000 บาท ฐานภาษี 20 เปอร์เซ็นต์ ได้ภาษีคืนราว 10,000 บาทค่ะ");
     const note = scenes[3].show as Extract<KnowShow, { layout: "note" }>;
     const words = note.note.map((l) => l.text).join(" ");
     expect(words).toContain("กรมธรรม์ต้องมีระยะเวลาคุ้มครอง 10 ปีขึ้นไป");
@@ -193,6 +222,16 @@ describe("the ทุนชีวิต ภาษี มรดก shelf", () => {
     const rate = moneyScenes("taxback", input("taxback", { bracket: 30 }))[2];
     expect(rate.show).toEqual({ layout: "taxback", title: expect.any(Array), bracket: 30 });
     expect(spokenNumbers(rate.voice).every((x) => x === 30)).toBe(true);
+  });
+
+  it("taxback says ได้คืน, as the device draws it, never another word for the refund", () => {
+    for (const money of [FULL.taxback, { premium: 50_000 }, { bracket: 30 }, undefined]) {
+      const s = moneyScenes("taxback", input("taxback", money))[2];
+      expect(s.voice).toMatch(/ได้(ภาษี)?คืน/);
+      expect(`${JSON.stringify(s.show)} ${s.voice}`).not.toMatch(/ลดได้|ภาษีจะลดลง|ภาษีก็ยิ่งลดลง/);
+    }
+    expect(STORY_TOPICS.find((t) => t.key === "taxback")!.blurb).toContain("ได้คืน");
+    expect(storyCaption(input("taxback"))).toContain("ยิ่งได้คืนมาก");
   });
 
   it("no word of any topic promises a return or says ปลอดภาษี", () => {
@@ -246,8 +285,8 @@ describe("sourced: a device held to its sources", () => {
     expect(sourced(split, new Set([1, 2]))).toEqual({ layout: "moneysplit", title: ["เงินก้อนนี้", "ช่วยคนในบ้าน"], parts: [{ label: "ปิดหนี้" }, { label: "ค่าเรียนลูก" }] });
   });
   it("drops a bracket that is not a table rate", () => {
-    const show: KnowShow = { layout: "taxback", title: ["ภาษีที่ลดได้", "ตามฐานภาษี"], premium: 50_000, bracket: 12 };
-    expect(sourced(show, new Set([50_000, 12]))).toEqual({ layout: "taxback", title: ["ภาษีที่ลดได้", "ตามฐานภาษี"], premium: 50_000 });
+    const show: KnowShow = { layout: "taxback", title: ["ภาษีที่ได้คืน", "ตามฐานภาษี"], premium: 50_000, bracket: 12 };
+    expect(sourced(show, new Set([50_000, 12]))).toEqual({ layout: "taxback", title: ["ภาษีที่ได้คืน", "ตามฐานภาษี"], premium: 50_000 });
   });
 });
 

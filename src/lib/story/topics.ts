@@ -86,7 +86,7 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "agecost", name: "ทำตอนอายุน้อย เบี้ยถูกกว่า", shelf: "health", blurb: "เบี้ยสุขภาพขึ้นตามอายุ ยิ่งเริ่มเร็วยิ่งเริ่มต้นต่ำ", figure: "health" },
   { key: "lifeneed", name: "ทุนชีวิตเท่าไหร่ถึงพอ", shelf: "money", blurb: "หนี้ ค่าใช้จ่ายครอบครัว ค่าเรียนลูก รวมเป็นทุนที่ควรมี", figure: null },
   { key: "ciincome", name: "ป่วยหนัก รายได้หายไปไหน", shelf: "money", blurb: "รายได้หยุดระหว่างรักษา เงินก้อนตอนวินิจฉัยช่วยได้", figure: null },
-  { key: "taxback", name: "เบี้ยประกันลดหย่อนได้เท่าไหร่", shelf: "money", blurb: "เพดานลดหย่อน และภาษีที่ลดได้ตามฐานภาษี", figure: null },
+  { key: "taxback", name: "เบี้ยประกันลดหย่อนได้เท่าไหร่", shelf: "money", blurb: "เพดานลดหย่อน และภาษีที่ได้คืนตามฐานภาษี", figure: null },
   { key: "deliver", name: "ส่งมอบกรมธรรม์", shelf: "after", blurb: "ขอบคุณ สรุปสิ่งที่ได้ เบี้ย เริ่มคุ้มครองเมื่อไร", figure: "plan", figureRequired: true },
   { key: "claimish", name: "วิธีเคลม · โรคร้ายแรง", shelf: "after", blurb: "iShield: จ่ายตามระยะของโรค ยื่นเคลมยังไง", figure: "plan", plans: ["ISHIELD"] },
   { key: "remind", name: "เตือนชำระเบี้ย", shelf: "after", blurb: "วันครบกำหนด และยอด", figure: null, ask: "due", short: true },
