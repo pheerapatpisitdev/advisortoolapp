@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { LIBRARY, libraryItem, usesFor, storyLibraryHref, promptLibraryHref, TYPE_NAME, PRODUCT_NAME } from "@/lib/scene-library/catalog";
 import { DEVICES } from "@/lib/scene-library/devices";
-import { PROMPT_FORMATS } from "@/lib/prompt-story/types";
+import { PROMPT_FORMATS, PICTURE_STYLES } from "@/lib/prompt-story/types";
+import { SOUNDS, MUSIC_MOODS } from "@/lib/quote-video/fx";
+import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
 
 const KNOWN = new Set(["topic", "look", "format", "style"]);
 
@@ -50,5 +52,27 @@ describe("catalogue", () => {
   it("names the types and products", () => {
     expect(TYPE_NAME.format).toBe("รูปแบบรายการ");
     expect(Object.keys(PRODUCT_NAME).sort()).toEqual(["all", "health", "life", "saving"]);
+  });
+
+  it("ties looks, themes, music and sounds to the code's own lists", () => {
+    const ART = ["paper", "minimal", "plot", "line"];
+    for (const art of ART) {
+      const item = libraryItem(`look-${art}`)!;
+      const href = item.uses.find((u) => u.tool === "story-clip")!.href;
+      expect(ART).toContain(new URL(href, "http://x").searchParams.get("look"));
+      const style = new URL(item.uses.find((u) => u.tool === "prompt-story")!.href, "http://x").searchParams.get("style");
+      expect(PICTURE_STYLES.map((s) => s.id)).toContain(style);
+    }
+    expect(libraryItem("look-glass")?.name).toBe(THEME_LABELS.glass.name);
+    expect(libraryItem("look-sticky")?.name).toBe(THEME_LABELS.sticky.name);
+    for (const m of MUSIC_MOODS) expect(libraryItem(`fx-music-${m}`)?.ready).toBe(true);
+    expect(SOUNDS.length).toBeGreaterThan(0);
+    expect(libraryItem("fx-sound-beats")?.ready).toBe(true);
+  });
+  it("device lines are viewer-facing, not the writer prompts", () => {
+    for (const d of DEVICES) expect(libraryItem(d.key)?.tells).not.toBe(d.when);
+    expect(libraryItem("preexisting")).toBeUndefined();
+    expect(libraryItem("device-preexisting")?.tells).toBe("โรคที่เป็นก่อนทำประกัน และข้อยกเว้นหลัก");
+    expect(libraryItem("device-flip-calendar")?.product).toBe("saving");
   });
 });

@@ -1,6 +1,9 @@
 import { DEVICES } from "./devices";
 import { PROMPT_FORMATS } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
+import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
+import type { HealthLayout } from "@/lib/quote-video/story-knowledge";
+import type { StoryTopic } from "@/lib/story/topics";
 
 /**
  * คลังแอนิเมชัน: every clip building block the Studio has, or has planned, in one list (owner-approved
@@ -58,13 +61,24 @@ const STORY_LOOKS = [
 const DEVICE_LOOK_ORDER = ["paper", "minimal", "line", "plot"] as const;
 
 /** the story topic that shows each health device */
-const DEVICE_TOPIC: Record<string, string> = {
+const DEVICE_TOPIC: Record<HealthLayout, StoryTopic> = {
   split: "lumpsum", limit: "lumpsum", room: "roomcost", overflow: "roomcost",
   waiting: "waiting", cashless: "waiting", groupgap: "groupins", agecost: "agecost",
 };
 
+/** what a viewer reads under each device (the DEVICES `when` lines are for the script writer) */
+const DEVICE_TELLS: Record<HealthLayout, string> = {
+  split: "เทียบแผนเหมาจ่ายกับแผนแยกจ่ายที่มีเพดานแต่ละหมวด",
+  limit: "วงเงินค่ารักษาต่อปีเป็นหลอดที่ค่อยๆ ลดลงตามที่ใช้",
+  room: "ค่าห้องจริงต่อคืนเทียบกับที่แผนจ่าย",
+  overflow: "บิลที่เกินวงเงิน แล้วส่วนต่างที่ต้องจ่ายเอง",
+  waiting: "ช่วงรอคอยหลังเริ่มสัญญา ก่อนเคลมโรคบางกลุ่มได้",
+  cashless: "เข้าโรงพยาบาลในเครือข่ายแล้วไม่ต้องสำรองจ่าย",
+  groupgap: "สวัสดิการประกันกลุ่มจากที่ทำงานที่จ่ายได้ไม่พอ",
+  agecost: "เบี้ยสุขภาพต่อปีที่สูงขึ้นตามช่วงอายุ",
+};
 const readyDevices: LibraryItem[] = DEVICES.map((d) => ({
-  id: d.key, type: "device", name: d.name, tells: d.when, product: "health", ready: true,
+  id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: "health", ready: true,
   uses: [useStory("ทำคลิปเล่าเรื่อง", { topic: DEVICE_TOPIC[d.key] }), usePrompt("ทำคลิปตามโจทย์")],
   preview: `/library/${d.key}-paper.jpg`,
   looks: DEVICE_LOOK_ORDER.map((id) => ({ id, name: STORY_LOOKS.find((l) => l.art === id)!.name, preview: `/library/${d.key}-${id}.jpg` })),
@@ -72,7 +86,7 @@ const readyDevices: LibraryItem[] = DEVICES.map((d) => ({
 
 const readyFormats: LibraryItem[] = [
   { id: "format-quote", type: "format", name: "คลิปขายแผน", tells: "จากใบเสนอ เปิดด้วยตัวเลข ราคา ทุน เงื่อนไข ติดต่อ", product: "all", ready: true, uses: [useQuote()] },
-  { id: "format-story", type: "format", name: "เล่าเรื่องความรู้", tells: "คำถาม อธิบาย ตัวอย่าง สรุป ใน 4 หน้าตา", product: "all", ready: true, uses: [useStory("ทำคลิปเล่าเรื่อง")] },
+  { id: "format-story", type: "format", name: "เล่าเรื่องความรู้", tells: "คำถาม อธิบาย ตัวอย่าง สรุป เล่าความรู้ประกันให้เข้าใจง่าย", product: "all", ready: true, uses: [useStory("ทำคลิปเล่าเรื่อง")] },
   ...PROMPT_FORMATS.map((f): LibraryItem => ({
     id: f.id, type: "format", name: f.name, product: "all", ready: true,
     tells: f.id === "free" ? "ตามบทที่ AI เขียน 4–12 ฉาก ภาพ AI ทุกฉาก"
@@ -88,8 +102,8 @@ const readyLooks: LibraryItem[] = [
     uses: [useStory("ทำคลิปเล่าเรื่อง", { look: l.art }), usePrompt("ทำคลิปตามโจทย์", { style: l.style })],
     preview: `/library/look-${l.art}.jpg`,
   })),
-  { id: "look-glass", type: "look", name: "กระจกใส", tells: "การ์ดโปร่งแสงซ้อนกัน หน้าตาทันสมัย", product: "all", ready: true, uses: [useQuote()] },
-  { id: "look-sticky", type: "look", name: "โน้ตแปะ", tells: "ข้อความเป็นโน้ตกระดาษแปะบนโต๊ะ", product: "all", ready: true, uses: [useQuote()] },
+  { id: "look-glass", type: "look", name: THEME_LABELS.glass.name, tells: "การ์ดโปร่งแสงซ้อนกัน หน้าตาทันสมัย", product: "all", ready: true, uses: [useQuote()] },
+  { id: "look-sticky", type: "look", name: THEME_LABELS.sticky.name, tells: "ข้อความเป็นโน้ตกระดาษแปะบนโต๊ะ", product: "all", ready: true, uses: [useQuote()] },
 ];
 
 const MOOD_NAME: Record<(typeof MUSIC_MOODS)[number], string> = { warm: "อบอุ่น", bright: "สดใส", calm: "สงบ" };
@@ -133,7 +147,7 @@ const unbuilt: LibraryItem[] = [
   dev("all", "doctor-patient", "หมอ–คนไข้", "ฉากหมอคุยกับคนไข้ในห้องตรวจ"),
   dev("all", "agent-with-client", "ตัวแทนนั่งคุยกับลูกค้า", "ตัวแทนนั่งอธิบายแผนกับลูกค้าที่โต๊ะ"),
   dev("all", "emotions", "อารมณ์: กังวล ยิ้ม ป่วย กอด", "ตัวละครเปลี่ยนสีหน้าตามเรื่อง"),
-  dev("all", "flip-calendar", "ปฏิทินพลิก", "ปฏิทินพลิกให้เห็นเวลาเดิน"),
+  dev("saving", "flip-calendar", "ปฏิทินพลิก", "ปฏิทินพลิกให้เห็นเวลาเดิน"),
   dev("all", "ticking-clock", "นาฬิกาเดิน", "เข็มนาฬิกาหมุนตามเสียงเล่า"),
   dev("all", "before-after-days", "ก่อน–หลัง สลับวัน", "สลับวันธรรมดากับวันที่เกิดเหตุ"),
   dev("all", "rewind", "ย้อนเวลากลับไป", "ภาพย้อนกลับไปก่อนเกิดเหตุ"),
@@ -162,7 +176,7 @@ const unbuilt: LibraryItem[] = [
   dev("all", "text-chat", "แชตข้อความ", "ข้อความแชตเด้งขึ้นทีละบับเบิล"),
   dev("all", "word-by-word", "คำโผล่ทีละคำ", "คำบนจอโผล่ตามเสียงพูด"),
   dev("all", "word-highlighter", "ปากกาไฮไลต์คำ", "ปากกาขีดไฮไลต์คำสำคัญ"),
-  dev("all", "news-headline", "พาดหัวข่าว", "พาดหัวข่าวบนจอ"),
+  dev("all", "news-headline", "พาดหัวข่าว", "ข้อความพาดหัวข่าวเด้งขึ้นเต็มจอ เหมือนข่าวด่วน"),
   dev("all", "social-post", "โพสต์โซเชียล", "โพสต์แบบโซเชียลมีเดียบนจอ"),
   dev("all", "camera-pan", "แพนข้ามภาพ", "กล้องเลื่อนข้ามภาพนิ่ง"),
   dev("all", "camera-spotlight", "โฟกัสวงกลม", "วงกลมโฟกัสจุดสำคัญในภาพ"),
@@ -175,11 +189,11 @@ const unbuilt: LibraryItem[] = [
   dev("health", "ipd-opd", "IPD กับ OPD สองประตู", "ผู้ป่วยในกับผู้ป่วยนอก คนละประตู คนละวงเงิน"),
   dev("health", "copay", "Co-payment แบ่งบิล", "บิลแบ่งกันจ่าย ลูกค้าส่วนหนึ่ง ประกันส่วนหนึ่ง"),
   dev("health", "deductible", "ส่วนรับผิดชอบแรก (Deductible)", "ส่วนแรกที่ลูกค้าจ่ายก่อน ประกันจ่ายส่วนที่เกิน"),
-  dev("health", "medical-inflation", "ค่ารักษาแพงขึ้นทุกปี", "ราคาค่ารักษาไต่ขึ้นทุกปี"),
+  dev("health", "medical-inflation", "ค่ารักษาแพงขึ้นทุกปี", "เส้นราคาค่ารักษาที่ไต่ขึ้นทุกปี ทำให้ทุนเดิมไม่พอ"),
   dev("health", "renewable-to-age", "ต่ออายุได้ถึงอายุ…", "เส้นเวลาที่ต่ออายุได้ถึงอายุที่กำหนด"),
-  dev("health", "preexisting", "โรคที่เป็นมาก่อน / ข้อยกเว้น", "โรคที่ประกันไม่คุ้มครองและข้อยกเว้นหลัก"),
+  dev("health", "preexisting", "โรคที่เป็นมาก่อน / ข้อยกเว้น", "โรคที่เป็นก่อนทำประกัน และข้อยกเว้นหลัก"),
   dev("health", "hospital-map", "แผนที่ รพ. ในเครือ", "แผนที่โรงพยาบาลในเครือข่าย"),
-  dev("health", "tax-health-premium", "ลดหย่อนภาษีค่าเบี้ยสุขภาพ", "เบี้ยสุขภาพที่ลดหย่อนภาษีได้"),
+  dev("health", "tax-health-premium", "ลดหย่อนภาษีค่าเบี้ยสุขภาพ", "เบี้ยที่จ่ายแล้วนำไปลดหย่อนภาษีได้เท่าไร"),
   dev("health", "health-for-parents", "ประกันสุขภาพให้พ่อแม่", "ซื้อประกันสุขภาพให้พ่อแม่ ลูกเป็นผู้จ่าย"),
   dev("health", "ci-lump-sum", "เงินก้อนตอนวินิจฉัย", "เงินก้อนเข้ามาทันทีที่แพทย์วินิจฉัย"),
   dev("health", "ci-income-stops", "รายได้หยุดระหว่างรักษา", "รายได้หายไประหว่างพักรักษาตัว"),
@@ -194,8 +208,8 @@ const unbuilt: LibraryItem[] = [
   dev("saving", "split-money-home", "แบ่งเงินให้คนในบ้าน", "เงินก้อนแบ่งไปถึงคนในครอบครัว"),
   dev("saving", "three-generations", "ส่งต่อสามรุ่น", "ส่งต่อเงินจากรุ่นสู่รุ่นสามรุ่น"),
   dev("saving", "pension-inflation", "เงินเฟ้อกับเงินบำนาญ", "บำนาญเท่าเดิมซื้อของได้น้อยลง"),
-  dev("saving", "irr-per-year", "ผลตอบแทนเฉลี่ยต่อปี (IRR)", "ผลตอบแทนเฉลี่ยต่อปีของแผนออม"),
-  dev("saving", "past-returns-chart", "กราฟผลตอบแทนย้อนหลัง", "กราฟผลตอบแทนกองทุนย้อนหลัง"),
+  dev("saving", "irr-per-year", "ผลตอบแทนเฉลี่ยต่อปี (IRR)", "ผลตอบแทนเฉลี่ยต่อปีของแผน เทียบกับฝากธนาคาร"),
+  dev("saving", "past-returns-chart", "กราฟผลตอบแทนย้อนหลัง", "เส้นกราฟผลตอบแทนของกองทุนในอดีต"),
   dev("saving", "fund-risk-1-8", "ระดับความเสี่ยงกองทุน 1–8", "สเกลความเสี่ยงกองทุนตั้งแต่ 1 ถึง 8"),
   dev("saving", "portfolio-mix", "สัดส่วนการลงทุน", "วงกลมสัดส่วนการลงทุนในแต่ละกอง"),
   dev("saving", "tax-cap-total", "เพดานลดหย่อนรวม", "เพดานลดหย่อนภาษีรวมของเบี้ยประกัน"),
@@ -207,17 +221,17 @@ const unbuilt: LibraryItem[] = [
   n("fx", "all", "fx-transition-torn", "ทรานสิชัน กระดาษฉีก", "ฉากฉีกเหมือนกระดาษ"),
   n("fx", "all", "fx-transition-ink", "ทรานสิชัน หมึกซึม", "ฉากถัดไปซึมเข้ามาเหมือนหมึก"),
   n("fx", "all", "fx-transition-shake", "ทรานสิชัน สั่นจอตอนช็อก", "จอสั่นตอนตัวเลขช็อก"),
-  n("fx", "all", "fx-coin-rain", "เหรียญโปรย", "เหรียญร่วงบนจอ"),
+  n("fx", "all", "fx-coin-rain", "เหรียญโปรย", "เหรียญทองโปรยลงมาเมื่อพูดถึงเงินคืนหรือผลตอบแทน"),
   n("fx", "all", "fx-hearts", "หัวใจลอย", "หัวใจลอยขึ้นบนจอ"),
   n("fx", "all", "fx-fireworks", "พลุฉลอง", "พลุระเบิดตอนฉลอง"),
-  n("fx", "all", "fx-rain", "ฝนตก", "ฝนตกบนจอ"),
-  n("fx", "all", "fx-leaves", "ใบไม้ปลิว", "ใบไม้ปลิวผ่านจอ"),
-  n("fx", "all", "fx-sparkle", "ประกายวิบวับ", "ประกายระยิบระยับ"),
+  n("fx", "all", "fx-rain", "ฝนตก", "เม็ดฝนโปรยลงมาในฉากเหตุไม่คาดฝัน"),
+  n("fx", "all", "fx-leaves", "ใบไม้ปลิว", "ใบไม้ปลิวผ่านฉากแห่งกาลเวลา"),
+  n("fx", "all", "fx-sparkle", "ประกายวิบวับ", "ประกายวิบวับเน้นตัวเลขหรือคำสำคัญ"),
   n("fx", "all", "fx-sound-tick", "เสียงติ๊กเช็กลิสต์", "เสียงติ๊กตอนติ๊กถูกรายการ"),
   n("fx", "all", "fx-sound-money-in", "เสียงเงินเข้า", "เสียงเหรียญตอนเงินเข้า"),
   n("fx", "all", "fx-sound-heartbeat", "เสียงเครื่องวัดหัวใจ", "เสียงปี๊บของเครื่องวัดหัวใจ"),
   n("fx", "all", "fx-sound-chat-pop", "เสียงป๊อปบับเบิลแชต", "เสียงป๊อปตอนข้อความแชตขึ้น"),
-  n("fx", "all", "fx-sound-whoosh", "เสียงวูชตอนเปลี่ยนฉาก", "เสียงวูชตอนเปลี่ยนฉาก"),
+  n("fx", "all", "fx-sound-whoosh", "เสียงวูชตอนเปลี่ยนฉาก", "เสียงลมวูบตอนฉากเปลี่ยน"),
   n("fx", "all", "fx-sound-typing", "เสียงกดแป้นพิมพ์", "เสียงกดแป้นพิมพ์ตอนข้อความขึ้น"),
   n("fx", "all", "fx-music-tense", "เพลงลุ้นตื่นเต้น", "เพลงจังหวะลุ้น"),
   n("fx", "all", "fx-music-hopeful", "เพลงเศร้าแล้วมีหวัง", "เพลงเริ่มเศร้าแล้วค่อยมีหวัง"),
@@ -226,7 +240,7 @@ const unbuilt: LibraryItem[] = [
   n("fx", "all", "fx-cut-hook", "ฮุก 3 วินาทีแรก", "เปิดคลิปด้วยประโยคดึงคนดูใน 3 วินาทีแรก"),
   n("fx", "all", "fx-cut-on-beat", "ตัดตามบีตเพลง", "จังหวะตัดฉากตรงกับบีตเพลง"),
   n("fx", "all", "fx-cut-punch-zoom", "ซูมกระแทก", "ซูมเข้าแรงๆ ตอนเน้นคำ"),
-  n("fx", "all", "fx-cut-countdown", "ตัวเลขนับถอยหลัง", "ตัวเลขนับถอยหลังบนจอ"),
+  n("fx", "all", "fx-cut-countdown", "ตัวเลขนับถอยหลัง", "ตัวเลข 3 2 1 นับถอยหลังเพิ่มความลุ้น"),
   n("fx", "all", "fx-cut-pov-text", "ข้อความ POV", "ข้อความ POV แบบคลิปสั้น"),
   n("fx", "all", "fx-cut-speed-ramp", "สปีดช้า–เร็ว", "ภาพช้าลงแล้วเร็วขึ้นตามจังหวะ"),
 ];
