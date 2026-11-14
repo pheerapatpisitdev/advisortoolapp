@@ -109,6 +109,10 @@ vi.mock("@/lib/ai/ledger", () => ({ recordUsage: async () => undefined }));
 vi.mock("@/lib/video/engines/cloudrun", () => ({ cloudRunEngine: () => ({ submit: (...a: unknown[]) => ai.submit(...a) }) }));
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: "0812345678" }), photoDataUri: async () => null }));
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async () => Buffer.from("png") }));
+// ภาพจากคลัง: the library's store and the part laid on the look's ground, faked
+const lib = vi.hoisted(() => ({ okUploads: vi.fn(), uploadFile: vi.fn(), assetPicture: vi.fn() }));
+vi.mock("@/lib/scene-library/uploads", () => ({ okUploads: (...a: unknown[]) => lib.okUploads(...a), uploadFile: (...a: unknown[]) => lib.uploadFile(...a) }));
+vi.mock("@/lib/prompt-story/asset-picture", () => ({ assetPicture: (...a: unknown[]) => lib.assetPicture(...a) }));
 
 const { createPromptStory, deleteVideo, finishVideo, isStuck, produce, redrawPicture, sweepStuckVideos, voiceFullUntil } = await import("@/lib/quote-video/make");
 const { clipStates } = await import("@/lib/quote-video/rows");
@@ -652,6 +656,99 @@ describe("device scenes (health devices): never drawn as a picture, never charge
     ai.draw.mockClear();
     const r = await redrawPicture(agent, id, 1);
     expect(r.ok).toBe(false);
+    expect(wallet.holdWallet).not.toHaveBeenCalled();
+    expect(ai.draw).not.toHaveBeenCalled();
+    expect(rowOf(id).status).toBe("done");
+  });
+});
+
+describe("ภาพจากคลัง scenes: the library's part laid on the look's ground, never painted, never charged", () => {
+  const U1 = "11111111-1111-4111-8111-111111111111";
+  const U2 = "22222222-2222-4222-8222-222222222222";
+  const part = { bytes: Buffer.from("part-bytes"), type: "image/png" };
+  const okRow = (id: string) => ({ id, agentId: "a2", kind: "part", name: "บ้าน", note: "", paths: [`library/${id}.png`], state: "ok", reason: null, createdAt: "" });
+  /** five scenes, the 2nd and 4th from the library */
+  const mixed = (over: Partial<PromptStoryInput> = {}) => {
+    const v = input({ style: "line", ...over });
+    const s = v.scenes;
+    v.scenes = [s[0], { voice: "บ้านอุ่นใจ", screen: "บ้านอุ่นใจ", picture: "", asset: U1 }, s[1], { voice: "ร่มกันฝน", screen: "ร่มกันฝน", picture: "", asset: U2 }, s[2]];
+    return v;
+  };
+  const each = () => pictureSatang(DEFAULT_PRICES, "standard")!;
+
+  beforeEach(() => {
+    for (const f of Object.values(lib)) f.mockReset();
+    lib.okUploads.mockImplementation(async (ids: string[]) => ids.map(okRow));
+    lib.uploadFile.mockResolvedValue(part);
+    lib.assetPicture.mockImplementation(async () => Buffer.from("asset-png"));
+  });
+
+  it("holds the clip and the three picture scenes only", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, mixed(), "");
+    expect(rowOf((made as { id: string }).id).held_satang).toBe(DEFAULT_PRICES.videoPrompt + 3 * each());
+  });
+
+  it("files each part as its scene's picture and paints only the picture scenes", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, mixed(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect(ai.draw).toHaveBeenCalledTimes(3);
+    expect(lib.uploadFile.mock.calls.map((c) => c[0]).sort()).toEqual([`library/${U1}.png`, `library/${U2}.png`]);
+    expect(lib.assetPicture).toHaveBeenCalledTimes(2);
+    // the part, the clip's look (การ์ตูนลายเส้น) and the clip's size
+    expect(lib.assetPicture).toHaveBeenCalledWith(part, { art: "line" }, "portrait");
+    expect((row.input as PromptStoryInput).pictures).toEqual([0, 1, 2, 3, 4].map((n) => `${id}/pic-${n}.png`));
+    expect(db.files.get(`${id}/pic-1.png`)?.toString()).toBe("asset-png");
+    expect(db.files.get(`${id}/pic-3.png`)?.toString()).toBe("asset-png");
+    // the painter's bar counts the three it paints; the hold and the cost are the three pictures'
+    expect(db.notes.filter((n) => n.step === "pictures").map((n) => [n.done, n.of])).toEqual([[0, 3], [1, 3], [2, 3], [3, 3]]);
+    expect(row.held_satang).toBe(DEFAULT_PRICES.videoPrompt + 3 * each());
+    expect((row.cost_parts as { pictures: number }).pictures).toBeCloseTo(3 * (PAINTERS.find((p) => p.id === "standard")?.thb ?? 0));
+    // pushed in like any picture
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as { scenes: { picture?: string }[] };
+    expect(props.scenes[1].picture).toContain(`${id}/pic-1.png`);
+  });
+
+  it("a part that cannot be read leaves its scene on paper, and the hold is not touched", async () => {
+    freeUsedUp();
+    lib.uploadFile.mockImplementation(async (path: string) => (path.includes(U2) ? null : part));
+    const made = await createPromptStory(agent, mixed(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect((row.input as PromptStoryInput).pictures).toEqual([`${id}/pic-0.png`, `${id}/pic-1.png`, `${id}/pic-2.png`, null, `${id}/pic-4.png`]);
+    expect(row.held_satang).toBe(DEFAULT_PRICES.videoPrompt + 3 * each());
+  });
+
+  it("a part no longer approved, or a store that cannot be read, leaves paper too", async () => {
+    freeUsedUp();
+    lib.okUploads.mockImplementation(async () => [okRow(U1)]);
+    const first = await createPromptStory(agent, mixed(), "");
+    await produce((first as { id: string }).id, "ตัวแทน");
+    expect((rowOf((first as { id: string }).id).input as PromptStoryInput).pictures?.[3]).toBeNull();
+
+    db.drafts[0].made_clip_id = null;
+    lib.okUploads.mockRejectedValue(new Error("relation does not exist"));
+    const second = await createPromptStory(agent, mixed(), "");
+    const id = (second as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect((row.input as PromptStoryInput).pictures).toEqual([`${id}/pic-0.png`, null, `${id}/pic-2.png`, null, `${id}/pic-4.png`]);
+    expect(row.held_satang).toBe(DEFAULT_PRICES.videoPrompt + 3 * each());
+  });
+
+  it("refuses to redraw an asset scene, and takes nothing", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, mixed(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
+    wallet.holdWallet.mockClear();
+    ai.draw.mockClear();
+    expect(await redrawPicture(agent, id, 1)).toEqual({ ok: false, error: "ฉากนี้ใช้ภาพจากคลัง ไม่มีการวาดใหม่" });
     expect(wallet.holdWallet).not.toHaveBeenCalled();
     expect(ai.draw).not.toHaveBeenCalled();
     expect(rowOf(id).status).toBe("done");

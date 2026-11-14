@@ -1,5 +1,6 @@
 import { INFO_SHELVES, topicOf, type StoryTopic } from "@/lib/story/topics";
 import { isPromptFormat, type PromptFormat } from "@/lib/prompt-story/types";
+import { isUploadId } from "./upload-rules";
 
 /**
  * คลังแอนิเมชัน's links into the clip forms (spec 2026-11-14, "Links into the forms"): the library's
@@ -15,7 +16,8 @@ export type PromptStyle = "paper" | "warm" | "plot" | "line";
 const PROMPT_STYLES: readonly PromptStyle[] = ["paper", "warm", "plot", "line"];
 
 export interface StoryStart { topic?: StoryTopic; look?: StoryLook }
-export interface PromptStart { format?: PromptFormat; style?: PromptStyle }
+/** `asset`: a library part's id (spec 2026-11-14-library-uploads), the script editor's picker opens with it first */
+export interface PromptStart { format?: PromptFormat; style?: PromptStyle; asset?: string }
 type Params = Record<string, string | string[] | undefined>;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -52,9 +54,12 @@ export function storyStartFrom(params: Params): StoryStart {
 export function promptStartFrom(params: Params): PromptStart {
   const format = one(params.format);
   const style = one(params.style) as PromptStyle | undefined;
+  const asset = one(params.asset);
   return {
     ...(isPromptFormat(format) ? { format } : {}),
     ...(style !== undefined && PROMPT_STYLES.includes(style) ? { style } : {}),
+    // whether it is an approved part the page's list says; an id that is not one is passed over there
+    ...(isUploadId(asset) ? { asset } : {}),
   };
 }
 

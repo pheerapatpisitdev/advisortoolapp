@@ -113,7 +113,7 @@ export interface VideoItem {
   /** the words the AI wrote to go with it, and the writes left (post-text.ts) */
   post?: ClipPost | null;
   /** a finished คลิปตามโจทย์: its scenes, and what a picture drawn again costs ("1"; null for the owner) */
-  /** devices: the scenes (from 0) the system draws, with no AI picture to draw again */
+  /** devices: the scenes (from 0) the system draws or a library part fills, with no AI picture to draw again */
   redraw?: { scenes: number; price: string | null; devices?: number[] };
 }
 export interface ClipPost { text: string; tone: PostText["tone"]; voice: PostText["voice"]; kind: PostText["kind"]; left: number }
@@ -690,7 +690,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
         // only who may make a คลิปตามโจทย์ may draw a scene again (redrawPicture refuses the rest, owner 2026-10-18)
-        ...(v.status === "done" && mayRedraw && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)), devices: input.scenes.flatMap((x, i) => (x.device ? [i] : [])) } } : {}),
+        ...(v.status === "done" && mayRedraw && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)), devices: input.scenes.flatMap((x, i) => (x.device || x.asset ? [i] : [])) } } : {}),
       };
     }
     const input = v.input;

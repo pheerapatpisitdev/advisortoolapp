@@ -1,16 +1,20 @@
 import { checkDevice } from "./check";
 import { deviceInfo } from "@/lib/scene-library/devices";
+import { isUploadId } from "@/lib/scene-library/upload-rules";
 import type { DeviceScene, PromptScene } from "./types";
 
 /**
  * The script editor's sums and moves (health devices, Task 10), kept apart from the page so they are
  * tested alone. Browser-safe. A scene is a picture scene unless its device passes checkDevice with the
- * figures the brief and the plan give (deviceAllowed): the very test checkedPromptStory charges by.
+ * figures the brief and the plan give (deviceAllowed): the very test checkedPromptStory charges by. A
+ * library part (ภาพจากคลัง, คลังแอนิเมชัน phase 3) is laid in, not painted, unless a passing device is on the scene.
  */
 
 export type SceneKind =
   | { kind: "picture" }
   | { kind: "device"; device: DeviceScene; name: string }
+  /** a library part, laid on the look's ground: not painted, not charged */
+  | { kind: "asset"; id: string }
   /** a device the server will drop: the scene is charged and painted as a picture */
   | { kind: "broken"; reason: string; name: string };
 
@@ -29,24 +33,29 @@ export function deviceReason(reason: string): string {
   return said.replace(/\d{4,}/g, (n) => Number(n).toLocaleString("en-US"));
 }
 
+/** a passing device first; else a part (as checkedPromptStory keeps one only on a scene with no device it keeps) */
 export function sceneKind(s: PromptScene, forDevice: Set<number>): SceneKind {
-  if (!s.device) return { kind: "picture" };
+  const asset = isUploadId(s.asset) ? s.asset : null;
+  if (!s.device) return asset ? { kind: "asset", id: asset } : { kind: "picture" };
   const d = checkDevice(s.device, forDevice);
   const name = deviceInfo(String(s.device.layout))?.name ?? "อุปกรณ์";
-  if (typeof d === "string") return { kind: "broken", reason: deviceReason(d), name };
-  return { kind: "device", device: s.device, name };
+  if (typeof d !== "string") return { kind: "device", device: s.device, name };
+  return asset ? { kind: "asset", id: asset } : { kind: "broken", reason: deviceReason(d), name };
 }
 
-/** the scenes the painter draws and the clip charges for: no device, or a device the server will drop */
+/** neither a passing device nor a part: the painter draws it */
+const painted = (k: SceneKind) => k.kind === "picture" || k.kind === "broken";
+
+/** the scenes the painter draws and the clip charges for: no device or part, or a device the server will drop */
 export const pictureCount = (scenes: PromptScene[], forDevice: Set<number>): number =>
-  scenes.filter((s) => sceneKind(s, forDevice).kind !== "device").length;
+  scenes.filter((s) => painted(sceneKind(s, forDevice))).length;
 
 /** the server's words for a picture scene left without its picture words (checkedPromptStory) */
 export const needPictureWords = (n: number): string => `ใส่คำบรรยายภาพของฉากที่ ${n}`;
 
 /** the first picture scene (from 0) with no picture words, as the server would refuse it; null when none */
 export function missingPicture(scenes: PromptScene[], forDevice: Set<number>): number | null {
-  const i = scenes.findIndex((s) => sceneKind(s, forDevice).kind !== "device" && !s.picture.replace(/\s+/g, " ").trim());
+  const i = scenes.findIndex((s) => painted(sceneKind(s, forDevice)) && !s.picture.replace(/\s+/g, " ").trim());
   return i < 0 ? null : i;
 }
 
@@ -57,11 +66,19 @@ export function missingPicture(scenes: PromptScene[], forDevice: Set<number>): n
 export const pictureFromScreen = (screen: string): string =>
   screen.replace(/[\d๐-๙][\d๐-๙,.]*/g, " ").replace(/\s+/g, " ").trim();
 
-/** ภาพ AI: the device goes, voice and screen stay; picture words kept, or begun from the screen words */
+/** ภาพ AI: the device or the part goes, voice and screen stay; picture words kept, or begun from the screen words */
 export function toPicture(s: PromptScene): PromptScene {
+  const { device: _gone, asset: _part, ...rest } = s;
+  void _gone;
+  void _part;
+  return { ...rest, picture: s.picture.trim() ? s.picture : pictureFromScreen(s.screen) };
+}
+
+/** ภาพจากคลัง: the part `id` in place of the device, every word kept (toPicture brings the picture words back) */
+export function toAsset(s: PromptScene, id: string): PromptScene {
   const { device: _gone, ...rest } = s;
   void _gone;
-  return { ...rest, picture: s.picture.trim() ? s.picture : pictureFromScreen(s.screen) };
+  return { ...rest, asset: id };
 }
 
 /** one box of a device's words: where it sits in the device, its label, its text */

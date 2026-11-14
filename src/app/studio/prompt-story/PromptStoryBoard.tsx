@@ -20,7 +20,7 @@ import { makePromptStory, writePromptStory, type FigureNums } from "./actions";
 import { DEFAULT_FIGURE, FigurePicker, type FigureChoice } from "./FigurePicker";
 import { LookStep, type Look } from "./LookStep";
 import { geminiVoice } from "@/lib/voice/gemini";
-import { ScriptEditor, type Draft } from "./ScriptEditor";
+import { ScriptEditor, type Draft, type LibraryPart } from "./ScriptEditor";
 import type { PromptStart } from "@/lib/scene-library/links";
 
 /**
@@ -61,7 +61,7 @@ interface Written {
   nums: FigureNums | null;
 }
 
-export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven, start }: {
+export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven, start, assets = [], startAsset }: {
   initial: VideoItem[] | null;
   cost: CostView | null;
   prices: Prices;
@@ -70,6 +70,10 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   eleven: ElevenChoice[];
   /** คลังแอนิเมชัน's link: the format and style to open on (links.ts has checked them); neither is remembered in this browser, so nothing restored overrides them */
   start?: PromptStart;
+  /** คลังแอนิเมชัน's approved parts, for a scene's ภาพจากคลัง; none when the library cannot be read */
+  assets?: LibraryPart[];
+  /** the part a library link named (?asset=), first in the script editor's row */
+  startAsset?: string;
 }) {
   const [brief, setBrief] = useState("");
   const [scenes, setScenes] = useState<SceneCount>(5);
@@ -272,7 +276,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       </aside>
 
       <section aria-label="บทและวิดีโอ" className="studio-desk min-w-0 space-y-4 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
-        {draft && <ScriptEditor draft={draft} notes={notes} onChange={setDraft} forDevice={forDevice} />}
+        {draft && <ScriptEditor draft={draft} notes={notes} onChange={setDraft} forDevice={forDevice} assets={assets} startAsset={startAsset} />}
         <ClipList items={items} setItems={setItems} pages={pages} />
       </section>
     </div>

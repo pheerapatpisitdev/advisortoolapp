@@ -31,8 +31,12 @@ export const PICTURE_STYLES: { id: PictureStyle; name: string }[] = [
  */
 export type DeviceScene = Extract<KnowShow, { layout: HealthLayout }>;
 
-/** a scene: its picture words are drawn by the painter, unless it carries a device (then they may be empty) */
-export type PromptScene = { voice: string; screen: string; picture: string; showFigure?: boolean; device?: DeviceScene };
+/**
+ * a scene: its picture words are drawn by the painter, unless it carries a device or a library part
+ * (`asset`, an approved upload's id, คลังแอนิเมชัน phase 3: laid on the look's ground, never painted, never
+ * charged); then they may be empty. Never both: the device wins.
+ */
+export type PromptScene = { voice: string; screen: string; picture: string; showFigure?: boolean; device?: DeviceScene; asset?: string };
 
 /** how the writer shapes the script (owner, 2026-11-13, 2ก): none on a row means ตามโจทย์ */
 export type PromptFormat = "free" | "drama3" | "claimreview";
@@ -67,7 +71,7 @@ export interface PromptStoryInput {
   gemini?: string;
   faces: { narrator: string };
   figure?: StoryFigure;
-  /** each scene's picture in the clip's folder ("<id>/pic-<n>.png", n from 0), null where it fell back to paper or the scene is a device */
+  /** each scene's picture in the clip's folder ("<id>/pic-<n>.png", n from 0; a library part's too), null where it fell back to paper or the scene is a device */
   pictures?: (string | null)[];
   /** the written draft this clip was made from: a second press of the same draft is refused */
   draftId?: string;
@@ -82,10 +86,10 @@ export const isPromptStory = (v: { product?: string }): v is PromptStoryInput =>
 /** one of the clip's pictures, at its painter's price (a redraw costs this) */
 export const promptPicturePrice = (v: Pick<PromptStoryInput, "painter">, prices: Prices): number => pictureSatang(prices, v.painter) ?? 0;
 
-/** the scenes the painter draws: every scene but a device's */
-export const pictureScenes = (v: Pick<PromptStoryInput, "scenes">): number => v.scenes.filter((s) => !s.device).length;
+/** the scenes the painter draws: every scene but a device's or a library part's */
+export const pictureScenes = (v: Pick<PromptStoryInput, "scenes">): number => v.scenes.filter((s) => !s.device && !s.asset).length;
 
-/** every picture scene's picture (a device scene is drawn by the system, at no charge) */
+/** every picture scene's picture (a device scene is drawn by the system, a library part laid in, at no charge) */
 export const promptPicturesPrice = (v: PromptStoryInput, prices: Prices): number => pictureScenes(v) * promptPicturePrice(v, prices);
 
 /** what a free clip still pays from the wallet (spec, Money): its pictures */

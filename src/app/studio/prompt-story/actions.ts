@@ -16,6 +16,7 @@ import { rewriteScene, writeStory } from "@/lib/prompt-story/writer";
 import type { PromptScene } from "@/lib/prompt-story/types";
 import type { Made } from "@/app/studio/quote-video/actions";
 import { closedFor } from "@/lib/switches/store";
+import { okUploads } from "@/lib/scene-library/uploads";
 
 /**
  * คลิปตามโจทย์: the agent's brief written into a script and kept as a draft, the clip made from
@@ -84,6 +85,8 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
   const gemini = eleven ? undefined : geminiVoice(v?.gemini);
   const asked = checkedPromptStory(v ?? {}, eleven ? eleven.sex : gemini ? gemini.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
   if (typeof asked === "string") return { ok: false, error: asked };
+  const gone = await withdrawnPart(asked.scenes);
+  if (gone !== null) return { ok: false, error: `ภาพจากคลังของฉากที่ ${gone + 1} ใช้ไม่ได้แล้ว เลือกภาพใหม่` };
   const input = gemini ? { ...asked, gemini: gemini.name } : asked;
   const contact = await getContact(viewer.agentId);
   if (!(contact.name || viewer.name).trim() || !contact.phone) {
@@ -101,6 +104,21 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
     console.error("prompt story not started:", e instanceof Error ? e.message : "unknown error");
     return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
+}
+
+/**
+ * The first scene (from 0) whose library part is no longer an approved part, before anything is held (spec
+ * 2026-11-14-library-uploads); null when every part is. A store that cannot be read has none usable.
+ */
+async function withdrawnPart(scenes: PromptScene[]): Promise<number | null> {
+  const ids = [...new Set(scenes.flatMap((s) => (s.asset ? [s.asset] : [])))];
+  if (!ids.length) return null;
+  const ok = new Set((await okUploads(ids, "part").catch((e) => {
+    console.error("library parts not read:", e instanceof Error ? e.message : "unknown error");
+    return [];
+  })).map((r) => r.id));
+  const i = scenes.findIndex((s) => s.asset && !ok.has(s.asset));
+  return i < 0 ? null : i;
 }
 
 /**

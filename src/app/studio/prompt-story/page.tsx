@@ -12,6 +12,7 @@ import { myCost, myVideos, voiceQuota } from "../quote-video/actions";
 import { PromptStoryBoard } from "./PromptStoryBoard";
 import { ToolLogo } from "@/components/shell/ToolLogo";
 import { promptStartFrom } from "@/lib/scene-library/links";
+import { sharedUploads } from "@/lib/scene-library/uploads";
 
 export const dynamic = "force-dynamic";
 // a clip is drawn after the request is answered (after()), inside this page's time
@@ -50,6 +51,13 @@ export default async function PromptStoryPage({ searchParams }: { searchParams: 
   const [cost, prices, quota] = await Promise.all([myCost(), walletPrices(), voiceQuota()]);
   // คลังแอนิเมชัน's "ใช้แบบนี้": the format and style the link asked for (spec 2026-11-14)
   const start = promptStartFrom(await searchParams);
+  // คลังแอนิเมชัน's approved parts, for a scene's ภาพจากคลัง (spec 2026-11-14-library-uploads); none when unreadable
+  const assets = await sharedUploads()
+    .then((rows) => rows.filter((r) => r.kind === "part").map((r) => ({ id: r.id, name: r.name })))
+    .catch((e) => {
+      console.error("library parts not read:", e);
+      return [];
+    });
   const initial = await myVideos("prompt").catch((e) => {
     console.error("prompt story videos not read:", e);
     return null;
@@ -61,7 +69,7 @@ export default async function PromptStoryPage({ searchParams }: { searchParams: 
         พิมพ์โจทย์ของลูกค้าเอง AI เขียนบทให้ฟรี แก้ได้ทุกช่อง แล้วค่อยสร้างเป็นคลิปพร้อมรูป เสียง และการ์ดตัวแทนท้ายคลิป
       </p>
       <ClosedNotice viewer={viewer} feature="prompt-story" />
-      <PromptStoryBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} start={start} />
+      <PromptStoryBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} start={start} assets={assets} startAsset={start.asset} />
     </div>
   );
 }

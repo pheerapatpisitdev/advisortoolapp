@@ -1,3 +1,4 @@
+import { isUploadId } from "@/lib/scene-library/upload-rules";
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
@@ -51,11 +52,15 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
     const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
     // a device that fails its check is dropped: the scene is a picture scene, and is priced as one
     const device = o.device === undefined || o.device === null ? undefined : checkDevice(o.device, allowed);
-    const sc: PromptScene = { voice: text(o.voice), screen: text(o.screen), picture: text(o.picture), ...(typeof device === "object" ? { device } : {}) };
+    // a library part (an upload's id; whether it is still approved is makePromptStory's to ask) on a scene with no device
+    const asset = typeof device !== "object" && isUploadId(o.asset) ? o.asset : undefined;
+    const sc: PromptScene = {
+      voice: text(o.voice), screen: text(o.screen), picture: text(o.picture), ...(typeof device === "object" ? { device } : {}), ...(asset ? { asset } : {}),
+    };
     if (!sc.voice || len(sc.voice) > VOICE_MAX) return `ฉากที่ ${i + 1}: ใส่คำพูด ไม่เกิน ${VOICE_MAX} ตัวอักษร`;
     if (!sc.screen || len(sc.screen) > SCREEN_MAX) return `ฉากที่ ${i + 1}: ใส่ข้อความบนจอ ไม่เกิน ${SCREEN_MAX} ตัวอักษร`;
-    // a picture scene needs its words for the painter; a device scene is drawn by the system
-    if (!sc.device && !sc.picture) return `ใส่คำบรรยายภาพของฉากที่ ${i + 1}`;
+    // a picture scene needs its words for the painter; a device scene is drawn by the system, a part laid in
+    if (!sc.device && !sc.asset && !sc.picture) return `ใส่คำบรรยายภาพของฉากที่ ${i + 1}`;
     if (len(sc.picture) > PICTURE_MAX) return `ฉากที่ ${i + 1}: ใส่ภาพที่อยากได้ ไม่เกิน ${PICTURE_MAX} ตัวอักษร`;
     // the figure card is drawn on one scene at most, and only when a plan was priced
     if (o.showFigure === true && figure && !shown) {

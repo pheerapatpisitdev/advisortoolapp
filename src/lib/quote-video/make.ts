@@ -29,8 +29,10 @@ import { topicOf } from "@/lib/story/topics";
 import { isPromptStory, pictureScenes, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
+import { assetPicture } from "@/lib/prompt-story/asset-picture";
 import { claimDraft, releaseDraft } from "@/lib/prompt-story/drafts";
-import { freeTail, freeWindows } from "@/lib/prompt-story/frames";
+import { freeLook, freeTail, freeWindows } from "@/lib/prompt-story/frames";
+import { okUploads, uploadFile } from "@/lib/scene-library/uploads";
 import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { contactSpec } from "./story-motion";
@@ -531,30 +533,60 @@ type Lap = ReturnType<typeof lapper>;
 /** what one picture of a painter costs us, in baht */
 const pictureThb = (painter: string) => PAINTERS.find((p) => p.id === painter)?.thb ?? 0;
 
+/** the approved library parts these scenes name, by id; none when the store cannot be read (each then stays on paper) */
+async function partsOf(scenes: PromptStoryInput["scenes"]): Promise<Map<string, string>> {
+  const ids = [...new Set(scenes.flatMap((sc) => (!sc.device && sc.asset ? [sc.asset] : [])))];
+  if (!ids.length) return new Map();
+  const rows = await okUploads(ids, "part").catch((e) => {
+    console.error("library parts not read:", e instanceof Error ? e.message : e);
+    return [];
+  });
+  return new Map(rows.flatMap((r) => (r.paths[0] ? [[r.id, r.paths[0]] as [string, string]] : [])));
+}
+
+/** a library part laid on the look's ground (asset-picture.tsx); null when it cannot be read or drawn */
+async function partPicture(path: string | undefined, input: PromptStoryInput, size: VideoSize): Promise<Buffer | null> {
+  try {
+    const part = path ? await uploadFile(path) : null;
+    return part ? await assetPicture(part, freeLook(input), size) : null;
+  } catch (e) {
+    console.error("library part not drawn:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 /**
  * A คลิปตามโจทย์'s pictures, three at a time, each filed as "<id>/pic-<n>.png" and named on the
  * row's input. A picture that fails twice leaves its scene on paper, and is not charged: the
  * clip's hold settles that much less (redrawing it later is one picture's price). A device scene
- * is drawn by the system: never painted, its picture null, never held for so never given back.
+ * is drawn by the system: never painted, its picture null, never held for so never given back. A
+ * library part (ภาพจากคลัง) is laid on the look's ground and filed as the scene's picture: never painted,
+ * never held for, and one that cannot be read leaves its scene on paper as a failed painting does.
  */
 async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Bar): Promise<{ input: PromptStoryInput; costThb: number }> {
   const { id, input } = row;
   const size = clipSize(input);
   const of = pictureScenes(input);
+  const parts = await partsOf(input.scenes);
   let done = 0;
   // a clip of device scenes only paints nothing: no "วาดรูปประกอบ 0/0" step, the bar goes straight to the voice
   if (of > 0) bar.note({ step: "pictures", done: 0, of });
+  const painted = (sc: PromptStoryInput["scenes"][number]) => !sc.device && !sc.asset;
   const pictures = await pool(input.scenes, 3, async (scene, s): Promise<string | null> => {
     if (scene.device) return null;
-    const png = await drawScenePicture(scene, input.style, input.painter, size);
-    bar.note({ step: "pictures", done: ++done, of });
+    let png: Buffer | null;
+    if (scene.asset) png = await partPicture(parts.get(scene.asset), input, size);
+    else {
+      png = await drawScenePicture(scene, input.style, input.painter, size);
+      bar.note({ step: "pictures", done: ++done, of });
+    }
     if (!png) return null;
     await upload(id, picName(s), png, "image/png");
     return `${id}/${picName(s)}`;
   });
   const next: PromptStoryInput = { ...input, pictures };
-  // only a picture scene was held for, so only a picture scene that failed comes off
-  const missing = input.scenes.filter((sc, s) => !sc.device && pictures[s] === null).length;
+  // only a painted scene was held for, so only a painted scene that failed comes off
+  const missing = input.scenes.filter((sc, s) => painted(sc) && pictures[s] === null).length;
   const patch: Partial<VideoRow> = { input: next };
   if (missing && row.hold_id && row.held_satang) {
     patch.held_satang = Math.max(0, Number(row.held_satang) - missing * promptPicturePrice(input, await walletPrices()));
@@ -877,8 +909,9 @@ export async function redrawPicture(
   if (row.status !== "done" || !row.video_path) return { ok: false, error: "วาดใหม่ได้เฉพาะคลิปที่ทำเสร็จแล้ว" };
   const input = row.input;
   if (!Number.isInteger(scene) || scene < 0 || scene >= input.scenes.length) return { ok: false, error: "ไม่พบฉากนี้" };
-  // a device scene has no picture to draw, and is never charged as one
+  // a device scene has no picture to draw, and is never charged as one; nor has a library part's
   if (input.scenes[scene].device) return { ok: false, error: "ฉากนี้เป็นภาพจากระบบ ไม่มีภาพ AI ให้วาดใหม่" };
+  if (input.scenes[scene].asset) return { ok: false, error: "ฉากนี้ใช้ภาพจากคลัง ไม่มีการวาดใหม่" };
   const gcpKey = await renderKeyOf();
   if (!gcpKey) return { ok: false, error: FAILED };
   const pcms = await keptVoice(id, input.scenes.length + 1);
@@ -944,8 +977,9 @@ export async function redrawScene({ id, scene, agentName, hold, price }: RedrawJ
     const { data: row, error } = await rows().select("*").eq("id", id).single<VideoRow>();
     if (error || !row || !isPromptStory(row.input)) throw new Error("row not read");
     const input = row.input;
-    // redrawPicture refuses a device scene: one reaching here is drawn by the system, never painted
+    // redrawPicture refuses a device scene and a library part's: one reaching here is never painted
     if (input.scenes[scene]?.device) throw new Error("device scene has no picture");
+    if (input.scenes[scene]?.asset) throw new Error("library part scene has no picture to draw");
     const gcpKey = await renderKeyOf();
     if (!gcpKey) throw new Error("no render key");
     const pcms = await keptVoice(id, input.scenes.length + 1);
