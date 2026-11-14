@@ -4,7 +4,7 @@ import { CHILDREN } from "@/lib/story/faces";
 import type { ReactNode } from "react";
 import { a, abs, type Anim } from "./motion";
 import type { Dev } from "./story-health-motion";
-import { META_DEFAULTS, partnerFace, type MetaShow } from "./story-knowledge";
+import { META_DEFAULTS, META_LIMITS, partnerFace, type MetaShow } from "./story-knowledge";
 import { geoOf, Title, type Rect } from "./story-knowledge-motion";
 import { Card, fitWrap, handWidth, Lines, wrapHand } from "./story-life-motion";
 import { line, minimal, paper, Pic, type StoryContext } from "./story-motion";
@@ -50,25 +50,34 @@ export function metaSpec(show: MetaShow): Record<string, Anim> {
       s.fall = a(1.8, "fade", 1.1);
       break;
     case "seedtree":
+      // the seed in the soil with the ground's words; it sprouts, and a small tree grows beside it; then the big tree
       s.set = a(0.5, "pop");
-      s.trouble = a(1.1, "grow");
-      s.protect = a(1.9, "grow");
+      s.trouble = a(1.1, "grow", 1.1);
+      s.protect = a(2.3, "grow", 1.0);
       break;
     case "balance":
+      // the scale stands level; the beam swings; it settles to its tilt
       s.set = a(0.5, "pop");
       s.trouble = a(1.2, "fade", 0.8);
-      s.protect = a(2.0, "pop");
+      s.protect = a(2.0, "pop", 0.9);
       break;
     case "bridge":
+      // the cliffs, the water and someone on the left; stones fall from the edge; the bridge is drawn across; they walk over
       s.set = a(0.5, "pop");
-      s.trouble = a(1.1, "fade");
-      s.protect = a(1.7, "stroke", 1.0);
+      s.trouble = a(1.1, "fade", 0.8);
+      s.protect = a(1.9, "stroke", 1.0);
+      s.walk = a(3.0, "fade", 1.6);
       break;
-    case "shield":
+    case "shield": {
+      // the family behind the shield; the arrows fly in one by one (the trouble is their whole flight) and stick in it; it gleams
       s.set = a(0.5, "pop");
-      show.arrows.forEach((_, i) => { s[`arrow${i}`] = a(1.0 + i * 0.4, "left"); });
-      s.protect = a(1.2 + show.arrows.length * 0.4, "pop");
+      const n = shieldArrows(show).length;
+      for (let i = 0; i < n; i += 1) s[`arrow${i}`] = a(1.1 + i * 0.42, "left", 0.5);
+      const last = 1.1 + Math.max(0, n - 1) * 0.42 + 0.5;
+      s.trouble = a(1.1, "fade", last - 1.1);
+      s.protect = a(last + 0.1, "pop", 0.7);
       break;
+    }
   }
   const end = Math.max(...Object.values(s).map((x) => x.at + x.dur));
   s.note = a(end + 0.2, "fade");
@@ -82,8 +91,10 @@ export function metaBody(show: MetaShow, d: Dev) {
     case "housepillar": return <HousePillar d={d} show={show} />;
     case "lifering": return <LifeRing d={d} show={show} />;
     case "safetynet": return <SafetyNet d={d} show={show} />;
-    // Task 3: seedtree, balance, bridge and shield; until then nothing is drawn (the title and the frame stand)
-    default: return null;
+    case "seedtree": return <SeedTree d={d} show={show} />;
+    case "balance": return <Balance d={d} show={show} />;
+    case "bridge": return <Bridge d={d} show={show} />;
+    case "shield": return <Shield d={d} show={show} />;
   }
 }
 
@@ -190,6 +201,8 @@ export function metaFigures(show: MetaShow, c: StoryContext, t: number): MetaFig
     // the sea up to their chest: a doll's under its big head; มินิมอล's higher up its slim body
     case "lifering": return [at(SWIM_X, SEA + (1 - (minimal(c.input) ? 0.36 : 0.62)) * SWIM_W * TALL + bobAt(t), SWIM_W)];
     case "safetynet": return [at(WALK_X, walkerAt(metaSpec(show), t).foot, WALK_W)];
+    case "bridge": return [at(bridgeWalk(show, t).x, BRIDGE.deck, CROSS_W)];
+    case "shield": return SHIELD_PEOPLE.map(([x, w]) => at(x, SHIELD_GROUND, w));
     default: return [];
   }
 }
@@ -340,6 +353,27 @@ const SPARE_LEFT = 269;
 const pillarPeople = (spare: boolean): [number, number][] => [[72, 80], [132, 60], [spare ? 262 : 300, 80]];
 
 /**
+ * a word's plaque, sized: its word set on one line in the largest size, up to `cap`, at which it fits `maxW` of the
+ * sheet's units; as wide as the word and a little more (frame px)
+ */
+function tagSize(size: VideoSize, geo: MetaGeo, word: string, maxW: number, cap: number) {
+  const g = geoOf(size);
+  // the padding inside the plaque, its 3 px edge counted in
+  const pad = Math.round(g.text * 0.26) + 3;
+  const maxPx = Math.round(maxW * geo.k);
+  const fs = Math.min(cap, Math.floor((maxPx - pad * 2) / (handWidth(word, 1) || 1)));
+  const w = Math.min(maxPx, Math.ceil(handWidth(word, fs)) + pad * 2 + Math.round(fs * 0.4));
+  const h = Math.round(fs * 1.3) + 2 * (Math.round(fs * 0.12) + 3);
+  return { word, size: fs, pad, w, h };
+}
+type TagSize = ReturnType<typeof tagSize>;
+/** a plaque placed in the frame: its middle at the sheet's `mid`, its top `top` px down the frame */
+const placeTag = (geo: MetaGeo, p: TagSize, mid: number, top: number) => ({ word: p.word, size: p.size, pad: p.pad, plaque: { x: geo.art.x + Math.round(mid * geo.k - p.w / 2), y: top, w: p.w, h: p.h } });
+export type MetaTag = ReturnType<typeof placeTag>;
+/** the middle a plaque `w` px wide may have on the sheet to stand `edge` units inside it, nearest to `mid` */
+const keepIn = (geo: MetaGeo, w: number, mid: number, edge = 4) => Math.min(SHEET.w - edge - w / 2 / geo.k, Math.max(edge + w / 2 / geo.k, mid));
+
+/**
  * where เสาหลักของบ้าน's words stand: each pillar's plaque (in the frame's px) with its word set in the largest size,
  * up to a little under the text size, at which it fits on one line; the spare's only when there is a spare word. A
  * plaque hangs in the middle of its pillar; with a spare, a wide main plaque leans left and a wide spare one right,
@@ -349,15 +383,9 @@ export function pillarGeo(size: VideoSize, show: MetaShow<"housepillar">) {
   const g = geoOf(size);
   const geo = metaGeo(size, show.note);
   const plaque = (word: string, x: number, place: (w: number) => number) => {
-    // the padding inside the plaque, its 3 px edge counted in
-    const pad = Math.round(g.text * 0.26) + 3;
-    const maxW = Math.round(PLAQUE_W * geo.k);
-    const fs = Math.min(Math.round(g.text * 0.95), Math.floor((maxW - pad * 2) / (handWidth(word, 1) || 1)));
-    const w = Math.min(maxW, Math.ceil(handWidth(word, fs)) + pad * 2 + Math.round(fs * 0.4));
-    const h = Math.round(fs * 1.3) + 2 * (Math.round(fs * 0.12) + 3);
+    const p = tagSize(size, geo, word, PLAQUE_W, Math.round(g.text * 0.95));
     // where its middle hangs, in the sheet's units
-    const mid = place(w / geo.k);
-    return { word, size: fs, pad, x, plaque: { x: geo.art.x + Math.round(mid * geo.k - w / 2), y: geo.art.y + Math.round(PLAQUE_TOP * geo.k), w, h } };
+    return { ...placeTag(geo, p, place(p.w / geo.k), geo.art.y + Math.round(PLAQUE_TOP * geo.k)), x };
   };
   const spare = show.spare;
   return {
@@ -366,7 +394,7 @@ export function pillarGeo(size: VideoSize, show: MetaShow<"housepillar">) {
     spare: spare ? plaque(spare, SPARE_X, (w) => Math.max(SPARE_X, SPARE_LEFT + w / 2)) : null,
   };
 }
-type PlaqueGeo = ReturnType<typeof pillarGeo>["main"];
+type PlaqueGeo = MetaTag;
 
 /** a pillar standing from the beam to the floor at `x`, `fill` its wood, with its grain */
 const pillar = (x: number, fill: string, grain: string, key: string) => (
@@ -378,11 +406,11 @@ const pillar = (x: number, fill: string, grain: string, key: string) => (
   </g>
 );
 
-/** a plaque on a pillar, its word on note paper, turned with the pillar; placed from the sheet's corner (`at`) */
-function Plaque({ p, at, rot = 0, dx = 0 }: { p: PlaqueGeo; at: Rect; rot?: number; dx?: number }) {
+/** a word's plaque on note paper, turned a little (and `rot` more); placed from the sheet's corner (`at`), moved `dx`/`dy` px */
+function Plaque({ p, at, rot = 0, dx = 0, dy = 0, opacity = 1 }: { p: PlaqueGeo; at: Rect; rot?: number; dx?: number; dy?: number; opacity?: number }) {
   const pr = p.plaque;
   return (
-    <div style={abs({ left: pr.x - at.x + Math.round(dx), top: pr.y - at.y, width: pr.w, height: pr.h, justifyContent: "center", alignItems: "center", background: C.note, border: `3px solid ${C.ink}`, borderRadius: 8, fontFamily: "Mali", fontSize: p.size, fontWeight: 600, lineHeight: 1.3, color: C.ink, transform: `rotate(${r1(-1.5 + rot)}deg)` })}>{p.word}</div>
+    <div style={abs({ left: pr.x - at.x + Math.round(dx), top: pr.y - at.y + Math.round(dy), width: pr.w, height: pr.h, justifyContent: "center", alignItems: "center", background: C.note, border: `3px solid ${C.ink}`, borderRadius: 8, fontFamily: "Mali", fontSize: p.size, fontWeight: 600, lineHeight: 1.3, color: C.ink, transform: `rotate(${r1(-1.5 + rot)}deg)`, ...(opacity < 1 ? { opacity: r1(opacity * 100) / 100 } : {}) })}>{p.word}</div>
   );
 }
 
@@ -646,6 +674,467 @@ function SafetyNet({ d, show }: { d: Dev; show: MetaShow<"safetynet"> }) {
             {strung > 0 ? POSTS.map((x) => <circle key={x} cx={x} cy={NET_Y} r={4.5} fill={C.green} stroke={C.ink} strokeWidth={2} />) : null}
           </>
         ))}
+      </Sheet>
+      <MetaNote d={d} geo={geo} />
+    </>
+  );
+}
+
+/** a piece growing up from its foot with a little overshoot, 0 to 1 */
+const growScale = (p: number) => (p <= 0 ? 0 : p >= 1 ? 1 : 1 + 2.70158 * (p - 1) ** 3 + 1.70158 * (p - 1) ** 2);
+const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
+/** a shape on the sheet that grows from (x, y), its foot, `v` its growth */
+const grownAt = (x: number, y: number, v: number, body: ReactNode, key: string) => (v <= 0 ? null : (
+  <g key={key} transform={`translate(${x} ${y}) scale(${growScale(v).toFixed(3)})`}>{body}</g>
+));
+
+/* ---------- seedtree: เมล็ดโตเป็นต้นไม้ ---------- */
+
+/** the soil's top; the sprout, the small tree and the big tree along it, left to right; where the ground's words hang */
+const SOIL = 212;
+const SEED_X = [80, 188, 310] as const;
+const SEED_WORD_TOP = 246;
+/** a ground word's plaque at most this wide (sheet units): the two leave room for the arrow between them */
+const SEED_WORD_W = 160;
+const LEAF = C.paperShirts[5];
+
+/**
+ * where เมล็ดโตเป็นต้นไม้'s words stand (the ground's two, วันนี้ / วันข้างหน้า when none are given) and how far each of
+ * its three plants has grown at t: the sprout and then the small tree in the trouble beat, the big tree in the
+ * protection; a plant starts only once the one to its left is grown
+ */
+export function seedGeo(size: VideoSize, show: MetaShow<"seedtree">) {
+  const g = geoOf(size);
+  const geo = metaGeo(size, show.note);
+  const cap = Math.round(g.text * 0.9);
+  const top = geo.art.y + Math.round(SEED_WORD_TOP * geo.k);
+  const word = (w: string, mid: number) => { const p = tagSize(size, geo, w, SEED_WORD_W, cap); return placeTag(geo, p, keepIn(geo, p.w, mid), top); };
+  const s = metaSpec(show);
+  const stages = (t: number) => {
+    const tr = s.trouble;
+    const half = tr.dur * 0.45;
+    return [prog({ ...tr, dur: half }, t), prog({ ...tr, at: tr.at + half, dur: tr.dur - half }, t), prog(s.protect, t)];
+  };
+  return { geo, from: word(show.from || META_DEFAULTS.from, SEED_X[0]), to: word(show.to || META_DEFAULTS.to, SEED_X[2]), stages };
+}
+
+/** the sprout: a curved stem and two leaves, its foot at (0, 0) */
+const sprout = (
+  <>
+    <path d="M0 0 C-2 -16 4 -28 0 -44" fill="none" stroke={C.green} strokeWidth={4} strokeLinecap="round" />
+    <path d="M0 -40 C-8 -56 -30 -58 -36 -46 C-26 -36 -10 -36 0 -40 Z" fill={LEAF} stroke={C.ink} strokeWidth={2.2} strokeLinejoin="round" />
+    <path d="M0 -42 C8 -60 30 -62 36 -50 C26 -38 10 -38 0 -42 Z" fill={LEAF} stroke={C.ink} strokeWidth={2.2} strokeLinejoin="round" />
+  </>
+);
+/** a crown of leaves: round blobs, the ink round the whole, a lighter blob or two on top */
+const crown = (blobs: [number, number, number][], light: [number, number, number][]) => (
+  <>
+    {blobs.map(([x, y, r], i) => <circle key={`o${i}`} cx={x} cy={y} r={r} fill={C.ink} stroke={C.ink} strokeWidth={5} />)}
+    {blobs.map(([x, y, r], i) => <circle key={`i${i}`} cx={x} cy={y} r={r} fill={i % 2 ? C.green : LEAF} />)}
+    {light.map(([x, y, r], i) => <circle key={`l${i}`} cx={x} cy={y} r={r} fill={C.white} opacity={0.22} />)}
+  </>
+);
+const smallTree = (
+  <>
+    <path d="M-6 0 L-5 -66 L5 -66 L6 0 Z" fill={C.wood} stroke={C.ink} strokeWidth={2.4} strokeLinejoin="round" />
+    {crown([[-22, -74, 20], [22, -74, 20], [0, -94, 28]], [[-6, -104, 9]])}
+  </>
+);
+const bigTree = (fruit: number) => (
+  <>
+    <path d="M-15 0 Q-9 -50 -8 -108 L8 -108 Q9 -50 15 0 Z" fill={C.wood} stroke={C.ink} strokeWidth={2.6} strokeLinejoin="round" />
+    <path d="M-4 -80 L-30 -106 M4 -90 L28 -114" stroke={C.wood} strokeWidth={7} strokeLinecap="round" />
+    {crown([[-44, -116, 34], [44, -116, 34], [-24, -158, 36], [26, -160, 36], [0, -128, 40]], [[-30, -176, 12], [14, -182, 10]])}
+    {/* the fruit, last */}
+    {fruit > 0 ? [[-46, -110], [-8, -140], [36, -122], [20, -170], [-30, -160]].map(([x, y], i) => (
+      <circle key={i} cx={x} cy={y} r={r1(6.5 * growScale(clamp01(fruit * 5 - i * 0.8)))} fill={C.red} stroke={C.ink} strokeWidth={1.6} />
+    )) : null}
+  </>
+);
+
+/**
+ * เมล็ดโตเป็นต้นไม้: a seed in the soil under the ground's two words (วันนี้ → วันข้างหน้า); it sprouts; a small tree
+ * grows beside it; then a big tree with fruit, left to right
+ */
+function SeedTree({ d, show }: { d: Dev; show: MetaShow<"seedtree"> }) {
+  const { c, t, s } = d;
+  const sg = seedGeo(c.size, show);
+  const geo = sg.geo;
+  const set = prog(s.set, t);
+  const [a0, a1, a2] = sg.stages(t);
+  // the arrow on the soil from the first word to the second, in the sheet's units
+  const right = (sg.from.plaque.x + sg.from.plaque.w - geo.art.x) / geo.k + 8;
+  const left = (sg.to.plaque.x - geo.art.x) / geo.k - 8;
+  const ay = SEED_WORD_TOP + sg.from.plaque.h / geo.k / 2;
+  return (
+    <>
+      <MetaTitle d={d} text={show.title} />
+      <Sheet geo={geo}>
+        <div style={abs({ left: 0, top: 0, width: geo.art.w, height: geo.art.h, opacity: set > 0 ? 1 : 0, ...(set < 1 ? { transform: `scale(${popScale(set).toFixed(3)})` } : {}) })}>
+          {layer(geo, (
+            <>
+              {/* the sun, low on the left */}
+              <g>
+                {Array.from({ length: 8 }, (_, i) => { const th = (i * Math.PI) / 4; return <path key={i} d={`M${r1(44 + 25 * Math.cos(th))} ${r1(46 + 25 * Math.sin(th))} L${r1(44 + 33 * Math.cos(th))} ${r1(46 + 33 * Math.sin(th))}`} stroke={C.coin} strokeWidth={3} strokeLinecap="round" />; })}
+                <circle cx={44} cy={46} r={18} fill={C.spoken} stroke={C.ink} strokeWidth={2.4} />
+              </g>
+              {/* the soil, its pebbles, the seed in it and, once it sprouts, its roots */}
+              <path d={`M6 ${SOIL} Q100 ${SOIL - 6} 200 ${SOIL} T394 ${SOIL} V288 Q394 298 384 298 H16 Q6 298 6 288 Z`} fill={C.paperChair} stroke={C.ink} strokeWidth={2.6} strokeLinejoin="round" />
+              <path d={`M6 ${SOIL} Q100 ${SOIL - 6} 200 ${SOIL} T394 ${SOIL}`} fill="none" stroke={LEAF} strokeWidth={6} strokeLinecap="round" />
+              {[[30, 228], [150, 232], [252, 226], [372, 230], [214, 290], [118, 290]].map(([x, y]) => <ellipse key={`${x}`} cx={x} cy={y} rx={4} ry={2.6} fill={C.woodGrain} opacity={0.45} />)}
+              {a0 > 0 ? <path d={`M${SEED_X[0]} ${SOIL + 12} q-10 6 -14 14 M${SEED_X[0]} ${SOIL + 12} q8 8 10 16`} fill="none" stroke={C.woodGrain} strokeWidth={2} strokeLinecap="round" opacity={r1(easeOut(a0))} /> : null}
+              <ellipse cx={SEED_X[0]} cy={SOIL + 10} rx={9} ry={6} fill={C.woodGrain} stroke={C.ink} strokeWidth={2} />
+              {/* the way from today to later, between the ground's words */}
+              {left - right > 24 ? (
+                <g stroke={C.ink} strokeWidth={2.6} strokeLinecap="round" fill="none" opacity={0.8}>
+                  <path d={`M${r1(right)} ${r1(ay)} H${r1(left)}`} strokeDasharray="2 7" />
+                  <path d={`M${r1(left - 8)} ${r1(ay - 7)} L${r1(left)} ${r1(ay)} L${r1(left - 8)} ${r1(ay + 7)}`} />
+                </g>
+              ) : null}
+            </>
+          ))}
+          {layer(geo, (
+            <>
+              {grownAt(SEED_X[0], SOIL + 4, a0, sprout, "sprout")}
+              {grownAt(SEED_X[1], SOIL + 4, a1, smallTree, "small")}
+              {grownAt(SEED_X[2], SOIL + 4, a2, bigTree(a2 >= 1 ? 1 : Math.max(0, (a2 - 0.6) / 0.4)), "big")}
+            </>
+          ))}
+          <Plaque p={sg.from} at={geo.art} />
+          <Plaque p={sg.to} at={geo.art} rot={2.4} />
+        </div>
+      </Sheet>
+      <MetaNote d={d} geo={geo} />
+    </>
+  );
+}
+
+/* ---------- balance: ตาชั่ง ---------- */
+
+/** the beam's pivot, its half-length, how far below its ends the pans' rims hang, a pan's half-width */
+const PIVOT = { x: 200, y: 82 };
+const ARM = 118;
+const HANG = 96;
+const PAN = 66;
+/** how far the beam leans when it settles to one side, degrees */
+export const TILT = 12;
+/** a pan's word at most this wide (sheet units): clear of the post at the widest swing */
+const PAN_WORD_W = 160;
+
+/**
+ * the beam's angle at t, degrees (clockwise: the right pan down): level until the trouble; it swings both ways;
+ * then it settles to its tilt (left, right, or level when even or none is given)
+ */
+export function beamAngle(show: MetaShow<"balance">, t: number) {
+  const s = metaSpec(show);
+  const want = show.tilt === "left" ? -TILT : show.tilt === "right" ? TILT : 0;
+  if (t < s.trouble.at) return 0;
+  const p = prog(s.trouble, t);
+  if (p < 1) return r1(14 * Math.sin(p * Math.PI * 3) * (1 - 0.4 * p));
+  const q = prog(s.protect, t);
+  if (q >= 1) return want;
+  return r1(want * (1 - Math.exp(-4 * q) * Math.cos(3 * Math.PI * q)) + (want === 0 ? 4 * Math.sin(q * Math.PI * 2) * (1 - q) : 0));
+}
+
+/** the beam's two ends at an angle (sheet units) */
+const beamEnds = (deg: number) => {
+  const th = (deg * Math.PI) / 180;
+  return [-1, 1].map((side) => ({ x: PIVOT.x + side * ARM * Math.cos(th), y: PIVOT.y + side * ARM * Math.sin(th) }));
+};
+
+/** where ตาชั่ง's words stand at t: each on its pan, which hangs from its end of the beam; and the post (frame px) */
+export function balanceGeo(size: VideoSize, show: MetaShow<"balance">, t: number) {
+  const g = geoOf(size);
+  const geo = metaGeo(size, show.note);
+  const cap = Math.round(g.text * 0.9);
+  const ends = beamEnds(beamAngle(show, t));
+  const [left, right] = show.sides.map((w, i) => {
+    const p = tagSize(size, geo, w, PAN_WORD_W, cap);
+    // the plaque stands in its pan, its foot on the rim
+    return placeTag(geo, p, keepIn(geo, p.w, ends[i].x), geo.art.y + Math.round((ends[i].y + HANG + 1) * geo.k) - p.h);
+  });
+  const post = { x: geo.art.x + Math.round((PIVOT.x - 8) * geo.k), y: geo.art.y + Math.round(PIVOT.y * geo.k), w: Math.round(16 * geo.k), h: Math.round((280 - PIVOT.y) * geo.k) };
+  return { geo, left, right, post };
+}
+
+/** ตาชั่ง: a golden scale with a word in each pan; the beam swings; it settles to its tilt and gleams */
+function Balance({ d, show }: { d: Dev; show: MetaShow<"balance"> }) {
+  const { c, t, s } = d;
+  const bg = balanceGeo(c.size, show, t);
+  const geo = bg.geo;
+  const set = prog(s.set, t);
+  const deg = beamAngle(show, t);
+  const ends = beamEnds(deg);
+  const settled = prog(s.protect, t) >= 1;
+  return (
+    <>
+      <MetaTitle d={d} text={show.title} />
+      <Sheet geo={geo}>
+        <div style={abs({ left: 0, top: 0, width: geo.art.w, height: geo.art.h, opacity: set > 0 ? 1 : 0, ...(set < 1 ? { transform: `scale(${popScale(set).toFixed(3)})` } : {}) })}>
+          {layer(geo, (
+            <>
+              {/* the post on its foot */}
+              <path d="M150 288 L250 288 L232 264 L168 264 Z" fill={C.wood} stroke={C.ink} strokeWidth={2.6} strokeLinejoin="round" />
+              <rect x={PIVOT.x - 7} y={PIVOT.y} width={14} height={264 - PIVOT.y} fill={C.coin} stroke={C.ink} strokeWidth={2.6} />
+              {/* the pans hang straight down from the beam's ends: their strings, then the bowls */}
+              {ends.map((e, i) => (
+                <g key={i}>
+                  <path d={`M${r1(e.x)} ${r1(e.y)} L${r1(e.x - PAN + 6)} ${r1(e.y + HANG)} M${r1(e.x)} ${r1(e.y)} L${r1(e.x + PAN - 6)} ${r1(e.y + HANG)}`} stroke={C.ink} strokeWidth={2} />
+                </g>
+              ))}
+              <g transform={`rotate(${deg} ${PIVOT.x} ${PIVOT.y})`}>
+                <rect x={PIVOT.x - ARM - 4} y={PIVOT.y - 6} width={ARM * 2 + 8} height={12} rx={6} fill={C.coin} stroke={C.ink} strokeWidth={2.6} />
+                {[-1, 1].map((side) => <circle key={side} cx={PIVOT.x + side * ARM} cy={PIVOT.y} r={7} fill={C.coin} stroke={C.ink} strokeWidth={2.2} />)}
+              </g>
+              <path d={`M${PIVOT.x - 10} ${PIVOT.y - 6} L${PIVOT.x} ${PIVOT.y - 30} L${PIVOT.x + 10} ${PIVOT.y - 6} Z`} fill={C.coin} stroke={C.ink} strokeWidth={2.4} strokeLinejoin="round" />
+              <circle cx={PIVOT.x} cy={PIVOT.y} r={10} fill={C.coin} stroke={C.ink} strokeWidth={2.6} />
+              <circle cx={PIVOT.x} cy={PIVOT.y} r={3.5} fill={C.ink} />
+              {/* settled: a gleam by the pivot */}
+              {settled ? [[-26, -26, 7], [24, -34, 5], [30, -10, 4]].map(([dx, dy, r]) => (
+                <path key={dx} d={`M${PIVOT.x + dx} ${PIVOT.y + dy - r} L${PIVOT.x + dx + r * 0.3} ${PIVOT.y + dy - r * 0.3} L${PIVOT.x + dx + r} ${PIVOT.y + dy} L${PIVOT.x + dx + r * 0.3} ${PIVOT.y + dy + r * 0.3} L${PIVOT.x + dx} ${PIVOT.y + dy + r} L${PIVOT.x + dx - r * 0.3} ${PIVOT.y + dy + r * 0.3} L${PIVOT.x + dx - r} ${PIVOT.y + dy} L${PIVOT.x + dx - r * 0.3} ${PIVOT.y + dy - r * 0.3} Z`} fill={C.spoken} stroke={C.ink} strokeWidth={1.4} strokeLinejoin="round" />
+              )) : null}
+            </>
+          ))}
+          {/* each word in its pan, then the pan's near lip in front of it */}
+          <Plaque p={bg.left} at={geo.art} />
+          <Plaque p={bg.right} at={geo.art} rot={2.4} />
+          {layer(geo, (
+            <>
+              {ends.map((e, i) => (
+                <path key={i} d={`M${r1(e.x - PAN)} ${r1(e.y + HANG)} Q${r1(e.x)} ${r1(e.y + HANG + 34)} ${r1(e.x + PAN)} ${r1(e.y + HANG)} Z`} fill={C.coin} stroke={C.ink} strokeWidth={2.6} strokeLinejoin="round" />
+              ))}
+            </>
+          ))}
+        </div>
+      </Sheet>
+      <MetaNote d={d} geo={geo} />
+    </>
+  );
+}
+
+/* ---------- bridge: สะพานข้ามช่วงยาก ---------- */
+
+/** the cliff tops (and the deck, level with them), the gap between the cliffs, where the walker starts and ends */
+export const BRIDGE = { deck: 172, gap: [120, 280] as [number, number], from: 58, to: 342 };
+const CROSS_W = 66;
+const SUN = { x: 238, y: 42 };
+
+/** where the one crossing stands at t (sheet units), and how much of the bridge is drawn (0 to 1) */
+export function bridgeWalk(show: MetaShow<"bridge">, t: number) {
+  const s = metaSpec(show);
+  const walk = prog(s.walk, t);
+  return { x: r1(BRIDGE.from + (BRIDGE.to - BRIDGE.from) * easeInOut(walk)), foot: BRIDGE.deck, built: prog(s.protect, t), walk };
+}
+
+/** a cliff from the top edge at `x0` to its face at `x1` (the face jagged), down to the sheet's foot */
+const cliff = (x0: number, x1: number) => {
+  const dir = Math.sign(x1 - x0);
+  return `M${x0} ${BRIDGE.deck} H${x1} L${x1 + dir * 8} 198 L${x1 - dir * 4} 226 L${x1 + dir * 6} 258 L${x1 - dir * 2} 300 H${x0} Z`;
+};
+
+/**
+ * สะพานข้ามช่วงยาก: two cliffs with water between, someone on the left; stones fall from the edge and they worry; a
+ * blue arch bridge is drawn across from the left; they walk over and are glad on the far side
+ */
+function Bridge({ d, show }: { d: Dev; show: MetaShow<"bridge"> }) {
+  const { c, t, s } = d;
+  const geo = metaGeo(c.size, show.note);
+  const set = prog(s.set, t);
+  const rough = prog(s.trouble, t);
+  const w = bridgeWalk(show, t);
+  const [g0, g1] = BRIDGE.gap;
+  const reach = g0 - 4 + (g1 - g0 + 8) * easeOut(w.built);
+  const built = w.built > 0;
+  // the arch under the deck, as far as it is drawn: from one cliff face to the other, rising to just under the deck
+  const arch: string[] = [];
+  for (let i = 0; i <= 32; i += 1) {
+    const u = i / 32;
+    const x = 126 + 148 * u;
+    if (x > reach) break;
+    arch.push(`${r1(x)} ${r1((1 - u) ** 2 * 238 + 2 * (1 - u) * u * 146 + u * u * 238)}`);
+  }
+  const archY = (x: number) => { const u = (x - 126) / 148; return (1 - u) ** 2 * 238 + 2 * (1 - u) * u * 146 + u * u * 238; };
+  const planks = Array.from({ length: 12 }, (_, i) => g0 - 4 + i * 14).filter((x) => x + 14 <= reach + 0.01);
+  const stones = rough > 0 && rough < 1 ? [0, 1, 2].map((i) => {
+    const p = clamp01(rough * 1.6 - i * 0.3);
+    return p > 0 && p < 1 ? <circle key={i} cx={r1(g0 + 4 + i * 5 + 6 * p)} cy={r1(BRIDGE.deck + 6 + 66 * p * p)} r={3.5 - i * 0.6} fill={C.woodGrain} stroke={C.ink} strokeWidth={1.4} /> : null;
+  }) : null;
+  const glad = w.walk >= 1;
+  const pose: PoseName | Pose = glad ? POSES.cheer(t) : w.walk > 0 ? POSES.walk(t) : rough > 0 && !built ? worried(t) : smiling(POSES.stand(t), built);
+  const f = metaFigures(show, c, t)[0];
+  return (
+    <>
+      <MetaTitle d={d} text={show.title} />
+      <Sheet geo={geo}>
+        <div style={abs({ left: 0, top: 0, width: geo.art.w, height: geo.art.h, opacity: set > 0 ? 1 : 0, ...(set < 1 ? { transform: `scale(${popScale(set).toFixed(3)})` } : {}) })}>
+          {layer(geo, (
+            <>
+              {/* the sun over the gap, clear of whoever stands or cheers below it */}
+              {Array.from({ length: 8 }, (_, i) => { const th = (i * Math.PI) / 4; return <path key={i} d={`M${r1(SUN.x + 24 * Math.cos(th))} ${r1(SUN.y + 24 * Math.sin(th))} L${r1(SUN.x + 31 * Math.cos(th))} ${r1(SUN.y + 31 * Math.sin(th))}`} stroke={C.coin} strokeWidth={3} strokeLinecap="round" />; })}
+              <circle cx={SUN.x} cy={SUN.y} r={17} fill={C.spoken} stroke={C.ink} strokeWidth={2.4} />
+              {/* the water in the gap, rougher in the trouble */}
+              <path d={`${wave(244, 3 + 2.5 * rough * (built ? 0.4 : 1), t, 100, 300, 72)} L300 300 L100 300 Z`} fill={C.blanket} stroke={C.waterInk} strokeWidth={2.4} strokeLinejoin="round" />
+              {[[262, 150, 200, 0.4], [282, 210, 260, 1.3]].map(([y, a0, a1, ph]) => <path key={y} d={wave(y, 2.5, t + ph, a0, a1, 40)} fill="none" stroke={C.white} strokeWidth={2.4} strokeLinecap="round" opacity={0.85} />)}
+              {stones}
+              {/* the two cliffs, grass on top, their layers of rock */}
+              {[[0, g0], [400, g1]].map(([x0, x1]) => (
+                <g key={x0}>
+                  <path d={cliff(x0, x1)} fill={C.paperChair} stroke={C.ink} strokeWidth={2.6} strokeLinejoin="round" />
+                  <path d={`M${x0 === 0 ? 14 : x1 + 18} 214 h${x0 === 0 ? 70 : 64} M${x0 === 0 ? 30 : x1 + 30} 252 h${x0 === 0 ? 74 : 60}`} stroke={C.woodGrain} strokeWidth={2.2} strokeLinecap="round" opacity={0.45} />
+                  <rect x={Math.min(x0, x1) - 2} y={BRIDGE.deck - 6} width={Math.abs(x1 - x0) + 6} height={10} rx={5} fill={LEAF} stroke={C.ink} strokeWidth={2.2} />
+                </g>
+              ))}
+              {/* the bridge, drawn across from the left: the arch, its hangers, the deck's planks, the rail */}
+              {built && arch.length > 1 ? (
+                <g>
+                  <path d={`M${arch.join(" L")}`} fill="none" stroke={C.ink} strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={`M${arch.join(" L")}`} fill="none" stroke={C.boardBlue} strokeWidth={5.5} strokeLinecap="round" strokeLinejoin="round" />
+                  {[146, 166, 186, 214, 234, 254].filter((x) => x <= reach).map((x) => <path key={x} d={`M${x} ${r1(archY(x) - 3)} V${BRIDGE.deck + 8}`} stroke={C.boardBlue} strokeWidth={2.6} />)}
+                  {planks.map((x) => <rect key={x} x={x} y={BRIDGE.deck - 2} width={14} height={10} fill={C.wood} stroke={C.ink} strokeWidth={1.8} />)}
+                  {[g0, 160, 200, 240, g1].filter((x) => x <= reach).map((x) => <path key={`p${x}`} d={`M${x} ${BRIDGE.deck - 2} V${BRIDGE.deck - 22}`} stroke={C.ink} strokeWidth={2.4} strokeLinecap="round" />)}
+                  <path d={`M${g0} ${BRIDGE.deck - 20} H${r1(Math.min(reach, g1))}`} stroke={C.boardBlue} strokeWidth={3.4} strokeLinecap="round" />
+                </g>
+              ) : null}
+            </>
+          ))}
+          <Who c={c} k={geo.k} id={c.input.faces.hero} f={f} t={t} pose={pose} />
+        </div>
+      </Sheet>
+      <MetaNote d={d} geo={geo} />
+    </>
+  );
+}
+
+/* ---------- shield: โล่กันลูกศร ---------- */
+
+/** the arrows a shield takes: five at most (more are refused upstream) */
+const shieldArrows = (show: MetaShow<"shield">) => show.arrows.slice(0, META_LIMITS.arrows);
+/** the shield: its middle, its two sides, its top and where its sides start to curve to its point */
+const SH = { x: 238, left: 188, right: 288, top: 58, waist: 150, point: 266 };
+/** the family behind it, each a doll's width, and the ground they stand on */
+const SHIELD_PEOPLE: [number, number][] = [[310, 58], [343, 44], [371, 58]];
+const SHIELD_GROUND = 270;
+/** an arrow's tag at most this wide (sheet units), how far its tip goes into the shield, its head's length */
+const ARROW_WORD_W = 146;
+const BITE = 5;
+const HEAD = 16;
+/** the bare shaft between a tag and its head, and from the tail's feathers to the tag */
+const SHAFT = 10;
+const FEATHER = 18;
+/** the shield's outline: a gentle arch on top, straight sides, curving to a point */
+const SHIELD_PATH = `M${SH.left} ${SH.top} Q${SH.x} ${SH.top - 18} ${SH.right} ${SH.top} L${SH.right} ${SH.waist} C${SH.right} 208 ${SH.x + 24} 244 ${SH.x} ${SH.point} C${SH.x - 24} 244 ${SH.left} 208 ${SH.left} ${SH.waist} Z`;
+/** the shield's left edge at height y */
+const faceAt = (y: number) => {
+  if (y <= SH.waist) return SH.left;
+  let prev = { x: SH.left, y: SH.waist };
+  for (let i = 1; i <= 40; i += 1) {
+    const u = i / 40;
+    const m = 1 - u;
+    const p = { x: m ** 3 * SH.left + 3 * m * m * u * SH.left + 3 * m * u * u * (SH.x - 24) + u ** 3 * SH.x, y: m ** 3 * SH.waist + 3 * m * m * u * 208 + 3 * m * u * u * 244 + u ** 3 * SH.point };
+    if (p.y >= y) return prev.x + ((p.x - prev.x) * (y - prev.y)) / (p.y - prev.y || 1);
+    prev = p;
+  }
+  return SH.x;
+};
+
+/**
+ * where โล่กันลูกศร's arrows end, one row each down the shield's face (sheet units: `y` its row, `face` the shield's
+ * edge there, `tip` how far in it goes) with each one's word on its tag (frame px), right up to its head
+ */
+export function shieldGeo(size: VideoSize, show: MetaShow<"shield">) {
+  const g = geoOf(size);
+  const geo = metaGeo(size, show.note);
+  const list = shieldArrows(show);
+  const gap = list.length >= 5 ? 40 : 44;
+  const arrows = list.map((word, i) => {
+    const y = 150 + (i - (list.length - 1) / 2) * gap;
+    const face = faceAt(y);
+    const tip = face + BITE;
+    // a few arrows, a little larger: their rows have the room
+    const p = tagSize(size, geo, word, ARROW_WORD_W, Math.round(g.text * (list.length <= 3 ? 0.9 : 0.8)));
+    const mid = tip - HEAD - SHAFT - p.w / 2 / geo.k;
+    return { ...placeTag(geo, p, mid, geo.art.y + Math.round(y * geo.k - p.h / 2)), y, face, tip };
+  });
+  return { geo, arrows };
+}
+
+/**
+ * โล่กันลูกศร: a family behind a blue shield with a tick; arrows, each with its word, fly in from the left one by one
+ * and stick in the shield, which jolts as each lands; then it gleams and the family are glad
+ */
+function Shield({ d, show }: { d: Dev; show: MetaShow<"shield"> }) {
+  const { c, t, s } = d;
+  const sg = shieldGeo(c.size, show);
+  const geo = sg.geo;
+  const set = prog(s.set, t);
+  const gleam = prog(s.protect, t);
+  // each arrow: how far it has flown; the jolt of the last to land
+  const flights = sg.arrows.map((_, i) => ({ an: s[`arrow${i}`], p: prog(s[`arrow${i}`], t) })).map((x) => ({ ...x, on: !!x.an && t >= x.an.at }));
+  const since = Math.min(...flights.filter((x) => x.p >= 1).map((x) => t - (x.an.at + x.an.dur)), 9);
+  const jolt = since < 0.3 ? r1(4 * Math.exp(-since * 10) * Math.cos(since * 40)) : 0;
+  const fearful = flights.some((x) => x.on) && gleam <= 0;
+  const glad = gleam >= 0.5;
+  const figs = metaFigures(show, c, t);
+  const pose = (i: number): PoseName | Pose => (fearful ? worried(t + i * 0.4) : glad && i === 1 ? "wave" : smiling(POSES.stand(t + i * 0.4), glad));
+  const tick = gleam > 0 ? 1 + 0.25 * Math.sin(Math.PI * gleam) : 1;
+  return (
+    <>
+      <MetaTitle d={d} text={show.title} />
+      <Sheet geo={geo}>
+        {SHIELD_PEOPLE.map((_, i) => family(c)[i]).map((id, i) => <Who key={i} c={c} k={geo.k} id={id} f={figs[i]} t={t + i * 0.4} an={s.set} pose={pose(i)} />)}
+        {/* the arrows: their shafts, feathers and heads, flying in from the left as their words do */}
+        {layer(geo, (
+          <>
+            {sg.arrows.map((a, i) => {
+              const fl = flights[i];
+              if (!fl.on) return null;
+              const tail = (a.plaque.x - geo.art.x) / geo.k - FEATHER;
+              const dx = -Math.min(90, tail + 20) * (1 - fl.p);
+              return (
+                <g key={i} transform={`translate(${r1(dx)} 0)`} opacity={r1(clamp01(fl.p / 0.3))}>
+                  <path d={`M${r1(tail)} ${a.y} H${r1(a.tip - HEAD + 2)}`} stroke={C.ink} strokeWidth={3.4} strokeLinecap="round" />
+                  <path d={`M${r1(tail + 16)} ${a.y} l-10 -8 h-8 l10 8 l-10 8 h8 Z`} fill={C.red} stroke={C.ink} strokeWidth={1.6} strokeLinejoin="round" />
+                  <path d={`M${r1(a.tip)} ${a.y} l${-HEAD} -8 l3 8 l-3 8 Z`} fill={C.ink} stroke={C.ink} strokeWidth={1.4} strokeLinejoin="round" />
+                </g>
+              );
+            })}
+          </>
+        ))}
+        {/* the shield over the arrows' tips; the tick on it; the gleam */}
+        <div style={abs({ left: 0, top: 0, width: geo.art.w, height: geo.art.h, opacity: set > 0 ? 1 : 0, ...(set < 1 ? { transform: `scale(${popScale(set).toFixed(3)})` } : jolt ? { transform: `translate(${r1(jolt * geo.k)}px, 0px)` } : {}) })}>
+          {layer(geo, (
+            <>
+              <ellipse cx={SH.x} cy={SHIELD_GROUND + 2} rx={44} ry={5} fill={C.struck} opacity={0.35} />
+              {gleam > 0 ? <path d={SHIELD_PATH} fill="none" stroke={C.spoken} strokeWidth={r1(10 * easeOut(gleam))} strokeLinejoin="round" opacity={0.8} /> : null}
+              <path d={SHIELD_PATH} fill={C.boardBlue} stroke={C.ink} strokeWidth={3} strokeLinejoin="round" />
+              <path d={`M${SH.left + 12} ${SH.top + 6} Q${SH.x} ${SH.top - 8} ${SH.right - 12} ${SH.top + 6} L${SH.right - 12} ${SH.waist} C${SH.right - 12} 202 ${SH.x + 20} 234 ${SH.x} 250 C${SH.x - 20} 234 ${SH.left + 12} 202 ${SH.left + 12} ${SH.waist} Z`} fill="none" stroke={C.white} strokeWidth={2.4} opacity={0.5} />
+              <g transform={`translate(${SH.x} 150) scale(${tick.toFixed(3)})`}>
+                <path d="M-28 0 L-8 20 L30 -22" fill="none" stroke={C.ink} strokeWidth={15} strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M-28 0 L-8 20 L30 -22" fill="none" stroke={C.white} strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
+              </g>
+              {/* each arrow's hit: three strokes off its tip, a moment only */}
+              {sg.arrows.map((a, i) => {
+                const fl = flights[i];
+                const after = fl.on ? t - (fl.an.at + fl.an.dur) : -1;
+                return after >= 0 && after < 0.25 ? (
+                  <path key={i} d={`M${r1(a.face - 6)} ${a.y - 10} l-8 -8 M${r1(a.face - 8)} ${a.y} l-11 0 M${r1(a.face - 6)} ${a.y + 10} l-8 8`} stroke={C.ink} strokeWidth={2.4} strokeLinecap="round" />
+                ) : null;
+              })}
+              {gleam > 0 ? [[SH.right + 4, SH.top - 10, 9], [SH.left - 2, SH.top - 22, 6], [SH.right - 6, SH.top - 34, 5]].map(([x, y, r]) => {
+                const k = r * easeOut(gleam);
+                return <path key={x + y} d={`M${x} ${r1(y - k)} L${r1(x + k * 0.3)} ${r1(y - k * 0.3)} L${r1(x + k)} ${y} L${r1(x + k * 0.3)} ${r1(y + k * 0.3)} L${x} ${r1(y + k)} L${r1(x - k * 0.3)} ${r1(y + k * 0.3)} L${r1(x - k)} ${y} L${r1(x - k * 0.3)} ${r1(y - k * 0.3)} Z`} fill={C.spoken} stroke={C.ink} strokeWidth={1.4} strokeLinejoin="round" />;
+              }) : null}
+            </>
+          ))}
+        </div>
+        {/* the arrows' words, on their tags, flying with them */}
+        {sg.arrows.map((a, i) => {
+          const fl = flights[i];
+          if (!fl.on) return null;
+          const tail = (a.plaque.x - geo.art.x) / geo.k - FEATHER;
+          const dx = -Math.min(90, tail + 20) * (1 - fl.p);
+          return <Plaque key={i} p={a} at={geo.art} rot={i % 2 ? 2.4 : 0} dx={dx * geo.k} opacity={clamp01(fl.p / 0.3)} />;
+        })}
       </Sheet>
       <MetaNote d={d} geo={geo} />
     </>
