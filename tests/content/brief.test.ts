@@ -7,10 +7,11 @@ import { SALES_PAGES } from "@/lib/shell/menu";
 describe("the products the generator offers", () => {
   // group insurance is sold to an HR manager, not posted; /fhc is the planner, not a product;
   // /global-saving went in as a calculator only (owner, 2026-10-20) — Studio posts for it are not built yet;
-  // /survey is the agent's call script, not a product; /ihealthy-ultra/compare is iHealthy Ultra again
-  it("are every sales page but group insurance, the planner, the survey, Global Savings and the iHealthy comparison", () => {
+  // /survey is the agent's call script, not a product; /ihealthy-ultra/compare is iHealthy Ultra again;
+  // /pa went in as page + table + copied text (owner, 2026-11-14, ก) — Studio posts come in a later round
+  it("are every sales page but group insurance, the planner, the survey, Global Savings, the iHealthy comparison and PA", () => {
     const pages = SALES_PAGES.map((p) => p.href)
-      .filter((h) => h !== "/group-insurance" && h !== "/fhc" && h !== "/survey" && h !== "/global-saving" && h !== "/ihealthy-ultra/compare").sort();
+      .filter((h) => h !== "/group-insurance" && h !== "/fhc" && h !== "/survey" && h !== "/global-saving" && h !== "/ihealthy-ultra/compare" && h !== "/pa").sort();
     expect(CONTENT_PRODUCTS.map((p) => p.href).sort()).toEqual(pages);
   });
 });
