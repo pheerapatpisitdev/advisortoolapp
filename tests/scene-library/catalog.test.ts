@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 import { LIBRARY, libraryItem, usesFor, storyLibraryHref, promptLibraryHref, TYPE_NAME, PRODUCT_NAME } from "@/lib/scene-library/catalog";
 import { DEVICES } from "@/lib/scene-library/devices";
 import { PROMPT_FORMATS, PICTURE_STYLES } from "@/lib/prompt-story/types";
-import { SOUNDS, MUSIC_MOODS } from "@/lib/quote-video/fx";
+import { SOUNDS, MUSIC_MOODS, joinCues } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
+import type { StoryVideoInput } from "@/lib/quote-video/story";
+import type { StoryLook } from "@/lib/scene-library/links";
+import { INFO_SHELVES, topicOf } from "@/lib/story/topics";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 const KNOWN = new Set(["topic", "look", "format", "style"]);
 
@@ -55,7 +60,10 @@ describe("catalogue", () => {
   });
 
   it("ties looks, themes, music and sounds to the code's own lists", () => {
-    const ART = ["paper", "minimal", "plot", "line"];
+    // every look the story form offers (the clip's art, less the retired อินโฟกราฟิก), and only those: a
+    // look added to or dropped from either type fails to compile here
+    const ARTS: Record<Exclude<NonNullable<StoryVideoInput["art"]>, "info">, true> & Record<StoryLook, true> = { paper: true, minimal: true, plot: true, line: true };
+    const ART = Object.keys(ARTS);
     for (const art of ART) {
       const item = libraryItem(`look-${art}`)!;
       const href = item.uses.find((u) => u.tool === "story-clip")!.href;
@@ -66,8 +74,25 @@ describe("catalogue", () => {
     expect(libraryItem("look-glass")?.name).toBe(THEME_LABELS.glass.name);
     expect(libraryItem("look-sticky")?.name).toBe(THEME_LABELS.sticky.name);
     for (const m of MUSIC_MOODS) expect(libraryItem(`fx-music-${m}`)?.ready).toBe(true);
-    expect(SOUNDS.length).toBeGreaterThan(0);
+    // เสียงเอฟเฟกต์ตรงจังหวะสำคัญ = the clip's own sounds: a whoosh at each join, a ding as a figure lands
     expect(libraryItem("fx-sound-beats")?.ready).toBe(true);
+    expect(SOUNDS).toContain("whoosh");
+    expect(SOUNDS).toContain("ding");
+    expect(joinCues([{ start: 0 }, { start: 3 }]).map((c) => c.sound)).toEqual(["whoosh"]);
+    for (const s of SOUNDS) expect(existsSync(join(process.cwd(), "remotion/public/fx", `${s}.mp3`)), s).toBe(true);
+  });
+  it("a plot story link opens on a topic plot can draw", () => {
+    const plots = LIBRARY.flatMap((i) => i.uses).filter((u) => u.tool === "story-clip")
+      .map((u) => new URL(u.href, "http://x").searchParams).filter((q) => q.get("look") === "plot");
+    expect(plots.length).toBeGreaterThan(0);
+    for (const q of plots) {
+      const topic = topicOf(q.get("topic") ?? "");
+      expect(topic, q.toString()).toBeDefined();
+      expect(INFO_SHELVES).toContain(topic!.shelf);
+    }
+  });
+  it("cashless says the plan's conditions apply", () => {
+    expect(libraryItem("cashless")?.tells).toContain("ตามเงื่อนไขของแผน");
   });
   it("device lines are viewer-facing, not the writer prompts", () => {
     for (const d of DEVICES) expect(libraryItem(d.key)?.tells).not.toBe(d.when);

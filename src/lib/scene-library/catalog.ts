@@ -34,9 +34,9 @@ export const PRODUCT_NAME: Record<LibraryProduct, string> = { all: "ทุกแ
 export { storyLibraryHref, promptLibraryHref } from "./links";
 
 const QUOTE = "/studio/quote-video";
-const useQuote = (label = "ทำคลิปขายแผน"): LibraryUse => ({ tool: "quote-video", label, href: QUOTE });
-const useStory = (label: string, p: { topic?: string; look?: string } = {}): LibraryUse => ({ tool: "story-clip", label, href: storyLibraryHref(p) });
-const usePrompt = (label: string, p: { format?: string; style?: string } = {}): LibraryUse => ({ tool: "prompt-story", label, href: promptLibraryHref(p) });
+const quoteUse = (label = "ทำคลิปขายแผน"): LibraryUse => ({ tool: "quote-video", label, href: QUOTE });
+const storyUse = (label: string, p: { topic?: string; look?: string } = {}): LibraryUse => ({ tool: "story-clip", label, href: storyLibraryHref(p) });
+const promptUse = (label: string, p: { format?: string; style?: string } = {}): LibraryUse => ({ tool: "prompt-story", label, href: promptLibraryHref(p) });
 
 /** the four story looks: story-clip art id, prompt-story style id (it calls แสงอุ่น "warm"), shown name */
 const STORY_LOOKS = [
@@ -45,6 +45,8 @@ const STORY_LOOKS = [
   { art: "plot", style: "plot", name: "ปากกาพล็อตเตอร์", tells: "เส้นหมึกบางๆ บนกระดาษ เหมือนเครื่องวาดแผนภาพ" },
   { art: "line", style: "line", name: "การ์ตูนลายเส้น", tells: "ตัวการ์ตูนเส้นหนา สีเรียบ" },
 ] as const;
+/** ปากกาพล็อตเตอร์ draws only the shelves told in points (INFO_SHELVES); its link opens on one of them */
+const PLOT_TOPIC: StoryTopic = "sumvspremium";
 const DEVICE_LOOK_ORDER = ["paper", "minimal", "line", "plot"] as const;
 
 /** the story topic that shows each health device */
@@ -60,45 +62,45 @@ const DEVICE_TELLS: Record<HealthLayout, string> = {
   room: "ค่าห้องจริงต่อคืนเทียบกับที่แผนจ่าย",
   overflow: "บิลที่เกินวงเงิน แล้วส่วนต่างที่ต้องจ่ายเอง",
   waiting: "ช่วงรอคอยหลังเริ่มสัญญา ก่อนเคลมโรคบางกลุ่มได้",
-  cashless: "เข้าโรงพยาบาลในเครือข่ายแล้วไม่ต้องสำรองจ่าย",
+  cashless: "เข้าโรงพยาบาลในเครือข่ายแล้วไม่ต้องสำรองจ่าย ตามเงื่อนไขของแผน",
   groupgap: "สวัสดิการประกันกลุ่มจากที่ทำงานที่จ่ายได้ไม่พอ",
   agecost: "เบี้ยสุขภาพต่อปีที่สูงขึ้นตามช่วงอายุ",
 };
 const readyDevices: LibraryItem[] = DEVICES.map((d) => ({
   id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: "health", ready: true,
-  uses: [useStory("ทำคลิปเล่าเรื่อง", { topic: DEVICE_TOPIC[d.key] }), usePrompt("ทำคลิปตามโจทย์")],
+  uses: [storyUse("ทำคลิปเล่าเรื่อง", { topic: DEVICE_TOPIC[d.key] }), promptUse("ทำคลิปตามโจทย์")],
   preview: `/library/${d.key}-paper.jpg`,
   looks: DEVICE_LOOK_ORDER.map((id) => ({ id, name: STORY_LOOKS.find((l) => l.art === id)!.name, preview: `/library/${d.key}-${id}.jpg` })),
 }));
 
 const readyFormats: LibraryItem[] = [
-  { id: "format-quote", type: "format", name: "คลิปขายแผน", tells: "จากใบเสนอ เปิดด้วยตัวเลข ราคา ทุน เงื่อนไข ติดต่อ", product: "all", ready: true, uses: [useQuote()] },
-  { id: "format-story", type: "format", name: "เล่าเรื่องความรู้", tells: "คำถาม อธิบาย ตัวอย่าง สรุป เล่าความรู้ประกันให้เข้าใจง่าย", product: "all", ready: true, uses: [useStory("ทำคลิปเล่าเรื่อง")] },
+  { id: "format-quote", type: "format", name: "คลิปขายแผน", tells: "จากใบเสนอ เปิดด้วยตัวเลข ราคา ทุน เงื่อนไข ติดต่อ", product: "all", ready: true, uses: [quoteUse()] },
+  { id: "format-story", type: "format", name: "เล่าเรื่องความรู้", tells: "คำถาม อธิบาย ตัวอย่าง สรุป เล่าความรู้ประกันให้เข้าใจง่าย", product: "all", ready: true, uses: [storyUse("ทำคลิปเล่าเรื่อง")] },
   ...PROMPT_FORMATS.map((f): LibraryItem => ({
     id: f.id, type: "format", name: f.name, product: "all", ready: true,
     tells: f.id === "free" ? "ตามบทที่ AI เขียน 4–12 ฉาก ภาพ AI ทุกฉาก"
       : f.id === "drama3" ? "ชีวิตปกติ เหตุไม่คาดฝัน ทางออก ใน 3 ฉาก"
       : "อาการ ค่ารักษา ประกันจ่าย ส่วนที่จ่ายเอง ไม่ระบุชื่อลูกค้า",
-    uses: [usePrompt("ทำคลิปตามโจทย์", { format: f.id })],
+    uses: [promptUse("ทำคลิปตามโจทย์", { format: f.id })],
   })),
 ];
 
 const readyLooks: LibraryItem[] = [
   ...STORY_LOOKS.map((l): LibraryItem => ({
     id: `look-${l.art}`, type: "look", name: l.name, tells: l.tells, product: "all", ready: true,
-    uses: [useStory("ทำคลิปเล่าเรื่อง", { look: l.art }), usePrompt("ทำคลิปตามโจทย์", { style: l.style })],
+    uses: [storyUse("ทำคลิปเล่าเรื่อง", { look: l.art, ...(l.art === "plot" ? { topic: PLOT_TOPIC } : {}) }), promptUse("ทำคลิปตามโจทย์", { style: l.style })],
     preview: `/library/look-${l.art}.jpg`,
   })),
-  { id: "look-glass", type: "look", name: THEME_LABELS.glass.name, tells: "การ์ดโปร่งแสงซ้อนกัน หน้าตาทันสมัย", product: "all", ready: true, uses: [useQuote()] },
-  { id: "look-sticky", type: "look", name: THEME_LABELS.sticky.name, tells: "ข้อความเป็นโน้ตกระดาษแปะบนโต๊ะ", product: "all", ready: true, uses: [useQuote()] },
+  { id: "look-glass", type: "look", name: THEME_LABELS.glass.name, tells: "การ์ดโปร่งแสงซ้อนกัน หน้าตาทันสมัย", product: "all", ready: true, uses: [quoteUse()] },
+  { id: "look-sticky", type: "look", name: THEME_LABELS.sticky.name, tells: "ข้อความเป็นโน้ตกระดาษแปะบนโต๊ะ", product: "all", ready: true, uses: [quoteUse()] },
 ];
 
 const MOOD_NAME: Record<(typeof MUSIC_MOODS)[number], string> = { warm: "อบอุ่น", bright: "สดใส", calm: "สงบ" };
 const readyFx: LibraryItem[] = [
   ...MUSIC_MOODS.map((m): LibraryItem => ({
-    id: `fx-music-${m}`, type: "fx", name: `เพลงพื้นหลัง ${MOOD_NAME[m]}`, tells: "เพลงตามอารมณ์ของคลิป เลือกให้ตามสินค้า", product: "all", ready: true, uses: [useQuote()],
+    id: `fx-music-${m}`, type: "fx", name: `เพลงพื้นหลัง ${MOOD_NAME[m]}`, tells: "เพลงตามอารมณ์ของคลิป เลือกให้ตามสินค้า", product: "all", ready: true, uses: [quoteUse()],
   })),
-  { id: "fx-sound-beats", type: "fx", name: "เสียงเอฟเฟกต์ตรงจังหวะสำคัญ", tells: "เสียงตอนตัวเลขเด้งและจังหวะเปลี่ยนฉาก", product: "all", ready: true, uses: [useQuote()] },
+  { id: "fx-sound-beats", type: "fx", name: "เสียงเอฟเฟกต์ตรงจังหวะสำคัญ", tells: "เสียงตอนตัวเลขเด้งและจังหวะเปลี่ยนฉาก", product: "all", ready: true, uses: [quoteUse()] },
 ];
 
 const n = (type: LibraryType, product: LibraryProduct, id: string, name: string, tells: string): LibraryItem =>
