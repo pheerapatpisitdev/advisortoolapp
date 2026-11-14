@@ -181,13 +181,13 @@ describe("what the menu shows to somebody who has not signed in", () => {
       // and LINE OA (/admin/line) since 2026-10-15 (เสียงของตัวแทน /admin/voices gone 2026-10-17),
       // กำไรค่า AI (/admin/ai-profit) the same day too (คลังภาพคอลลาจ /admin/collage 2026-10-17, gone 2026-10-20),
       // เปิด-ปิดฟังก์ชัน (/admin/switches) the same day, ประวัติเติมเงิน (/admin/topups) 2026-10-19,
-      // การเชื่อมต่อ (/admin/connections) 2026-11-03
+      // การเชื่อมต่อ (/admin/connections) 2026-11-03, มีอะไรใหม่ (/admin/updates) 2026-11-14
       ["/home", "/admin", "/admin/crm", "/admin/pages", "/admin/line", "/admin/teach", "/admin/ads", "/admin/team", "/admin/members", "/admin/history", "/admin/switches",
-        "/admin/connections", "/admin/wallet", "/admin/prices", "/admin/stats", "/admin/ai"].sort(),
+        "/admin/connections", "/admin/wallet", "/admin/prices", "/admin/stats", "/admin/ai", "/admin/updates"].sort(),
     );
   });
 
-  it("groups the back office's fifteen pages by the job, each with a mark of its own (owner chose ข, 2026-10-15)", () => {
+  it("groups the back office's sixteen pages by the job, each with a mark of its own (owner chose ข, 2026-10-15)", () => {
     const superAdmin = { name: "x", room: "Super Admin", publish: true, connect: true, admin: true, owner: true, super: true };
     const groups = menuGroups(true, superAdmin);
     expect(groups.map((g) => g.title ?? null)).toEqual([null, "1 API ราคา โมเดล", "2 AI Bot", "3 LINE OA", "4 เชื่อมต่อเพจ", "5 ประวัติผู้ใช้", "งานอื่น"]);
@@ -198,10 +198,10 @@ describe("what the menu shows to somebody who has not signed in", () => {
       ["LINE OA"],
       ["เพจและช่องทาง", "ทีมงานและสิทธิ์"],
       ["ประวัติผู้ใช้", "การใช้งานและค่า AI"],
-      ["โฆษณา", "สมาชิกทั่วไป"],
+      ["โฆษณา", "สมาชิกทั่วไป", "มีอะไรใหม่"],
     ]);
     const links = groups.flatMap((g) => g.links);
-    expect(links).toHaveLength(15);
+    expect(links).toHaveLength(16);
     expect(new Set(links.map((l) => l.icon)).size).toBe(links.length);
     expect(new Set(links.map((l) => l.hue)).size).toBe(links.length);
   });
@@ -210,7 +210,7 @@ describe("what the menu shows to somebody who has not signed in", () => {
     const nobody = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const pages = (w: typeof nobody) => menuGroups(true, w).flatMap((g) => g.links.map((l) => l.href)).filter((h) => h.startsWith("/admin"));
     expect(pages(nobody)).toEqual(pages({ ...nobody, owner: true, admin: true, connect: true, publish: true }));
-    expect(pages(nobody)).toHaveLength(15);
+    expect(pages(nobody)).toHaveLength(16);
   });
 
   it("gives no agent a way to the back office, the owner's own account included (owner, 2026-10-15)", () => {
@@ -242,11 +242,13 @@ describe("what the menu shows to somebody who has not signed in", () => {
     for (const group of menuGroups(false)) expect(group.links.length).toBeGreaterThan(0);
   });
 
-  it("puts the agent's own work first: หน้าหลัก, their FHC customers, ถาม AI, Studio (owner chose ข, 2026-10-14), then วิธีใช้งาน (2026-11-11)", () => {
+  it("puts the agent's own work first: หน้าหลัก, their FHC customers, ถาม AI, Studio (owner chose ข, 2026-10-14), then วิธีใช้งาน (2026-11-11) and มีอะไรใหม่ (2026-11-14)", () => {
     const who = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false };
     const first = (w: typeof who | null) => menuGroups(false, w)[0];
-    expect(first({ ...who, member: true } as typeof who).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio", "/help"]);
-    expect(first({ ...who, admin: true }).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio", "/help"]);
+    expect(first({ ...who, member: true } as typeof who).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio", "/help", "/whats-new"]);
+    expect(first({ ...who, admin: true }).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio", "/help", "/whats-new"]);
+    // not for a customer an advertisement sent to a sales page: nobody signed in
+    expect(first(null).links.map((l) => l.href)).not.toContain("/whats-new");
     expect(first(null).title).toBe("งานของฉัน");
     // the membership pass is in the account box now, in no menu's list
     const hrefs = (w: typeof who | null) => [...menuGroups(false, w), ...menuGroups(true, w), ...studioMenu(w)].flatMap((g) => g.links.map((l) => l.href));

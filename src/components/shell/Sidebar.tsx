@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/login/actions";
 import { ToolLogo } from "./ToolLogo";
-import { accountLinks, isCurrent, menuGroups, RAIL_KEY, type MenuGroup, type MenuIcon, type Who } from "@/lib/shell/menu";
+import { accountLinks, isCurrent, menuGroups, RAIL_KEY, WHATS_NEW, type MenuGroup, type MenuIcon, type Who } from "@/lib/shell/menu";
 
 /** the name at the top of the menu, and where it leads */
 export type Brand = { href: string; label: string };
@@ -122,6 +122,9 @@ function Icon({ name }: { name: MenuIcon }) {
     // the way back to the main system, from Studio and the back office
     case "back":
       return <svg {...common}><path d="M10 6.5 4.5 12l5.5 5.5M5 12h14.5" /></svg>;
+    // มีอะไรใหม่: a bell (owner chose 1ข, 2026-11-14)
+    case "bell":
+      return <svg {...common}><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 2H5zM10 20.5a2.2 2.2 0 0 0 4 0" /></svg>;
     // the back office's own marks since 2026-10-15 (owner chose ข), one per page so none repeats:
     // เพจและช่องทาง, a flag on its pole
     case "flag":
@@ -208,6 +211,8 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
   };
 
   const groups = menu ?? menuGroups(signedIn, who);
+  // มีอะไรใหม่'s red number, and a dot on the phone's menu button, only where this menu lists มีอะไรใหม่
+  const news = groups.some((g) => g.links.some((l) => l.href === WHATS_NEW.href)) ? who?.news ?? 0 : 0;
   const home = brand ?? { href: "/home", label: "advisortool" };
 
   // a menu left open across a navigation covers the page that was just asked for
@@ -303,6 +308,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
                     {link.logo ? <ToolLogo id={link.logo} /> : <span className="shell-chip"><Icon name={link.icon} /></span>}
                     <span className={`min-w-0 truncate rail:sr-only ${closed ? "opacity-60" : ""}`}>{link.label}</span>
                     {closed && <span className="shell-closed ml-auto shrink-0 rounded-full px-2 text-[11px] font-semibold rail:sr-only">ปิดชั่วคราว</span>}
+                    {link.href === WHATS_NEW.href && news > 0 && <NewsCount n={news} />}
                   </Link>
                 </li>
               );
@@ -337,6 +343,11 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
         <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
           <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
         </svg>
+        {news > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 size-3 rounded-full border-2" style={{ background: "var(--bot-red)", borderColor: "var(--shell-bg)" }}>
+            <span className="sr-only">มีอัปเดตใหม่ {news} เรื่อง</span>
+          </span>
+        )}
       </button>
 
       {open && (
@@ -346,6 +357,19 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
         </div>
       )}
     </>
+  );
+}
+
+/** มีอะไรใหม่'s red number in the menu (owner chose 1ข, 2026-11-14); on the folded rail, a dot on the chip's corner */
+function NewsCount({ n }: { n: number }) {
+  return (
+    <span
+      className="ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[12px] font-semibold tabular-nums text-white rail:absolute rail:right-2 rail:top-0.5 rail:ml-0 rail:h-2.5 rail:min-w-2.5 rail:p-0 rail:text-[0px]"
+      style={{ background: "var(--bot-red)" }}
+      aria-label={`ยังไม่ได้อ่าน ${n} เรื่อง`}
+    >
+      {n > 99 ? "99+" : n}
+    </span>
   );
 }
 
