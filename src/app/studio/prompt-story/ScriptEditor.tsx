@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { deviceFields, keptRewrite, missingPicture, needPictureWords, rewritesLeft, sceneKind, setDeviceWord, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
+import { deviceFields, keptRewrite, missingPicture, needPictureWords, rewritesLeft, sceneKind, scenePart, setDeviceWord, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
 import { REWRITES_DONE, REWRITES_PER_DRAFT, SCREEN_MAX, TITLE_MAX, type DeviceScene, type PromptScene } from "@/lib/prompt-story/types";
 import { rewritePromptScene } from "./actions";
 
@@ -16,7 +16,7 @@ import { rewritePromptScene } from "./actions";
  *
  * ภาพจากคลัง (คลังแอนิเมชัน phase 3, spec 2026-11-14-library-uploads): a third choice, one of the library's
  * approved parts picked from a row of thumbnails, laid on the look's ground when the clip is made; no
- * picture words, not charged. A part the link named (?asset=) comes first and is said by name.
+ * picture words, not charged. A part the link named (?asset=) comes first; each scene names its own part.
  */
 
 const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm disabled:opacity-60";
@@ -48,7 +48,7 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, assets = [], s
   forDevice: Set<number>;
   /** the library's approved parts (the page's list); none when the library cannot be read */
   assets?: LibraryPart[];
-  /** the part a library link named (?asset=): first in the row, and said by name when it is in the list */
+  /** the part a library link named (?asset=): first in the row when it is in the list */
   startAsset?: string;
 }) {
   const [busy, setBusy] = useState<number | null>(null);
@@ -160,6 +160,7 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, assets = [], s
         const isDevice = k.kind === "device";
         const isAsset = k.kind === "asset";
         const fields = s.device ? deviceFields(s.device) : null;
+        const chosen = isAsset ? scenePart(s, assets) : undefined;
         return (
           <div key={i} className="grid grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3">
             <b className="text-[var(--ct-accent)]">{i + 1}</b>
@@ -219,7 +220,7 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, assets = [], s
                     <p role="status" className="text-xs text-[var(--ct-mute)]">ยังไม่มีภาพในคลัง อัปโหลดได้ที่เมนูคลังแอนิเมชัน</p>
                   ) : (
                     <>
-                      {linked && <p className="text-xs font-medium text-[var(--ct-accent)]">ภาพที่เลือกจากคลัง: {linked.name}</p>}
+                      {chosen && <p className="text-xs font-medium text-[var(--ct-accent)]">ภาพที่เลือกจากคลัง: {chosen.name}</p>}
                       <div role="radiogroup" aria-label={`ภาพจากคลังของฉาก ${i + 1}`} className="flex gap-2 overflow-x-auto pb-1">
                         {parts.map((p) => {
                           const on = isAsset && k.id === p.id;

@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import { useReducer, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import type { LibraryTool } from "@/lib/scene-library/catalog";
-import { ALREADY_DECIDED as ALREADY, NO_ROW, rowReducer, uploadHref, type RowAction, type RowState } from "@/lib/scene-library/upload-flow";
+import { ALREADY_DECIDED as ALREADY, claimRow, NO_ROW, rowReducer, uploadHref, type RowAction, type RowState } from "@/lib/scene-library/upload-flow";
 import { KIND_NAME, REASONS, SHOTS_MAX, stateWord, type UploadView } from "@/lib/scene-library/upload-rules";
 
 /**
@@ -124,11 +124,14 @@ export function MyFiles({ rows, onRemove }: { rows: readonly UploadView[]; onRem
   const [busy, setBusy] = useState<ReadonlySet<string>>(NONE);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const mark = (id: string, on: boolean) => setBusy((b) => { const n = new Set(b); if (on) n.add(id); else n.delete(id); return n; });
+  // the calls on their way, checked and taken in the press itself (busy is for drawing the buttons)
+  const flying = useRef<Set<string>>(new Set());
   async function remove(id: string) {
-    if (busy.has(id)) return;
+    if (!claimRow(flying.current, id)) return;
     mark(id, true);
     setErrors((e) => { const rest = { ...e }; delete rest[id]; return rest; });
     const done = await onRemove(id).catch((): Done => ({ ok: false, error: FAILED }));
+    flying.current.delete(id);
     mark(id, false);
     if (done.ok) dispatch({ type: "done", id });
     else setErrors((e) => ({ ...e, [id]: done.error }));
@@ -151,12 +154,15 @@ export function ReviewQueue({ rows, onDecide }: { rows: readonly UploadView[]; o
   const [errors, setErrors] = useState<Record<string, string>>({});
   const mark = (id: string, on: boolean) => setBusy((b) => { const n = new Set(b); if (on) n.add(id); else n.delete(id); return n; });
   const [stale, setStale] = useState<UploadView[]>([]);
+  // the calls on their way, checked and taken in the press itself (busy is for drawing the buttons)
+  const flying = useRef<Set<string>>(new Set());
   async function decide(id: string, verdict: Verdict, reason?: string) {
-    if (busy.has(id)) return;
+    if (!claimRow(flying.current, id)) return;
     const row = rows.find((r) => r.id === id);
     mark(id, true);
     setErrors((e) => { const rest = { ...e }; delete rest[id]; return rest; });
     const done = await onDecide(id, verdict, reason).catch((): Done => ({ ok: false, error: FAILED }));
+    flying.current.delete(id);
     mark(id, false);
     if (done.ok) { dispatch({ type: "done", id }); return; }
     setErrors((e) => ({ ...e, [id]: done.error }));

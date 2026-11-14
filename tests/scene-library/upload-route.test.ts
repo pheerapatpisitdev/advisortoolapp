@@ -97,6 +97,26 @@ describe("POST", () => {
     expect(state.sent).toEqual([]);
   });
 
+  it("refuses a body that says it is over 16 MB before reading it", async () => {
+    const formData = vi.fn(async () => new FormData());
+    const sized = (n: number) => ({ headers: new Headers({ "content-length": String(n) }), formData }) as never;
+    const res = await POST(sized(3 * 5 * 1024 * 1024 + 1024 * 1024 + 1));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "ไฟล์ใหญ่เกิน 5 MB ย่อภาพแล้วส่งใหม่" });
+    expect(formData).not.toHaveBeenCalled();
+    expect(state.sent).toEqual([]);
+    // exactly 16 MB is still read
+    await POST(sized(3 * 5 * 1024 * 1024 + 1024 * 1024));
+    expect(formData).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a body with no content-length as before", async () => {
+    const formData = vi.fn(async () => { const f = new FormData(); f.append("kind", "ask"); f.append("name", "x"); return f; });
+    const res = await POST({ headers: new Headers(), formData } as never);
+    expect(formData).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(200);
+  });
+
   it("answers 401 when nobody is signed in", async () => {
     state.viewer = null;
     const res = await POST(form([["kind", "ask"], ["name", "x"]]));

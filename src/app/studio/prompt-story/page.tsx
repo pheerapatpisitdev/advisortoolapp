@@ -48,15 +48,19 @@ export default async function PromptStoryPage({ searchParams }: { searchParams: 
   const pages = can(viewer, "owner") ? (await myPages().catch(() => [])).map((p) => ({ id: p.pageId, name: p.pageName })) : [];
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));
   const eleven = keyed ? ELEVEN_VOICES : [];
-  const [cost, prices, quota] = await Promise.all([myCost(), walletPrices(), voiceQuota()]);
+  // คลังแอนิเมชัน's approved parts and styles, for a scene's ภาพจากคลัง and the ภาพสไตล์ (spec
+  // 2026-11-14-library-uploads), from one read beside the others; none of either when unreadable
+  const [cost, prices, quota, shared] = await Promise.all([
+    myCost(),
+    walletPrices(),
+    voiceQuota(),
+    sharedUploads().catch((e) => {
+      console.error("library uploads not read:", e);
+      return [];
+    }),
+  ]);
   // คลังแอนิเมชัน's "ใช้แบบนี้": the format and style the link asked for (spec 2026-11-14)
   const start = promptStartFrom(await searchParams);
-  // คลังแอนิเมชัน's approved parts and styles, for a scene's ภาพจากคลัง and the ภาพสไตล์ (spec
-  // 2026-11-14-library-uploads), from one read; none of either when unreadable
-  const shared = await sharedUploads().catch((e) => {
-    console.error("library uploads not read:", e);
-    return [];
-  });
   const ofKind = (kind: "part" | "style") => shared.filter((r) => r.kind === kind).map((r) => ({ id: r.id, name: r.name }));
   const assets = ofKind("part");
   const styles = ofKind("style");

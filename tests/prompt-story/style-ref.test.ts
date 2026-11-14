@@ -106,6 +106,8 @@ vi.mock("@/lib/quote-video/make", () => ({
 }));
 vi.mock("@/lib/prompt-story/drafts", () => ({ draftsUpTo: async () => 1, saveDraft: async () => "d", writeDraft: async () => undefined, dropDraft: async () => undefined }));
 vi.mock("@/lib/prompt-story/writer", () => ({ writeStory: vi.fn(), SCREEN_MAX: 40, TITLE_MAX: 28 }));
+// ตั้งค่าส่วนตัว (main, 20261212): nothing hidden, without reading a store
+vi.mock("@/lib/pay-prefs-store", async (orig) => ({ ...(await orig<typeof import("@/lib/pay-prefs-store")>()), hiddenFor: async () => [] }));
 const wallet = vi.hoisted(() => ({ holdWallet: vi.fn() }));
 vi.mock("@/lib/wallet/store", async (orig) => ({ ...(await orig<typeof import("@/lib/wallet/store")>()), holdWallet: wallet.holdWallet }));
 

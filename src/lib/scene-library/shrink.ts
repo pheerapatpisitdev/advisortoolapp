@@ -19,7 +19,7 @@ export async function shrinkForUpload(file: File, kind: UploadKind): Promise<Blo
     if (!ctx) { bitmap.close?.(); return file; }
     if (kind !== "part") {
       // JPEG has no clear background: white, not black
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = "white";
       ctx.fillRect(0, 0, width, height);
     }
     ctx.drawImage(bitmap, 0, 0, width, height);

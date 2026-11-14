@@ -81,6 +81,11 @@ export function toAsset(s: PromptScene, id: string): PromptScene {
   return { ...rest, asset: id };
 }
 
+/** the library part this scene shows (its own `asset` looked up in the list), for its name; none when it has no part or the part is not listed */
+export function scenePart<P extends { id: string }>(s: PromptScene, parts: readonly P[]): P | undefined {
+  return s.asset ? parts.find((p) => p.id === s.asset) : undefined;
+}
+
 /**
  * A scene the writer wrote again (เขียนฉากนี้ใหม่), put in place of `was`: the writer never sets a part, so
  * the agent's ภาพจากคลัง stays, unless the rewrite brings a device (the device wins).

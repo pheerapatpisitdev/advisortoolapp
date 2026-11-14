@@ -6,7 +6,7 @@ import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
 import { GROUNDS } from "@/lib/story/figure";
 import { checkedPromptStory } from "@/lib/prompt-story/checked";
-import { keptRewrite, missingPicture, pictureCount, sceneKind, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
+import { keptRewrite, missingPicture, pictureCount, sceneKind, scenePart, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
 import { pictureScenes, promptStoryPrice, type DeviceScene, type PromptScene, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { promptStartFrom } from "@/lib/scene-library/links";
 
@@ -134,6 +134,8 @@ vi.mock("@/lib/quote-video/make", () => ({
 }));
 vi.mock("@/lib/prompt-story/drafts", () => ({ draftsUpTo: async () => 1, saveDraft: async () => "d", writeDraft: async () => undefined, dropDraft: async () => undefined }));
 vi.mock("@/lib/prompt-story/writer", () => ({ writeStory: vi.fn(), SCREEN_MAX: 40, TITLE_MAX: 28 }));
+// ตั้งค่าส่วนตัว (main, 20261212): nothing hidden, without reading a store
+vi.mock("@/lib/pay-prefs-store", async (orig) => ({ ...(await orig<typeof import("@/lib/pay-prefs-store")>()), hiddenFor: async () => [] }));
 const wallet = vi.hoisted(() => ({ holdWallet: vi.fn() }));
 vi.mock("@/lib/wallet/store", async (orig) => ({ ...(await orig<typeof import("@/lib/wallet/store")>()), holdWallet: wallet.holdWallet }));
 
@@ -263,11 +265,31 @@ describe("ScriptEditor's ภาพจากคลัง", () => {
     expect(html()).toContain("ภาพ AI 1 ฉาก · อุปกรณ์ 1 ฉาก (ระบบวาด ไม่คิดค่ารูป) · ภาพจากคลัง 1 ฉาก");
   });
 
-  it("puts the linked part first and says which it is", () => {
+  it("puts the linked part first", () => {
     const out = html({ startAsset: U2 });
-    expect(out).toContain("ภาพที่เลือกจากคลัง: ร่มกันฝน");
     expect(out.indexOf(`id=${U2}&amp;n=0`)).toBeLessThan(out.indexOf(`id=${U1}&amp;n=0`));
-    expect(html({ startAsset: "33333333-3333-4333-8333-333333333333" })).not.toContain("ภาพที่เลือกจากคลัง");
+  });
+
+  it("names each scene's own part, not the linked one, and only when it is in the list", () => {
+    // scene 2 shows U1 while the link named U2: the line names U1
+    const out = html({ startAsset: U2 });
+    expect(out).toContain("ภาพที่เลือกจากคลัง: บ้านหลังเล็ก");
+    expect(out).not.toContain("ภาพที่เลือกจากคลัง: ร่มกันฝน");
+    // two library scenes, two parts: each line names its own
+    const two = { ...draft, scenes: [pic({ asset: U2, picture: "" }), pic({ asset: U1, picture: "" })] };
+    const both = html({ draft: two });
+    expect(both.indexOf("ภาพที่เลือกจากคลัง: ร่มกันฝน")).toBeGreaterThanOrEqual(0);
+    expect(both.indexOf("ภาพที่เลือกจากคลัง: ร่มกันฝน")).toBeLessThan(both.indexOf("ภาพที่เลือกจากคลัง: บ้านหลังเล็ก"));
+    // a part no longer in the list: no line
+    const gone = { ...draft, scenes: [pic({ asset: "33333333-3333-4333-8333-333333333333", picture: "" })] };
+    expect(html({ draft: gone, startAsset: U2 })).not.toContain("ภาพที่เลือกจากคลัง");
+  });
+
+  it("scenePart finds the scene's own part by its asset id", () => {
+    const list = [{ id: U1, name: "บ้านหลังเล็ก" }, { id: U2, name: "ร่มกันฝน" }];
+    expect(scenePart(pic({ asset: U2 }), list)?.name).toBe("ร่มกันฝน");
+    expect(scenePart(pic(), list)).toBeUndefined();
+    expect(scenePart(pic({ asset: "33333333-3333-4333-8333-333333333333" }), list)).toBeUndefined();
   });
 
   it("says where to upload when the library has no parts", () => {

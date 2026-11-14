@@ -8,26 +8,33 @@ import { readableUpload, sendUpload, uploadFile } from "@/lib/scene-library/uplo
  * คลังแอนิเมชัน's uploads (spec 2026-11-14-library-uploads-design.md).
  *
  * POST — multipart: kind, name, note, rights ("1" when ticked), file (repeated). Answers { ok, id, state }
- *   or { ok: false, error } (400). The count and size of the files are checked before any is read.
+ *   or { ok: false, error } (400). A content-length over 16 MB is refused before the body is read; the count
+ *   and size of the files are checked before any is read.
  * GET ?id=<uuid>&n=<0..2> — one picture of an upload, to whoever may see it; anything else is the same 404.
  */
 
 const NOT_FOUND = "ไม่พบไฟล์นี้";
 const gone = () => new Response(NOT_FOUND, { status: 404 });
 const refuse = (error: string) => Response.json({ ok: false, error }, { status: 400 });
+const TOO_BIG = "ไฟล์ใหญ่เกิน 5 MB ย่อภาพแล้วส่งใหม่";
+/** the most a body may say it holds before it is read: three files at the 5 MB cap and 1 MB for the rest (16 MB) */
+const BODY_MAX = SHOTS_MAX * FILE_MAX + 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   const refused = await refuseUnless();
   if (refused) return refused;
   const viewer = await getViewer();
   if (!viewer) return Response.json({ ok: false, error: "กรุณาเข้าสู่ระบบก่อน" }, { status: 401 });
+  // a body that says it is bigger than any allowed send is refused before a byte of it is read
+  const length = Number(req.headers.get("content-length") ?? "");
+  if (Number.isFinite(length) && length > BODY_MAX) return refuse(TOO_BIG);
   const form = await req.formData().catch(() => null);
   if (!form) return refuse("ส่งไม่สำเร็จ ลองใหม่อีกครั้ง");
 
   // an empty file input arrives as a zero-size part: no file at all
   const parts = form.getAll("file").filter((f): f is File => f instanceof File && f.size > 0);
   if (parts.length > SHOTS_MAX) return refuse("แนบภาพหน้าจอได้ไม่เกิน 3 ภาพ");
-  if (parts.some((f) => f.size > FILE_MAX)) return refuse("ไฟล์ใหญ่เกิน 5 MB ย่อภาพแล้วส่งใหม่");
+  if (parts.some((f) => f.size > FILE_MAX)) return refuse(TOO_BIG);
   const files = await Promise.all(parts.map(async (f) => ({ bytes: Buffer.from(await f.arrayBuffer()) })));
 
   try {

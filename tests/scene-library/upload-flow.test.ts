@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  afterDecide, afterSent, checkForm, rowReducer, sentView, submitUpload, uploadHref, uploadsFor, withoutUpload, withSent, withVerdict,
+  afterDecide, afterSent, checkForm, claimRow, rowReducer, sentView, submitUpload, uploadHref, uploadsFor, withoutUpload, withSent, withVerdict,
   type FormState, type RowState, type UploadSet,
 } from "@/lib/scene-library/upload-flow";
 import { shrinkForUpload } from "@/lib/scene-library/shrink";
@@ -256,5 +256,17 @@ describe("rowReducer done: one row finishing leaves the others alone", () => {
     const open = { removing: null, refusing: "b", reason: "อาจติดลิขสิทธิ์" };
     expect(rowReducer(open, { type: "done", id: "a" })).toBe(open);
     expect(rowReducer(open, { type: "done", id: "b" })).toEqual({ removing: null, refusing: null, reason: null });
+  });
+});
+
+describe("claimRow: a second fast press on the same row does nothing", () => {
+  it("takes an id once, until it is let go; other rows are free", () => {
+    const flying = new Set<string>();
+    expect(claimRow(flying, "a")).toBe(true);
+    // the second press comes before any render: the same set already holds it
+    expect(claimRow(flying, "a")).toBe(false);
+    expect(claimRow(flying, "b")).toBe(true);
+    flying.delete("a");
+    expect(claimRow(flying, "a")).toBe(true);
   });
 });

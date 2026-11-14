@@ -122,6 +122,17 @@ export function rowReducer(s: RowState, a: RowAction): RowState {
   }
 }
 
+/**
+ * A row's call claimed before it starts: true and the id taken when none is on its way, false for a second
+ * press. The set is a ref's, read and written in the same tick, so two fast presses never both get through
+ * (a state Set is the render's copy and only changes on the next one).
+ */
+export function claimRow(flying: Set<string>, id: string): boolean {
+  if (flying.has(id)) return false;
+  flying.add(id);
+  return true;
+}
+
 /** the upload cards เลือกดู lets through: the catalogue's chips, with ไฟล์จากสมาชิก among the types */
 export function uploadsFor(shared: readonly UploadView[], f: Omit<LibraryFilter, "type"> & { type: LibraryFilter["type"] | "upload" }): UploadView[] {
   if ((f.type !== "any" && f.type !== "upload") || f.state === "soon" || f.product !== "any") return [];
