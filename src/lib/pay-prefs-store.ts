@@ -2,34 +2,41 @@ import type { PayMode } from "@/calc/types";
 import { DEMO_ID } from "@/lib/auth/demo";
 import type { Viewer } from "@/lib/auth/access";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { DEFAULT_PAY_PREFS, HIDE_KEY, hiddenModes, readHide, type PayPrefs } from "@/lib/pay-prefs";
+import { DEFAULT_AGENT_PREFS, HIDE_KEY, PEN_KEY, hiddenModes, readHide, readPen, type AgentPrefs } from "@/lib/pay-prefs";
 
-/** ins_agent_prefs (supabase/migrations/20261212_agent_prefs.sql); see src/lib/pay-prefs.ts */
+/** ins_agent_prefs (supabase/migrations/20261212_agent_prefs.sql, 20261214_agent_prefs_pen.sql); see src/lib/pay-prefs.ts */
 const table = () => supabaseAdmin().from("ins_agent_prefs");
 
 /**
- * An agent's setting; everything shown when they never set one. The trial account 012345 is
- * shared by every trial customer, so it always shows everything (owner chose this on the mockup).
+ * An agent's settings; the defaults when they never set any. The trial account 012345 is
+ * shared by every trial customer, so it always has the defaults (owner chose this on the mockup).
  */
-export async function getPayPrefs(agentId: string): Promise<PayPrefs> {
-  if (agentId === DEMO_ID) return DEFAULT_PAY_PREFS;
-  const { data, error } = await table().select("show_monthly, show_semi").eq("agent_id", agentId).maybeSingle();
+export async function getAgentPrefs(agentId: string): Promise<AgentPrefs> {
+  if (agentId === DEMO_ID) return DEFAULT_AGENT_PREFS;
+  const { data, error } = await table().select("show_monthly, show_semi, show_pen").eq("agent_id", agentId).maybeSingle();
   if (error) throw new Error(`prefs not read: ${error.message}`);
-  return data ? { monthly: data.show_monthly !== false, semi: data.show_semi !== false } : DEFAULT_PAY_PREFS;
+  return data
+    ? { monthly: data.show_monthly !== false, semi: data.show_semi !== false, pen: data.show_pen !== false }
+    : DEFAULT_AGENT_PREFS;
 }
 
 /**
- * What an agent's quotes leave out. A setting that cannot be read shows everything rather than
- * stopping the page: the figures are right either way, only more of them.
+ * An agent's settings for drawing; a setting that cannot be read gives the defaults rather than
+ * stopping the page: the figures are right either way.
  */
-export async function hiddenFor(agentId: string | null | undefined): Promise<PayMode[]> {
-  if (!agentId) return [];
+export async function prefsFor(agentId: string | null | undefined): Promise<AgentPrefs> {
+  if (!agentId) return DEFAULT_AGENT_PREFS;
   try {
-    return hiddenModes(await getPayPrefs(agentId));
+    return await getAgentPrefs(agentId);
   } catch (e) {
     console.error("prefs not read:", e);
-    return [];
+    return DEFAULT_AGENT_PREFS;
   }
+}
+
+/** What an agent's quotes leave out. */
+export async function hiddenFor(agentId: string | null | undefined): Promise<PayMode[]> {
+  return hiddenModes(await prefsFor(agentId));
 }
 
 /**
@@ -43,10 +50,20 @@ export async function hiddenOnPage(
   return viewer ? hiddenFor(viewer.agentId) : readHide(query?.[HIDE_KEY]);
 }
 
-export async function savePayPrefs(agentId: string, p: PayPrefs): Promise<void> {
-  const { error } = await table().upsert(
-    { agent_id: agentId, show_monthly: p.monthly, show_semi: p.semi, updated_at: new Date().toISOString() },
-    { onConflict: "agent_id" },
-  );
+/** The same for the table notes: the agent's setting, or what the printed link asks. */
+export async function penOnPage(
+  viewer: Pick<Viewer, "agentId"> | null,
+  query: Record<string, string | string[] | undefined> | undefined,
+): Promise<boolean> {
+  return viewer ? (await prefsFor(viewer.agentId)).pen : readPen(query?.[PEN_KEY]);
+}
+
+/** Saves what is given and leaves the rest as it was. */
+export async function saveAgentPrefs(agentId: string, p: Partial<AgentPrefs>): Promise<void> {
+  const row: Record<string, unknown> = { agent_id: agentId, updated_at: new Date().toISOString() };
+  if (p.monthly !== undefined) row.show_monthly = p.monthly;
+  if (p.semi !== undefined) row.show_semi = p.semi;
+  if (p.pen !== undefined) row.show_pen = p.pen;
+  const { error } = await table().upsert(row, { onConflict: "agent_id" });
   if (error) throw new Error(`prefs not saved: ${error.message}`);
 }

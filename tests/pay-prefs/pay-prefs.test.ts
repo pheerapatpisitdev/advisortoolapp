@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PAY_PREFS, hiddenModes, hideParam, readHide, showModes, shows, writeHide } from "@/lib/pay-prefs";
+import { DEFAULT_AGENT_PREFS, DEFAULT_PAY_PREFS, hiddenModes, hideParam, readHide, readPen, showModes, shows, writeHide, writePen } from "@/lib/pay-prefs";
 import { cardPath } from "@/lib/card-link";
 
 const modes = [
@@ -40,5 +40,19 @@ describe("ตั้งค่าส่วนตัว: which instalments an agent
     const input = { kind: "plan" as const, planCode: "ISHIELD", variant: "WLCI10", age: 35, sex: "M" as const, sumAssured: 1_000_000 };
     expect(cardPath(input)).not.toContain("hide=");
     expect(cardPath({ ...input, hide: ["monthly"] })).toContain("hide=monthly");
+  });
+
+  it("carries the table notes as pen=0 only when they are off (owner, 2026-11-14)", () => {
+    expect(DEFAULT_AGENT_PREFS.pen).toBe(true);
+    const q = new URLSearchParams();
+    writePen(q, true);
+    writePen(q, undefined);
+    expect(q.toString()).toBe("");
+    writePen(q, false);
+    expect(q.toString()).toBe("pen=0");
+    expect(readPen("0")).toBe(false);
+    expect(readPen(null)).toBe(true);
+    expect(readPen("1")).toBe(true);
+    expect(readPen(["0"])).toBe(false);
   });
 });

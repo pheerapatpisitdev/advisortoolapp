@@ -1,5 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
-import { hiddenOnPage } from "@/lib/pay-prefs-store";
+import { hiddenOnPage, penOnPage } from "@/lib/pay-prefs-store";
 import { IShieldCalculator } from "@/components/IShieldCalculator";
 import { iShieldTable } from "@/lib/ishield-table";
 import { iShieldFacts } from "@/lib/ishield-facts";
@@ -25,13 +25,15 @@ export default async function IShieldPage({
   const viewer = await gateCalc("/ishield");
   // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
   const hide = await hiddenOnPage(viewer, await searchParams);
+  // แสดงคำอธิบายในตาราง: the pen notes on the value table
+  const pen = await penOnPage(viewer, await searchParams);
   const table = iShieldTable();
   const facts = iShieldFacts();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="iShield" kind="ประกันชีวิตและโรคร้ายแรงตลอดชีพ" facts={["จ่าย 5 ถึง 20 ปี", `คุ้มครองถึงอายุ ${facts.maturityAge}`, `รับแรกเกิด–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
-        <IShieldCalculator table={table} hide={hide} sticky />
+        <IShieldCalculator table={table} hide={hide} pen={pen} sticky />
       </section>
       <IllnessSection facts={facts} />
       <Disclaimer facts={facts} />

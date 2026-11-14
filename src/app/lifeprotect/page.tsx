@@ -1,5 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
-import { hiddenOnPage } from "@/lib/pay-prefs-store";
+import { hiddenOnPage, penOnPage } from "@/lib/pay-prefs-store";
 import { LifeProtectCalculator } from "@/components/LifeProtectCalculator";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeProtectFacts } from "@/lib/lifeprotect-facts";
@@ -25,6 +25,8 @@ export default async function LifeProtectPage({
   const viewer = await gateCalc("/lifeprotect");
   // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
   const hide = await hiddenOnPage(viewer, await searchParams);
+  // แสดงคำอธิบายในตาราง: the pen notes on the value table
+  const pen = await penOnPage(viewer, await searchParams);
   const table = lifeProtectTable();
   const facts = lifeProtectFacts();
   // One column at every width: the page is read top to bottom, and the order the parts come
@@ -35,7 +37,7 @@ export default async function LifeProtectPage({
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Life Protect x 2" kind="ประกันชีวิตตลอดชีพ" facts={[`คุ้มครองถึงอายุ ${facts.coverToAge}`, `รับแรกเกิด–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
-        <LifeProtectCalculator table={table} hide={hide} sticky />
+        <LifeProtectCalculator table={table} hide={hide} pen={pen} sticky />
       </section>
       <Disclaimer facts={facts} />
     </main>

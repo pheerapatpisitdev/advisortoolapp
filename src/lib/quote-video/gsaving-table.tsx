@@ -41,7 +41,8 @@ interface Label { lines: string[]; left: number; top: number; ink: "red" | "blue
 /** the notes, in the picture's own pixels */
 function gsNotes(f: QuoteVideoFacts): { red: string[]; blue: string[]; labels: Label[] } {
   const g = f.gsaving;
-  if (!g) return { red: [], blue: [], labels: [] };
+  // the agent may have switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts)
+  if (!g || f.pen === false) return { red: [], blue: [], labels: [] };
   const jit = wobble(7);
   const row = (n: number) => n * ROW_H;
   const last = g.rows.length - 1;

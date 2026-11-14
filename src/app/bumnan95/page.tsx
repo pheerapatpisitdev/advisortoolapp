@@ -1,5 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
-import { hiddenOnPage } from "@/lib/pay-prefs-store";
+import { hiddenOnPage, penOnPage } from "@/lib/pay-prefs-store";
 import { pensionFacts } from "@/lib/pension-facts";
 import { CalcTitle } from "@/components/sales/CalcTitle";
 import { PensionCalculator } from "@/components/pension/PensionCalculator";
@@ -23,12 +23,14 @@ export default async function PensionPage(
   const viewer = await gateCalc("/bumnan95");
   // ตั้งค่าส่วนตัว: the instalments this agent's quotes leave out (src/lib/pay-prefs-store.ts)
   const hide = await hiddenOnPage(viewer, viewer ? undefined : await searchParams);
+  // แสดงคำอธิบายในตาราง: the pen notes on the yearly table
+  const pen = await penOnPage(viewer, viewer ? undefined : await searchParams);
   const facts = pensionFacts();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="บำนาญ สมาร์ท 95" kind="ประกันบำนาญ ลดหย่อนภาษีได้" facts={[`เริ่มรับบำนาญอายุ ${facts.pensionAges.join(" ")} ปี`, `รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
-        <PensionCalculator sticky hide={hide} />
+        <PensionCalculator sticky hide={hide} pen={pen} />
       </section>
       <Disclaimer facts={facts} />
     </main>

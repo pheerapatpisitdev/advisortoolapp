@@ -56,6 +56,32 @@ export function writeHide(q: URLSearchParams, hide: readonly PayMode[] | undefin
   if (v) q.set(HIDE_KEY, v);
 }
 
+/**
+ * แสดงคำอธิบายในตาราง (owner, 2026-11-14, ก ก on mockup v2 of the same link): whether the
+ * value tables carry the agent's pen notes — braces, arrows, the handwritten words and the red
+ * rings on "อนุมัติ คุ้มครองเลย" / "หยุดส่งเบี้ย". Off leaves the figures' own marks (the
+ * จุดคุ้มทุน label and its ring, green figures after it, booster). Covers the calculator pages,
+ * the table pictures and the วิดีโอนำเสนอ's table; on by default.
+ */
+export interface AgentPrefs extends PayPrefs {
+  pen: boolean;
+}
+
+export const DEFAULT_AGENT_PREFS: AgentPrefs = { ...DEFAULT_PAY_PREFS, pen: true };
+
+/** "pen=0" in a table picture's link when the notes are off; nothing when they are on. */
+export const PEN_KEY = "pen";
+
+export function writePen(q: URLSearchParams, pen: boolean | undefined): void {
+  if (pen === false) q.set(PEN_KEY, "0");
+}
+
+/** Whether a link asks for the notes: only "0" turns them off. */
+export function readPen(raw: string | string[] | null | undefined): boolean {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v !== "0";
+}
+
 /** What a link asks to hide; anything unreadable hides nothing. */
 export function readHide(raw: string | string[] | null | undefined): PayMode[] {
   const v = Array.isArray(raw) ? raw[0] : raw;

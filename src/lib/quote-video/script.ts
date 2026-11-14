@@ -115,6 +115,11 @@ export type VideoInput = (
    * switched off, kept with the job so a re-render says the same. Absent (every clip before it) = nothing hidden
    */
   hide?: PayMode[];
+  /**
+   * แสดงคำอธิบายในตาราง (owner, 2026-11-14; src/lib/pay-prefs.ts): false when the agent who made the clip
+   * switched the table's pen notes off, kept with the job. Absent (every clip before it) = notes drawn
+   */
+  pen?: boolean;
 };
 
 /** what a job's input hides; anything unreadable, and every clip made before the setting, hides nothing */
@@ -234,6 +239,8 @@ export interface QuoteVideoFacts {
   hide?: PayMode[];
   /** the comparison prices each plan yearly (`yearly`) because the agent hid the monthly instalment */
   comparePer?: "year";
+  /** false when the agent switched the table's pen notes off (src/lib/pay-prefs.ts); absent = drawn */
+  pen?: false;
 }
 
 /**
@@ -375,7 +382,9 @@ export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteV
     : v.product === "PLB" ? plbVideoFacts(v, today)
     : v.product === "GSAVING" ? gsavingVideoFacts(v)
     : planFacts(v, today);
-  const f = built && hide.length ? hidePay(built, hide) : built;
+  const paid = built && hide.length ? hidePay(built, hide) : built;
+  // แสดงคำอธิบายในตาราง: a table drawn without its pen notes (table-pen.tsx, pension-table.tsx, gsaving-table.tsx)
+  const f = paid && v.pen === false ? { ...paid, pen: false as const } : paid;
   if (!f || !v.budget) return f;
   // a clip begun from a budget says what the customer saves, in the instalment they named
   const per = v.budget.per;

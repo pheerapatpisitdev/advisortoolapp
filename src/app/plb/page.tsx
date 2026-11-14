@@ -1,5 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
-import { hiddenOnPage } from "@/lib/pay-prefs-store";
+import { hiddenOnPage, penOnPage } from "@/lib/pay-prefs-store";
 import { PlbCalculator } from "@/components/PlbCalculator";
 import { plbTable } from "@/lib/plb-table";
 import { plbFacts } from "@/lib/plb-facts";
@@ -25,13 +25,15 @@ export default async function PlbPage({
   const viewer = await gateCalc("/plb");
   // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
   const hide = await hiddenOnPage(viewer, await searchParams);
+  // แสดงคำอธิบายในตาราง: the pen notes on the value table
+  const pen = await penOnPage(viewer, await searchParams);
   const table = plbTable();
   const facts = plbFacts();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Protection Life" kind="ประกันชีวิตแบบคุ้มครอง" facts={["คุ้มครอง 5 10 12 หรือ 15 ปี", `รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`, `ทุนเริ่ม ${facts.saMinShort}`]} />
       <section id="calc" className="scroll-mt-4">
-        <PlbCalculator table={table} hide={hide} sticky />
+        <PlbCalculator table={table} hide={hide} pen={pen} sticky />
       </section>
       <Disclaimer facts={facts} />
     </main>

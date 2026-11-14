@@ -1,6 +1,6 @@
 import type { PayMode, Sex } from "@/calc/types";
 import { cardVersionFor } from "@/lib/card-theme";
-import { writeHide } from "@/lib/pay-prefs";
+import { writeHide, writePen } from "@/lib/pay-prefs";
 
 /**
  * What a card is asked for, and the link that asks for it.
@@ -51,6 +51,8 @@ export interface PlanCardInput {
   riders?: CardRiders;
   /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts) */
   hide?: PayMode[];
+  /** false when the agent switched the table's pen notes off (src/lib/pay-prefs.ts); only the value table reads it */
+  pen?: boolean;
 }
 
 /**
@@ -127,7 +129,7 @@ export function readRiders(get: (key: string) => string | null | undefined): Car
 export type CardInput = PlanCardInput | BundleCardInput;
 
 /** The arrangement, written the way a link carries it. */
-function cardQuery(input: CardInput, characters = false): string {
+function cardQuery(input: CardInput, characters = false, table = false): string {
   const q = input.kind === "bundle"
     ? new URLSearchParams({
       bundle: input.bundleCode,
@@ -147,6 +149,8 @@ function cardQuery(input: CardInput, characters = false): string {
   writeRiders(q, input.kind === "plan" ? input.riders : undefined);
   // what the agent hides; nothing when everything is shown, so older addresses stay as they were
   writeHide(q, input.hide);
+  // the pen notes, only on the value table and only when off: "pen=0"
+  if (table && input.kind === "plan") writePen(q, input.pen);
   // the chat's table only: the characters on the chart are asked for, not assumed
   if (characters) q.set("fig", "1");
   /**
@@ -172,7 +176,7 @@ export function cardPath(input: CardInput): string {
  * asks for them; the sales page's saved picture and the PDF are drawn without.
  */
 export function valueTablePath(input: PlanCardInput, opts: { characters?: boolean } = {}): string {
-  const path = `/api/card/table?${cardQuery(input, opts.characters)}`;
+  const path = `/api/card/table?${cardQuery(input, opts.characters, true)}`;
   return TABLE_WITH_DISEASES.has(input.planCode) ? `${path}${DISEASE_TABLE_REVISION}` : path;
 }
 
@@ -202,6 +206,8 @@ export interface PensionTableInput {
   sumAssured: number;
   /** the way of paying, whose instalments are the table's premiums; left out, or annual, is paying yearly */
   mode?: "annual" | "semi" | "monthly";
+  /** false when the agent switched the table's pen notes off (src/lib/pay-prefs.ts) */
+  pen?: boolean;
 }
 
 /**
@@ -213,7 +219,8 @@ export interface PensionTableInput {
 export function pensionTablePath(input: PensionTableInput): string {
   const q = new URLSearchParams({
     age: String(input.age), sex: input.sex, start: String(input.start), pay: input.pay,
-    sum: String(input.sumAssured), ...(input.mode && input.mode !== "annual" ? { mode: input.mode } : {}), v: cardVersionFor(),
+    sum: String(input.sumAssured), ...(input.mode && input.mode !== "annual" ? { mode: input.mode } : {}),
+    ...(input.pen === false ? { pen: "0" } : {}), v: cardVersionFor(),
   });
   return `/api/card/pension-table?${q.toString()}`;
 }

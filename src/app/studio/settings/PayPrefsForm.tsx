@@ -2,8 +2,8 @@
 import { useState, useTransition } from "react";
 import { FormError } from "@/components/auth/fields";
 import { MUTE } from "@/components/auth/styles";
-import type { PayPrefs } from "@/lib/pay-prefs";
-import { saveMyPayPrefs, type Result } from "./actions";
+import type { AgentPrefs } from "@/lib/pay-prefs";
+import { saveMyPrefs, type Result } from "./actions";
 
 const CARD = "space-y-1 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5";
 
@@ -31,26 +31,26 @@ function Switch({ id, label, hint, checked, disabled, onChange }: {
 }
 
 /** Saved the moment a switch moves, as the mockup showed; a failed save puts the switch back. */
-export function PayPrefsForm({ initial, locked }: { initial: PayPrefs; locked: boolean }) {
+export function PayPrefsForm({ initial, locked }: { initial: AgentPrefs; locked: boolean }) {
   const [prefs, setPrefs] = useState(initial);
   const [result, setResult] = useState<Result>();
   const [pending, start] = useTransition();
 
-  const change = (next: PayPrefs) => {
+  const change = (next: AgentPrefs) => {
     const before = prefs;
     setPrefs(next);
     setResult(undefined);
     start(async () => {
-      const r = await saveMyPayPrefs(next.monthly, next.semi);
+      const r = await saveMyPrefs(next);
       if (!r.ok) setPrefs(before);
       setResult(r);
     });
   };
 
   return (
-    <section className={CARD} aria-labelledby="pay-prefs-title">
+    <section className={CARD} aria-label="ตั้งค่าส่วนตัว">
       <div className="pb-3">
-        <h2 id="pay-prefs-title" className="font-semibold">การแสดงเบี้ยประกัน</h2>
+        <h2 className="font-semibold">การแสดงเบี้ยประกัน</h2>
         <p className={`mt-1 text-sm ${MUTE}`}>มีผลกับใบเสนอราคาที่คุณทำเท่านั้น ทั้งหน้าคำนวณ ข้อความคัดลอก รูป PDF และวิดีโอนำเสนอ ไม่กระทบผู้ใช้คนอื่น</p>
       </div>
       <Switch
@@ -63,9 +63,17 @@ export function PayPrefsForm({ initial, locked }: { initial: PayPrefs; locked: b
         hint="ปิดทั้งสองอัน = เห็นเฉพาะเบี้ยรายปี"
         onChange={(v) => change({ ...prefs, semi: v })}
       />
+      <div className="pb-1 pt-5">
+        <h2 className="font-semibold">ตารางแบบประกัน</h2>
+      </div>
+      <Switch
+        id="pref-pen" label="แสดงคำอธิบายในตาราง" checked={prefs.pen} disabled={locked || pending}
+        hint="เส้นปีกกา ลูกศร วงกลมแดง และข้อความลายมือ เช่น “เบี้ยคงที่” “หยุดส่งเบี้ย” “เงินโตทุกปี” ปิดแล้วเหลือตารางตัวเลขล้วน (จุดคุ้มทุนยังอยู่)"
+        onChange={(v) => change({ ...prefs, pen: v })}
+      />
       <div className="pt-2 text-sm" role="status">
         {locked ? (
-          <span className={MUTE}>บัญชีทดลองใช้ร่วมกันหลายคน จึงแสดงเบี้ยครบทุกงวดเสมอ</span>
+          <span className={MUTE}>บัญชีทดลองใช้ร่วมกันหลายคน จึงแสดงเบี้ยครบทุกงวดและคำอธิบายในตารางเสมอ</span>
         ) : result && !result.ok ? (
           <FormError>{result.error}</FormError>
         ) : (

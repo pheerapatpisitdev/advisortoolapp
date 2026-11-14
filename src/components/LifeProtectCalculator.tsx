@@ -113,13 +113,15 @@ export interface LifeProtectCalculatorProps {
   sticky?: boolean;
   /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
   hide?: PayMode[];
+  /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
+  pen?: boolean;
 }
 
 /**
  * The customer's calculator for the base plan on its own. Four choices — sum, term, age, sex —
  * and every figure on the card follows from them at once, in the browser, from the table.
  */
-export function LifeProtectCalculator({ table, sticky = false, hide = [] }: LifeProtectCalculatorProps) {
+export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = true }: LifeProtectCalculatorProps) {
   const monthlyShown = shows(hide, "monthly");
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
@@ -354,7 +356,7 @@ export function LifeProtectCalculator({ table, sticky = false, hide = [] }: Life
   // there is a table to draw, so a button never points at a picture the engine would refuse
   const tableCard = who && projection
     ? valueTablePath({
-        kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured, hide,
+        kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured, hide, pen,
         ...(cardRiders ? { riders: cardRiders } : {}),
       })
     : undefined;
@@ -891,6 +893,7 @@ export function LifeProtectCalculator({ table, sticky = false, hide = [] }: Life
                   to its break-even year; dragging the sum alone keeps the year in view */}
               <CashValueChart key={`${variant}-${sex}-${who!.age}`} projection={projection} age={who!.age} />
               <CashValueTable
+                pen={pen}
                 projection={projection}
                 caption={tableCaption}
                 cardPath={tableCard}

@@ -57,7 +57,8 @@ import { readRecipe, RECIPE_NAMES, recipeInput, recipeOf, recipeScript, recipesF
 import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
 import { POST_TRIES, readTone, readVoice } from "@/lib/quote-video/post-tones";
 import { closedFor } from "@/lib/switches/store";
-import { hiddenFor } from "@/lib/pay-prefs-store";
+import { hiddenFor, prefsFor } from "@/lib/pay-prefs-store";
+import { hiddenModes } from "@/lib/pay-prefs";
 import type { PayMode } from "@/calc/types";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — a member's free clips or a UnitClub agent's starter credit, then the Studio wallet. */
@@ -143,12 +144,19 @@ const voiceWord = (input: { voice?: string; gemini?: string }) => {
   return gemini && gemini.name !== GEMINI_DEFAULT[gemini.sex] ? ` · เสียง ${gemini.name}` : "";
 };
 
+/** the agent's ตั้งค่าส่วนตัว as checked() takes it: the instalments hidden, then whether tables carry pen notes */
+async function payAndPen(agentId: string): Promise<[PayMode[], boolean]> {
+  const p = await prefsFor(agentId);
+  return [hiddenModes(p), p.pen];
+}
+
 /** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
 /**
  * `hide`: the instalments the signed-in agent switched off (ตั้งค่าส่วนตัว, owner 2026-11-14), read on the
- * server and kept on the clip, never taken from the form; a re-render says the same.
+ * server and kept on the clip, never taken from the form; a re-render says the same. `pen`: whether its table
+ * carries the pen notes (แสดงคำอธิบายในตาราง), the same way.
  */
-function checked(v: VideoInput, hide: PayMode[] = []): VideoInput | string {
+function checked(v: VideoInput, hide: PayMode[] = [], pen = true): VideoInput | string {
   // from a budget: the form is checked with a stand-in sum, then the budget works out the real one
   // วิดีโอเทียบ 4 แผน shows the page's own prices: no budget, Motion Graphic only, portrait, the whole length, no brief
   const all = v.product === "IHEALTHY" && isAllPlansMode(v.allPlans);
@@ -163,7 +171,8 @@ function checked(v: VideoInput, hide: PayMode[] = []): VideoInput | string {
   if (typeof checkedAsked === "string") return checkedAsked;
   const worked = budget ? resolveBudget(checkedAsked, budget) : checkedAsked;
   if (typeof worked === "string") return worked;
-  const c: VideoInput = hide.length ? { ...worked, hide } : worked;
+  // the table notes, read on the server like `hide`; only an agent who switched them off is marked
+  const c: VideoInput = { ...worked, ...(hide.length ? { hide } : {}), ...(pen ? {} : { pen: false }) };
   // another language (owner, 2026-10-15): Gemini's narrator, fixed lines, the 15-second clip or the whole one
   const foreign = c.product === "IHEALTHY" && readVideoLang(c.lang) !== "th";
   // an ElevenLabs voice sets the endings itself: a man's voice says ครับ
@@ -259,7 +268,7 @@ export async function previewScript(v: VideoInput, customer: string, seed = 0, r
   const closed = await closedFor(viewer, "quote-video");
   if (closed) return { error: closed };
   // lines sent back without a rewrite are the agent's own edits: checked, then spoken as they are
-  const c = checked(rewrite ? { ...v, lines: undefined } : v, await hiddenFor(viewer.agentId));
+  const c = checked(rewrite ? { ...v, lines: undefined } : v, ...(await payAndPen(viewer.agentId)));
   if (typeof c === "string") return { error: c };
   // an AI rewrite is a model call the owner pays for: sixty an hour each, once the form is right (owner, 2026-10-18)
   if (rewrite && !previewsPerHour(`script:${viewer.agentId}`)) return { error: "ดูตัวอย่างบทครบ 60 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
@@ -495,7 +504,7 @@ const NOT_PRICED = "แผนนี้คิดราคาไม่ได้ใ
 
 export async function previewQuote(v: VideoInput): Promise<Preview | { error: string }> {
   const viewer = await requireMember();
-  const c = checked(v, await hiddenFor(viewer.agentId));
+  const c = checked(v, ...(await payAndPen(viewer.agentId)));
   if (typeof c === "string") return { error: c };
   const f = quoteVideoFacts(c);
   if (!f) return { error: NOT_PRICED };
@@ -530,7 +539,7 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "quote-video");
   if (closed) return { ok: false, error: closed };
-  const c = checked(v, await hiddenFor(viewer.agentId));
+  const c = checked(v, ...(await payAndPen(viewer.agentId)));
   if (typeof c === "string") return { ok: false, error: c };
   if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };
   const contact = await getContact(viewer.agentId);

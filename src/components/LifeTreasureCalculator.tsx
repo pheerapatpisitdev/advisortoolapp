@@ -36,6 +36,8 @@ export interface LifeTreasureCalculatorProps {
   sticky?: boolean;
   /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
   hide?: PayMode[];
+  /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
+  pen?: boolean;
 }
 
 /**
@@ -46,7 +48,7 @@ export interface LifeTreasureCalculatorProps {
  * they are deciding whether the money is better left here than anywhere else, and that is a
  * comparison between two totals.
  */
-export function LifeTreasureCalculator({ table, sticky = false, hide = [] }: LifeTreasureCalculatorProps) {
+export function LifeTreasureCalculator({ table, sticky = false, hide = [], pen = true }: LifeTreasureCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -118,7 +120,7 @@ export function LifeTreasureCalculator({ table, sticky = false, hide = [] }: Lif
   // the value table drawn the same way, from the same arrangement — and offered only where
   // there is a table to draw, so a button never points at a picture the engine would refuse
   const tableCard = who && projection
-    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured, hide })
+    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured, hide, pen })
     : undefined;
   const quoteText = who && headline && total !== null
     ? lifeTreasureQuoteText({
@@ -299,6 +301,7 @@ export function LifeTreasureCalculator({ table, sticky = false, hide = [] }: Lif
                       to its break-even year; dragging the sum alone keeps the year in view */}
                   <CashValueChart key={`${variant}-${sex}-${who.age}`} projection={projection} age={who.age} />
                   <CashValueTable
+                pen={pen}
                     projection={projection}
                     caption={tableCaption}
                     cardPath={tableCard}

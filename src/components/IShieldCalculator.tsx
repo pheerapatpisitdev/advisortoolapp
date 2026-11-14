@@ -47,6 +47,8 @@ export interface IShieldCalculatorProps {
   sticky?: boolean;
   /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
   hide?: PayMode[];
+  /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
+  pen?: boolean;
 }
 
 /**
@@ -57,7 +59,7 @@ export interface IShieldCalculatorProps {
  * buy is disabled rather than hidden, so the row does not reshuffle under a thumb, and the
  * selection moves to a term they can.
  */
-export function IShieldCalculator({ table, sticky = false, hide = [] }: IShieldCalculatorProps) {
+export function IShieldCalculator({ table, sticky = false, hide = [], pen = true }: IShieldCalculatorProps) {
   const monthlyShown = shows(hide, "monthly");
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
@@ -148,7 +150,7 @@ export function IShieldCalculator({ table, sticky = false, hide = [] }: IShieldC
   // the value table drawn the same way, from the same arrangement — and offered only where
   // there is a table to draw, so a button never points at a picture the engine would refuse
   const tableCard = who && projection
-    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, hide })
+    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, hide, pen })
     : undefined;
   const quoteText = who && headline
     ? iShieldQuoteText({
@@ -347,6 +349,7 @@ export function IShieldCalculator({ table, sticky = false, hide = [] }: IShieldC
                       to its break-even year; dragging the sum alone keeps the year in view */}
                   <CashValueChart key={`${term.variant}-${sex}-${who!.age}`} projection={projection} age={who!.age} />
                   <CashValueTable
+                pen={pen}
                     projection={projection}
                     caption={tableCaption}
                     cardPath={tableCard}

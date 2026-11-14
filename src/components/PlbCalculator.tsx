@@ -33,6 +33,8 @@ export interface PlbCalculatorProps {
   sticky?: boolean;
   /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
   hide?: PayMode[];
+  /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
+  pen?: boolean;
 }
 
 /**
@@ -44,7 +46,7 @@ export interface PlbCalculatorProps {
  * costs — the day rate, the total over the term, and the price per million, which is the only
  * way the sum-assured discount is visible.
  */
-export function PlbCalculator({ table, sticky = false, hide = [] }: PlbCalculatorProps) {
+export function PlbCalculator({ table, sticky = false, hide = [], pen = true }: PlbCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -98,7 +100,7 @@ export function PlbCalculator({ table, sticky = false, hide = [] }: PlbCalculato
    * the contract ends.
    */
   const tableCard = who
-    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, hide })
+    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, hide, pen })
     : undefined;
   /**
    * The same years the card draws, for the page to show.
