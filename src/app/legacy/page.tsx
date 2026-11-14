@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { shareTemplateOnPage } from "@/lib/share-text/store";
 import { hiddenOnPage } from "@/lib/pay-prefs-store";
 import { LegacyCalculator } from "@/components/LegacyCalculator";
 import { legacyTable } from "@/lib/legacy-table";
@@ -35,6 +36,8 @@ export default async function LegacyPage({
 }) {
   // members only, trial included (owner, 2026-10-20)
   const viewer = await gateCalc("/legacy");
+  // ข้อความส่งให้ลูกค้า: the member's own wording for this plan, where they saved one
+  const shareTemplate = await shareTemplateOnPage(viewer, "legacy");
   // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
   const hide = await hiddenOnPage(viewer, await searchParams);
   const table = legacyTable();
@@ -43,7 +46,7 @@ export default async function LegacyPage({
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="มรดกเพื่อครอบครัว" facts={[`รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
-        <LegacyCalculator table={table} hide={hide} sticky />
+        <LegacyCalculator shareTemplate={shareTemplate} table={table} hide={hide} sticky />
       </section>
       <DiseaseSection />
       <Disclaimer facts={facts} />

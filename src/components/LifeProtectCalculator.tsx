@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, lifeProtectSlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { PayMode, Sex } from "@/calc/types";
@@ -115,13 +117,15 @@ export interface LifeProtectCalculatorProps {
   hide?: PayMode[];
   /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
   pen?: boolean;
+  /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+  shareTemplate?: string;
 }
 
 /**
  * The customer's calculator for the base plan on its own. Four choices — sum, term, age, sex —
  * and every figure on the card follows from them at once, in the browser, from the table.
  */
-export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = true }: LifeProtectCalculatorProps) {
+export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = true, shareTemplate }: LifeProtectCalculatorProps) {
   const monthlyShown = shows(hide, "monthly");
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
@@ -365,8 +369,8 @@ export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = 
   // what a rider paying on death adds for the family, under the plan's own figure
   const deathExtra = illnessPriced.filter((i) => i.rider.paysOnDeath)
     .map((i) => illnessDeathLine(i.rider.short, i.sum, i.rider.coverToAge));
-  const quoteText = who && headline && death
-    ? lifeProtectQuoteText({
+  const quoteFacts = who && headline && death
+    ? {
       sumAssured, termLabel: term.label, age: who.age, sex, modes: [headline, ...others], death, cash, renewing, deathExtra,
       parts: basePart && riderLines.length > 0
         ? {
@@ -374,7 +378,11 @@ export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = 
             riders: riderLines.map((l, i) => (i === 0 && picked && riderPart ? { ...l, name: l.name + payerWords } : l)),
           }
         : undefined,
-    })
+    }
+    : undefined;
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว), with this quote's figures
+  const quoteText = quoteFacts
+    ? shareText(shareTemplate, lifeProtectQuoteText(quoteFacts), lifeProtectSlots(quoteFacts), SHARE_PLANS.lifeprotect.blocks)
     : undefined;
 
   /**

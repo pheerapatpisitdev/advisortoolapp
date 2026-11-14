@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { shareTemplateOnPage } from "@/lib/share-text/store";
 import { hiddenOnPage, penOnPage } from "@/lib/pay-prefs-store";
 import { LifeProtectCalculator } from "@/components/LifeProtectCalculator";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
@@ -23,6 +24,8 @@ export default async function LifeProtectPage({
 }) {
   // members only, trial included (owner, 2026-10-20)
   const viewer = await gateCalc("/lifeprotect");
+  // ข้อความส่งให้ลูกค้า: the member's own wording for this plan, where they saved one
+  const shareTemplate = await shareTemplateOnPage(viewer, "lifeprotect");
   // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
   const hide = await hiddenOnPage(viewer, await searchParams);
   // แสดงคำอธิบายในตาราง: the pen notes on the value table
@@ -37,7 +40,7 @@ export default async function LifeProtectPage({
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Life Protect x 2" kind="ประกันชีวิตตลอดชีพ" facts={[`คุ้มครองถึงอายุ ${facts.coverToAge}`, `รับแรกเกิด–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
-        <LifeProtectCalculator table={table} hide={hide} pen={pen} sticky />
+        <LifeProtectCalculator shareTemplate={shareTemplate} table={table} hide={hide} pen={pen} sticky />
       </section>
       <Disclaimer facts={facts} />
     </main>

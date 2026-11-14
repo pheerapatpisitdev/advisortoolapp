@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, legacySlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useMemo, useState } from "react";
 import type { ModePremium } from "@/calc/mode-premiums";
 import type { PayMode, Sex } from "@/calc/types";
@@ -56,6 +58,8 @@ export interface LegacyCalculatorProps {
   sticky?: boolean;
   /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
   hide?: PayMode[];
+  /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+  shareTemplate?: string;
 }
 
 /**
@@ -63,7 +67,7 @@ export interface LegacyCalculatorProps {
  * sum, the age and the sex — every other decision was made when the bundle was designed, and
  * the agent's own calculator is where the rest of them can still be changed.
  */
-export function LegacyCalculator({ table, sticky = false, hide = [] }: LegacyCalculatorProps) {
+export function LegacyCalculator({ table, sticky = false, hide = [], shareTemplate }: LegacyCalculatorProps) {
   const RANGE = { min: table.ageMin, max: table.ageMax };
   const AGES = useMemo(
     () => Array.from({ length: RANGE.max - RANGE.min + 1 }, (_, i) => RANGE.min + i),
@@ -115,8 +119,12 @@ export function LegacyCalculator({ table, sticky = false, hide = [] }: LegacyCal
   const card = typeof age === "number" && headline
     ? cardPath({ kind: "bundle", bundleCode: table.bundleCode, tier: millions, age, sex, mode: headline.mode, hide })
     : undefined;
-  const quoteText = typeof age === "number" && modes && headline && death
-    ? legacyQuoteText({ millions, age, sex, modes, minMonthly: table.minMonthlyTotal, critical: table.critical[millions - 1], death, diseaseCount: table.diseaseCount })
+  const quoteFacts = typeof age === "number" && modes && headline && death
+    ? { millions, age, sex, modes, minMonthly: table.minMonthlyTotal, critical: table.critical[millions - 1], death, diseaseCount: table.diseaseCount }
+    : undefined;
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว), with this quote's figures
+  const quoteText = quoteFacts
+    ? shareText(shareTemplate, legacyQuoteText(quoteFacts), legacySlots(quoteFacts), SHARE_PLANS.legacy.blocks)
     : undefined;
 
   return (

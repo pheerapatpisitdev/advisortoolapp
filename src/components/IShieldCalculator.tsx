@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, iShieldSlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useEffect, useMemo, useState } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { PayMode, Sex } from "@/calc/types";
@@ -49,6 +51,8 @@ export interface IShieldCalculatorProps {
   hide?: PayMode[];
   /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
   pen?: boolean;
+  /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+  shareTemplate?: string;
 }
 
 /**
@@ -59,7 +63,7 @@ export interface IShieldCalculatorProps {
  * buy is disabled rather than hidden, so the row does not reshuffle under a thumb, and the
  * selection moves to a term they can.
  */
-export function IShieldCalculator({ table, sticky = false, hide = [], pen = true }: IShieldCalculatorProps) {
+export function IShieldCalculator({ table, sticky = false, hide = [], pen = true, shareTemplate }: IShieldCalculatorProps) {
   const monthlyShown = shows(hide, "monthly");
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
@@ -152,11 +156,15 @@ export function IShieldCalculator({ table, sticky = false, hide = [], pen = true
   const tableCard = who && projection
     ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, hide, pen })
     : undefined;
-  const quoteText = who && headline
-    ? iShieldQuoteText({
+  const quoteFacts = who && headline
+    ? {
         sumAssured, termLabel: term.label, age: who.age, sex, modes: [headline, ...others],
         illness: benefit, counts: table.illness, maturityAge: table.maturityAge, cash,
-      })
+      }
+    : undefined;
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว), with this quote's figures
+  const quoteText = quoteFacts
+    ? shareText(shareTemplate, iShieldQuoteText(quoteFacts), iShieldSlots(quoteFacts), SHARE_PLANS.ishield.blocks)
     : undefined;
 
   /** The figure on a term button: that term's yearly premium, once there is an age. */

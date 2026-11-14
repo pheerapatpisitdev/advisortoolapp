@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, pensionSlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { readCalcStart } from "@/lib/calc-start";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -62,7 +64,9 @@ const COL = "border-l border-[var(--op-line)] px-[5px]";
 const WRAPS = new Set<string>(["มูลค่าเวนคืน", "บำนาญสะสม", "คุ้มครองชีวิต"]);
 
 export function PensionCalculator(
-  { sticky = false, hide = [], pen = true }: {
+  { sticky = false, hide = [], pen = true, shareTemplate }: {
+    /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+    shareTemplate?: string;
     sticky?: boolean;
     /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no braces, notes or pen rings */
     pen?: boolean;
@@ -117,7 +121,8 @@ export function PensionCalculator(
   const overTyped = q && basis === "premium" && mode !== "annual" && !q.riders.length && amount !== ""
     ? Math.round((q.modePremium - amount) * 100) / 100 : 0;
   const who = { age: age === "" ? PENSION_LIMITS.ageMin : age, sex };
-  const copyText = q ? pensionQuoteText(who, q, hide) : undefined;
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว), with this quote's figures
+  const copyText = q ? shareText(shareTemplate, pensionQuoteText(who, q, hide), pensionSlots(who, q), SHARE_PLANS.pension.blocks) : undefined;
   // the yearly table as the chat sends it: the main contract only, priced from the sum and the way of paying
   const tableCard = q && age !== "" ? pensionTablePath({ age, sex, start: chosenAge, pay, sumAssured: q.sumAssured, mode, pen }) : undefined;
 

@@ -1,4 +1,6 @@
 "use client";
+import { SHARE_PLANS, gsavingSlots } from "@/lib/share-text/plans";
+import { shareText } from "@/lib/share-text/template";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { readCalcStart } from "@/lib/calc-start";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -45,7 +47,10 @@ function Tag({ guaranteed }: { guaranteed: boolean }) {
   );
 }
 
-export function GlobalSavingCalculator() {
+export function GlobalSavingCalculator({ shareTemplate }: {
+  /** ข้อความส่งให้ลูกค้า: this member's own template for the plan (src/lib/share-text) */
+  shareTemplate?: string;
+} = {}) {
   const [age, setAge] = useState(35);
   const [basis, setBasis] = useState<GsBasis>("premium");
   const [amount, setAmount] = useState<number | "">(50_000);
@@ -68,7 +73,8 @@ export function GlobalSavingCalculator() {
 
   // ส่งให้ลูกค้า: the whole page as one picture (owner chose ข, 2026-10-20) and the quote as text
   const sendable = q && !q.warnings.length ? q : null;
-  const copyText = sendable ? gsQuoteText(age, sendable) : undefined;
+  // the member's own wording where they saved one (ตั้งค่าส่วนตัว), with this quote's figures
+  const copyText = sendable ? shareText(shareTemplate, gsQuoteText(age, sendable), gsavingSlots(age, sendable), SHARE_PLANS.gsaving.blocks) : undefined;
   const tableCard = sendable && amount !== "" ? gsavingCardPath({ age, basis, amount }) : undefined;
   const videoHref = q ? videoStartHref({ product: "GSAVING", age, premium: Math.ceil(q.premium) }) : undefined;
 

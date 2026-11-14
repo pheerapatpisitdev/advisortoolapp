@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { shareTemplateOnPage } from "@/lib/share-text/store";
 import { hiddenOnPage } from "@/lib/pay-prefs-store";
 import { CancerCalculator } from "@/components/CancerCalculator";
 import { cancerTable } from "@/lib/cancer-table";
@@ -22,6 +23,8 @@ export default async function CancerPage({
 }) {
   // members only, trial included (owner, 2026-10-20)
   const viewer = await gateCalc("/cancer");
+  // ข้อความส่งให้ลูกค้า: the member's own wording for this plan, where they saved one
+  const shareTemplate = await shareTemplateOnPage(viewer, "cancer");
   // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
   const hide = await hiddenOnPage(viewer, await searchParams);
   const table = cancerTable();
@@ -29,7 +32,7 @@ export default async function CancerPage({
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Cancer" kind="ประกันมะเร็ง" facts={["จ่ายตามระยะของมะเร็ง", "ค่าชดเชยรายวันเมื่อนอนโรงพยาบาล", `รับแรกเกิด–${table.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
-        <CancerCalculator table={table} hide={hide} sticky />
+        <CancerCalculator shareTemplate={shareTemplate} table={table} hide={hide} sticky />
       </section>
       <Disclaimer table={table} />
     </main>
