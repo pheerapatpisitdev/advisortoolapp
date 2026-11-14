@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  checkForm, rowReducer, sentView, submitUpload, uploadHref, uploadsFor, withoutUpload, withSent, withVerdict,
+  afterDecide, afterSent, checkForm, rowReducer, sentView, submitUpload, uploadHref, uploadsFor, withoutUpload, withSent, withVerdict,
   type FormState, type RowState, type UploadSet,
 } from "@/lib/scene-library/upload-flow";
 import { shrinkForUpload } from "@/lib/scene-library/shrink";
@@ -212,5 +212,49 @@ describe("shrinkForUpload", () => {
     try {
       expect(await shrinkForUpload(file, "style")).toBe(file);
     } finally { vi.unstubAllGlobals(); }
+  });
+});
+
+describe("afterSent: where the page goes and what ของฉัน holds", () => {
+  const row = sentView({ kind: "part", name: "ตะกร้า", note: "", files: 1 }, { id: "n", state: "wait" });
+  it("a member lands on ของฉัน with the new row, saying รออนุมัติ", async () => {
+    const { stateWord } = await import("@/lib/scene-library/upload-rules");
+    const r = afterSent(set({ mine: [view({ id: "old" })] }), row, false);
+    expect(r.tab).toBe("mine");
+    expect(r.ups.mine.map((v) => v.id)).toEqual(["n", "old"]);
+    expect(stateWord(r.ups.mine[0].kind, r.ups.mine[0].state)).toBe("รออนุมัติ");
+  });
+  it("the owner stays where they are, and an own part is shared at once", () => {
+    const ok = sentView({ kind: "part", name: "ก", note: "", files: 1 }, { id: "o", state: "ok" });
+    const r = afterSent(set(), ok, true);
+    expect(r.tab).toBeNull();
+    expect(r.ups.shared.map((v) => v.id)).toEqual(["o"]);
+  });
+});
+
+describe("afterDecide", () => {
+  const w = view({ id: "w", mine: false });
+  it("ok moves the row into shared, which เลือกดู then shows", () => {
+    const u = afterDecide(set({ waiting: [w] }), "w", "ok", undefined, { ok: true });
+    expect(u.waiting).toEqual([]);
+    const shown = uploadsFor(u.shared, { q: "", type: "any", product: "any", state: "ready" });
+    expect(shown.map((v) => v.id)).toEqual(["w"]);
+  });
+  it("'already decided' drops the row from the queue and adds it nowhere", () => {
+    const u = afterDecide(set({ waiting: [w] }), "w", "ok", undefined, { ok: false, error: "ไฟล์นี้ตรวจไปแล้ว" });
+    expect(u).toEqual(set());
+  });
+  it("any other error changes nothing", () => {
+    const start = set({ waiting: [w] });
+    expect(afterDecide(start, "w", "ok", undefined, { ok: false, error: "ทำไม่สำเร็จ" })).toBe(start);
+  });
+});
+
+describe("rowReducer done: one row finishing leaves the others alone", () => {
+  it("closes only the row it names", () => {
+    expect(rowReducer({ removing: "a", refusing: null, reason: null }, { type: "done", id: "a" })).toEqual({ removing: null, refusing: null, reason: null });
+    const open = { removing: null, refusing: "b", reason: "อาจติดลิขสิทธิ์" };
+    expect(rowReducer(open, { type: "done", id: "a" })).toBe(open);
+    expect(rowReducer(open, { type: "done", id: "b" })).toEqual({ removing: null, refusing: null, reason: null });
   });
 });

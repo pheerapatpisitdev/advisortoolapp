@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useReducer, useState } from "react";
 import type { LibraryTool } from "@/lib/scene-library/catalog";
-import { NO_ROW, rowReducer, uploadHref, type RowAction, type RowState } from "@/lib/scene-library/upload-flow";
+import { ALREADY_DECIDED as ALREADY, NO_ROW, rowReducer, uploadHref, type RowAction, type RowState } from "@/lib/scene-library/upload-flow";
 import { KIND_NAME, REASONS, SHOTS_MAX, stateWord, type UploadView } from "@/lib/scene-library/upload-rules";
 
 /**
@@ -12,9 +12,9 @@ import { KIND_NAME, REASONS, SHOTS_MAX, stateWord, type UploadView } from "@/lib
  * by calling it; "ลบไฟล์นี้?" is asked in the row, never with confirm().
  */
 
+const NONE: ReadonlySet<string> = new Set();
 type Done = { ok: true } | { ok: false; error: string };
 type Verdict = "ok" | "no" | "queue" | "closed";
-const ALREADY = "ไฟล์นี้ตรวจไปแล้ว";
 const FAILED = "ทำไม่สำเร็จ ลองใหม่อีกครั้ง";
 
 const pic = (id: string, n: number) => `/api/library-upload?id=${id}&n=${n}`;
@@ -35,8 +35,8 @@ interface ListProps {
   rows: readonly UploadView[];
   ui: RowState;
   dispatch: (a: RowAction) => void;
-  /** the row whose call is on its way */
-  busy?: string | null;
+  /** the rows whose call is on its way */
+  busy?: ReadonlySet<string>;
   errors?: Record<string, string>;
   /** rows someone else decided first: their message only, no buttons */
   settled?: ReadonlySet<string>;
@@ -44,9 +44,9 @@ interface ListProps {
   onDecide?: (id: string, verdict: Verdict, reason?: string) => void;
 }
 
-export function UploadList({ mode, rows, ui, dispatch, busy = null, errors = {}, settled, onRemove, onDecide }: ListProps) {
+export function UploadList({ mode, rows, ui, dispatch, busy = NONE, errors = {}, settled, onRemove, onDecide }: ListProps) {
   const row = (r: UploadView) => {
-    const held = busy === r.id;
+    const held = busy.has(r.id);
     const stale = settled?.has(r.id) ?? false;
     const shots = Math.min(r.files, SHOTS_MAX);
     return (
@@ -121,15 +121,17 @@ const empty = (t: string) => <p className="rounded-xl border border-dashed borde
 /** ของฉัน: ไฟล์ที่ฉันส่ง. The row's own ลบ question; a refusal shows under the row. */
 export function MyFiles({ rows, onRemove }: { rows: readonly UploadView[]; onRemove: (id: string) => Promise<Done> }) {
   const [ui, dispatch] = useReducer(rowReducer, NO_ROW);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<ReadonlySet<string>>(NONE);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const mark = (id: string, on: boolean) => setBusy((b) => { const n = new Set(b); if (on) n.add(id); else n.delete(id); return n; });
   async function remove(id: string) {
-    setBusy(id);
-    setErrors({});
+    if (busy.has(id)) return;
+    mark(id, true);
+    setErrors((e) => { const rest = { ...e }; delete rest[id]; return rest; });
     const done = await onRemove(id).catch((): Done => ({ ok: false, error: FAILED }));
-    setBusy(null);
-    if (done.ok) dispatch({ type: "cancel" });
-    else setErrors({ [id]: done.error });
+    mark(id, false);
+    if (done.ok) dispatch({ type: "done", id });
+    else setErrors((e) => ({ ...e, [id]: done.error }));
   }
   return (
     <section aria-label="ไฟล์ที่ฉันส่ง" className="grid gap-2">
@@ -145,18 +147,20 @@ export function MyFiles({ rows, onRemove }: { rows: readonly UploadView[]; onRem
  */
 export function ReviewQueue({ rows, onDecide }: { rows: readonly UploadView[]; onDecide: (id: string, verdict: Verdict, reason?: string) => Promise<Done> }) {
   const [ui, dispatch] = useReducer(rowReducer, NO_ROW);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<ReadonlySet<string>>(NONE);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const mark = (id: string, on: boolean) => setBusy((b) => { const n = new Set(b); if (on) n.add(id); else n.delete(id); return n; });
   const [stale, setStale] = useState<UploadView[]>([]);
   async function decide(id: string, verdict: Verdict, reason?: string) {
+    if (busy.has(id)) return;
     const row = rows.find((r) => r.id === id);
-    setBusy(id);
+    mark(id, true);
     setErrors((e) => { const rest = { ...e }; delete rest[id]; return rest; });
     const done = await onDecide(id, verdict, reason).catch((): Done => ({ ok: false, error: FAILED }));
-    setBusy(null);
-    if (done.ok) { dispatch({ type: "cancel" }); return; }
+    mark(id, false);
+    if (done.ok) { dispatch({ type: "done", id }); return; }
     setErrors((e) => ({ ...e, [id]: done.error }));
-    if (done.error === ALREADY && row) { setStale((s) => (s.some((x) => x.id === id) ? s : [...s, row])); dispatch({ type: "cancel" }); }
+    if (done.error === ALREADY && row) { setStale((s) => (s.some((x) => x.id === id) ? s : [...s, row])); dispatch({ type: "done", id }); }
   }
   const shown = [...rows, ...stale.filter((s) => !rows.some((r) => r.id === s.id))];
   const settled = new Set(stale.map((s) => s.id));

@@ -82,6 +82,22 @@ export function withVerdict(u: UploadSet, id: string, verdict: "ok" | "no" | "qu
   };
 }
 
+/** after a send: the lists, and where the page goes (a member lands on ของฉัน; the owner stays, with "ส่งแล้ว") */
+export function afterSent(u: UploadSet, row: UploadView, owner: boolean): { ups: UploadSet; tab: "mine" | null } {
+  return { ups: withSent(u, row, owner), tab: owner ? null : "mine" };
+}
+
+export const ALREADY_DECIDED = "ไฟล์นี้ตรวจไปแล้ว";
+
+/** after the owner's call came back: ok applies the verdict; "already decided" only drops the row from the queue; other errors change nothing */
+export function afterDecide(
+  u: UploadSet, id: string, verdict: "ok" | "no" | "queue" | "closed", reason: string | undefined, done: { ok: true } | { ok: false; error: string },
+): UploadSet {
+  if (done.ok) return withVerdict(u, id, verdict, reason);
+  if (done.error === ALREADY_DECIDED) return { ...u, waiting: u.waiting.filter((r) => r.id !== id) };
+  return u;
+}
+
 export const withoutUpload = (u: UploadSet, id: string): UploadSet => ({
   mine: u.mine.filter((r) => r.id !== id), shared: u.shared.filter((r) => r.id !== id), waiting: u.waiting.filter((r) => r.id !== id),
 });
@@ -92,7 +108,9 @@ export type RowAction =
   | { type: "ask-remove"; id: string }
   | { type: "ask-no"; id: string }
   | { type: "pick"; reason: string }
-  | { type: "cancel" };
+  | { type: "cancel" }
+  /** a row's call finished: closes only that row's question, never another row's */
+  | { type: "done"; id: string };
 export const NO_ROW: RowState = { removing: null, refusing: null, reason: null };
 export function rowReducer(s: RowState, a: RowAction): RowState {
   switch (a.type) {
@@ -100,6 +118,7 @@ export function rowReducer(s: RowState, a: RowAction): RowState {
     case "ask-no": return { removing: null, refusing: a.id, reason: null };
     case "pick": return { ...s, reason: a.reason };
     case "cancel": return NO_ROW;
+    case "done": return s.removing === a.id || s.refusing === a.id ? NO_ROW : s;
   }
 }
 

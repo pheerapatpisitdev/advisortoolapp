@@ -5,7 +5,7 @@ import { PRODUCT_NAME, TYPE_NAME, usesFor, type LibraryItem, type LibraryProduct
 import { filterLibrary, type LibraryFilter, type LibraryState } from "@/lib/scene-library/filter";
 import { cleanMarks, hasMark, pressMark, withMark, type Marks } from "@/lib/scene-library/mark-state";
 import type { MarkKind, Toggled } from "@/lib/scene-library/marks";
-import { uploadsFor, withoutUpload, withSent, withVerdict, type UploadSet } from "@/lib/scene-library/upload-flow";
+import { afterDecide, afterSent, uploadsFor, withoutUpload, type UploadSet } from "@/lib/scene-library/upload-flow";
 import type { UploadView } from "@/lib/scene-library/upload-rules";
 import type { Sent } from "@/lib/scene-library/uploads";
 import { decideLibraryUpload, removeLibraryUpload, toggleLibraryMark } from "./actions";
@@ -21,7 +21,8 @@ import { MegaphoneIcon, PenIcon, QuoteIcon, SearchIcon, SlidersIcon } from "../u
  *
  * ★ and อยากได้ change at once and follow the server's answer; a refusal or a failed call puts the mark
  * back with a line under the card, and the button waits while its press is on its way. With the marks
- * unreadable (`marksFailed`) there is no ★, no vote and no ของฉัน: the page says why above the board.
+ * unreadable (`marksFailed`) there is no ★ and no vote, and ของฉัน stays only when the uploads can be read
+ * (for ไฟล์ที่ฉันส่ง); the page says why above the board.
  */
 
 type Tab = "browse" | "upload" | "mine" | "queue" | "top";
@@ -251,9 +252,9 @@ export function LibraryBoard({
   );
 
   const onSent = (row: UploadView) => {
-    setUps((u) => (u ? withSent(u, row, owner) : u));
+    setUps((u) => (u ? afterSent(u, row, owner).ups : u));
     // a member lands on ของฉัน; the owner stays, with "ส่งแล้ว"
-    if (!owner) setTab("mine");
+    if (afterSent({ mine: [], shared: [], waiting: [] }, row, owner).tab) setTab("mine");
   };
   const onRemove = async (id: string): Promise<Done> => {
     const done = await remove(id);
@@ -262,9 +263,8 @@ export function LibraryBoard({
   };
   const onDecide = async (id: string, verdict: Verdict, reason?: string): Promise<Done> => {
     const done = await decide(id, verdict, reason);
-    if (done.ok) setUps((u) => (u ? withVerdict(u, id, verdict, reason) : u));
-    // someone decided it first: it leaves the queue (the list keeps its message under the row)
-    else if (done.error === "ไฟล์นี้ตรวจไปแล้ว") setUps((u) => (u ? { ...u, waiting: u.waiting.filter((r) => r.id !== id) } : u));
+    // ok applies the verdict; someone having decided it first only drops it from the queue (the list keeps its message under the row)
+    setUps((u) => (u ? afterDecide(u, id, verdict, reason, done) : u));
     return done;
   };
 

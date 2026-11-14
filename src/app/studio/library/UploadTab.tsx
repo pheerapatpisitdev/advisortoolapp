@@ -65,8 +65,9 @@ export function UploadTab({ sent, owner, demo, send, onSent, initialKind = "part
   return (
     <form onSubmit={submit} className="grid max-w-xl gap-4" noValidate>
       <div className="grid gap-1 text-sm">
-        <p>คุณส่งแล้ว {sent} จาก {PER_PERSON} ไฟล์ ไฟล์ใช้ร่วมได้หลังเจ้าของอนุมัติ</p>
-        {owner && <p className="text-[var(--ct-accent)]">ไฟล์ของเจ้าของเข้าคลังทันที ไม่ต้องรอตรวจ</p>}
+        {owner
+          ? <p className="text-[var(--ct-accent)]">ไฟล์ของเจ้าของเข้าคลังทันที ไม่ต้องรอตรวจ</p>
+          : <p>คุณส่งแล้ว {sent} จาก {PER_PERSON} ไฟล์ ไฟล์ใช้ร่วมได้หลังเจ้าของอนุมัติ</p>}
       </div>
 
       <div role="group" aria-label="แบบที่จะส่ง" className="grid gap-2 sm:grid-cols-3">
@@ -91,13 +92,13 @@ export function UploadTab({ sent, owner, demo, send, onSent, initialKind = "part
       </label>
 
       <label className="grid gap-1 text-sm">
-        <span>ชื่อ</span>
+        <span>{kind === "ask" ? "อยากได้อะไร" : "ชื่อที่จะแสดงในคลัง"}</span>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} aria-describedby="library-upload-name" className={field} />
         <span id="library-upload-name" className="text-xs text-[var(--ct-mute)]">{name.trim().length}/{NAME_MAX}</span>
       </label>
 
       <label className="grid gap-1 text-sm">
-        <span>{kind === "ask" ? "บอกว่าอยากได้อะไร" : "หมายเหตุ (ไม่บังคับ)"}</span>
+        <span>{kind === "ask" ? "เล่าเพิ่ม หรือวางลิงก์ตัวอย่าง" : "ใช้กับฉากแบบไหน (ไม่บังคับ)"}</span>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={field} />
         <span className="text-xs text-[var(--ct-mute)]">{note.trim().length}/{NOTE_MAX}</span>
       </label>

@@ -104,7 +104,9 @@ describe("อัปโหลด", () => {
   });
   it("says how many are sent and what happens after", () => {
     expect(form()).toContain("คุณส่งแล้ว 3 จาก 20 ไฟล์ ไฟล์ใช้ร่วมได้หลังเจ้าของอนุมัติ");
+    expect(form()).not.toContain("เข้าคลังทันที");
     expect(form({ owner: true })).toContain("ไฟล์ของเจ้าของเข้าคลังทันที ไม่ต้องรอตรวจ");
+    expect(form({ owner: true })).not.toContain("คุณส่งแล้ว");
   });
   it("shows the three kinds, the hint, the file box, the rights line and the send button", () => {
     const html = form();
@@ -124,6 +126,15 @@ describe("อัปโหลด", () => {
     expect(html).toContain("ส่งคำขอ");
     expect(html).toContain(KIND_HINT.ask);
     expect(html).not.toContain(RIGHTS_LINE);
+  });
+  it("labels the fields as the mockup does, by kind", () => {
+    const pic = form();
+    expect(pic).toContain("ชื่อที่จะแสดงในคลัง");
+    expect(pic).toContain("ใช้กับฉากแบบไหน (ไม่บังคับ)");
+    const ask = form({ initialKind: "ask" });
+    expect(ask).toContain("อยากได้อะไร");
+    expect(ask).toContain("เล่าเพิ่ม หรือวางลิงก์ตัวอย่าง");
+    expect(ask).not.toContain("ชื่อที่จะแสดงในคลัง");
   });
   it("every control is at least min-h-tap", () => {
     const html = form();
