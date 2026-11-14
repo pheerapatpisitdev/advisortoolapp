@@ -1,5 +1,5 @@
 import { searchText, type LibraryFilter } from "./filter";
-import type { Sent } from "./uploads";
+import type { Sent, Withdrawn } from "./uploads";
 import {
   FILE_MAX, NAME_MAX, NOTE_MAX, PER_PERSON, SHOTS_MAX, type UploadKind, type UploadView,
 } from "./upload-rules";
@@ -98,6 +98,21 @@ export function afterDecide(
   return u;
 }
 
+export const NOT_FOUND = "ไม่พบไฟล์นี้";
+
+/**
+ * after the owner's ถอนออกจากคลัง came back: ok takes the row out of shared (so out of เลือกดู), and the owner's
+ * own copy in mine becomes gone with the reason; a row deleted with its gone sender leaves every list. Withdrawn
+ * or deleted first only drops it from shared; other errors change nothing.
+ */
+export function afterWithdraw(u: UploadSet, id: string, done: Withdrawn, reason?: string): UploadSet {
+  if (done.ok && done.removed) return withoutUpload(u, id);
+  const unshared = { ...u, shared: u.shared.filter((r) => r.id !== id) };
+  if (done.ok) return { ...unshared, mine: u.mine.map((r): UploadView => (r.id === id ? { ...r, state: "gone", reason: reason ?? null } : r)) };
+  if (done.error === ALREADY_DECIDED || done.error === NOT_FOUND) return unshared;
+  return u;
+}
+
 export const withoutUpload = (u: UploadSet, id: string): UploadSet => ({
   mine: u.mine.filter((r) => r.id !== id), shared: u.shared.filter((r) => r.id !== id), waiting: u.waiting.filter((r) => r.id !== id),
 });
@@ -106,6 +121,7 @@ export const withoutUpload = (u: UploadSet, id: string): UploadSet => ({
 export interface RowState { removing: string | null; refusing: string | null; reason: string | null }
 export type RowAction =
   | { type: "ask-remove"; id: string }
+  /** opens a row's reasons: ไม่ผ่าน in the queue, ถอนออกจากคลัง in ในคลังแล้ว (one panel, one row at a time) */
   | { type: "ask-no"; id: string }
   | { type: "pick"; reason: string }
   | { type: "cancel" }

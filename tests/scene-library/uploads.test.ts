@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * ins_library_uploads and the content-media bucket in memory: eq / in filters, order, a head count,
@@ -18,7 +18,28 @@ const mem = vi.hoisted(() => ({
   queries: [] as { method: string; args: unknown[] }[][],
   insertError: null as null | { message: string },
   failAll: null as null | { message: string },
+  deleteError: null as null | { message: string },
   clock: 0,
+}));
+
+/** who the account lookups say an id is: a row, nobody (null), or a failed read (throws); and whether the outside systems are set up */
+const people = vi.hoisted(() => ({
+  agent: null as unknown, member: null as unknown, superAdmin: null as unknown, bluewealth: null as unknown, kingclub: null as unknown,
+  bwSet: true, kcSet: true, asked: [] as string[],
+}));
+const look = (name: string, v: unknown) => { people.asked.push(name); if (v instanceof Error) throw v; return v; };
+vi.mock("@/lib/auth/viewer", () => ({
+  agentById: async () => look("agent", people.agent),
+  memberById: async () => look("member", people.member),
+  superAdminById: async () => look("super", people.superAdmin),
+}));
+vi.mock("@/lib/auth/bluewealth", () => ({
+  bluewealthConfigured: () => people.bwSet,
+  bluewealthAgentById: async () => look("bluewealth", people.bluewealth),
+}));
+vi.mock("@/lib/auth/kingclub", () => ({
+  kingclubConfigured: () => people.kcSet,
+  kingclubAgentById: async () => look("kingclub", people.kingclub),
 }));
 
 function answer(steps: Step[]): { data: unknown; error: unknown; count?: number } {
@@ -44,6 +65,7 @@ function answer(steps: Step[]): { data: unknown; error: unknown; count?: number 
     return { data: gone.map((r) => ({ ...r })), error: null };
   }
   if (steps.some((s) => s.method === "delete")) {
+    if (mem.deleteError) return { data: null, error: mem.deleteError };
     const gone = rows.filter(hit);
     mem.rows = rows.filter((r) => !hit(r));
     return { data: gone.map((r) => ({ ...r })), error: null };
@@ -95,7 +117,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 import {
-  decideUpload, deleteUpload, myUploads, okUploads, readableUpload, sendUpload, sharedUploads, uploadFile, waitingUploads,
+  decideUpload, deleteUpload, myUploads, okUploads, readableUpload, sendUpload, sharedUploads, uploadFile, waitingUploads, withdrawUpload,
 } from "@/lib/scene-library/uploads";
 import { FILE_MAX, PER_PERSON, REASONS } from "@/lib/scene-library/upload-rules";
 import { DEMO_ID } from "@/lib/auth/demo";
@@ -118,9 +140,12 @@ const seed = (over: Partial<Row>) => {
 
 beforeEach(() => {
   mem.rows = []; mem.files.clear(); mem.uploads.length = 0; mem.removed.length = 0; mem.queries.length = 0;
-  mem.insertError = null; mem.failAll = null; mem.clock = 0;
+  mem.insertError = null; mem.failAll = null; mem.deleteError = null; mem.clock = 0;
+  // by default the sender is a UnitClub agent, still there
+  Object.assign(people, { agent: { id: A }, member: null, superAdmin: null, bluewealth: null, kingclub: null, bwSet: true, kcSet: true, asked: [] });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
+afterEach(() => { vi.restoreAllMocks(); });
 
 describe("sendUpload: refusals", () => {
   const refused = async (who: typeof member, v: Parameters<typeof sendUpload>[1], error: string) => {
@@ -269,6 +294,130 @@ describe("deleteUpload", () => {
   });
 });
 
+describe("withdrawUpload", () => {
+  const nobody = () => Object.assign(people, { agent: null, member: null, superAdmin: null, bluewealth: null, kingclub: null });
+  it("an ok part goes to gone with the reason, who and when; its files stay for the sender", async () => {
+    mem.files.set("library/a.png", { bytes: PNG, type: "image/png" });
+    const a = seed({ state: "ok", decided_by: B });
+    expect(await withdrawUpload(OWNER, a.id, REASONS[0])).toEqual({ ok: true, removed: false });
+    expect(a).toMatchObject({ state: "gone", reason: REASONS[0], decided_by: OWNER });
+    expect(typeof a.decided_at).toBe("string");
+    expect(mem.rows).toHaveLength(1);
+    expect(mem.removed).toEqual([]);
+    expect(mem.files.size).toBe(1);
+  });
+  it("an ok style too", async () => {
+    const s = seed({ state: "ok", kind: "style", paths: ["library/s.jpg"] });
+    expect(await withdrawUpload(OWNER, s.id, REASONS[3])).toEqual({ ok: true, removed: false });
+    expect(s.state).toBe("gone");
+  });
+  it("needs a reason from the four", async () => {
+    const a = seed({ state: "ok" });
+    for (const r of [undefined, "", "เพราะอยากถอน", 3]) {
+      expect(await withdrawUpload(OWNER, a.id, r as never)).toEqual({ ok: false, error: "เลือกเหตุผลก่อน" });
+    }
+    expect(a).toMatchObject({ state: "ok", reason: null });
+  });
+  it("only an ok row: waiting, refused, an ask or one withdrawn already is left alone", async () => {
+    for (const over of [{ state: "wait" }, { state: "no", reason: REASONS[1] }, { state: "queue", kind: "ask", paths: [] }, { state: "gone", reason: REASONS[2] }]) {
+      const r = seed(over);
+      const before = { ...r };
+      expect(await withdrawUpload(OWNER, r.id, REASONS[0])).toEqual({ ok: false, error: "ไฟล์นี้ตรวจไปแล้ว" });
+      expect(r).toEqual(before);
+    }
+    expect(mem.removed).toEqual([]);
+  });
+  it("the change is made only where the row is still ok (a race leaves it alone)", async () => {
+    const a = seed({ state: "ok" });
+    await withdrawUpload(OWNER, a.id, REASONS[0]);
+    const upd = mem.queries.find((q) => q.some((s) => s.method === "update"))!;
+    expect(upd.some((s) => s.method === "eq" && s.args[0] === "state" && s.args[1] === "ok")).toBe(true);
+    expect(upd.some((s) => s.method === "eq" && s.args[0] === "id" && s.args[1] === a.id)).toBe(true);
+  });
+  it("a missing or non-uuid id: ไม่พบไฟล์นี้, and a non-uuid never asks the table", async () => {
+    expect(await withdrawUpload(OWNER, crypto.randomUUID(), REASONS[0])).toEqual({ ok: false, error: "ไม่พบไฟล์นี้" });
+    mem.queries.length = 0;
+    expect(await withdrawUpload(OWNER, "../x", REASONS[0])).toEqual({ ok: false, error: "ไม่พบไฟล์นี้" });
+    expect(mem.queries).toHaveLength(0);
+  });
+  it("a database failure says it failed and changes nothing", async () => {
+    const a = seed({ state: "ok" });
+    mem.failAll = { message: "down" };
+    expect(await withdrawUpload(OWNER, a.id, REASONS[0])).toEqual({ ok: false, error: "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    expect(a.state).toBe("ok");
+  });
+
+  it("a sender whose account is gone (looked up, found nowhere): row and files deleted", async () => {
+    mem.files.set("library/a.png", { bytes: PNG, type: "image/png" });
+    nobody();
+    const a = seed({ state: "ok" });
+    expect(await withdrawUpload(OWNER, a.id, REASONS[0])).toEqual({ ok: true, removed: true });
+    expect(mem.rows).toEqual([]);
+    expect(mem.removed).toEqual(["library/a.png"]);
+    expect(mem.files.size).toBe(0);
+    expect([...people.asked].sort()).toEqual(["agent", "bluewealth", "kingclub", "member", "super"]);
+    // the delete takes only the row it just withdrew
+    const del = mem.queries.find((q) => q.some((s) => s.method === "delete"))!;
+    expect(del.some((s) => s.method === "eq" && s.args[0] === "state" && s.args[1] === "gone")).toBe(true);
+  });
+  it("a sender still found anywhere keeps the row", async () => {
+    for (const k of ["agent", "member", "superAdmin", "bluewealth", "kingclub"] as const) {
+      nobody();
+      people[k] = { id: A };
+      const a = seed({ state: "ok" });
+      expect(await withdrawUpload(OWNER, a.id, REASONS[0]), k).toEqual({ ok: true, removed: false });
+      expect(a.state).toBe("gone");
+      expect(mem.rows).toContain(a);
+    }
+    expect(mem.removed).toEqual([]);
+  });
+  it("a lookup that fails keeps the row (gone), never deletes", async () => {
+    for (const k of ["agent", "member", "superAdmin", "bluewealth", "kingclub"] as const) {
+      nobody();
+      people[k] = new Error("read failed");
+      const a = seed({ state: "ok" });
+      expect(await withdrawUpload(OWNER, a.id, REASONS[0]), k).toEqual({ ok: true, removed: false });
+      expect(a.state).toBe("gone");
+      expect(mem.rows).toContain(a);
+    }
+    expect(mem.removed).toEqual([]);
+  });
+  it("Bluewealth or KingClub not set up cannot say nobody: the row is kept", async () => {
+    for (const off of [{ bwSet: false }, { kcSet: false }]) {
+      nobody();
+      Object.assign(people, { bwSet: true, kcSet: true }, off);
+      const a = seed({ state: "ok" });
+      expect(await withdrawUpload(OWNER, a.id, REASONS[0])).toEqual({ ok: true, removed: false });
+      expect(mem.rows).toContain(a);
+    }
+    expect(mem.removed).toEqual([]);
+  });
+  it("the demo account is never taken for gone, and is not looked up", async () => {
+    nobody();
+    const a = seed({ state: "ok", agent_id: DEMO_ID });
+    expect(await withdrawUpload(OWNER, a.id, REASONS[0])).toEqual({ ok: true, removed: false });
+    expect(mem.rows).toContain(a);
+    expect(people.asked).toEqual([]);
+  });
+  it("a delete that fails after the withdraw leaves the row gone, and still says ok", async () => {
+    nobody();
+    mem.deleteError = { message: "boom" };
+    const a = seed({ state: "ok" });
+    expect(await withdrawUpload(OWNER, a.id, REASONS[0])).toEqual({ ok: true, removed: false });
+    expect(a.state).toBe("gone");
+    expect(mem.removed).toEqual([]);
+  });
+  it("a gone row is the sender's and the owner's only, and not among the shared or ok ones", async () => {
+    const a = seed({ state: "ok" });
+    await withdrawUpload(OWNER, a.id, REASONS[0]);
+    expect(await readableUpload({ agentId: B, owner: false }, a.id)).toBeNull();
+    expect((await readableUpload({ agentId: A, owner: false }, a.id))?.state).toBe("gone");
+    expect((await readableUpload(owner, a.id))?.id).toBe(a.id);
+    expect(await sharedUploads()).toEqual([]);
+    expect(await okUploads([a.id], "part")).toEqual([]);
+  });
+});
+
 describe("readableUpload", () => {
   it("an ok row is anyone's", async () => {
     const a = seed({ state: "ok" });
@@ -379,5 +528,18 @@ describe("migration", () => {
   });
   it("leaves the demo wipe alone", () => {
     expect(sql).not.toMatch(/ins_demo_wipe/);
+  });
+});
+
+describe("migration 20261216: the state check gains gone", () => {
+  const sql = readFileSync("supabase/migrations/20261216_library_withdraw.sql", "utf8");
+  const code = sql.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
+  it("drops the inline check by its real name and adds it back with six states", () => {
+    expect(code).toMatch(/alter table public\.ins_library_uploads drop constraint if exists ins_library_uploads_state_check;/);
+    expect(code).toMatch(/alter table public\.ins_library_uploads add constraint ins_library_uploads_state_check check \(state in \('wait', 'ok', 'no', 'queue', 'closed', 'gone'\)\);/);
+  });
+  it("does nothing else", () => {
+    const statements = code.split(";").map((x) => x.trim()).filter(Boolean);
+    expect(statements).toHaveLength(2);
   });
 });

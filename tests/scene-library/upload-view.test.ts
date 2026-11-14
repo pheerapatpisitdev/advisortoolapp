@@ -5,6 +5,7 @@ import type { UploadRow } from "@/lib/scene-library/upload-rules";
 const store = vi.hoisted(() => ({
   mine: [] as UploadRow[], shared: [] as UploadRow[], waiting: [] as UploadRow[], fail: false, namesFail: false,
   nameCalls: [] as string[][],
+  namesOf: null as null | ((ids: string[]) => Record<string, string>),
 }));
 /** the table answers by the filter each list asks with: agent_id = mine, state ok = shared, state wait = waiting */
 const dbRow = (r: UploadRow) => ({ id: r.id, agent_id: r.agentId, kind: r.kind, name: r.name, note: r.note, paths: r.paths, state: r.state, reason: r.reason, created_at: r.createdAt });
@@ -33,6 +34,7 @@ vi.mock("@/lib/auth/viewer", () => ({
   displayNames: async (ids: string[]) => {
     store.nameCalls.push(ids);
     if (store.namesFail) throw new Error("names down");
+    if (store.namesOf) return store.namesOf(ids);
     return Object.fromEntries(ids.map((i) => [i, `ชื่อของ ${i.slice(-2)}`]));
   },
 }));
@@ -45,7 +47,7 @@ const row = (o: Partial<UploadRow>): UploadRow => ({
   id: crypto.randomUUID(), agentId: A, kind: "part", name: "ตะกร้า", note: "n", paths: ["library/a.png"], state: "wait", reason: null, createdAt: "2026-11-14T00:00:00Z", ...o,
 });
 
-beforeEach(() => { store.mine = []; store.shared = []; store.waiting = []; store.fail = false; store.namesFail = false; store.nameCalls = []; });
+beforeEach(() => { store.mine = []; store.shared = []; store.waiting = []; store.fail = false; store.namesFail = false; store.nameCalls = []; store.namesOf = null; });
 
 describe("uploadViews", () => {
   it("never carries an agentId, and counts the files", async () => {
@@ -66,27 +68,52 @@ describe("uploadViews", () => {
     expect(store.nameCalls).toEqual([]);
   });
 
-  it("the owner's waiting rows carry the sender's name, the other lists none", async () => {
+  it("the owner's waiting and in-library rows carry the sender's name, mine none", async () => {
     store.waiting = [row({ agentId: B })];
     store.shared = [row({ agentId: B, state: "ok" })];
     store.mine = [row({ agentId: A })];
     const v = (await uploadViews({ agentId: A, owner: true }))!;
     expect(v.waiting[0].by).toBe("ชื่อของ 0b");
-    expect(v.shared[0].by).toBeUndefined();
+    expect(v.shared[0].by).toBe("ชื่อของ 0b");
     expect(v.mine[0].by).toBeUndefined();
     expect(JSON.stringify(v)).not.toContain(B);
+  });
+
+  it("an in-library sender with no name is สมาชิกที่ลบบัญชีแล้ว", async () => {
+    const GONE = "00000000-0000-4000-8000-0000000000dd";
+    store.shared = [row({ agentId: GONE, state: "ok" }), row({ agentId: B, state: "ok" })];
+    store.namesOf = (ids) => Object.fromEntries(ids.filter((i) => i !== GONE).map((i) => [i, `ชื่อของ ${i.slice(-2)}`]));
+    const v = (await uploadViews({ agentId: A, owner: true }))!;
+    expect(v.shared.map((s) => s.by)).toEqual(["สมาชิกที่ลบบัญชีแล้ว", "ชื่อของ 0b"]);
+    expect(JSON.stringify(v)).not.toContain(GONE);
+  });
+
+  it("nobody but the owner gets a name on the in-library rows, and none is looked up", async () => {
+    store.shared = [row({ agentId: B, state: "ok" })];
+    const v = (await uploadViews({ agentId: A, owner: false }))!;
+    expect(v.shared[0].by).toBeUndefined();
+    expect(store.nameCalls).toEqual([]);
   });
 
   it("still answers when only the names cannot be read", async () => {
     store.namesFail = true;
     store.waiting = [row({ agentId: B })];
+    store.shared = [row({ agentId: B, state: "ok" })];
     const v = (await uploadViews({ agentId: A, owner: true }))!;
     expect(v.waiting).toHaveLength(1);
     expect(v.waiting[0].by).toBeUndefined();
+    // a failed read is not a deleted account
+    expect(v.shared[0].by).toBeUndefined();
   });
 
   it("answers null when the store throws", async () => {
     store.fail = true;
-    expect(await uploadViews({ agentId: A, owner: true })).toBeNull();
+    const said = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(await uploadViews({ agentId: A, owner: true })).toBeNull();
+      expect(said).toHaveBeenCalled();
+    } finally {
+      said.mockRestore();
+    }
   });
 });

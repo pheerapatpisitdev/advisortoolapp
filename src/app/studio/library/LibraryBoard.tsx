@@ -5,10 +5,10 @@ import { PRODUCT_NAME, TYPE_NAME, usesFor, type LibraryItem, type LibraryProduct
 import { filterLibrary, type LibraryFilter, type LibraryState } from "@/lib/scene-library/filter";
 import { cleanMarks, hasMark, pressMark, withMark, type Marks } from "@/lib/scene-library/mark-state";
 import type { MarkKind, Toggled } from "@/lib/scene-library/marks";
-import { afterDecide, afterSent, uploadsFor, withoutUpload, type UploadSet } from "@/lib/scene-library/upload-flow";
+import { afterDecide, afterSent, afterWithdraw, uploadsFor, withoutUpload, type UploadSet } from "@/lib/scene-library/upload-flow";
 import type { UploadView } from "@/lib/scene-library/upload-rules";
-import type { Sent } from "@/lib/scene-library/uploads";
-import { decideLibraryUpload, removeLibraryUpload, toggleLibraryMark } from "./actions";
+import type { Sent, Withdrawn } from "@/lib/scene-library/uploads";
+import { decideLibraryUpload, removeLibraryUpload, toggleLibraryMark, withdrawLibraryUpload } from "./actions";
 import { MyFiles, ReviewQueue, UploadCard } from "./UploadList";
 import { UploadTab } from "./UploadTab";
 import { MegaphoneIcon, PenIcon, QuoteIcon, SearchIcon, SlidersIcon } from "../ui/icons";
@@ -168,10 +168,11 @@ interface BoardProps {
   uploads?: UploadSet | null;
   /** the server's toggle; a stand-in where nothing may be written */
   toggle?: (item: string, kind: MarkKind) => Promise<Toggled>;
-  /** the upload route, the owner's verdict, the sender's delete; stand-ins where nothing may be written */
+  /** the upload route, the owner's verdict, the sender's delete, the owner's withdraw; stand-ins where nothing may be written */
   send?: (form: FormData) => Promise<Sent>;
   decide?: (id: string, verdict: Verdict, reason?: string) => Promise<Done>;
   remove?: (id: string) => Promise<Done>;
+  withdraw?: (id: string, reason: string) => Promise<Withdrawn>;
 }
 
 /** the route's POST; a reply that is not ours reads as a failed send */
@@ -186,6 +187,7 @@ export function LibraryBoard({
   toggle = toggleLibraryMark, send = postUpload,
   decide = (id, verdict, reason) => decideLibraryUpload(id, verdict, reason),
   remove = (id) => removeLibraryUpload(id),
+  withdraw = (id, reason) => withdrawLibraryUpload(id, reason),
 }: BoardProps) {
   const [marks, setMarks] = useState<Marks>(() => cleanMarks(items, { saved, wanted, counts }));
   // the marks as they are this moment, for a press that starts before React has drawn the last one
@@ -265,6 +267,12 @@ export function LibraryBoard({
     const done = await decide(id, verdict, reason);
     // ok applies the verdict; someone having decided it first only drops it from the queue (the list keeps its message under the row)
     setUps((u) => (u ? afterDecide(u, id, verdict, reason, done) : u));
+    return done;
+  };
+  const onWithdraw = async (id: string, reason: string): Promise<Withdrawn> => {
+    const done = await withdraw(id, reason);
+    // ok takes it out of shared (and เลือกดู); withdrawn or deleted first only drops it there (the list keeps its message under the row)
+    setUps((u) => (u ? afterWithdraw(u, id, done, reason) : u));
     return done;
   };
 
@@ -351,7 +359,7 @@ export function LibraryBoard({
           </>
         )}
 
-        {tab === "queue" && ups && owner && <ReviewQueue rows={ups.waiting} onDecide={onDecide} />}
+        {tab === "queue" && ups && owner && <ReviewQueue rows={ups.waiting} shared={ups.shared} onDecide={onDecide} onWithdraw={onWithdraw} />}
 
         {tab === "top" && mine && owner && <MostWanted items={items} counts={mine.counts} />}
       </div>

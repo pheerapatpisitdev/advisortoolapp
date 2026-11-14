@@ -153,9 +153,16 @@ describe("ของฉัน: ไฟล์ที่ฉันส่ง", () => {
     view({ id: "d", state: "no", reason: "อาจติดลิขสิทธิ์" }),
     view({ id: "e", kind: "ask", state: "queue" }),
     view({ id: "f", kind: "ask", state: "closed" }),
+    view({ id: "g", state: "gone", reason: "มีข้อมูลหรือหน้าลูกค้า" }),
   ];
   const html = renderToStaticMarkup(createElement(MyFiles, { rows, onRemove: vi.fn() }));
-  it("counts them in the heading", () => expect(html).toContain("ไฟล์ที่ฉันส่ง (6)"));
+  it("counts them in the heading", () => expect(html).toContain("ไฟล์ที่ฉันส่ง (7)"));
+  it("a withdrawn file says ถอนออกแล้ว and the reason, as ไม่ผ่าน does", () => {
+    const tree = UploadList({ mode: "mine", rows: [rows[6]], ui: idle, dispatch: () => {} } as never);
+    expect(text(tree)).toContain("ถอนออกแล้ว");
+    expect(text(tree)).toContain("มีข้อมูลหรือหน้าลูกค้า");
+    expect(button(tree, "ลบ")).toBeDefined();
+  });
   it("says every state in words, and the reason when no", () => {
     for (const w of ["รออนุมัติ", "รอเจ้าของดู", "ใช้ร่วมแล้ว", "ไม่ผ่าน", "อยู่ในคิวทำ", "ปิดคำขอ"]) expect(html, w).toContain(w);
     expect(html).toContain("อาจติดลิขสิทธิ์");
@@ -202,7 +209,7 @@ describe("คิวตรวจ", () => {
     view({ id: "b", kind: "style", state: "wait", mine: false, by: "สมหญิง", name: "สไตล์" }),
     view({ id: "k", kind: "ask", state: "wait", mine: false, by: "ลูกค้า", name: "อยากได้ถุงเงิน", files: 0, note: "ลิงก์" }),
   ];
-  const html = renderToStaticMarkup(createElement(ReviewQueue, { rows, onDecide: vi.fn() }));
+  const html = renderToStaticMarkup(createElement(ReviewQueue, { rows, shared: [], onDecide: vi.fn(), onWithdraw: vi.fn() }));
   it("has the two lists with their counts", () => {
     expect(html).toContain("ไฟล์รออนุมัติ (2)");
     expect(html).toContain("คำขอชิ้นใหม่ (1)");
@@ -260,5 +267,72 @@ describe("คิวตรวจ", () => {
     expect(text(tree)).toContain("ไฟล์นี้ตรวจไปแล้ว");
     expect(button(tree, "อนุมัติ")).toBeUndefined();
     expect(button(tree, "ไม่ผ่าน")).toBeUndefined();
+  });
+});
+
+describe("คิวตรวจ: ในคลังแล้ว", () => {
+  const shared = [
+    view({ id: "s", state: "ok", mine: false, by: "สมชาย", name: "ตะกร้าผลไม้" }),
+    view({ id: "t", kind: "style", state: "ok", mine: false, by: "สมาชิกที่ลบบัญชีแล้ว", name: "สีพาสเทล" }),
+  ];
+  const waiting = [view({ id: "w", state: "wait", mine: false, by: "สมหญิง" })];
+  const html = renderToStaticMarkup(createElement(ReviewQueue, { rows: waiting, shared, onDecide: vi.fn(), onWithdraw: vi.fn() }));
+  it("is the third list, under the two, with its count and line", () => {
+    expect(html).toContain("ในคลังแล้ว (2)");
+    expect(html).toContain("ไฟล์ที่ทุกคนเห็นในแท็บเลือกดู ถอนออกได้ทุกเมื่อ");
+    expect(html.indexOf("ในคลังแล้ว (2)")).toBeGreaterThan(html.indexOf("คำขอชิ้นใหม่ ("));
+    expect(html.indexOf("คำขอชิ้นใหม่ (")).toBeGreaterThan(html.indexOf("ไฟล์รออนุมัติ ("));
+  });
+  it("each row: thumbnail, name, kind · จาก name, ใช้ร่วมแล้ว, and ถอนออกจากคลัง", () => {
+    expect(html).toContain("/api/library-upload?id=s&amp;n=0");
+    expect(html).toContain("ชิ้นส่วนภาพ · จาก สมชาย");
+    expect(html).toContain("ภาพสไตล์ · จาก สมาชิกที่ลบบัญชีแล้ว");
+    expect(html.match(/>ใช้ร่วมแล้ว</g)).toHaveLength(2);
+    expect(html.match(/>ถอนออกจากคลัง</g)).toHaveLength(2);
+  });
+  it("says so when nothing is in the library", () => {
+    const none = renderToStaticMarkup(createElement(ReviewQueue, { rows: [], shared: [], onDecide: vi.fn(), onWithdraw: vi.fn() }));
+    expect(none).toContain("ในคลังแล้ว (0)");
+    expect(none).toContain("ยังไม่มีไฟล์ในคลัง");
+  });
+  it("every control is at least min-h-tap", () => {
+    for (const tag of html.match(/<button\b[^>]*>/g) ?? []) expect(tag, tag).toContain("min-h-tap");
+  });
+  it("the คิวตรวจ tab counts the waiting rows, not the library", () => {
+    const b = board({ owner: true, uploads: uploads({ waiting, shared }) });
+    expect(b).toMatch(/คิวตรวจ<span[^>]*>1<\/span>/);
+  });
+
+  const list = (ui: RowState, o: Record<string, unknown> = {}) => UploadList({ mode: "library", rows: [shared[0]], ui, dispatch: () => {}, ...o } as never);
+  it("ถอนออกจากคลัง only opens the reasons (the same panel as ไม่ผ่าน)", () => {
+    const calls: unknown[] = []; const withdrawn: unknown[] = [];
+    (button(list(idle, { dispatch: (a: unknown) => calls.push(a), onWithdraw: (...a: unknown[]) => withdrawn.push(a) }), "ถอนออกจากคลัง")!.props.onClick as () => void)();
+    expect(calls).toEqual([{ type: "ask-no", id: "s" }]);
+    expect(withdrawn).toEqual([]);
+  });
+  it("the reasons: the line, the four, ยืนยันถอนออก waits for one and then calls withdraw(id, reason); ยกเลิก closes", () => {
+    const opened = list({ ...idle, refusing: "s" });
+    expect(text(opened)).toContain("เลือกเหตุผลที่คนส่งจะเห็น");
+    for (const r of REASONS) expect(text(opened)).toContain(r);
+    expect(button(opened, "ยืนยันถอนออก")!.props.disabled).toBe(true);
+    expect(button(opened, "ถอนออกจากคลัง")).toBeUndefined();
+
+    const withdrawn: unknown[][] = []; const calls: unknown[] = [];
+    const chosen = list({ ...idle, refusing: "s", reason: "อาจติดลิขสิทธิ์" }, { onWithdraw: (...a: unknown[]) => withdrawn.push(a), dispatch: (a: unknown) => calls.push(a) });
+    const confirm = button(chosen, "ยืนยันถอนออก")!;
+    expect(confirm.props.disabled).toBe(false);
+    (confirm.props.onClick as () => void)();
+    expect(withdrawn).toEqual([["s", "อาจติดลิขสิทธิ์"]]);
+    (button(chosen, "ยกเลิก")!.props.onClick as () => void)();
+    expect(calls).toEqual([{ type: "cancel" }]);
+  });
+  it("a busy row's buttons are held", () => {
+    const tree = list({ ...idle, refusing: "s", reason: "อาจติดลิขสิทธิ์" }, { busy: new Set(["s"]) });
+    expect(button(tree, "ยืนยันถอนออก")!.props.disabled).toBe(true);
+  });
+  it("a row withdrawn or deleted first shows its message and no buttons", () => {
+    const tree = list(idle, { errors: { s: "ไม่พบไฟล์นี้" }, settled: new Set(["s"]) });
+    expect(text(tree)).toContain("ไม่พบไฟล์นี้");
+    expect(button(tree, "ถอนออกจากคลัง")).toBeUndefined();
   });
 });

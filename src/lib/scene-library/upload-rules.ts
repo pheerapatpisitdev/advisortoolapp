@@ -4,7 +4,8 @@
  */
 
 export type UploadKind = "part" | "style" | "ask";
-export type UploadState = "wait" | "ok" | "no" | "queue" | "closed";
+/** gone: an ok part or style the owner took back out of the library (spec 2026-11-14-library-withdraw-design.md) */
+export type UploadState = "wait" | "ok" | "no" | "queue" | "closed" | "gone";
 
 export const KIND_NAME: Record<UploadKind, string> = {
   part: "ชิ้นส่วนภาพ",
@@ -55,6 +56,7 @@ export function stateWord(kind: UploadKind, state: UploadState): string {
     case "no": return "ไม่ผ่าน";
     case "queue": return "อยู่ในคิวทำ";
     case "closed": return "ปิดคำขอ";
+    case "gone": return "ถอนออกแล้ว";
   }
 }
 

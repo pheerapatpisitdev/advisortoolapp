@@ -2,12 +2,13 @@
 import Link from "next/link";
 import { useReducer, useRef, useState } from "react";
 import type { LibraryTool } from "@/lib/scene-library/catalog";
-import { ALREADY_DECIDED as ALREADY, claimRow, NO_ROW, rowReducer, uploadHref, type RowAction, type RowState } from "@/lib/scene-library/upload-flow";
+import { ALREADY_DECIDED as ALREADY, claimRow, NO_ROW, NOT_FOUND, rowReducer, uploadHref, type RowAction, type RowState } from "@/lib/scene-library/upload-flow";
 import { KIND_NAME, REASONS, SHOTS_MAX, stateWord, type UploadView } from "@/lib/scene-library/upload-rules";
 
 /**
  * The upload tabs' rows (spec 2026-11-14-library-uploads-design.md, "The page"): ของฉัน's ไฟล์ที่ฉันส่ง with
- * its inline ลบ question, the owner's คิวตรวจ with the reasons panel, and the card a shared file is in เลือกดู.
+ * its inline ลบ question, the owner's คิวตรวจ with the reasons panel (for ไม่ผ่าน, and for ถอนออกจากคลัง in its
+ * third list ในคลังแล้ว, spec 2026-11-14-library-withdraw-design.md), and the card a shared file is in เลือกดู.
  * UploadList is a plain function of its props (the state lives in MyFiles / ReviewQueue) so a press is tested
  * by calling it; "ลบไฟล์นี้?" is asked in the row, never with confirm().
  */
@@ -30,8 +31,35 @@ function Thumb({ id, n, className }: { id: string; n: number; className: string 
   );
 }
 
+/**
+ * The four reasons, then the confirm and ยกเลิก: ไม่ผ่าน's in the queue, ถอนออกจากคลัง's in ในคลังแล้ว. A plain
+ * function, not a component, so the row's tree holds its buttons (and a press is tested by calling it).
+ */
+function reasonsPanel(o: {
+  ui: RowState; dispatch: (a: RowAction) => void; held: boolean; label: string; line?: string; confirm: string; onConfirm: (reason: string) => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      {o.line && <p className="text-xs text-[var(--ct-mute)]">{o.line}</p>}
+      <div role="group" aria-label={o.label} className="flex flex-wrap gap-2">
+        {REASONS.map((reason) => (
+          <button
+            key={reason} type="button" aria-pressed={o.ui.reason === reason} onClick={() => o.dispatch({ type: "pick", reason })}
+            className={`${btn} ${o.ui.reason === reason ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)]"}`}
+          >{reason}</button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={o.ui.reason === null || o.held} onClick={() => o.ui.reason && o.onConfirm(o.ui.reason)} className={warn}>{o.confirm}</button>
+        <button type="button" disabled={o.held} onClick={() => o.dispatch({ type: "cancel" })} className={quiet}>ยกเลิก</button>
+      </div>
+    </div>
+  );
+}
+
 interface ListProps {
-  mode: "mine" | "queue";
+  /** mine: ไฟล์ที่ฉันส่ง; queue: the owner's waiting rows; library: the owner's ในคลังแล้ว */
+  mode: "mine" | "queue" | "library";
   rows: readonly UploadView[];
   ui: RowState;
   dispatch: (a: RowAction) => void;
@@ -42,9 +70,10 @@ interface ListProps {
   settled?: ReadonlySet<string>;
   onRemove?: (id: string) => void;
   onDecide?: (id: string, verdict: Verdict, reason?: string) => void;
+  onWithdraw?: (id: string, reason: string) => void;
 }
 
-export function UploadList({ mode, rows, ui, dispatch, busy = NONE, errors = {}, settled, onRemove, onDecide }: ListProps) {
+export function UploadList({ mode, rows, ui, dispatch, busy = NONE, errors = {}, settled, onRemove, onDecide, onWithdraw }: ListProps) {
   const row = (r: UploadView) => {
     const held = busy.has(r.id);
     const stale = settled?.has(r.id) ?? false;
@@ -59,12 +88,12 @@ export function UploadList({ mode, rows, ui, dispatch, busy = NONE, errors = {},
           )}
           <div className="grid min-w-0 flex-1 content-start gap-0.5">
             <p className="break-words text-sm font-semibold">{r.name}</p>
-            <p className="text-xs text-[var(--ct-mute)]">{KIND_NAME[r.kind]}{mode === "queue" ? ` · จาก ${r.by ?? "สมาชิก"}` : ""}</p>
+            <p className="text-xs text-[var(--ct-mute)]">{KIND_NAME[r.kind]}{mode !== "mine" ? ` · จาก ${r.by ?? "สมาชิก"}` : ""}</p>
             {r.note && <p className="break-words text-xs text-[var(--ct-mute)]">{r.note}</p>}
-            {mode === "mine" && (
+            {mode !== "queue" && (
               <p className="text-xs">
                 <span className="rounded-full bg-[var(--ct-soft)] px-2 text-[var(--ct-accent)]">{stateWord(r.kind, r.state)}</span>
-                {r.state === "no" && r.reason && <span className="ml-2 text-[var(--ct-alert)]">{r.reason}</span>}
+                {mode === "mine" && (r.state === "no" || r.state === "gone") && r.reason && <span className="ml-2 text-[var(--ct-alert)]">{r.reason}</span>}
               </p>
             )}
           </div>
@@ -88,24 +117,22 @@ export function UploadList({ mode, rows, ui, dispatch, busy = NONE, errors = {},
             <button type="button" disabled={held} onClick={() => onDecide?.(r.id, "closed")} className={quiet}>ปิดคำขอ</button>
           </div>
         ) : ui.refusing === r.id ? (
-          <div className="grid gap-2">
-            <div role="group" aria-label="เหตุผลที่ไม่ผ่าน" className="flex flex-wrap gap-2">
-              {REASONS.map((reason) => (
-                <button
-                  key={reason} type="button" aria-pressed={ui.reason === reason} onClick={() => dispatch({ type: "pick", reason })}
-                  className={`${btn} ${ui.reason === reason ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)]"}`}
-                >{reason}</button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={ui.reason === null || held} onClick={() => ui.reason && onDecide?.(r.id, "no", ui.reason)} className={warn}>ยืนยันไม่ผ่าน</button>
-              <button type="button" disabled={held} onClick={() => dispatch({ type: "cancel" })} className={quiet}>ยกเลิก</button>
-            </div>
-          </div>
+          reasonsPanel({ ui, dispatch, held, label: "เหตุผลที่ไม่ผ่าน", confirm: "ยืนยันไม่ผ่าน", onConfirm: (reason) => onDecide?.(r.id, "no", reason) })
         ) : (
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={held} onClick={() => onDecide?.(r.id, "ok")} className={solid}>อนุมัติ</button>
             <button type="button" disabled={held} onClick={() => dispatch({ type: "ask-no", id: r.id })} className={quiet}>ไม่ผ่าน</button>
+          </div>
+        ))}
+
+        {mode === "library" && !stale && (ui.refusing === r.id ? (
+          reasonsPanel({
+            ui, dispatch, held, label: "เหตุผลที่ถอนออก", line: "เลือกเหตุผลที่คนส่งจะเห็น", confirm: "ยืนยันถอนออก",
+            onConfirm: (reason) => onWithdraw?.(r.id, reason),
+          })
+        ) : (
+          <div>
+            <button type="button" disabled={held} onClick={() => dispatch({ type: "ask-no", id: r.id })} className={quiet}>ถอนออกจากคลัง</button>
           </div>
         ))}
 
@@ -145,10 +172,16 @@ export function MyFiles({ rows, onRemove }: { rows: readonly UploadView[]; onRem
 }
 
 /**
- * คิวตรวจ: the owner's two lists. A verdict is the board's to apply; a row someone decided first keeps its
- * message here until the page is read again (the board has already dropped it from the queue).
+ * คิวตรวจ: the owner's three lists, ไฟล์รออนุมัติ, คำขอชิ้นใหม่ and ในคลังแล้ว (the shared rows, to withdraw). A verdict
+ * or a withdraw is the board's to apply; a row someone got to first keeps its message here until the page is read
+ * again (the board has already dropped it from its list). One reasons panel and one claim set serve all three.
  */
-export function ReviewQueue({ rows, onDecide }: { rows: readonly UploadView[]; onDecide: (id: string, verdict: Verdict, reason?: string) => Promise<Done> }) {
+export function ReviewQueue({ rows, shared, onDecide, onWithdraw }: {
+  rows: readonly UploadView[];
+  shared: readonly UploadView[];
+  onDecide: (id: string, verdict: Verdict, reason?: string) => Promise<Done>;
+  onWithdraw: (id: string, reason: string) => Promise<Done>;
+}) {
   const [ui, dispatch] = useReducer(rowReducer, NO_ROW);
   const [busy, setBusy] = useState<ReadonlySet<string>>(NONE);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -156,24 +189,30 @@ export function ReviewQueue({ rows, onDecide }: { rows: readonly UploadView[]; o
   const [stale, setStale] = useState<UploadView[]>([]);
   // the calls on their way, checked and taken in the press itself (busy is for drawing the buttons)
   const flying = useRef<Set<string>>(new Set());
-  async function decide(id: string, verdict: Verdict, reason?: string) {
+  /** one row's call: claimed once, its buttons held, and a row someone got to first (`first` errors) kept with its message */
+  async function run(id: string, from: readonly UploadView[], call: () => Promise<Done>, first: readonly string[]) {
     if (!claimRow(flying.current, id)) return;
-    const row = rows.find((r) => r.id === id);
+    const row = from.find((r) => r.id === id);
     mark(id, true);
     setErrors((e) => { const rest = { ...e }; delete rest[id]; return rest; });
-    const done = await onDecide(id, verdict, reason).catch((): Done => ({ ok: false, error: FAILED }));
+    const done = await call().catch((): Done => ({ ok: false, error: FAILED }));
     flying.current.delete(id);
     mark(id, false);
     if (done.ok) { dispatch({ type: "done", id }); return; }
     setErrors((e) => ({ ...e, [id]: done.error }));
-    if (done.error === ALREADY && row) { setStale((s) => (s.some((x) => x.id === id) ? s : [...s, row])); dispatch({ type: "done", id }); }
+    if (first.includes(done.error) && row) { setStale((s) => (s.some((x) => x.id === id) ? s : [...s, row])); dispatch({ type: "done", id }); }
   }
-  const shown = [...rows, ...stale.filter((s) => !rows.some((r) => r.id === s.id))];
+  const decide = (id: string, verdict: Verdict, reason?: string) => run(id, rows, () => onDecide(id, verdict, reason), [ALREADY]);
+  const withdraw = (id: string, reason: string) => run(id, shared, () => onWithdraw(id, reason), [ALREADY, NOT_FOUND]);
+  // a stale row keeps the state it was drawn with: wait in the queue, ok in ในคลังแล้ว
+  const along = (list: readonly UploadView[], ok: boolean) => [...list, ...stale.filter((s) => (s.state === "ok") === ok && !list.some((r) => r.id === s.id))];
+  const shown = along(rows, false);
+  const inLibrary = along(shared, true);
   const settled = new Set(stale.map((s) => s.id));
   const files = shown.filter((r) => r.kind !== "ask");
   const asks = shown.filter((r) => r.kind === "ask");
   const live = (list: UploadView[]) => list.filter((r) => !settled.has(r.id)).length;
-  const props = { ui, dispatch, busy, errors, settled, onDecide: decide };
+  const props = { ui, dispatch, busy, errors, settled, onDecide: decide, onWithdraw: withdraw };
   return (
     <div className="grid gap-5">
       <section aria-label="ไฟล์รออนุมัติ" className="grid gap-2">
@@ -183,6 +222,13 @@ export function ReviewQueue({ rows, onDecide }: { rows: readonly UploadView[]; o
       <section aria-label="คำขอชิ้นใหม่" className="grid gap-2">
         <h2 className="text-base font-semibold">คำขอชิ้นใหม่ ({live(asks)})</h2>
         {asks.length ? <UploadList mode="queue" rows={asks} {...props} /> : empty("ไม่มีคำขอใหม่")}
+      </section>
+      <section aria-label="ในคลังแล้ว" className="grid gap-2">
+        <div className="grid gap-0.5">
+          <h2 className="text-base font-semibold">ในคลังแล้ว ({live(inLibrary)})</h2>
+          <p className="text-xs text-[var(--ct-mute)]">ไฟล์ที่ทุกคนเห็นในแท็บเลือกดู ถอนออกได้ทุกเมื่อ</p>
+        </div>
+        {inLibrary.length ? <UploadList mode="library" rows={inLibrary} {...props} /> : empty("ยังไม่มีไฟล์ในคลัง")}
       </section>
     </div>
   );

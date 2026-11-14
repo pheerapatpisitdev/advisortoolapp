@@ -31,6 +31,10 @@ describe("stateWord", () => {
     expect(stateWord("ask", "queue")).toBe("อยู่ในคิวทำ");
     expect(stateWord("ask", "closed")).toBe("ปิดคำขอ");
   });
+  it("a withdrawn file is ถอนออกแล้ว", () => {
+    expect(stateWord("part", "gone")).toBe("ถอนออกแล้ว");
+    expect(stateWord("style", "gone")).toBe("ถอนออกแล้ว");
+  });
 });
 
 describe("constants", () => {

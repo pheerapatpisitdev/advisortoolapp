@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  afterDecide, afterSent, checkForm, claimRow, rowReducer, sentView, submitUpload, uploadHref, uploadsFor, withoutUpload, withSent, withVerdict,
+  afterDecide, afterSent, afterWithdraw, checkForm, claimRow, rowReducer, sentView, submitUpload, uploadHref, uploadsFor, withoutUpload, withSent, withVerdict,
   type FormState, type RowState, type UploadSet,
 } from "@/lib/scene-library/upload-flow";
 import { shrinkForUpload } from "@/lib/scene-library/shrink";
-import { KIND_TELLS, SIDE_MAX, type UploadView } from "@/lib/scene-library/upload-rules";
+import { KIND_TELLS, SIDE_MAX, stateWord, type UploadView } from "@/lib/scene-library/upload-rules";
 
 const view = (o: Partial<UploadView>): UploadView => ({ id: "11111111-1111-4111-8111-111111111111", kind: "part", name: "ตะกร้า", note: "", files: 1, state: "wait", reason: null, mine: true, ...o });
 const set = (o: Partial<UploadSet> = {}): UploadSet => ({ mine: [], shared: [], waiting: [], ...o });
@@ -247,6 +247,35 @@ describe("afterDecide", () => {
   it("any other error changes nothing", () => {
     const start = set({ waiting: [w] });
     expect(afterDecide(start, "w", "ok", undefined, { ok: false, error: "ทำไม่สำเร็จ" })).toBe(start);
+  });
+});
+
+describe("afterWithdraw", () => {
+  const theirs = view({ id: "s", state: "ok", mine: false, by: "สมชาย" });
+  it("ok takes the row out of shared, so เลือกดู no longer shows it", () => {
+    const u = afterWithdraw(set({ shared: [theirs] }), "s", { ok: true, removed: false }, "อาจติดลิขสิทธิ์");
+    expect(u.shared).toEqual([]);
+    expect(uploadsFor(u.shared, { q: "", type: "any", product: "any", state: "ready" })).toEqual([]);
+  });
+  it("the owner's own withdrawn row stays in mine as ถอนออกแล้ว with the reason", () => {
+    const own = view({ id: "o", state: "ok", mine: true });
+    const u = afterWithdraw(set({ mine: [own], shared: [own] }), "o", { ok: true, removed: false }, "ไม่เกี่ยวกับงานประกัน");
+    expect(u.shared).toEqual([]);
+    expect(u.mine).toEqual([{ ...own, state: "gone", reason: "ไม่เกี่ยวกับงานประกัน" }]);
+    expect(stateWord(u.mine[0].kind, u.mine[0].state)).toBe("ถอนออกแล้ว");
+  });
+  it("a row deleted with its gone sender leaves every list", () => {
+    expect(afterWithdraw(set({ shared: [theirs] }), "s", { ok: true, removed: true }, "อาจติดลิขสิทธิ์")).toEqual(set());
+  });
+  it("'already decided' or 'not found' only drops it from shared", () => {
+    const w = view({ id: "w" });
+    for (const error of ["ไฟล์นี้ตรวจไปแล้ว", "ไม่พบไฟล์นี้"]) {
+      expect(afterWithdraw(set({ shared: [theirs], waiting: [w] }), "s", { ok: false, error })).toEqual(set({ waiting: [w] }));
+    }
+  });
+  it("any other error changes nothing", () => {
+    const start = set({ shared: [theirs] });
+    expect(afterWithdraw(start, "s", { ok: false, error: "ทำไม่สำเร็จ" })).toBe(start);
   });
 });
 

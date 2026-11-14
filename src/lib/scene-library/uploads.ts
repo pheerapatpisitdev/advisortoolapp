@@ -128,6 +128,71 @@ export async function decideUpload(by: string, id: string, verdict: Verdict, rea
   return { ok: true };
 }
 
+export type Withdrawn = { ok: true; removed: boolean } | { ok: false; error: string };
+
+/**
+ * ถอนออกจากคลัง (spec 2026-11-14-library-withdraw-design.md): the owner takes an ok part or style back out, with a
+ * reason from REASONS. The row becomes gone and its files stay for the sender to delete, unless the sender's
+ * account is known to be gone (senderGone): then nobody can delete them, so the row and its files go at once
+ * (`removed`). A failure there leaves the row gone and still answers ok: the withdraw itself is done.
+ */
+export async function withdrawUpload(by: string, id: string, reason: string): Promise<Withdrawn> {
+  if (!isUploadId(id)) return { ok: false, error: NOT_FOUND };
+  if (!(typeof reason === "string" && REASONS.includes(reason))) return { ok: false, error: "เลือกเหตุผลก่อน" };
+  const db = supabaseAdmin();
+
+  // only an ok row changes, and a row must come back, or it was withdrawn (or deleted) first
+  const { data, error } = await db.from(TABLE)
+    .update({ state: "gone", reason, decided_by: by, decided_at: new Date().toISOString() })
+    .eq("id", id).eq("state", "ok").select("agent_id");
+  if (error) { console.error("library upload not withdrawn:", error.message); return { ok: false, error: FAILED }; }
+  if (!data?.length) {
+    const { data: found, error: readErr } = await db.from(TABLE).select("id").eq("id", id).maybeSingle();
+    if (readErr) { console.error("library upload not read:", readErr.message); return { ok: false, error: FAILED }; }
+    return { ok: false, error: found ? ALREADY : NOT_FOUND };
+  }
+
+  const sender = (data as { agent_id: string }[])[0].agent_id;
+  if (!(await senderGone(sender))) return { ok: true, removed: false };
+  // only the row just withdrawn, still gone and still that sender's
+  const { data: dropped, error: dropErr } = await db.from(TABLE).delete()
+    .eq("id", id).eq("state", "gone").eq("agent_id", sender).select("paths");
+  if (dropErr) { console.error("withdrawn library upload not deleted, kept:", dropErr.message); return { ok: true, removed: false }; }
+  if (!dropped?.length) return { ok: true, removed: false };
+  const paths = (dropped as { paths: string[] }[]).flatMap((r) => r.paths ?? []);
+  if (paths.length) {
+    const { error: rmErr } = await db.storage.from(MEDIA).remove(paths);
+    // nothing points at them any more, so a file left behind is invisible; log it, do not fail
+    if (rmErr) console.error("library files not removed:", rmErr.message);
+  }
+  return { ok: true, removed: true };
+}
+
+/**
+ * true only when it is known that nobody has this id any more: not the demo account, and looked up, without
+ * error, as a UnitClub agent, a member, a Super Admin, a Bluewealth agent and a KingClub agent, and found as
+ * none. Each of those lookups throws when it cannot read (displayNames and the *Names lists swallow their
+ * errors, so they are not used here). Bluewealth or KingClub not set up cannot say "nobody", so that is
+ * doubt too. Any doubt answers false, and the row is kept.
+ */
+async function senderGone(id: string): Promise<boolean> {
+  try {
+    const [demo, viewer, bluewealth, kingclub] = await Promise.all([
+      import("@/lib/auth/demo"), import("@/lib/auth/viewer"), import("@/lib/auth/bluewealth"), import("@/lib/auth/kingclub"),
+    ]);
+    if (id === demo.DEMO_ID) return false;
+    if (!bluewealth.bluewealthConfigured() || !kingclub.kingclubConfigured()) return false;
+    const found = await Promise.all([
+      viewer.agentById(id), viewer.memberById(id), viewer.superAdminById(id),
+      bluewealth.bluewealthAgentById(id), kingclub.kingclubAgentById(id),
+    ]);
+    return found.every((r) => r === null);
+  } catch (e) {
+    console.error("library sender not looked up, withdrawn file kept:", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
 /** the sender takes their own row away, in any state; then its files leave Storage */
 export async function deleteUpload(agentId: string, id: string): Promise<Done> {
   if (!isUploadId(id)) return { ok: false, error: NOT_FOUND };
@@ -174,24 +239,29 @@ const toView = (r: UploadRow, who: string, by?: string): UploadView => ({
   mine: r.agentId === who, ...(by ? { by } : {}),
 });
 
+/** what the owner's ในคลังแล้ว calls a sender no lookup names (spec 2026-11-14-library-withdraw-design.md) */
+export const SENDER_GONE = "สมาชิกที่ลบบัญชีแล้ว";
+
 /**
  * What the page may hold of the three lists: no agentId anywhere, and the sender's name only on the owner's
- * waiting rows. A non-owner's `waiting` is empty and never read. null when the table cannot be read
- * (trouble, or not migrated yet): the page then leaves the upload tabs out.
+ * waiting rows and the owner's shared rows (ในคลังแล้ว, where a sender nobody names is SENDER_GONE). A
+ * non-owner's `waiting` is empty and never read, and their shared rows carry no name. null when the table
+ * cannot be read (trouble, or not migrated yet): the page then leaves the upload tabs out.
  */
 export async function uploadViews(who: { agentId: string; owner: boolean }): Promise<{ mine: UploadView[]; shared: UploadView[]; waiting: UploadView[] } | null> {
   try {
     const [mine, shared, waiting] = await Promise.all([
       myUploads(who.agentId), sharedUploads(), who.owner ? waitingUploads() : Promise.resolve([] as UploadRow[]),
     ]);
-    // a name that cannot be read leaves the row without one; the lists still show
-    const names = waiting.length
-      ? await import("@/lib/auth/viewer").then((m) => m.displayNames(waiting.map((r) => r.agentId))).catch(() => ({} as Record<string, string>))
-      : ({} as Record<string, string>);
+    // the owner's lists only; names that cannot be read leave the rows without one (not SENDER_GONE), and the lists still show
+    const named = who.owner ? [...waiting, ...shared] : [];
+    const names = named.length
+      ? await import("@/lib/auth/viewer").then((m) => m.displayNames(named.map((r) => r.agentId))).catch((): null => null)
+      : null;
     return {
       mine: mine.map((r) => toView(r, who.agentId)),
-      shared: shared.map((r) => toView(r, who.agentId)),
-      waiting: waiting.map((r) => toView(r, who.agentId, names[r.agentId])),
+      shared: shared.map((r) => toView(r, who.agentId, who.owner && names ? names[r.agentId] ?? SENDER_GONE : undefined)),
+      waiting: waiting.map((r) => toView(r, who.agentId, names?.[r.agentId])),
     };
   } catch (e) {
     console.error("library uploads not read:", e);
