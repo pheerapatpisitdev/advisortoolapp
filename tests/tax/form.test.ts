@@ -1,4 +1,4 @@
-import { describe, expect, it, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { INITIAL_FORM, sanitizeForm, toInput, STEP_COUNT, type Form } from '@/lib/tax/form';
 
 test('sanitizeForm drops unknown occupations and clamps step', () => {

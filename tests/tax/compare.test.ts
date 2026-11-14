@@ -1,4 +1,4 @@
-import { describe, expect, it, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { comparePaths } from '@/lib/tax/compare';
 import { calculatePersonal, EMPTY_PERSONAL_INPUT } from '@/lib/tax/personal';
 import { RULES_2569 } from '@/lib/tax/rules/2569';

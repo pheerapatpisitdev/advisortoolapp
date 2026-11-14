@@ -1,4 +1,4 @@
-import { describe, expect, it, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { RULES_2569 as r } from '@/lib/tax/rules/2569';
 
 test('brackets end open and ascend', () => {

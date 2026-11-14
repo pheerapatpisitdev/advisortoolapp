@@ -1,4 +1,4 @@
-import { describe, expect, it, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { taxByBrackets } from '@/lib/tax/brackets';
 import { RULES_2569 } from '@/lib/tax/rules/2569';
 
