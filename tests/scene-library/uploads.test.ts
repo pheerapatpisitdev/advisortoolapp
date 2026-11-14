@@ -297,8 +297,8 @@ describe("hideUpload and showUpload: the owner's ถอนออกจากค�
   it("a database failure says it failed and changes nothing", async () => {
     const a = seed({ agent_id: OWNER, state: "ok" });
     mem.failAll = { message: "down" };
-    expect(await hideUpload(OWNER, a.id)).toEqual({ ok: false, error: "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง" });
-    expect(await showUpload(OWNER, a.id)).toEqual({ ok: false, error: "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    expect(await hideUpload(OWNER, a.id)).toEqual({ ok: false, error: "ทำไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    expect(await showUpload(OWNER, a.id)).toEqual({ ok: false, error: "ทำไม่สำเร็จ ลองใหม่อีกครั้ง" });
     expect(a.state).toBe("ok");
   });
 });

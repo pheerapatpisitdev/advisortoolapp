@@ -90,6 +90,21 @@ export const withoutUpload = (u: UploadSet, id: string): UploadSet => ({
   mine: u.mine.filter((r) => r.id !== id), shared: u.shared.filter((r) => r.id !== id), waiting: u.waiting.filter((r) => r.id !== id),
 });
 
+/** what hideUpload / showUpload say when the row had moved first, or was deleted (uploads.ts) */
+const MOVED_FIRST = "ไฟล์นี้ตรวจไปแล้ว";
+const DELETED = "ไม่พบไฟล์นี้";
+
+/**
+ * after a hide (to gone) or a show (to ok) came back: done, or "already" (the row is where it was going, another
+ * tab got there first), applies the move; "not found" (deleted elsewhere) drops the row; any other refusal
+ * changes nothing, so the row keeps its buttons and its message
+ */
+export function afterMove(u: UploadSet, id: string, to: "ok" | "gone", done: { ok: true } | { ok: false; error: string }): UploadSet {
+  if (done.ok || done.error === MOVED_FIRST) return to === "gone" ? withHidden(u, id) : withShown(u, id);
+  if (done.error === DELETED) return withoutUpload(u, id);
+  return u;
+}
+
 /** which row has its delete question or its reasons open, and the reason picked (one at a time) */
 export interface RowState { removing: string | null; refusing: string | null; reason: string | null }
 export type RowAction =

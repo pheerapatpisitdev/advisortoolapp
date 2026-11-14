@@ -23,6 +23,8 @@ const MEDIA = "content-media";
 const FAILED = "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง";
 const NOT_FOUND = "ไม่พบไฟล์นี้";
 const ALREADY = "ไฟล์นี้ตรวจไปแล้ว";
+/** a hide or show that could not be made (FAILED is a send's line) */
+const NOT_DONE = "ทำไม่สำเร็จ ลองใหม่อีกครั้ง";
 const FILE_PATH = /^library\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg)$/;
 
 interface DbRow {
@@ -219,10 +221,10 @@ async function moveUpload(by: string, id: string, from: "ok" | "gone", to: "ok" 
   const { data, error } = await db.from(TABLE)
     .update({ state: to, reason: null, decided_by: by, decided_at: new Date().toISOString() })
     .eq("id", id).eq("state", from).select("id");
-  if (error) { console.error(`library upload not moved to ${to}:`, error.message); return { ok: false, error: FAILED }; }
+  if (error) { console.error(`library upload not moved to ${to}:`, error.message); return { ok: false, error: NOT_DONE }; }
   if (data?.length) return { ok: true };
   const { data: found, error: readErr } = await db.from(TABLE).select("id").eq("id", id).maybeSingle();
-  if (readErr) { console.error("library upload not read:", readErr.message); return { ok: false, error: FAILED }; }
+  if (readErr) { console.error("library upload not read:", readErr.message); return { ok: false, error: NOT_DONE }; }
   return { ok: false, error: found ? ALREADY : NOT_FOUND };
 }
 

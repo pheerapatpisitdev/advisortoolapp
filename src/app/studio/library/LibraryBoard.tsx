@@ -5,7 +5,7 @@ import { PRODUCT_NAME, TYPE_NAME, usesFor, type LibraryItem, type LibraryProduct
 import { filterLibrary, type LibraryFilter, type LibraryState } from "@/lib/scene-library/filter";
 import { cleanMarks, hasMark, pressMark, withMark, type Marks } from "@/lib/scene-library/mark-state";
 import type { MarkKind, Toggled } from "@/lib/scene-library/marks";
-import { afterSent, uploadsFor, withHidden, withoutUpload, withShown, type UploadSet } from "@/lib/scene-library/upload-flow";
+import { afterMove, afterSent, uploadsFor, withoutUpload, type UploadSet } from "@/lib/scene-library/upload-flow";
 import type { UploadView } from "@/lib/scene-library/upload-rules";
 import type { Sent } from "@/lib/scene-library/uploads";
 import { hideLibraryUpload, removeLibraryUpload, showLibraryUpload, toggleLibraryMark } from "./actions";
@@ -217,15 +217,19 @@ export function LibraryBoard({
 
   // the owner stays on อัปโหลด, with "ส่งแล้ว"; the file is ok at once, so it is in เลือกดู too
   const onSent = (row: UploadView) => setUps((u) => (u ? afterSent(u, row, true).ups : u));
-  /** one row's call; only a change the server made changes the lists (a refusal stays under the row) */
-  const after = (call: (id: string) => Promise<Done>, change: (u: UploadSet, id: string) => UploadSet) => async (id: string): Promise<Done> => {
-    const done = await call(id);
-    if (done.ok) setUps((u) => (u ? change(u, id) : u));
+  const onRemove = async (id: string): Promise<Done> => {
+    const done = await remove(id);
+    if (done.ok) setUps((u) => (u ? withoutUpload(u, id) : u));
     return done;
   };
-  const onRemove = after(remove, withoutUpload);
-  const onHide = after(hide, withHidden);
-  const onShow = after(show, withShown);
+  /** a hide or show; afterMove also settles a row moved or deleted elsewhere first (its message stays under the row) */
+  const move = (call: (id: string) => Promise<Done>, to: "ok" | "gone") => async (id: string): Promise<Done> => {
+    const done = await call(id);
+    setUps((u) => (u ? afterMove(u, id, to, done) : u));
+    return done;
+  };
+  const onHide = move(hide, "gone");
+  const onShow = move(show, "ok");
 
   const tabs: [Tab, string, number?][] = [
     ["browse", "เลือกดู"],

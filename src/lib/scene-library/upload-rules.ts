@@ -49,7 +49,8 @@ export const isUploadId = (v: unknown): v is string => typeof v === "string" && 
 export function stateWord(kind: UploadKind, state: UploadState): string {
   switch (state) {
     case "wait": return kind === "ask" ? "รอเจ้าของดู" : "รออนุมัติ";
-    case "ok": return "ใช้ร่วมแล้ว";
+    // the owner's page: a file in the library (controller ruling, 2026-11-14)
+    case "ok": return "อยู่ในคลัง";
     case "no": return "ไม่ผ่าน";
     case "queue": return "อยู่ในคิวทำ";
     case "closed": return "ปิดคำขอ";

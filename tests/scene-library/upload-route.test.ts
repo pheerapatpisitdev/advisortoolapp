@@ -20,7 +20,7 @@ vi.mock("@/lib/scene-library/uploads", () => ({
   uploadFile: async () => state.file,
 }));
 
-import { OWNER } from "../helpers/signed-in";
+import { OWNER, SUPER } from "../helpers/signed-in";
 import { GET, POST } from "@/app/api/library-upload/route";
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -63,6 +63,13 @@ describe("POST", () => {
     expect(v).toMatchObject({ kind: "part", name: "หมอ", note: "ท", rights: false });
     expect(v.files).toHaveLength(1);
     expect([...v.files[0].bytes]).toEqual([...PNG]);
+  });
+
+  it("admits the Super Admin, who counts as the owner here (the route asks getViewer, not requireMember)", async () => {
+    state.viewer = SUPER;
+    const res = await POST(form([["kind", "part"], ["name", "หมอ"], ["file", png()]]));
+    expect(res.status).toBe(200);
+    expect((state.sent[0] as unknown[])[0]).toEqual({ agentId: SUPER.agentId, owner: true, demo: false });
   });
 
   it("answers anyone but the owner 403 with the closed line, before the body is read", async () => {

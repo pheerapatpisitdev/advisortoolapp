@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  afterSent, checkForm, claimRow, rowReducer, sentView, submitUpload, uploadHref, uploadsFor, withHidden, withoutUpload, withSent, withShown,
+  afterSent, checkForm, claimRow, rowReducer, sentView, submitUpload, afterMove, uploadHref, uploadsFor, withHidden, withoutUpload, withSent, withShown,
   type FormState, type RowState, type UploadSet,
 } from "@/lib/scene-library/upload-flow";
 import { shrinkForUpload } from "@/lib/scene-library/shrink";
@@ -245,6 +245,32 @@ describe("withHidden and withShown: ไฟล์ของฉัน after ถอ�
     const start = set({ mine: [other], shared: [other] });
     expect(withShown(start, "zz")).toEqual(start);
     expect(withHidden(start, "zz")).toEqual(start);
+  });
+});
+
+describe("afterMove: the lists after a hide or show came back", () => {
+  const own = view({ id: "o", state: "ok", mine: true });
+  const gone = view({ id: "g", state: "gone", mine: true, name: "ถอนแล้ว" });
+  const start = set({ mine: [own, gone], shared: [own] });
+  it("done: the move applies", () => {
+    expect(afterMove(start, "o", "gone", { ok: true })).toEqual(withHidden(start, "o"));
+    expect(afterMove(start, "g", "ok", { ok: true })).toEqual(withShown(start, "g"));
+  });
+  it("ไฟล์นี้ตรวจไปแล้ว: it is already where it was going, so the row is flipped there too", () => {
+    const hid = afterMove(start, "o", "gone", { ok: false, error: "ไฟล์นี้ตรวจไปแล้ว" });
+    expect(hid.mine[0].state).toBe("gone");
+    expect(hid.shared).toEqual([]);
+    const shown = afterMove(start, "g", "ok", { ok: false, error: "ไฟล์นี้ตรวจไปแล้ว" });
+    expect(shown.mine[1].state).toBe("ok");
+    expect(shown.shared.map((v) => v.id).sort()).toEqual(["g", "o"]);
+  });
+  it("ไม่พบไฟล์นี้: deleted elsewhere, so it leaves mine and shared", () => {
+    for (const to of ["gone", "ok"] as const) {
+      expect(afterMove(start, "o", to, { ok: false, error: "ไม่พบไฟล์นี้" })).toEqual(set({ mine: [gone] }));
+    }
+  });
+  it("any other refusal changes nothing", () => {
+    expect(afterMove(start, "o", "gone", { ok: false, error: "ทำไม่สำเร็จ ลองใหม่อีกครั้ง" })).toBe(start);
   });
 });
 

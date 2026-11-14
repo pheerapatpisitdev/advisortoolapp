@@ -18,7 +18,7 @@ vi.mock("@/lib/scene-library/uploads", () => ({
   showUpload: record("showUpload", { ok: true }),
 }));
 
-import { OWNER, SUPER } from "../helpers/signed-in";
+import { OWNER } from "../helpers/signed-in";
 import { LIBRARY_CLOSED } from "@/lib/scene-library/access";
 import {
   decideLibraryUpload, hideLibraryUpload, removeLibraryUpload, showLibraryUpload, toggleLibraryMark, withdrawLibraryUpload,
@@ -57,11 +57,6 @@ describe("the owner's calls", () => {
   it("toggleLibraryMark marks for the owner", async () => {
     expect(await toggleLibraryMark("room", "save")).toEqual({ ok: true, on: true });
     expect(state.calls).toEqual([["toggleMark", [OWNER.agentId, "room", "save"]]]);
-  });
-  it("the Super Admin counts as the owner", async () => {
-    state.viewer = SUPER;
-    expect(await hideLibraryUpload(ID)).toEqual({ ok: true });
-    expect(state.calls).toEqual([["hideUpload", [SUPER.agentId, ID]]]);
   });
   it("hideLibraryUpload and showLibraryUpload pass the owner's id and the file on", async () => {
     expect(await hideLibraryUpload(ID)).toEqual({ ok: true });

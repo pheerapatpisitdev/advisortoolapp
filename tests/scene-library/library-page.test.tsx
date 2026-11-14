@@ -30,7 +30,7 @@ vi.mock("@/lib/scene-library/uploads", () => ({ uploadViews: async (who: unknown
 vi.mock("@/lib/switches/store", () => ({ closedFor: async (_v: unknown, key: string) => { state.reads.push(`switch ${key}`); return state.closed[key] ?? null; } }));
 vi.mock("@/app/studio/library/actions", () => ({ toggleLibraryMark: vi.fn() }));
 
-import { OWNER, SUPER } from "../helpers/signed-in";
+import { OWNER } from "../helpers/signed-in";
 import { LIBRARY, libraryItem, PRODUCT_NAME, storyLibraryHref, type LibraryTool } from "@/lib/scene-library/catalog";
 import LibraryPage from "@/app/studio/library/page";
 import { LibraryBoard, LibraryCard, LibraryDetail, type DetailProps } from "@/app/studio/library/LibraryBoard";
@@ -79,10 +79,6 @@ describe("the owner's page", () => {
     expect(html).not.toContain("อยากได้มากสุด");
     expect(html).not.toContain("คิวตรวจ");
     expect(html).not.toContain("ฟังก์ชันนี้ปิดใช้งานอยู่");
-  });
-  it("the Super Admin counts as the owner", async () => {
-    state.viewer = SUPER;
-    expect(tabNames(await page())).toEqual(["เลือกดู", "อัปโหลด", "ของฉัน"]);
   });
   it("reads the owner's marks and uploads, and no vote counts", async () => {
     await page();

@@ -26,7 +26,7 @@ describe("stateWord", () => {
     expect(stateWord("part", "wait")).toBe("รออนุมัติ");
     expect(stateWord("style", "wait")).toBe("รออนุมัติ");
     expect(stateWord("ask", "wait")).toBe("รอเจ้าของดู");
-    expect(stateWord("part", "ok")).toBe("ใช้ร่วมแล้ว");
+    expect(stateWord("part", "ok")).toBe("อยู่ในคลัง");
     expect(stateWord("part", "no")).toBe("ไม่ผ่าน");
     expect(stateWord("ask", "queue")).toBe("อยู่ในคิวทำ");
     expect(stateWord("ask", "closed")).toBe("ปิดคำขอ");

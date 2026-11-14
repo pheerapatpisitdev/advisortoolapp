@@ -140,7 +140,8 @@ describe("ของฉัน: ไฟล์ของฉัน", () => {
   const html = renderToStaticMarkup(createElement(MyFiles, { rows, onRemove: vi.fn(), onHide: vi.fn(), onShow: vi.fn() }));
   it("counts them in the heading", () => expect(html).toContain("ไฟล์ของฉัน (2)"));
   it("says each file's state, its kind and note, with a thumbnail", () => {
-    expect(html).toContain(">ใช้ร่วมแล้ว<");
+    expect(html).toContain(">อยู่ในคลัง<");
+    expect(html).not.toContain("ใช้ร่วมแล้ว");
     expect(html).toContain(">ถอนออกแล้ว<");
     expect(html).toContain("มีโน้ต");
     expect(html).toContain("ชิ้นส่วนภาพ");
