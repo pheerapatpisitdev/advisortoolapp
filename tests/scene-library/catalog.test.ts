@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LIBRARY, libraryItem, usesFor, storyLibraryHref, promptLibraryHref, TYPE_NAME, PRODUCT_NAME } from "@/lib/scene-library/catalog";
-import { DEVICES as ALL_DEVICES, isMetaDevice } from "@/lib/scene-library/devices";
-/** the sixteen health and ชีวิต ภาษี มรดก devices; Task 7 widens these checks to the eight อุปมา devices */
-const DEVICES = ALL_DEVICES.filter((d) => !isMetaDevice(d));
+import { DEVICES } from "@/lib/scene-library/devices";
 import { PROMPT_FORMATS, PICTURE_STYLES } from "@/lib/prompt-story/types";
 import { SOUNDS, MUSIC_MOODS, joinCues } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
@@ -16,6 +14,8 @@ const KNOWN = new Set(["topic", "look", "format", "style"]);
 /** every link the catalogue draws: each piece's, and each device look's */
 const allUses = (i: (typeof LIBRARY)[number]) => [...i.uses, ...(i.looks ?? []).flatMap((l) => l.uses)];
 const q = (href: string) => new URL(href, "http://x").searchParams;
+/** whether คลิปเล่าเรื่อง keeps a look on a topic: the info-route looks only on the shelves told in points */
+const keeps = (topic: string, look: string) => !["plot", "board", "neon", "blueprint"].includes(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
 
 describe("catalogue", () => {
   it("has unique kebab-case ids", () => {
@@ -64,8 +64,9 @@ describe("catalogue", () => {
         expect(l.uses.map((u) => u.tool), `${d.key} ${l.id}`).toEqual(["story-clip", "prompt-story"]);
         const story = q(l.uses[0].href);
         expect(story.get("topic"), `${d.key} ${l.id}`).toBe(topic);
-        // every device topic is on a shelf told in points, so every look, ปากกาพล็อตเตอร์ too, is kept
-        expect(story.get("look"), `${d.key} ${l.id}`).toBe(l.id);
+        // a topic on a shelf told in points keeps every look, ปากกาพล็อตเตอร์ too; เสาหลักหายไป and ฟรีแลนซ์ (told with
+        // people) keep no info-route look, so those links open the topic in its own look
+        expect(story.get("look"), `${d.key} ${l.id}`).toBe(keeps(topic!, l.id) ? l.id : null);
         expect(q(l.uses[1].href).get("style"), `${d.key} ${l.id}`).toBe(STYLE[l.id]);
         expect(PICTURE_STYLES.map((s) => s.id)).toContain(STYLE[l.id]);
       }
@@ -152,14 +153,15 @@ describe("catalogue", () => {
     for (const id of ["ai-style-thai-pattern", "ai-style-3d", "ai-style-magazine-collage"]) expect(libraryItem(id), id).toBeUndefined();
     expect(LIBRARY.some((i) => i.name.includes("ลายไทย"))).toBe(false);
   });
-  it("every device lists the seven looks, the three new ones kept on its topic", () => {
+  it("every device lists the seven looks, the three new ones kept where its topic keeps them", () => {
     for (const d of DEVICES) {
       const looks = libraryItem(d.key)!.looks!;
       expect(looks, d.key).toHaveLength(7);
+      const topic = q(libraryItem(d.key)!.uses[0].href).get("topic")!;
       for (const id of ["board", "neon", "blueprint"]) {
         const l = looks.find((x) => x.id === id)!;
         expect(l.preview, `${d.key} ${id}`).toBe(`/library/${d.key}-${id}.jpg`);
-        expect(q(l.uses[0].href).get("look"), `${d.key} ${id}`).toBe(id);
+        expect(q(l.uses[0].href).get("look"), `${d.key} ${id}`).toBe(keeps(topic, id) ? id : null);
       }
     }
   });
@@ -179,7 +181,7 @@ describe("catalogue", () => {
       ["lifeneed", "life", "lifeneed"], ["beneficiary", "life", "lifeneed"], ["moneysplit", "life", "lifeneed"], ["threegen", "life", "lifeneed"],
       ["cilump", "health", "ciincome"], ["incomestop", "health", "ciincome"], ["taxback", "saving", "taxback"], ["taxcap", "saving", "taxback"],
     ] as const;
-    expect(DEVICES).toHaveLength(16);
+    expect(DEVICES).toHaveLength(24);
     for (const [key, product, topic] of EIGHT) {
       const item = libraryItem(key)!;
       expect([item.type, item.ready, item.product], key).toEqual(["device", true, product]);
@@ -194,7 +196,32 @@ describe("catalogue", () => {
     // the planned devices that are not these eight stay planned
     expect(libraryItem("device-tax-health-premium")?.ready).toBe(false);
     expect(libraryItem("device-health-for-parents")?.ready).toBe(false);
-    expect(LIBRARY.filter((i) => i.type === "device" && i.ready)).toHaveLength(16);
+  });
+  it("the อุปมา metaphors are ready, for every product, each on the topic it opens, their planned entries gone", () => {
+    // spec 2026-11-15-devices-metaphor-design "The library" and the eight openers
+    const EIGHT = [
+      ["umbrella", "mythjinx"], ["housepillar", "pillar"], ["lifering", "ciincome"], ["safetynet", "selfemployed"],
+      ["seedtree", "pricey"], ["balance", "bank"], ["bridge", "welfare"], ["shield", "fiverisks"],
+    ] as const;
+    const LOOKS = ["paper", "minimal", "line", "plot", "board", "neon", "blueprint"];
+    for (const [key, topic] of EIGHT) {
+      const item = libraryItem(key)!;
+      expect([item.type, item.ready, item.product], key).toEqual(["device", true, "all"]);
+      expect(item.preview, key).toBe(`/library/${key}-paper.jpg`);
+      expect(item.uses.map((u) => u.href), key).toEqual([`/studio/story-clip?topic=${topic}`, "/studio/prompt-story"]);
+      expect(item.looks!.map((l) => l.preview), key).toEqual(LOOKS.map((l) => `/library/${key}-${l}.jpg`));
+      expect(item.tells, key).not.toMatch(/[0-9๐-๙]/);
+    }
+    // pillar and selfemployed are told with people: their info-route looks open the topic without the look
+    expect(libraryItem("housepillar")!.looks!.find((l) => l.id === "neon")!.uses.map((u) => u.href)).toEqual(["/studio/story-clip?topic=pillar", "/studio/prompt-story?style=neon"]);
+    expect(libraryItem("safetynet")!.looks!.find((l) => l.id === "plot")!.uses[0].href).toBe("/studio/story-clip?topic=selfemployed");
+    expect(libraryItem("umbrella")!.looks!.find((l) => l.id === "neon")!.uses[0].href).toBe("/studio/story-clip?topic=mythjinx&look=neon");
+    for (const id of ["balance-scale", "umbrella", "house-pillar", "arrow-shield", "life-ring", "safety-net", "seed-to-tree", "bridge"]) {
+      expect(libraryItem(`device-${id}`), id).toBeUndefined();
+    }
+    // the general devices that are not metaphors stay planned
+    expect(libraryItem("device-fork-paths")?.ready).toBe(false);
+    expect(LIBRARY.filter((i) => i.type === "device" && i.ready)).toHaveLength(24);
   });
   it("cashless says the plan's conditions apply", () => {
     expect(libraryItem("cashless")?.tells).toContain("ตามเงื่อนไขของแผน");

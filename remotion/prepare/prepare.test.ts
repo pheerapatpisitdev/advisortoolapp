@@ -358,6 +358,61 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
     writeFileSync(join(PUB, `props/st-free-life-${style}.json`), JSON.stringify(storyClipProps({ ...life, style } as never, "portrait", "", "F", CONTACT, lPlans, lScript, lSecs, clipLength(lPlans), "audio/st-free-life.wav", [undefined, undefined, undefined])));
   }
 
+  // อุปมาเล่าเรื่อง (device round 3, 2026-11-15, spec 2026-11-15-devices-metaphor-design): four of the eight topics whose
+  // opening scene is now a metaphor, each in paper and one other look the topic keeps (เสาหลักหายไป is told with people, so
+  // แสงอุ่น; ป่วยหนัก รายได้หายไปไหน on round 2's figures), checked as the form checks them so the look is kept. The voice
+  // is the Mac's Narisa, so each scene is as long as its spoken line. props/st-meta-mythjinx.json is a ship.sh smoke render
+  const { mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
+  const { knowEpisode } = await import("@/lib/quote-video/story-knowledge");
+  const OPENER = { mythjinx: "umbrella", pillar: "housepillar", bank: "balance", ciincome: "lifering" } as const;
+  for (const [name, topic, art] of [["st-meta-mythjinx", "mythjinx", "paper"], ["st-meta-mythjinx-neon", "mythjinx", "neon"],
+    ["st-meta-pillar", "pillar", "paper"], ["st-meta-pillar-minimal", "pillar", "minimal"],
+    ["st-meta-bank", "bank", "paper"], ["st-meta-bank-blueprint", "bank", "blueprint"],
+    ["st-meta-ciincome", "ciincome", "paper"], ["st-meta-ciincome-board", "ciincome", "board"]] as const) {
+    const look = art === "minimal" ? { art, ground: "warm", cast: { hero: DEFAULT_CAST.hero.M, narrator: DEFAULT_CAST.narrator } } : { art };
+    const m = checkedStory({ topic, faces: { narrator: "w26", hero: "m09" }, ...look, ...(topic === "ciincome" ? { money: money.ciincome } : {}) } as never, "F");
+    if (typeof m === "string") throw new Error(`${name}: ${m}`);
+    if (m.art !== art) throw new Error(`${name}: drawn in ${m.art}, not ${art}`);
+    const first = knowEpisode(m).scenes[0].show;
+    if (first.layout !== OPENER[topic]) throw new Error(`${name}: opens on ${first.layout}, not ${OPENER[topic]}`);
+    const mScript = storyScript(m, "", "F");
+    const pcms = narisa(join(OUT, `voice-meta-${topic}`), mScript);
+    const mSecs = pcms.map((p) => pcmSeconds(p, 24000));
+    const mPlans = planScenes(mScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: mSecs[i], windows: clipWindows(s.key, m, "portrait"), fps: MOTION_FPS, ...clipTail(s.key, m, mSecs[i]) })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), mixNarration(pcms.map((pcm, i) => ({ pcm, at: mPlans[i].voiceAt })), clipLength(mPlans), 24000));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(m, "portrait", "", "F", CONTACT, mPlans, mScript, mSecs, clipLength(mPlans), `audio/${name}.wav`, [])));
+  }
+
+  // the same in คลิปตามโจทย์ (device round 3): three metaphors in place of the painter's pictures, each held to the brief
+  // by the app's own check (a metaphor it drops would be a picture scene; a digit in any of its words is refused)
+  const metaBrief = "อยากอธิบายว่าทำไมต้องมีประกัน ทั้งที่มีเงินออมอยู่แล้ว เตรียมไว้ก่อนเกิดเรื่อง และให้ประกันรับเรื่องใหญ่แทนเรา";
+  const meta = {
+    ...free, brief: metaBrief, title: "ทำไมต้องมีประกัน", narrator: "F", faces: { narrator: "w26" }, pictures: [null, null, null],
+    scenes: [
+      { voice: "พกร่มไว้ ไม่ได้ทำให้ฝนตก การเตรียมไว้ก่อน ก็ไม่ได้ทำให้เกิดเรื่องค่ะ", screen: "", picture: "",
+        device: { layout: "umbrella", title: ["เตรียมไว้", "ก่อนฝนตก"], note: "พกร่ม ไม่ได้ทำให้ฝนตก" } },
+      { voice: "เงินออมไว้ใช้ ประกันไว้กันเรื่องใหญ่ สองอย่างทำหน้าที่ต่างกัน ควรมีทั้งคู่ค่ะ", screen: "", picture: "",
+        device: { layout: "balance", title: ["เงินออม", "กับประกัน"], note: "ควรมีทั้งสองข้าง", sides: ["เงินออม", "ประกัน"], tilt: "even" } },
+      { voice: "เรื่องใหญ่ที่อาจมาถึง ป่วยหนัก อุบัติเหตุ รายได้หาย ประกันรับไว้แทนเราค่ะ", screen: "", picture: "",
+        device: { layout: "shield", title: ["ประกัน", "รับแทนเรา"], note: "โล่ที่รับแทนเรา", arrows: ["ป่วยหนัก", "อุบัติเหตุ", "รายได้หาย"] } },
+    ],
+  } as const;
+  const metaBad = checkScript(meta.scenes as never, metaBrief);
+  if (metaBad.length) throw new Error(`st-free-meta: ${JSON.stringify(metaBad)}`);
+  const metaAllowed = deviceAllowed(metaBrief);
+  for (const s of meta.scenes) {
+    const d = checkDevice(s.device, metaAllowed);
+    if (typeof d === "string" || JSON.stringify(d) !== JSON.stringify(s.device)) throw new Error(`st-free-meta ${s.device.layout}: ${typeof d === "string" ? d : `changed to ${JSON.stringify(d)}`}`);
+  }
+  const eScript = [...meta.scenes.map((s) => ({ key: "freeScene" as const, voice: s.voice })), { key: "storyContact" as const, voice: "สนใจรายละเอียดเพิ่มเติม ทักมาได้เลยนะคะ" }];
+  const ePcms = narisa(join(OUT, "voice-meta-free"), eScript);
+  const eSecs = ePcms.map((p) => pcmSeconds(p, 24000));
+  const ePlans = planScenes(eScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: eSecs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS, ...(s.key === "storyContact" ? {} : freeTail(meta.scenes[i], eSecs[i])) })));
+  writeFileSync(join(PUB, "audio/st-free-meta.wav"), mixNarration(ePcms.map((pcm, i) => ({ pcm, at: ePlans[i].voiceAt })), clipLength(ePlans), 24000));
+  for (const style of ["paper", "board"] as const) {
+    writeFileSync(join(PUB, `props/st-free-meta-${style}.json`), JSON.stringify(storyClipProps({ ...meta, style } as never, "portrait", "", "F", CONTACT, ePlans, eScript, eSecs, clipLength(ePlans), "audio/st-free-meta.wav", [undefined, undefined, undefined])));
+  }
+
   // health devices in place of the painter's pictures (scene library, 2026-11-13): a clip of two device scenes in
   // each look, drawn by the system on the look's ground, no picture filed for them
   const devices = {

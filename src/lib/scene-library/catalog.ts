@@ -1,4 +1,4 @@
-import { DEVICES, isMetaDevice } from "./devices";
+import { DEVICES } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
@@ -98,9 +98,8 @@ const DEVICE_TELLS: Record<DeviceLayout, string> = {
 };
 /** whether คลิปเล่าเรื่อง keeps this look on this topic: the info-route looks (INFO_ARTS) only on the shelves told in points */
 const lookFits = (topic: StoryTopic, look: string): boolean => !infoArt(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
-/** all sixteen devices, health and ชีวิต ภาษี มรดก, each with a still in every look */
-// Task 7: the อุปมา devices become ready (stills, previews); until then their unbuilt entries below stand
-const readyDevices: LibraryItem[] = DEVICES.filter((d) => !isMetaDevice(d)).map((d) => {
+/** all twenty-four devices, health, ชีวิต ภาษี มรดก and อุปมา, each with a still in every look */
+const readyDevices: LibraryItem[] = DEVICES.map((d) => {
   const topic = DEVICE_TOPIC[d.key];
   return {
     id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: d.product, ready: true,
@@ -189,17 +188,9 @@ const unbuilt: LibraryItem[] = [
   dev("all", "inflation-eats", "เงินเฟ้อกินเงินเก็บ", "เงินก้อนเดิมซื้อของได้น้อยลง"),
   dev("all", "cross-tick-sides", "✗/✓ สองฝั่ง", "สองฝั่ง ฝั่งที่ไม่ผ่านกากบาท ฝั่งที่ผ่านติ๊กถูก"),
   dev("all", "fork-paths", "ทางแยกสองเส้นทาง", "ทางแยกสองทาง ผลลัพธ์ต่างกัน"),
-  dev("all", "balance-scale", "ตาชั่ง", "ตาชั่งเทียบสองข้าง"),
   dev("all", "checklist-ticks", "เช็กลิสต์ติ๊กตามเสียง", "รายการติ๊กถูกทีละข้อตามที่พูด"),
   dev("all", "policy-highlight", "กรมธรรม์ไฮไลต์", "หน้ากรมธรรม์ที่ไฮไลต์ข้อสำคัญ"),
   dev("all", "flip-term-card", "การ์ดคำศัพท์พลิก", "การ์ดพลิกจากคำศัพท์เป็นความหมาย"),
-  dev("all", "umbrella", "ร่มกันฝน", "เปรียบประกันกับร่มที่กางกันฝน"),
-  dev("all", "house-pillar", "เสาหลักของบ้าน", "เปรียบผู้หาเลี้ยงครอบครัวกับเสาบ้าน"),
-  dev("all", "arrow-shield", "โล่กันลูกศร", "โล่รับลูกศรแทนเจ้าของ"),
-  dev("all", "life-ring", "ห่วงชูชีพ", "ห่วงชูชีพโยนให้ตอนจมน้ำ"),
-  dev("all", "safety-net", "ตาข่ายนิรภัย", "ตาข่ายรองรับตอนตกลงมา"),
-  dev("all", "seed-to-tree", "เมล็ดโตเป็นต้นไม้", "เมล็ดเล็กๆ โตเป็นต้นไม้ใหญ่"),
-  dev("all", "bridge", "สะพานข้ามช่วงยาก", "สะพานข้ามช่วงเวลาที่ลำบาก"),
   dev("all", "place-hospital", "โรงพยาบาล", "ฉากหลังโรงพยาบาลที่ระบบวาด"),
   dev("all", "place-or-icu", "ห้องผ่าตัด / ICU", "ฉากหลังห้องผ่าตัดหรือ ICU ที่ระบบวาด"),
   dev("all", "place-office", "ออฟฟิศ", "ฉากหลังที่ทำงานที่ระบบวาด"),

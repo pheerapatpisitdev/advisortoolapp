@@ -20,6 +20,10 @@ import { it } from "vitest";
  * of its moves and before the next scene comes in. The ชีวิต ภาษี มรดก episodes (device round 2, 2026-11-14) are told on
  * the figures the story-money tests type: a debt of 2,000,000, 300,000 a year for 10 years, 800,000 for school and
  * 3,000,000 of cover had; 30,000 a month stopped 6 months with a 1,000,000 CI sum; a 50,000 premium at the 20% rate.
+ * The อุปมา metaphors (device round 3, 2026-11-15) are each the opening scene of the topic the library links them to,
+ * photographed there in every look the topic keeps. เสาหลักหายไป and ฟรีแลนซ์ are on shelves told with people, which keep
+ * no info-route look (ปากกาพล็อตเตอร์ ไวต์บอร์ด นีออน บลูพริ้นท์), so in those four looks เสาหลักของบ้าน and ตาข่ายนิรภัย are
+ * photographed in คลิปตามโจทย์, on the opener's own words.
  * The voice is silence; no database, no paid call.
  */
 
@@ -36,8 +40,16 @@ const EPISODES = [
   { topic: "agecost", health: SILVER, devices: ["agecost"] },
   { topic: "groupins", home: { kind: "group", bill: 800_000, group: 50_000 }, devices: ["groupgap"] },
   { topic: "lifeneed", money: { debts: 2_000_000, expenses: 300_000, years: 10, education: 800_000, have: 3_000_000 }, devices: ["lifeneed", "beneficiary", "moneysplit"] },
-  { topic: "ciincome", money: { monthly: 30_000, months: 6, ciSum: 1_000_000 }, devices: ["incomestop", "cilump"] },
+  { topic: "ciincome", money: { monthly: 30_000, months: 6, ciSum: 1_000_000 }, devices: ["lifering", "incomestop", "cilump"] },
   { topic: "taxback", money: { premium: 50_000, bracket: 20 }, devices: ["taxcap", "taxback"] },
+  // อุปมา (round 3): the opener of each topic, on the topic's own words; pillar and selfemployed keep no info-route look
+  { topic: "mythjinx", devices: ["umbrella"] },
+  { topic: "fiverisks", devices: ["shield"] },
+  { topic: "pricey", devices: ["seedtree"] },
+  { topic: "bank", devices: ["balance"] },
+  { topic: "welfare", devices: ["bridge"] },
+  { topic: "pillar", devices: ["housepillar"], people: true },
+  { topic: "selfemployed", devices: ["safetynet"], people: true },
 ] as const;
 /** the devices in no episode, as a คลิปตามโจทย์ writer may give them: one device scene, then the agent's card */
 const FREE = [
@@ -45,7 +57,14 @@ const FREE = [
     device: { layout: "limit", title: ["วงเงินรักษา", "ต่อปี"], limit: 15_000_000, used: 800_000, planName: "iHealthy Silver" } },
   { file: "threegen", title: "ส่งต่อสามรุ่น", voice: "เงินก้อนจากประกันชีวิต ส่งต่อจากรุ่นปู่ย่า ถึงรุ่นพ่อแม่ และถึงรุ่นลูก",
     device: { layout: "threegen", title: ["ส่งต่อ", "สามรุ่น"], rows: ["รุ่นปู่ย่า", "รุ่นพ่อแม่", "รุ่นลูก"], note: "ส่งต่อเงินก้อนให้ลูกหลาน" } },
+  // the two metaphors whose topics keep no info-route look, in those looks only, as their openers say them
+  { file: "housepillar", title: "เสาหลักของบ้าน", voice: "นี่คือครอบครัวหนึ่ง รายได้หลักของบ้าน มาจากพ่อคนเดียวค่ะ", info: true,
+    device: { layout: "housepillar", title: ["บ้านนี้มีเสาหลัก", ""], note: "รายได้หลักของบ้าน", label: "รายได้" } },
+  { file: "safetynet", title: "ตาข่ายนิรภัย", voice: "ทำงานของตัวเอง ไม่มีเจ้านาย แล้วสวัสดิการล่ะคะ", info: true,
+    device: { layout: "safetynet", title: ["ไม่มีเจ้านาย", "สวัสดิการล่ะ?"], note: "ตาข่ายนี้ เราขึงเองได้" } },
 ] as const;
+/** ปากกาพล็อตเตอร์ ไวต์บอร์ด นีออน บลูพริ้นท์: kept only on the shelves told in points (story/topics.ts INFO_ARTS) */
+const INFO_LOOKS: readonly string[] = ["plot", "board", "neon", "blueprint"];
 /** the look pictures: one scene of one episode, the same in every look so they compare */
 const LOOK_SCENE = { topic: "sumvspremium", key: "knowOne" } as const;
 
@@ -93,6 +112,7 @@ it.runIf(Boolean(process.env.LIBRARY))("prepares the library's preview props", a
 
   for (const look of LOOKS) {
     for (const e of EPISODES) {
+      if ("people" in e && INFO_LOOKS.includes(look)) continue;
       const name = `lib-${e.topic}${"tag" in e ? `-${e.tag}` : ""}-${look}`;
       const { input, plans, moment } = clip(name, { topic: e.topic, ...("health" in e ? { health: e.health } : {}), ...("home" in e ? { home: e.home } : {}), ...("money" in e ? { money: e.money } : {}) }, look);
       const scenes = knowEpisode(input).scenes;
@@ -102,9 +122,10 @@ it.runIf(Boolean(process.env.LIBRARY))("prepares the library's preview props", a
         shots.push({ file: `${show.layout}-${look}.jpg`, props: name, at: moment(i) });
       });
     }
-    // วงเงินต่อปีเติมหลอด and ส่งต่อสามรุ่น as คลิปตามโจทย์ scenes (prompt-story's style calls แสงอุ่น "warm")
+    // วงเงินต่อปีเติมหลอด, ส่งต่อสามรุ่น (and the two metaphors in the info looks) as คลิปตามโจทย์ scenes (prompt-story's style calls แสงอุ่น "warm")
     const style = look === "minimal" ? "warm" : look;
     for (const f of FREE) {
+      if ("info" in f && !INFO_LOOKS.includes(look)) continue;
       const free = {
         product: "FREESTORY", brief: "", title: f.title, caption: "", style, painter: "sharp", size: "portrait", narrator: "F", faces: { narrator: "w26" }, pictures: [null],
         scenes: [{ voice: f.voice, screen: "", picture: "", device: f.device }],
@@ -124,7 +145,7 @@ it.runIf(Boolean(process.env.LIBRARY))("prepares the library's preview props", a
     const { plans, moment } = clip(name, { topic: LOOK_SCENE.topic }, look);
     shots.push({ file: `look-${look}.jpg`, props: name, at: moment(plans.findIndex((p) => p.key === LOOK_SCENE.key)) });
   }
-  // 7 looks × (16 devices + the look picture): the 63 of round 1 and the new looks, and round 2's 8 × 7 = 56
-  if (new Set(shots.map((s) => s.file)).size !== 119 || shots.length !== 119) throw new Error(`119 pictures expected: ${shots.map((s) => s.file).join(" ")}`);
+  // 7 looks × (24 devices + the look picture): the 63 of round 1 and the new looks, round 2's 8 × 7 = 56 and round 3's 8 × 7 = 56
+  if (new Set(shots.map((s) => s.file)).size !== 175 || shots.length !== 175) throw new Error(`175 pictures expected: ${shots.map((s) => s.file).join(" ")}`);
   writeFileSync(join(PUB, "props/library.json"), JSON.stringify(shots, null, 1));
 });
