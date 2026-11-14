@@ -160,7 +160,7 @@ export function wrapHand(text: string, size: number, room: number): string[] {
 }
 
 /** the largest size up to `cap` at which every text, set as lines (wrapHand), fits `room` px wide in `band` px of height */
-function fitWrap(texts: string[], room: number, band: number, cap: number): number {
+export function fitWrap(texts: string[], room: number, band: number, cap: number): number {
   for (let size = Math.floor(cap); size > 8; size -= 1) {
     if (texts.every((x) => pieces(x).every((p) => handWidth(p.s, size) <= room) && wrapHand(x, size, room).length * size * 1.3 <= band)) return size;
   }
