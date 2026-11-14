@@ -40,9 +40,6 @@ export const SHOTS_MAX = 3;
 /** the page re-encodes a picked picture to at most this many pixels on its longest side */
 export const SIDE_MAX = 1600;
 
-export const RIGHTS_LINE =
-  "เป็นไฟล์ของฉันหรือได้รับอนุญาตให้ใช้ ไม่มีชื่อ หน้า หรือเอกสารของลูกค้า และไม่มีโลโก้บริษัทประกันที่ไม่ได้รับอนุญาต";
-
 export const isUploadKind = (v: unknown): v is UploadKind => v === "part" || v === "style" || v === "ask";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -83,7 +80,7 @@ export interface UploadRow {
   createdAt: string;
 }
 
-/** what the page may hold: no agentId unless the reader is the owner (then `by` is the display name) */
+/** what the page may hold: never an agentId */
 export interface UploadView {
   id: string;
   kind: UploadKind;
@@ -93,5 +90,4 @@ export interface UploadView {
   state: UploadState;
   reason: string | null;
   mine: boolean;
-  by?: string;
 }

@@ -83,16 +83,20 @@ describe("toggleMark", () => {
     expect(await toggleMark(A, READY, "save")).toEqual({ ok: true, on: false });
     expect(await marksOf(A)).toEqual({ saved: [], wanted: [] });
   });
-  it("saves an unbuilt item too, and wants it apart from the save", async () => {
+  it("saves an unbuilt item too", async () => {
     expect(await toggleMark(A, UNBUILT[0], "save")).toEqual({ ok: true, on: true });
-    expect(await toggleMark(A, UNBUILT[0], "want")).toEqual({ ok: true, on: true });
-    expect(await marksOf(A)).toEqual({ saved: [UNBUILT[0]], wanted: [UNBUILT[0]] });
-    expect(await toggleMark(A, UNBUILT[0], "want")).toEqual({ ok: true, on: false });
     expect(await marksOf(A)).toEqual({ saved: [UNBUILT[0]], wanted: [] });
   });
-  it("refuses a want on a piece that is ready, writing nothing", async () => {
-    expect(await toggleMark(A, READY, "want")).toEqual({ ok: false, error: "ชิ้นนี้ใช้ได้แล้ว ไม่ต้องกดอยากได้" });
+  it("refuses every want, ready piece or not, without touching the table (no อยากได้ since 2026-11-14)", async () => {
+    expect(await toggleMark(A, UNBUILT[0], "want")).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
+    expect(await toggleMark(A, READY, "want")).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
     expect(mem.rows).toEqual([]);
+    expect(mem.queries).toHaveLength(0);
+  });
+  it("a want row left from before is neither taken away nor added to", async () => {
+    mem.rows.push({ agent_id: A, item: UNBUILT[0], kind: "want" });
+    expect(await toggleMark(A, UNBUILT[0], "want")).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
+    expect(await marksOf(A)).toEqual({ saved: [], wanted: [UNBUILT[0]] });
   });
   it("refuses an item not in the catalogue, and a kind that is neither save nor want", async () => {
     expect(await toggleMark(A, "no-such-piece", "save")).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
@@ -112,7 +116,10 @@ describe("toggleMark", () => {
   });
   it("a database failure is a Thai line, not the raw error", async () => {
     mem.failAll = { message: "connection reset" };
+    const said = vi.spyOn(console, "error").mockImplementation(() => {});
     const r = await toggleMark(A, READY, "save");
+    expect(said).toHaveBeenCalled();
+    said.mockRestore();
     expect(r.ok).toBe(false);
     expect(!r.ok && /[ก-๙]/.test(r.error) && !/connection/.test(r.error)).toBe(true);
     // the board's own line for a failed call: one string for both
@@ -126,9 +133,7 @@ describe("toggleMark", () => {
 
 describe("wantCounts", () => {
   it("counts want rows per item, across viewers, and never saves", async () => {
-    await toggleMark(A, UNBUILT[0], "want");
-    await toggleMark(B, UNBUILT[0], "want");
-    await toggleMark(B, UNBUILT[1], "want");
+    mem.rows.push({ agent_id: A, item: UNBUILT[0], kind: "want" }, { agent_id: B, item: UNBUILT[0], kind: "want" }, { agent_id: B, item: UNBUILT[1], kind: "want" });
     await toggleMark(A, UNBUILT[1], "save");
     await toggleMark(A, READY, "save");
     expect(await wantCounts()).toEqual({ [UNBUILT[0]]: 2, [UNBUILT[1]]: 1 });
@@ -141,9 +146,7 @@ describe("wantCounts", () => {
     expect(await wantCounts()).toEqual({ [UNBUILT[0]]: 750, [UNBUILT[1]]: 750 });
   });
   it("leaves out the shared demo account's votes, reading past the cap all the same", async () => {
-    await toggleMark(A, UNBUILT[0], "want");
-    await toggleMark(DEMO_ID, UNBUILT[0], "want");
-    await toggleMark(DEMO_ID, UNBUILT[1], "want");
+    mem.rows.push({ agent_id: A, item: UNBUILT[0], kind: "want" }, { agent_id: DEMO_ID, item: UNBUILT[0], kind: "want" }, { agent_id: DEMO_ID, item: UNBUILT[1], kind: "want" });
     expect(await wantCounts()).toEqual({ [UNBUILT[0]]: 1 });
     expect(mem.queries.at(-1)!.some((s) => s.method === "neq" && s.args[0] === "agent_id" && s.args[1] === DEMO_ID)).toBe(true);
     mem.rows = [];
@@ -156,12 +159,13 @@ describe("wantCounts", () => {
 });
 
 describe("toggleLibraryMark", () => {
-  it("marks for the signed-in viewer", async () => {
+  it("marks for the signed-in owner", async () => {
     expect(await toggleLibraryMark(READY, "save")).toEqual({ ok: true, on: true });
     expect(mem.rows).toEqual([{ agent_id: OWNER.agentId, item: READY, kind: "save" }]);
   });
   it("refuses what toggleMark refuses", async () => {
-    expect(await toggleLibraryMark(READY, "want")).toEqual({ ok: false, error: "ชิ้นนี้ใช้ได้แล้ว ไม่ต้องกดอยากได้" });
+    expect(await toggleLibraryMark(READY, "want")).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
+    expect(await toggleLibraryMark(UNBUILT[0], "want")).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
     expect(await toggleLibraryMark(UNBUILT[0], "x")).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
     expect((await toggleLibraryMark(42 as never, "save")).ok).toBe(false);
   });

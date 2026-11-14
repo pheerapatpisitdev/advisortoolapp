@@ -5,31 +5,31 @@ import { PRODUCT_NAME, TYPE_NAME, usesFor, type LibraryItem, type LibraryProduct
 import { filterLibrary, type LibraryFilter, type LibraryState } from "@/lib/scene-library/filter";
 import { cleanMarks, hasMark, pressMark, withMark, type Marks } from "@/lib/scene-library/mark-state";
 import type { MarkKind, Toggled } from "@/lib/scene-library/marks";
-import { afterDecide, afterSent, afterWithdraw, uploadsFor, withoutUpload, type UploadSet } from "@/lib/scene-library/upload-flow";
+import { afterSent, uploadsFor, withHidden, withoutUpload, withShown, type UploadSet } from "@/lib/scene-library/upload-flow";
 import type { UploadView } from "@/lib/scene-library/upload-rules";
-import type { Sent, Withdrawn } from "@/lib/scene-library/uploads";
-import { decideLibraryUpload, removeLibraryUpload, toggleLibraryMark, withdrawLibraryUpload } from "./actions";
-import { MyFiles, ReviewQueue, UploadCard } from "./UploadList";
+import type { Sent } from "@/lib/scene-library/uploads";
+import { hideLibraryUpload, removeLibraryUpload, showLibraryUpload, toggleLibraryMark } from "./actions";
+import { MyFiles, UploadCard } from "./UploadList";
 import { UploadTab } from "./UploadTab";
 import { MegaphoneIcon, PenIcon, QuoteIcon, SearchIcon, SlidersIcon } from "../ui/icons";
 
 /**
- * คลังแอนิเมชัน's board, as the owner-approved mockup v5 draws its หน้าเมนู (2026-11-14): tabs
- * เลือกดู / ของฉัน / อยากได้มากสุด (the owner's), a search and three chip rows, a card per piece, and the
- * detail above the cards when a preview is pressed. Phase 3 adds the members' uploads: tabs อัปโหลด / ของฉัน's
- * ไฟล์ที่ฉันส่ง / คิวตรวจ (the owner's), and the shared parts and styles as cards (UploadTab, UploadList).
+ * คลังแอนิเมชัน's board, the owner's alone (spec 2026-11-14-library-owner-only-design.md, mockup
+ * https://claude.ai/artifact/5M3orXAdEViBYn7qSGALXr): tabs เลือกดู / อัปโหลด / ของฉัน, a search and three chip
+ * rows, a card per piece, and the detail above the cards when a preview is pressed. The owner's files are cards in
+ * เลือกดู, sent from อัปโหลด, and listed in ของฉัน's ไฟล์ของฉัน to hide, show or delete (UploadTab, UploadList).
+ * No votes, no queue: those were the members'.
  *
- * ★ and อยากได้ change at once and follow the server's answer; a refusal or a failed call puts the mark
- * back with a line under the card, and the button waits while its press is on its way. With the marks
- * unreadable (`marksFailed`) there is no ★ and no vote, and ของฉัน stays only when the uploads can be read
- * (for ไฟล์ที่ฉันส่ง); the page says why above the board.
+ * ★ changes at once and follows the server's answer; a refusal or a failed call puts the mark back with a line
+ * under the card, and the button waits while its press is on its way. With the marks unreadable (`marksFailed`)
+ * there is no ★, and ของฉัน stays only when the uploads can be read (for ไฟล์ของฉัน); the page says why above
+ * the board.
  */
 
-type Tab = "browse" | "upload" | "mine" | "queue" | "top";
+type Tab = "browse" | "upload" | "mine";
 type TypeChip = LibraryFilter["type"] | "upload";
 type Chips = Omit<LibraryFilter, "type"> & { type: TypeChip };
 type Done = { ok: true } | { ok: false; error: string };
-type Verdict = "ok" | "no" | "queue" | "closed";
 
 /** the forms by the names the menu gives them */
 const TOOL_NAME: Record<LibraryTool, string> = { "quote-video": "วิดีโอนำเสนอ", "story-clip": "คลิปเล่าเรื่อง", "prompt-story": "คลิปตามโจทย์" };
@@ -45,8 +45,6 @@ const TYPE_MARK: Record<LibraryType, (p: { className?: string }) => React.ReactN
 const chipCls = (on: boolean) =>
   `inline-flex min-h-tap shrink-0 items-center whitespace-nowrap rounded-full border px-3 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-panel)]"}`;
 const useCls = "inline-flex min-h-tap items-center justify-center rounded-lg bg-[var(--ct-solid)] px-3 text-sm text-[var(--ct-solid-ink)]";
-const voteCls = (on: boolean) =>
-  `inline-flex min-h-tap items-center justify-center rounded-lg border px-2 text-sm text-[var(--ct-warn-ink)] disabled:opacity-60 ${on ? "border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)]" : "border-dashed border-[var(--ct-warn-line)]"}`;
 const busyKey = (kind: MarkKind, id: string) => `${kind}:${id}`;
 
 function StarIcon({ on }: { on: boolean }) {
@@ -86,7 +84,7 @@ function Tags({ item }: { item: LibraryItem }) {
 interface CardProps {
   item: LibraryItem;
   open: Record<LibraryTool, boolean>;
-  /** null: the marks could not be read, so no ★ and no vote */
+  /** null: the marks could not be read, so no ★ */
   marks: Marks | null;
   busy: ReadonlySet<string>;
   error?: string;
@@ -96,7 +94,6 @@ interface CardProps {
 
 export function LibraryCard({ item, open, marks, busy, error, onOpen, onMark }: CardProps) {
   const use = usesFor(item, open)[0];
-  const wanted = Boolean(marks && hasMark(marks, "want", item.id));
   const saved = Boolean(marks && hasMark(marks, "save", item.id));
   return (
     <article className="grid content-start gap-2 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-2">
@@ -106,15 +103,9 @@ export function LibraryCard({ item, open, marks, busy, error, onOpen, onMark }: 
       <h3 className="text-sm font-semibold leading-snug">{item.name}</h3>
       <Tags item={item} />
       <div className="flex items-center gap-1.5">
-        {item.ready
-          ? use
-            ? <Link href={use.href} className={`${useCls} flex-1`}>ใช้แบบนี้</Link>
-            : <span className="flex-1 text-xs text-[var(--ct-mute)]">ยังไม่เปิดให้ใช้</span>
-          : marks && (
-            <button type="button" disabled={busy.has(busyKey("want", item.id))} aria-pressed={wanted} onClick={() => onMark("want")} className={`${voteCls(wanted)} flex-1`}>
-              {`อยากได้ · ${marks.counts[item.id] ?? 0}`}
-            </button>
-          )}
+        {item.ready && (use
+          ? <Link href={use.href} className={`${useCls} flex-1`}>ใช้แบบนี้</Link>
+          : <span className="flex-1 text-xs text-[var(--ct-mute)]">ยังไม่เปิดให้ใช้</span>)}
         {marks && (
           <button
             type="button" disabled={busy.has(busyKey("save", item.id))} aria-pressed={saved} aria-label={`บันทึก ${item.name}`} onClick={() => onMark("save")}
@@ -129,50 +120,21 @@ export function LibraryCard({ item, open, marks, busy, error, onOpen, onMark }: 
   );
 }
 
-/** the owner's tab: pieces not built yet, by how many want them, most first */
-export function MostWanted({ items, counts }: { items: readonly LibraryItem[]; counts: Record<string, number> }) {
-  const top = items.filter((i) => !i.ready && (counts[i.id] ?? 0) > 0).sort((a, b) => counts[b.id] - counts[a.id]);
-  return (
-    <div className="grid gap-3">
-      <h2 className="text-base font-semibold">ที่สมาชิกอยากได้มากที่สุด</h2>
-      {top.length ? (
-        <ol className="divide-y divide-[var(--ct-hair)] rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)]">
-          {top.map((i) => (
-            <li key={i.id} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm">{i.name}</span>
-                <span className="block text-xs text-[var(--ct-mute)]">{TYPE_NAME[i.type]}</span>
-              </span>
-              <span className="shrink-0 text-sm font-medium tabular-nums text-[var(--ct-warn-ink)]">{counts[i.id]} คน</span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="rounded-xl border border-dashed border-[var(--ct-line)] p-6 text-center text-sm text-[var(--ct-mute)]">ยังไม่มีใครกดอยากได้</p>
-      )}
-    </div>
-  );
-}
-
 interface BoardProps {
   items: LibraryItem[];
   open: Record<LibraryTool, boolean>;
+  /** the owner's saved pieces */
   saved: string[];
-  wanted: string[];
-  counts: Record<string, number>;
-  owner: boolean;
   marksFailed?: boolean;
-  /** the viewer is the shared demo account: its votes are left out of every count, so its own press does not move one */
-  demo?: boolean;
-  /** the members' uploads; null when the table cannot be read (no upload tabs, no upload cards), undefined before phase 3's page */
+  /** the owner's files and the shared ones; null when the table cannot be read (no upload tab, no file cards), undefined before phase 3's page */
   uploads?: UploadSet | null;
   /** the server's toggle; a stand-in where nothing may be written */
   toggle?: (item: string, kind: MarkKind) => Promise<Toggled>;
-  /** the upload route, the owner's verdict, the sender's delete, the owner's withdraw; stand-ins where nothing may be written */
+  /** the upload route, the delete, ถอนออกจากคลัง, นำกลับเข้าคลัง; stand-ins where nothing may be written */
   send?: (form: FormData) => Promise<Sent>;
-  decide?: (id: string, verdict: Verdict, reason?: string) => Promise<Done>;
   remove?: (id: string) => Promise<Done>;
-  withdraw?: (id: string, reason: string) => Promise<Withdrawn>;
+  hide?: (id: string) => Promise<Done>;
+  show?: (id: string) => Promise<Done>;
 }
 
 /** the route's POST; a reply that is not ours reads as a failed send */
@@ -183,13 +145,13 @@ async function postUpload(form: FormData): Promise<Sent> {
 }
 
 export function LibraryBoard({
-  items, open, saved, wanted, counts, owner, marksFailed = false, demo = false, uploads = null,
+  items, open, saved, marksFailed = false, uploads = null,
   toggle = toggleLibraryMark, send = postUpload,
-  decide = (id, verdict, reason) => decideLibraryUpload(id, verdict, reason),
   remove = (id) => removeLibraryUpload(id),
-  withdraw = (id, reason) => withdrawLibraryUpload(id, reason),
+  hide = (id) => hideLibraryUpload(id),
+  show = (id) => showLibraryUpload(id),
 }: BoardProps) {
-  const [marks, setMarks] = useState<Marks>(() => cleanMarks(items, { saved, wanted, counts }));
+  const [marks, setMarks] = useState<Marks>(() => cleanMarks(items, { saved, wanted: [], counts: {} }));
   // the marks as they are this moment, for a press that starts before React has drawn the last one
   const now = useRef(marks);
   const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
@@ -214,7 +176,7 @@ export function LibraryBoard({
   }, [sel]);
 
   const apply = (kind: MarkKind, id: string, on: boolean) => {
-    now.current = withMark(now.current, kind, id, on, !demo);
+    now.current = withMark(now.current, kind, id, on);
     setMarks(now.current);
   };
 
@@ -253,42 +215,26 @@ export function LibraryBoard({
     </div>
   );
 
-  const onSent = (row: UploadView) => {
-    setUps((u) => (u ? afterSent(u, row, owner).ups : u));
-    // a member lands on ของฉัน; the owner stays, with "ส่งแล้ว"
-    if (afterSent({ mine: [], shared: [], waiting: [] }, row, owner).tab) setTab("mine");
-  };
-  const onRemove = async (id: string): Promise<Done> => {
-    const done = await remove(id);
-    if (done.ok) setUps((u) => (u ? withoutUpload(u, id) : u));
+  // the owner stays on อัปโหลด, with "ส่งแล้ว"; the file is ok at once, so it is in เลือกดู too
+  const onSent = (row: UploadView) => setUps((u) => (u ? afterSent(u, row, true).ups : u));
+  /** one row's call; only a change the server made changes the lists (a refusal stays under the row) */
+  const after = (call: (id: string) => Promise<Done>, change: (u: UploadSet, id: string) => UploadSet) => async (id: string): Promise<Done> => {
+    const done = await call(id);
+    if (done.ok) setUps((u) => (u ? change(u, id) : u));
     return done;
   };
-  const onDecide = async (id: string, verdict: Verdict, reason?: string): Promise<Done> => {
-    const done = await decide(id, verdict, reason);
-    // ok applies the verdict; someone having decided it first only drops it from the queue (the list keeps its message under the row)
-    setUps((u) => (u ? afterDecide(u, id, verdict, reason, done) : u));
-    return done;
-  };
-  const onWithdraw = async (id: string, reason: string): Promise<Withdrawn> => {
-    const done = await withdraw(id, reason);
-    // ok takes it out of shared (and เลือกดู); withdrawn or deleted first only drops it there (the list keeps its message under the row)
-    setUps((u) => (u ? afterWithdraw(u, id, done, reason) : u));
-    return done;
-  };
+  const onRemove = after(remove, withoutUpload);
+  const onHide = after(hide, withHidden);
+  const onShow = after(show, withShown);
 
   const tabs: [Tab, string, number?][] = [
     ["browse", "เลือกดู"],
     ...(ups ? [["upload", "อัปโหลด"] as [Tab, string]] : []),
     ...(mine || ups ? [["mine", "ของฉัน", mine?.saved.length] as [Tab, string, number | undefined]] : []),
-    ...(ups && owner ? [["queue", "คิวตรวจ", ups.waiting.length] as [Tab, string, number]] : []),
-    ...(mine && owner ? [["top", "อยากได้มากสุด"] as [Tab, string]] : []),
   ];
 
   const detail = selected && (
-    <LibraryDetail
-      item={selected} open={open} marks={mine} busy={busy} error={errors[selected.id]} look={look} onLook={setLook}
-      onClose={() => setSel(null)} onMark={(k) => press(selected.id, k)} innerRef={detailRef}
-    />
+    <LibraryDetail item={selected} open={open} look={look} onLook={setLook} onClose={() => setSel(null)} innerRef={detailRef} />
   );
 
   return (
@@ -318,7 +264,7 @@ export function LibraryBoard({
               </div>
             </div>
             <div className="grid gap-2">
-              {chips("type", "ประเภท", ups ? [...TYPES, ["upload", "ไฟล์จากสมาชิก"]] : TYPES)}
+              {chips("type", "ประเภท", ups ? [...TYPES, ["upload", "ไฟล์ของฉัน"]] : TYPES)}
               {chips("product", "สินค้า", PRODUCTS)}
               {chips("state", "สถานะ", STATES)}
             </div>
@@ -337,7 +283,7 @@ export function LibraryBoard({
           </>
         )}
 
-        {tab === "upload" && ups && <UploadTab sent={ups.mine.length} owner={owner} demo={demo} send={send} onSent={onSent} />}
+        {tab === "upload" && ups && <UploadTab send={send} onSent={onSent} />}
 
         {tab === "mine" && (mine || ups) && (
           <>
@@ -352,22 +298,19 @@ export function LibraryBoard({
                 ) : (
                   <p className="text-sm text-[var(--ct-mute)]">กด ★ บนการ์ดเพื่อเก็บไว้ใช้บ่อย</p>
                 )}
-                <p className="text-sm text-[var(--ct-mute)]">กดอยากได้ไว้ {mine.wanted.length} ชิ้น</p>
               </>
             )}
-            {ups && <MyFiles rows={ups.mine} onRemove={onRemove} />}
+            {ups && <MyFiles rows={ups.mine} onRemove={onRemove} onHide={onHide} onShow={onShow} />}
           </>
         )}
-
-        {tab === "queue" && ups && owner && <ReviewQueue rows={ups.waiting} shared={ups.shared} onDecide={onDecide} onWithdraw={onWithdraw} />}
-
-        {tab === "top" && mine && owner && <MostWanted items={items} counts={mine.counts} />}
       </div>
     </div>
   );
 }
 
-export interface DetailProps extends Omit<CardProps, "onOpen"> {
+export interface DetailProps {
+  item: LibraryItem;
+  open: Record<LibraryTool, boolean>;
   look: string;
   onLook: (id: string) => void;
   onClose: () => void;
@@ -376,12 +319,12 @@ export interface DetailProps extends Omit<CardProps, "onOpen"> {
 
 /**
  * the larger preview, what it tells, a device's looks, and one way into each form it works in; on a device
- * the links are the shown look's, so the form opens in the look the viewer picked here
+ * the links are the shown look's, so the form opens in the look the viewer picked here. A piece not built yet
+ * says only เร็วๆ นี้.
  */
-export function LibraryDetail({ item, open, marks, busy, error, look, onLook, onClose, onMark, innerRef }: DetailProps) {
+export function LibraryDetail({ item, open, look, onLook, onClose, innerRef }: DetailProps) {
   const shownLook = item.looks?.find((l) => l.id === look) ?? item.looks?.[0];
   const uses = usesFor(shownLook ?? item, open);
-  const wanted = Boolean(marks && hasMark(marks, "want", item.id));
   return (
     <section ref={innerRef} aria-label={`รายละเอียด ${item.name}`} className="grid gap-4 rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-3 sm:grid-cols-[minmax(0,200px)_minmax(0,1fr)]">
       <div className="w-full max-w-[200px]"><Preview item={item} src={shownLook?.preview} /></div>
@@ -413,21 +356,9 @@ export function LibraryDetail({ item, open, marks, busy, error, look, onLook, on
           ) : (
             <p className="text-sm text-[var(--ct-mute)]">ยังไม่เปิดให้ใช้</p>
           )
-        ) : marks ? (
-          <>
-            <p className="rounded-lg bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]">
-              เร็วๆ นี้ มีสมาชิก {marks.counts[item.id] ?? 0} คนอยากได้ ยิ่งคนอยากได้มาก แอดมินยิ่งทำก่อน
-            </p>
-            <div>
-              <button type="button" disabled={busy.has(busyKey("want", item.id))} aria-pressed={wanted} onClick={() => onMark("want")} className={voteCls(wanted)}>
-                {wanted ? "กดอยากได้แล้ว" : "อยากได้"}
-              </button>
-            </div>
-          </>
         ) : (
           <p className="text-sm text-[var(--ct-mute)]">เร็วๆ นี้</p>
         )}
-        {error && <p role="alert" className="text-xs text-[var(--ct-alert)]">{error}</p>}
       </div>
     </section>
   );

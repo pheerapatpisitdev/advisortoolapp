@@ -425,8 +425,9 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a", logo: "ca" },
     { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79", logo: "hk" },
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80", logo: "pe" },
-    // every clip building block, made and planned, with a way into its form (owner, mockup v5 2026-11-14)
-    { href: "/studio/library", label: "คลังแอนิเมชัน", icon: "play", hue: "#352f80", logo: "an" },
+    // every clip building block, made and planned, with a way into its form (owner, mockup v5 2026-11-14):
+    // the owner's alone since the same day (spec 2026-11-14-library-owner-only-design.md)
+    ...(who?.owner ? [{ href: "/studio/library", label: "คลังแอนิเมชัน", icon: "play" as const, hue: "#352f80", logo: "an" as const }] : []),
   ];
   return [{ links: top }, { title: "สร้างงาน", links: make }, { title: "วางแผนและคลัง", links: keep }];
 }

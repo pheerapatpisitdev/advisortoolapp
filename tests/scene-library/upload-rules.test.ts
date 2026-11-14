@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FILE_MAX, isUploadId, isUploadKind, KIND_HINT, KIND_NAME, KIND_TELLS, NAME_MAX, NOTE_MAX, PER_PERSON,
-  REASONS, RIGHTS_LINE, SHOTS_MAX, sniff, stateWord} from "@/lib/scene-library/upload-rules";
+  REASONS, SHOTS_MAX, sniff, stateWord} from "@/lib/scene-library/upload-rules";
 
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
 const JPG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
@@ -48,9 +48,6 @@ describe("constants", () => {
   });
   it("gives the four reasons in the spec's order", () => {
     expect(REASONS).toEqual(["อาจติดลิขสิทธิ์", "มีข้อมูลหรือหน้าลูกค้า", "ภาพไม่ชัดหรือเล็กเกินไป", "ไม่เกี่ยวกับงานประกัน"]);
-  });
-  it("has the rights sentence", () => {
-    expect(RIGHTS_LINE).toBe("เป็นไฟล์ของฉันหรือได้รับอนุญาตให้ใช้ ไม่มีชื่อ หน้า หรือเอกสารของลูกค้า และไม่มีโลโก้บริษัทประกันที่ไม่ได้รับอนุญาต");
   });
 });
 

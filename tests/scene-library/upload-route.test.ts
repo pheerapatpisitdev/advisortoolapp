@@ -37,33 +37,44 @@ const get = (qs: string) => new Request(`http://x/api/library-upload?${qs}`) as 
 const text = (r: Response) => r.text();
 
 beforeEach(() => {
-  state.viewer = AGENT;
+  state.viewer = OWNER;
   state.sent = [];
   state.readerArgs = [];
-  state.answer = { ok: true, id: ID, state: "wait" };
+  state.answer = { ok: true, id: ID, state: "ok" };
   state.row = null;
   state.file = null;
 });
 
+/** anyone but the owner (spec 2026-11-14-library-owner-only-design.md): an agent, an admin, a member, the demo account */
+const OTHERS: Viewer[] = [
+  AGENT,
+  { ...AGENT, staff: { owner: false, publish: true, connect: true, admin: true } },
+  { ...AGENT, kind: "member" },
+  { ...OWNER, kind: "demo" },
+];
+
 describe("POST", () => {
   it("passes who is calling and the files' bytes to sendUpload and relays its answer", async () => {
-    const res = await POST(form([["kind", "part"], ["name", "หมอ"], ["note", "ท"], ["rights", "1"], ["file", png()]]));
+    const res = await POST(form([["kind", "part"], ["name", "หมอ"], ["note", "ท"], ["file", png()]]));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, id: ID, state: "wait" });
+    expect(await res.json()).toEqual({ ok: true, id: ID, state: "ok" });
     const [who, v] = state.sent[0] as [unknown, { kind: unknown; name: unknown; note: unknown; rights: boolean; files: { bytes: Buffer }[] }];
-    expect(who).toEqual({ agentId: AGENT.agentId, owner: false, demo: false });
-    expect(v).toMatchObject({ kind: "part", name: "หมอ", note: "ท", rights: true });
+    expect(who).toEqual({ agentId: OWNER.agentId, owner: true, demo: false });
+    expect(v).toMatchObject({ kind: "part", name: "หมอ", note: "ท", rights: false });
     expect(v.files).toHaveLength(1);
     expect([...v.files[0].bytes]).toEqual([...PNG]);
   });
 
-  it("tells sendUpload the owner and the demo account apart", async () => {
-    state.viewer = OWNER;
-    await POST(form([["kind", "ask"], ["name", "x"]]));
-    state.viewer = { ...AGENT, kind: "demo" };
-    await POST(form([["kind", "ask"], ["name", "x"]]));
-    expect((state.sent[0] as unknown[])[0]).toMatchObject({ owner: true, demo: false });
-    expect((state.sent[1] as unknown[])[0]).toMatchObject({ owner: false, demo: true });
+  it("answers anyone but the owner 403 with the closed line, before the body is read", async () => {
+    for (const v of OTHERS) {
+      state.viewer = v;
+      const formData = vi.fn(async () => new FormData());
+      const res = await POST({ headers: new Headers(), formData } as never);
+      expect(res.status, v.kind).toBe(403);
+      expect(await res.json()).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
+      expect(formData).not.toHaveBeenCalled();
+    }
+    expect(state.sent).toEqual([]);
   });
 
   it("rights is true only for 1", async () => {
@@ -163,7 +174,19 @@ describe("GET", () => {
     state.row = null;
     const r = await GET(get(`id=${ID}`));
     expect(r.status).toBe(404);
-    expect(state.readerArgs[0]).toEqual([{ agentId: AGENT.agentId, owner: false }, ID]);
+    expect(state.readerArgs[0]).toEqual([{ agentId: OWNER.agentId, owner: true }, ID]);
+  });
+
+  it("answers anyone but the owner the same 404, even for an ok row, without asking the reader", async () => {
+    state.row = OKROW;
+    state.file = { bytes: Buffer.from(PNG), type: "image/png" };
+    for (const v of OTHERS) {
+      state.viewer = v;
+      const r = await GET(get(`id=${ID}`));
+      expect(r.status, v.kind).toBe(404);
+      expect(await text(r)).toBe("ไม่พบไฟล์นี้");
+    }
+    expect(state.readerArgs).toEqual([]);
   });
 
   it("answers 404 when the stored file is gone", async () => {

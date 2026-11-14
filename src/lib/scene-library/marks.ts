@@ -20,7 +20,6 @@ const DUPLICATE = "23505";
 const PAGE = 1000;
 
 export const NOT_IN_LIBRARY = "ไม่พบรายการนี้ในคลัง";
-export const ALREADY_READY = "ชิ้นนี้ใช้ได้แล้ว ไม่ต้องกดอยากได้";
 
 export const isMarkKind = (v: unknown): v is MarkKind => v === "save" || v === "want";
 
@@ -56,14 +55,14 @@ export async function wantCounts(): Promise<Record<string, number>> {
 }
 
 /**
- * Turns a mark on or off. Off first: when the row was there it is taken away (on: false); when it was
+ * Turns a save on or off. A want is refused as not in the library: อยากได้ went with the members' side
+ * (spec 2026-11-14-library-owner-only-design.md), and want rows left from before stay as they are. Off first: when the row was there it is taken away (on: false); when it was
  * not, it is written (on: true). A duplicate key on that write means a second press got there first,
  * so the mark is on, never an error.
  */
 export async function toggleMark(agentId: string, item: string, kind: MarkKind): Promise<Toggled> {
   const found = typeof item === "string" ? libraryItem(item) : undefined;
-  if (!found || !isMarkKind(kind)) return { ok: false, error: NOT_IN_LIBRARY };
-  if (kind === "want" && found.ready) return { ok: false, error: ALREADY_READY };
+  if (!found || kind !== "save") return { ok: false, error: NOT_IN_LIBRARY };
 
   const db = supabaseAdmin();
   const { data: gone, error: delErr } = await db.from(TABLE).delete()

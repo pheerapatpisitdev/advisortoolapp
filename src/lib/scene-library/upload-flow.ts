@@ -1,13 +1,12 @@
 import { searchText, type LibraryFilter } from "./filter";
-import type { Sent, Withdrawn } from "./uploads";
-import {
-  FILE_MAX, NAME_MAX, NOTE_MAX, PER_PERSON, SHOTS_MAX, type UploadKind, type UploadView,
-} from "./upload-rules";
+import type { Sent } from "./uploads";
+import { FILE_MAX, NAME_MAX, NOTE_MAX, PER_PERSON, type UploadKind, type UploadView } from "./upload-rules";
 
 /**
  * The upload tabs' logic without the markup (browser-safe): the form's checks (the server's, said before
- * sending), the send, how the three lists change after a send, a verdict or a delete, and the row buttons'
- * state. The components only draw and call these, so each rule is tested as a function.
+ * sending), the send, how the lists change after a send, a hide, a show or a delete, and the row buttons'
+ * state. The components only draw and call these, so each rule is tested as a function. The page is the
+ * owner's alone (spec 2026-11-14-library-owner-only-design.md); the member's checks stay as the server's do.
  */
 
 export interface UploadSet { mine: UploadView[]; shared: UploadView[]; waiting: UploadView[] }
@@ -18,16 +17,13 @@ const FAILED = "ส่งไม่สำเร็จ ลองใหม่อี
 
 /** the first thing wrong with the form, in the server's words (sendUpload says the same), or null */
 export function checkForm(f: FormState, who: { owner: boolean; sent: number }): string | null {
+  if (f.kind === "ask") return "เลือกแบบที่จะส่ง";
   const name = f.name.trim();
   if (!name || name.length > NAME_MAX) return "ตั้งชื่อ ไม่เกิน 60 ตัวอักษร";
   if (f.note.trim().length > NOTE_MAX) return "หมายเหตุยาวเกิน 300 ตัวอักษร";
-  if (f.kind === "ask") {
-    if (f.files.length > SHOTS_MAX) return "แนบภาพหน้าจอได้ไม่เกิน 3 ภาพ";
-  } else if (f.files.length !== 1) {
-    return "เลือกไฟล์ภาพก่อนส่ง";
-  }
+  if (f.files.length !== 1) return "เลือกไฟล์ภาพก่อนส่ง";
   if (f.files.some((x) => !PICTURES.includes(x.type))) return "รับเฉพาะรูป JPG หรือ PNG";
-  if (f.kind !== "ask" && !f.rights) return "ติ๊กยืนยันสิทธิ์ในไฟล์ก่อนส่ง";
+  if (!who.owner && !f.rights) return "ติ๊กยืนยันสิทธิ์ในไฟล์ก่อนส่ง";
   if (!who.owner && who.sent >= PER_PERSON) return "ส่งครบ 20 ไฟล์แล้ว ลบไฟล์เก่าก่อนส่งใหม่";
   return null;
 }
@@ -52,7 +48,7 @@ export async function submitUpload(
     form.set("kind", v.kind);
     form.set("name", v.name.trim());
     form.set("note", v.note.trim());
-    if (v.kind !== "ask" && v.rights) form.set("rights", "1");
+    if (v.rights) form.set("rights", "1");
     blobs.forEach((b, i) => form.append("file", b, `${i}.${v.kind === "part" ? "png" : "jpg"}`));
     return await deps.send(form);
   } catch {
@@ -71,46 +67,23 @@ export const withSent = (u: UploadSet, v: UploadView, owner: boolean): UploadSet
   shared: owner && v.state === "ok" && v.kind !== "ask" ? [v, ...u.shared] : u.shared,
 });
 
-/** the owner's call: the row leaves the queue; an ok part or style joins shared; the owner's own copy follows */
-export function withVerdict(u: UploadSet, id: string, verdict: "ok" | "no" | "queue" | "closed", reason?: string): UploadSet {
-  const row = u.waiting.find((r) => r.id === id);
-  const decided = (r: UploadView): UploadView => ({ ...r, state: verdict, reason: verdict === "no" ? (reason ?? null) : null });
-  return {
-    mine: u.mine.map((r) => (r.id === id ? decided(r) : r)),
-    shared: verdict === "ok" && row && !u.shared.some((r) => r.id === id) ? [{ ...decided(row), mine: row.mine }, ...u.shared] : u.shared,
-    waiting: u.waiting.filter((r) => r.id !== id),
-  };
-}
-
 /** after a send: the lists, and where the page goes (a member lands on ของฉัน; the owner stays, with "ส่งแล้ว") */
 export function afterSent(u: UploadSet, row: UploadView, owner: boolean): { ups: UploadSet; tab: "mine" | null } {
   return { ups: withSent(u, row, owner), tab: owner ? null : "mine" };
 }
 
-export const ALREADY_DECIDED = "ไฟล์นี้ตรวจไปแล้ว";
+const moved = (u: UploadSet, id: string, state: "ok" | "gone"): UploadView[] =>
+  u.mine.map((r): UploadView => (r.id === id ? { ...r, state, reason: null } : r));
 
-/** after the owner's call came back: ok applies the verdict; "already decided" only drops the row from the queue; other errors change nothing */
-export function afterDecide(
-  u: UploadSet, id: string, verdict: "ok" | "no" | "queue" | "closed", reason: string | undefined, done: { ok: true } | { ok: false; error: string },
-): UploadSet {
-  if (done.ok) return withVerdict(u, id, verdict, reason);
-  if (done.error === ALREADY_DECIDED) return { ...u, waiting: u.waiting.filter((r) => r.id !== id) };
-  return u;
-}
+/** after ถอนออกจากคลัง: the file leaves shared (so เลือกดู) and stays in mine as gone, with no reason */
+export const withHidden = (u: UploadSet, id: string): UploadSet => ({ ...u, mine: moved(u, id, "gone"), shared: u.shared.filter((r) => r.id !== id) });
 
-export const NOT_FOUND = "ไม่พบไฟล์นี้";
-
-/**
- * after the owner's ถอนออกจากคลัง came back: ok takes the row out of shared (so out of เลือกดู), and the owner's
- * own copy in mine becomes gone with the reason; a row deleted with its gone sender leaves every list. Withdrawn
- * or deleted first only drops it from shared; other errors change nothing.
- */
-export function afterWithdraw(u: UploadSet, id: string, done: Withdrawn, reason?: string): UploadSet {
-  if (done.ok && done.removed) return withoutUpload(u, id);
-  const unshared = { ...u, shared: u.shared.filter((r) => r.id !== id) };
-  if (done.ok) return { ...unshared, mine: u.mine.map((r): UploadView => (r.id === id ? { ...r, state: "gone", reason: reason ?? null } : r)) };
-  if (done.error === ALREADY_DECIDED || done.error === NOT_FOUND) return unshared;
-  return u;
+/** after นำกลับเข้าคลัง: the file is ok in mine and back in shared (first, until the page is read again) */
+export function withShown(u: UploadSet, id: string): UploadSet {
+  const mine = moved(u, id, "ok");
+  const row = mine.find((r) => r.id === id);
+  if (!row) return u;
+  return { ...u, mine, shared: u.shared.some((r) => r.id === id) ? u.shared : [row, ...u.shared] };
 }
 
 export const withoutUpload = (u: UploadSet, id: string): UploadSet => ({
@@ -121,7 +94,7 @@ export const withoutUpload = (u: UploadSet, id: string): UploadSet => ({
 export interface RowState { removing: string | null; refusing: string | null; reason: string | null }
 export type RowAction =
   | { type: "ask-remove"; id: string }
-  /** opens a row's reasons: ไม่ผ่าน in the queue, ถอนออกจากคลัง in ในคลังแล้ว (one panel, one row at a time) */
+  /** opens a row's reasons (the members' queue had them; the owner's page asks none) */
   | { type: "ask-no"; id: string }
   | { type: "pick"; reason: string }
   | { type: "cancel" }
@@ -149,7 +122,7 @@ export function claimRow(flying: Set<string>, id: string): boolean {
   return true;
 }
 
-/** the upload cards เลือกดู lets through: the catalogue's chips, with ไฟล์จากสมาชิก among the types */
+/** the upload cards เลือกดู lets through: the catalogue's chips, with ไฟล์ของฉัน among the types */
 export function uploadsFor(shared: readonly UploadView[], f: Omit<LibraryFilter, "type"> & { type: LibraryFilter["type"] | "upload" }): UploadView[] {
   if ((f.type !== "any" && f.type !== "upload") || f.state === "soon" || f.product !== "any") return [];
   const words = searchText(f.q).split(" ").filter(Boolean);

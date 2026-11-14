@@ -299,9 +299,21 @@ describe("Studio's own menu", () => {
     expect(groups.map((g) => g.links.map((l) => l.href))).toEqual([
       ["/home", "/studio"],
       ["/studio/quote-video", "/studio/story-clip", "/studio/write", "/studio/clip-edit", "/studio/thumbnail", "/studio/describe"],
-      ["/studio/calendar", "/studio/hooks", "/studio/people", "/studio/library"],
+      ["/studio/calendar", "/studio/hooks", "/studio/people"],
     ]);
     expect(groups[0].links[0]).toMatchObject({ label: "ระบบหลัก", icon: "back" });
+  });
+
+  it("lists คลังแอนิเมชัน for the owner alone, last under วางแผนและคลัง (owner, 2026-11-14)", () => {
+    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
+    const keep = (w?: typeof who) => studioMenu(w)[2].links;
+    const owner = keep({ ...who, owner: true, admin: true, publish: true, connect: true });
+    expect(owner.map((l) => l.href)).toEqual(["/studio/calendar", "/studio/hooks", "/studio/people", "/studio/library"]);
+    expect(owner.at(-1)).toMatchObject({ label: "คลังแอนิเมชัน", icon: "play", logo: "an" });
+    // an admin who is not the owner, an assistant, a plain agent, a member and a signed-out reader
+    for (const w of [{ ...who, admin: true, publish: true, connect: true }, { ...who, publish: true }, who, { ...who, member: true } as typeof who, undefined]) {
+      expect(keep(w).map((l) => l.href)).not.toContain("/studio/library");
+    }
   });
 
   it("keeps the front page for admins and assistants; agents start at the workbench; no back office (owner, 2026-10-15)", () => {

@@ -1,13 +1,17 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
-  FILE_MAX, isUploadId, isUploadKind, NAME_MAX, NOTE_MAX, PER_PERSON, REASONS, SHOTS_MAX, sniff,
+  FILE_MAX, isUploadId, isUploadKind, NAME_MAX, NOTE_MAX, PER_PERSON, REASONS, sniff,
   type UploadKind, type UploadRow, type UploadState, type UploadView,
 } from "./upload-rules";
 
 /**
- * คลังแอนิเมชัน's uploads (spec 2026-11-14-library-uploads-design.md): what a member sends (a part, a style
- * picture, or a request), what the owner decides, and who may read a file. Rows are ins_library_uploads;
- * files live in the private content-media bucket under library/. Server only.
+ * คลังแอนิเมชัน's uploads (spec 2026-11-14-library-uploads-design.md): what is sent (a part or a style picture),
+ * and who may read a file. Rows are ins_library_uploads; files live in the private content-media bucket under
+ * library/. Server only.
+ *
+ * Since 2026-11-14 the library is the owner's alone (spec 2026-11-14-library-owner-only-design.md): the owner's
+ * files are ok at once and the owner hides and shows them (hideUpload / showUpload). The members' paths (the
+ * 20-file cap, the rights box, decideUpload, withdrawUpload with its senderGone) stay here but nothing reaches them.
  */
 
 export type Sent = { ok: true; id: string; state: UploadState } | { ok: false; error: string };
@@ -37,7 +41,8 @@ export async function sendUpload(
 ): Promise<Sent> {
   const no = (error: string): Sent => ({ ok: false, error });
   if (who.demo) return no("บัญชีทดลองอัปโหลดไม่ได้");
-  if (!isUploadKind(v.kind)) return no("เลือกแบบที่จะส่ง");
+  // คำขอชิ้นใหม่ (ask) went with the members' side (spec 2026-11-14-library-owner-only-design.md)
+  if (!isUploadKind(v.kind) || v.kind === "ask") return no("เลือกแบบที่จะส่ง");
   const kind = v.kind;
   const name = typeof v.name === "string" ? v.name.trim() : "";
   if (!name || name.length > NAME_MAX) return no("ตั้งชื่อ ไม่เกิน 60 ตัวอักษร");
@@ -45,17 +50,14 @@ export async function sendUpload(
   if (note.length > NOTE_MAX) return no("หมายเหตุยาวเกิน 300 ตัวอักษร");
 
   const files = Array.isArray(v.files) ? v.files : [];
-  if (kind === "ask") {
-    if (files.length > SHOTS_MAX) return no("แนบภาพหน้าจอได้ไม่เกิน 3 ภาพ");
-  } else if (files.length !== 1) {
-    return no("เลือกไฟล์ภาพก่อนส่ง");
-  }
+  if (files.length !== 1) return no("เลือกไฟล์ภาพก่อนส่ง");
   if (files.some((f) => f.bytes.length > FILE_MAX)) return no("ไฟล์ใหญ่เกิน 5 MB ย่อภาพแล้วส่งใหม่");
   // the type is read from the first bytes, never from what the browser said
   const types = files.map((f) => sniff(f.bytes));
   if (kind === "part" && types[0] !== "png") return no("ชิ้นส่วนภาพรับเฉพาะไฟล์ PNG");
   if (types.some((t) => !t)) return no("รับเฉพาะรูป JPG หรือ PNG");
-  if (kind !== "ask" && !v.rights) return no("ติ๊กยืนยันสิทธิ์ในไฟล์ก่อนส่ง");
+  // the rights box was the members' (the owner's page has none)
+  if (!who.owner && !v.rights) return no("ติ๊กยืนยันสิทธิ์ในไฟล์ก่อนส่ง");
 
   const db = supabaseAdmin();
   if (!who.owner) {
@@ -79,7 +81,7 @@ export async function sendUpload(
     stored.push(paths[i]);
   }
   const id = crypto.randomUUID();
-  const state: UploadState = who.owner && kind !== "ask" ? "ok" : "wait";
+  const state: UploadState = who.owner ? "ok" : "wait";
   const { error } = await db.from(TABLE).insert({ id, agent_id: who.agentId, kind, name, note, paths, state });
   if (error) {
     console.error("library upload row not saved:", error.message);
@@ -184,7 +186,7 @@ function within<T>(p: Promise<T>, ms: number): Promise<T> {
  * then as a Bluewealth and a KingClub agent (each within REMOTE_WAIT_MS), and found as none. Each lookup throws
  * when it cannot read (displayNames and the *Names lists swallow their errors, so they are never used here).
  * Bluewealth or KingClub not set up, or not answering in time, cannot say "nobody", so that is doubt too. Any
- * doubt answers false: a withdrawn row is kept, and ในคลังแล้ว says สมาชิก rather than SENDER_GONE.
+ * doubt answers false: a withdrawn row is kept.
  */
 async function senderGone(id: string): Promise<boolean> {
   try {
@@ -205,6 +207,30 @@ async function senderGone(id: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * ถอนออกจากคลัง and นำกลับเข้าคลัง on the owner's ไฟล์ของฉัน (spec 2026-11-14-library-owner-only-design.md): one
+ * state to the other, no reason. Only a row still in `from` changes, and a row must come back, or it was moved
+ * (ALREADY) or deleted (NOT_FOUND) first.
+ */
+async function moveUpload(by: string, id: string, from: "ok" | "gone", to: "ok" | "gone"): Promise<Done> {
+  if (!isUploadId(id)) return { ok: false, error: NOT_FOUND };
+  const db = supabaseAdmin();
+  const { data, error } = await db.from(TABLE)
+    .update({ state: to, reason: null, decided_by: by, decided_at: new Date().toISOString() })
+    .eq("id", id).eq("state", from).select("id");
+  if (error) { console.error(`library upload not moved to ${to}:`, error.message); return { ok: false, error: FAILED }; }
+  if (data?.length) return { ok: true };
+  const { data: found, error: readErr } = await db.from(TABLE).select("id").eq("id", id).maybeSingle();
+  if (readErr) { console.error("library upload not read:", readErr.message); return { ok: false, error: FAILED }; }
+  return { ok: false, error: found ? ALREADY : NOT_FOUND };
+}
+
+/** ถอนออกจากคลัง: an ok file leaves เลือกดู and คลิปตามโจทย์'s pickers (gone, no reason); its files stay */
+export const hideUpload = (by: string, id: string): Promise<Done> => moveUpload(by, id, "ok", "gone");
+
+/** นำกลับเข้าคลัง: a gone file is ok again */
+export const showUpload = (by: string, id: string): Promise<Done> => moveUpload(by, id, "gone", "ok");
 
 /** the sender takes their own row away, in any state; then its files leave Storage */
 export async function deleteUpload(agentId: string, id: string): Promise<Done> {
@@ -247,43 +273,21 @@ export async function okUploads(ids: string[], kind: "part" | "style"): Promise<
   return rowsOf(supabaseAdmin().from(TABLE).select("*").in("id", asked).eq("state", "ok").eq("kind", kind));
 }
 
-const toView = (r: UploadRow, who: string, by?: string): UploadView => ({
+const toView = (r: UploadRow, who: string): UploadView => ({
   id: r.id, kind: r.kind, name: r.name, note: r.note, files: r.paths.length, state: r.state, reason: r.reason,
-  mine: r.agentId === who, ...(by ? { by } : {}),
+  mine: r.agentId === who,
 });
 
-/** what the owner's ในคลังแล้ว calls a sender senderGone knows is gone (spec 2026-11-14-library-withdraw-design.md) */
-export const SENDER_GONE = "สมาชิกที่ลบบัญชีแล้ว";
-/** what it calls a sender with no name who may still be there (displayNames swallows a failed read) */
-export const SENDER_UNNAMED = "สมาชิก";
-
 /**
- * What the page may hold of the three lists: no agentId anywhere, and the sender's name only on the owner's
- * waiting rows and the owner's shared rows (ในคลังแล้ว). displayNames logs and swallows each source's failed read,
- * so a missing name proves nothing: a shared sender it left unnamed is SENDER_GONE only when senderGone (the
- * strict check a withdraw's delete uses) says so, and SENDER_UNNAMED on any doubt. A non-owner's `waiting` is
- * empty and never read, their shared rows carry no name, and nobody is looked up for them. null when the table
- * cannot be read (trouble, or not migrated yet): the page then leaves the upload tabs out.
+ * What the owner's page holds (spec 2026-11-14-library-owner-only-design.md): `mine` every own row, newest first;
+ * `shared` the ok parts and styles; `waiting` always empty (there is no queue). No agentId anywhere and nobody
+ * looked up by name. null when the table cannot be read (trouble, or not migrated yet): the page then leaves the
+ * upload tab out.
  */
-export async function uploadViews(who: { agentId: string; owner: boolean }): Promise<{ mine: UploadView[]; shared: UploadView[]; waiting: UploadView[] } | null> {
+export async function uploadViews(who: { agentId: string }): Promise<{ mine: UploadView[]; shared: UploadView[]; waiting: UploadView[] } | null> {
   try {
-    const [mine, shared, waiting] = await Promise.all([
-      myUploads(who.agentId), sharedUploads(), who.owner ? waitingUploads() : Promise.resolve([] as UploadRow[]),
-    ]);
-    // the owner's lists only; names that cannot be read leave the rows without one, and the lists still show
-    const named = who.owner ? [...waiting, ...shared] : [];
-    const names: Record<string, string> = named.length
-      ? await import("@/lib/auth/viewer").then((m) => m.displayNames(named.map((r) => r.agentId))).catch(() => ({}))
-      : {};
-    // a shared sender left unnamed: gone only on senderGone's word, each id asked once
-    const unnamed = who.owner ? [...new Set(shared.map((r) => r.agentId).filter((id) => !names[id]))] : [];
-    const gone = new Set((await Promise.all(unnamed.map(async (id) => ((await senderGone(id)) ? id : null)))).filter((id): id is string => id !== null));
-    const sharedBy = (id: string) => names[id] || (gone.has(id) ? SENDER_GONE : SENDER_UNNAMED);
-    return {
-      mine: mine.map((r) => toView(r, who.agentId)),
-      shared: shared.map((r) => toView(r, who.agentId, who.owner ? sharedBy(r.agentId) : undefined)),
-      waiting: waiting.map((r) => toView(r, who.agentId, names[r.agentId])),
-    };
+    const [mine, shared] = await Promise.all([myUploads(who.agentId), sharedUploads()]);
+    return { mine: mine.map((r) => toView(r, who.agentId)), shared: shared.map((r) => toView(r, who.agentId)), waiting: [] };
   } catch (e) {
     console.error("library uploads not read:", e);
     return null;

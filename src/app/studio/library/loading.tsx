@@ -1,4 +1,4 @@
-/** คลังแอนิเมชัน's shape while it is fetched: the tabs, a search box, three chip rows, a grid of cards. */
+/** คลังแอนิเมชัน's shape while it is fetched: the owner's three tabs, a search box, three chip rows, a grid of cards. */
 export default function LibraryLoading() {
   const bar = "rounded-full bg-[var(--ct-soft)]";
   const chip = "h-11 rounded-full border border-[var(--ct-hair)] bg-[var(--ct-panel)]";
@@ -7,7 +7,7 @@ export default function LibraryLoading() {
       <div className={`h-6 w-44 ${bar}`} />
       <div className={`mt-3 h-4 w-96 max-w-full ${bar}`} />
       <div className="mt-5 flex gap-4 border-b border-[var(--ct-hair)] pb-3">
-        {Array.from({ length: 2 }, (_, i) => <div key={i} className={`h-4 w-16 ${bar}`} />)}
+        {Array.from({ length: 3 }, (_, i) => <div key={i} className={`h-4 w-16 ${bar}`} />)}
       </div>
       <div className="mt-4 h-11 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)]" />
       {[5, 4, 3].map((n, r) => (

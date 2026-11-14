@@ -1,16 +1,19 @@
 import type { NextRequest } from "next/server";
 import { can } from "@/lib/auth/access";
 import { getViewer, refuseUnless } from "@/lib/auth/viewer";
+import { LIBRARY_CLOSED, mayLibrary } from "@/lib/scene-library/access";
 import { FILE_MAX, isUploadId, SHOTS_MAX } from "@/lib/scene-library/upload-rules";
 import { readableUpload, sendUpload, uploadFile } from "@/lib/scene-library/uploads";
 
 /**
- * คลังแอนิเมชัน's uploads (spec 2026-11-14-library-uploads-design.md).
+ * คลังแอนิเมชัน's uploads (spec 2026-11-14-library-uploads-design.md), the owner's alone since 2026-11-14
+ * (spec 2026-11-14-library-owner-only-design.md).
  *
  * POST — multipart: kind, name, note, rights ("1" when ticked), file (repeated). Answers { ok, id, state }
- *   or { ok: false, error } (400). A content-length over 16 MB is refused before the body is read; the count
- *   and size of the files are checked before any is read.
- * GET ?id=<uuid>&n=<0..2> — one picture of an upload, to whoever may see it; anything else is the same 404.
+ *   or { ok: false, error } (400). Anyone but the owner: 403 with LIBRARY_CLOSED, before the body is read.
+ *   A content-length over 16 MB is refused before the body is read; the count and size of the files are
+ *   checked before any is read.
+ * GET ?id=<uuid>&n=<0..2> — one picture of an upload, to the owner; anyone else, and anything else, is the same 404.
  */
 
 const NOT_FOUND = "ไม่พบไฟล์นี้";
@@ -25,6 +28,7 @@ export async function POST(req: NextRequest) {
   if (refused) return refused;
   const viewer = await getViewer();
   if (!viewer) return Response.json({ ok: false, error: "กรุณาเข้าสู่ระบบก่อน" }, { status: 401 });
+  if (!mayLibrary(viewer)) return Response.json({ ok: false, error: LIBRARY_CLOSED }, { status: 403 });
   // a body that says it is bigger than any allowed send is refused before a byte of it is read
   const length = Number(req.headers.get("content-length") ?? "");
   if (Number.isFinite(length) && length > BODY_MAX) return refuse(TOO_BIG);
@@ -54,6 +58,7 @@ export async function GET(req: NextRequest) {
   if (refused) return refused;
   const viewer = await getViewer();
   if (!viewer) return Response.json({ ok: false, error: "กรุณาเข้าสู่ระบบก่อน" }, { status: 401 });
+  if (!mayLibrary(viewer)) return gone();
   const q = req.nextUrl?.searchParams ?? new URL(req.url).searchParams;
   const id = q.get("id");
   const asked = q.get("n");

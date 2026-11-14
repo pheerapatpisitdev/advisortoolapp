@@ -123,7 +123,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 import {
-  decideUpload, deleteUpload, myUploads, okUploads, readableUpload, sendUpload, sharedUploads, uploadFile, waitingUploads, withdrawUpload,
+  decideUpload, deleteUpload, hideUpload, myUploads, okUploads, readableUpload, sendUpload, sharedUploads, showUpload, uploadFile, waitingUploads, withdrawUpload,
 } from "@/lib/scene-library/uploads";
 import { FILE_MAX, PER_PERSON, REASONS } from "@/lib/scene-library/upload-rules";
 import { DEMO_ID } from "@/lib/auth/demo";
@@ -161,6 +161,12 @@ describe("sendUpload: refusals", () => {
   };
   it("the demo account cannot", () => refused({ ...member, agentId: DEMO_ID, demo: true }, good, "บัญชีทดลองอัปโหลดไม่ได้"));
   it("a bad kind", () => refused(member, { ...good, kind: "video" }, "เลือกแบบที่จะส่ง"));
+  it("an ask (คำขอชิ้นใหม่), from the owner or anyone: no such kind any more", async () => {
+    const ask = { kind: "ask", name: "อยากได้", note: "", rights: false, files: [] };
+    await refused(owner, ask, "เลือกแบบที่จะส่ง");
+    await refused(owner, { ...ask, files: [png] }, "เลือกแบบที่จะส่ง");
+    await refused(member, ask, "เลือกแบบที่จะส่ง");
+  });
   it("an empty or long name", async () => {
     await refused(member, { ...good, name: "   " }, "ตั้งชื่อ ไม่เกิน 60 ตัวอักษร");
     await refused(member, { ...good, name: "ก".repeat(61) }, "ตั้งชื่อ ไม่เกิน 60 ตัวอักษร");
@@ -175,17 +181,16 @@ describe("sendUpload: refusals", () => {
     const svg = { bytes: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'/>") };
     await refused(member, { ...good, files: [svg] }, "ชิ้นส่วนภาพรับเฉพาะไฟล์ PNG");
     await refused(member, { ...good, kind: "style", files: [svg] }, "รับเฉพาะรูป JPG หรือ PNG");
-    await refused(member, { kind: "ask", name: "อยากได้", note: "", rights: false, files: [svg] }, "รับเฉพาะรูป JPG หรือ PNG");
+    await refused(owner, { ...good, kind: "style", files: [svg] }, "รับเฉพาะรูป JPG หรือ PNG");
   });
   it("a file over 5 MB", async () => {
     const big = { bytes: Buffer.concat([PNG, Buffer.alloc(FILE_MAX)]) };
     await refused(member, { ...good, files: [big] }, "ไฟล์ใหญ่เกิน 5 MB ย่อภาพแล้วส่งใหม่");
   });
-  it("a part or style without the rights box", async () => {
+  it("a member's part or style without the rights box (the owner is never asked for it)", async () => {
     await refused(member, { ...good, rights: false }, "ติ๊กยืนยันสิทธิ์ในไฟล์ก่อนส่ง");
     await refused(member, { ...good, kind: "style", files: [jpg], rights: false }, "ติ๊กยืนยันสิทธิ์ในไฟล์ก่อนส่ง");
   });
-  it("an ask with four screenshots", () => refused(member, { kind: "ask", name: "อยากได้", note: "", rights: false, files: [png, png, png, png] }, "แนบภาพหน้าจอได้ไม่เกิน 3 ภาพ"));
 });
 
 describe("sendUpload: storing", () => {
@@ -206,18 +211,10 @@ describe("sendUpload: storing", () => {
     expect(mem.files.get(mem.uploads[0])?.type).toBe("image/jpeg");
     expect(mem.uploads[1]).toMatch(/\.png$/);
   });
-  it("the owner's part and style are ok at once; an ask waits for both", async () => {
-    expect(await sendUpload(owner, good)).toMatchObject({ ok: true, state: "ok" });
-    expect(await sendUpload(owner, { ...good, kind: "style", files: [jpg] })).toMatchObject({ ok: true, state: "ok" });
-    const ask = { kind: "ask", name: "อยากได้", note: "", rights: false, files: [] };
-    expect(await sendUpload(owner, ask)).toMatchObject({ ok: true, state: "wait" });
-    expect(await sendUpload(member, ask)).toMatchObject({ ok: true, state: "wait" });
-    expect(mem.rows.at(-1)).toMatchObject({ kind: "ask", paths: [] });
-  });
-  it("an ask takes up to three screenshots, no rights box", async () => {
-    const r = await sendUpload(member, { kind: "ask", name: "อยากได้", note: "ลิงก์ https://x.test", rights: false, files: [png, jpg, png] });
-    expect(r.ok).toBe(true);
-    expect(mem.uploads).toHaveLength(3);
+  it("the owner's part and style are ok at once, with no rights box", async () => {
+    expect(await sendUpload(owner, { ...good, rights: false })).toMatchObject({ ok: true, state: "ok" });
+    expect(await sendUpload(owner, { ...good, kind: "style", files: [jpg], rights: false })).toMatchObject({ ok: true, state: "ok" });
+    expect(mem.rows.map((r) => [r.agent_id, r.state])).toEqual([[OWNER, "ok"], [OWNER, "ok"]]);
   });
   it("refuses the 21st row of a member, not the owner's", async () => {
     for (let i = 0; i < PER_PERSON; i++) seed({});
@@ -231,10 +228,78 @@ describe("sendUpload: storing", () => {
   });
   it("a row that fails to insert takes the files back", async () => {
     mem.insertError = { message: "boom" };
-    expect(await sendUpload(member, { kind: "ask", name: "x", note: "", rights: false, files: [png, jpg] })).toEqual({ ok: false, error: "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง" });
-    expect(mem.uploads).toHaveLength(2);
+    expect(await sendUpload(owner, good)).toEqual({ ok: false, error: "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    expect(mem.uploads).toHaveLength(1);
     expect([...mem.removed].sort()).toEqual([...mem.uploads].sort());
     expect(mem.files.size).toBe(0);
+  });
+});
+
+describe("hideUpload and showUpload: the owner's ถอนออกจากคลัง and นำกลับเข้าคลัง", () => {
+  it("hide: an ok row becomes gone with no reason, who and when; its files stay", async () => {
+    mem.files.set("library/a.png", { bytes: PNG, type: "image/png" });
+    const a = seed({ agent_id: OWNER, state: "ok" });
+    expect(await hideUpload(OWNER, a.id)).toEqual({ ok: true });
+    expect(a).toMatchObject({ state: "gone", reason: null, decided_by: OWNER });
+    expect(typeof a.decided_at).toBe("string");
+    expect(mem.files.size).toBe(1);
+    expect(mem.removed).toEqual([]);
+    // it leaves the shared list and คลิปตามโจทย์'s pickers
+    expect(await sharedUploads()).toEqual([]);
+    expect(await okUploads([a.id], "part")).toEqual([]);
+  });
+  it("show: a gone row is ok again, with no reason, and back among the shared", async () => {
+    const a = seed({ agent_id: OWNER, state: "gone", reason: REASONS[0] });
+    expect(await showUpload(OWNER, a.id)).toEqual({ ok: true });
+    expect(a).toMatchObject({ state: "ok", reason: null, decided_by: OWNER });
+    expect((await sharedUploads()).map((r) => r.id)).toEqual([a.id]);
+  });
+  it("hide only moves an ok row; anything else is ไฟล์นี้ตรวจไปแล้ว and left alone", async () => {
+    for (const state of ["gone", "wait", "no"]) {
+      const r = seed({ agent_id: OWNER, state });
+      const before = { ...r };
+      expect(await hideUpload(OWNER, r.id)).toEqual({ ok: false, error: "ไฟล์นี้ตรวจไปแล้ว" });
+      expect(r).toEqual(before);
+    }
+  });
+  it("show only moves a gone row; anything else is ไฟล์นี้ตรวจไปแล้ว and left alone", async () => {
+    for (const state of ["ok", "wait", "no"]) {
+      const r = seed({ agent_id: OWNER, state });
+      const before = { ...r };
+      expect(await showUpload(OWNER, r.id)).toEqual({ ok: false, error: "ไฟล์นี้ตรวจไปแล้ว" });
+      expect(r).toEqual(before);
+    }
+  });
+  it("each changes the row only where it is still in its starting state (a race leaves it alone)", async () => {
+    const a = seed({ agent_id: OWNER, state: "ok" });
+    await hideUpload(OWNER, a.id);
+    await showUpload(OWNER, a.id);
+    const [hide, show] = mem.queries.filter((q) => q.some((s) => s.method === "update"));
+    const eq = (q: Step[], k: string) => q.find((s) => s.method === "eq" && s.args[0] === k)?.args[1];
+    expect([eq(hide, "id"), eq(hide, "state")]).toEqual([a.id, "ok"]);
+    expect([eq(show, "id"), eq(show, "state")]).toEqual([a.id, "gone"]);
+  });
+  it("two hides at once: the first holds, the second is told it is done already", async () => {
+    const a = seed({ agent_id: OWNER, state: "ok" });
+    const answers = await Promise.all([hideUpload(OWNER, a.id), hideUpload(OWNER, a.id)]);
+    expect(answers).toContainEqual({ ok: true });
+    expect(answers).toContainEqual({ ok: false, error: "ไฟล์นี้ตรวจไปแล้ว" });
+    expect(a.state).toBe("gone");
+  });
+  it("a missing or non-uuid id is ไม่พบไฟล์นี้, and a non-uuid never asks the table", async () => {
+    for (const call of [hideUpload, showUpload]) {
+      expect(await call(OWNER, crypto.randomUUID())).toEqual({ ok: false, error: "ไม่พบไฟล์นี้" });
+      mem.queries.length = 0;
+      expect(await call(OWNER, "../x")).toEqual({ ok: false, error: "ไม่พบไฟล์นี้" });
+      expect(mem.queries).toHaveLength(0);
+    }
+  });
+  it("a database failure says it failed and changes nothing", async () => {
+    const a = seed({ agent_id: OWNER, state: "ok" });
+    mem.failAll = { message: "down" };
+    expect(await hideUpload(OWNER, a.id)).toEqual({ ok: false, error: "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    expect(await showUpload(OWNER, a.id)).toEqual({ ok: false, error: "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    expect(a.state).toBe("ok");
   });
 });
 

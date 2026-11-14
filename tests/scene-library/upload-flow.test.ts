@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  afterDecide, afterSent, afterWithdraw, checkForm, claimRow, rowReducer, sentView, submitUpload, uploadHref, uploadsFor, withoutUpload, withSent, withVerdict,
+  afterSent, checkForm, claimRow, rowReducer, sentView, submitUpload, uploadHref, uploadsFor, withHidden, withoutUpload, withSent, withShown,
   type FormState, type RowState, type UploadSet,
 } from "@/lib/scene-library/upload-flow";
 import { shrinkForUpload } from "@/lib/scene-library/shrink";
@@ -10,6 +10,7 @@ const view = (o: Partial<UploadView>): UploadView => ({ id: "11111111-1111-4111-
 const set = (o: Partial<UploadSet> = {}): UploadSet => ({ mine: [], shared: [], waiting: [], ...o });
 const form = (o: Partial<FormState> = {}): FormState => ({ kind: "part", name: "ตะกร้า", note: "", rights: true, files: [{ size: 1000, type: "image/png" }], ...o });
 const who = { owner: false, sent: 0 };
+const owner = { owner: true, sent: 0 };
 
 describe("the kinds' lines are the approved mockup's", () => {
   it("says them verbatim", () => {
@@ -23,10 +24,13 @@ describe("the kinds' lines are the approved mockup's", () => {
 
 describe("checkForm: the server's checks, before sending", () => {
   it("passes a good form", () => expect(checkForm(form(), who)).toBeNull());
-  it("wants a file for a part or style, none needed for an ask", () => {
+  it("wants one file for a part or style", () => {
     expect(checkForm(form({ files: [] }), who)).toBe("เลือกไฟล์ภาพก่อนส่ง");
     expect(checkForm(form({ kind: "style", files: [] }), who)).toBe("เลือกไฟล์ภาพก่อนส่ง");
-    expect(checkForm(form({ kind: "ask", files: [] }), who)).toBeNull();
+  });
+  it("refuses an ask (คำขอชิ้นใหม่) as the server does, from anyone", () => {
+    expect(checkForm(form({ kind: "ask", files: [] }), who)).toBe("เลือกแบบที่จะส่ง");
+    expect(checkForm(form({ kind: "ask", files: [] }), owner)).toBe("เลือกแบบที่จะส่ง");
   });
   it("names must be 1 to 60 long", () => {
     expect(checkForm(form({ name: "   " }), who)).toBe("ตั้งชื่อ ไม่เกิน 60 ตัวอักษร");
@@ -37,15 +41,14 @@ describe("checkForm: the server's checks, before sending", () => {
     expect(checkForm(form({ note: "ก".repeat(301) }), who)).toBe("หมายเหตุยาวเกิน 300 ตัวอักษร");
     expect(checkForm(form({ note: "ก".repeat(300) }), who)).toBeNull();
   });
-  it("rights must be ticked for a part or style, not for an ask", () => {
+  it("rights must be ticked by a member, never by the owner", () => {
     expect(checkForm(form({ rights: false }), who)).toBe("ติ๊กยืนยันสิทธิ์ในไฟล์ก่อนส่ง");
-    expect(checkForm(form({ kind: "ask", rights: false, files: [] }), who)).toBeNull();
+    expect(checkForm(form({ rights: false }), owner)).toBeNull();
+    expect(checkForm(form({ kind: "style", rights: false, files: [{ size: 1, type: "image/jpeg" }] }), owner)).toBeNull();
   });
-  it("at most 3 screenshots on an ask, one file otherwise", () => {
+  it("one file, never two", () => {
     const f = { size: 1, type: "image/jpeg" };
-    expect(checkForm(form({ kind: "ask", files: [f, f, f] }), who)).toBeNull();
-    expect(checkForm(form({ kind: "ask", files: [f, f, f, f] }), who)).toBe("แนบภาพหน้าจอได้ไม่เกิน 3 ภาพ");
-    expect(checkForm(form({ files: [f, f] }), who)).toBe("เลือกไฟล์ภาพก่อนส่ง");
+    expect(checkForm(form({ files: [f, f] }), owner)).toBe("เลือกไฟล์ภาพก่อนส่ง");
   });
   it("only pictures, and the cap of 20 for a member (not the owner)", () => {
     expect(checkForm(form({ files: [{ size: 1, type: "application/pdf" }] }), who)).toBe("รับเฉพาะรูป JPG หรือ PNG");
@@ -75,11 +78,18 @@ describe("submitUpload", () => {
     expect(fd.get("rights")).toBe("1");
     expect(fd.getAll("file")).toHaveLength(1);
   });
-  it("an ask without a rights box sends no rights", async () => {
-    const send = vi.fn(async () => ({ ok: true as const, id: "x", state: "wait" as const }));
-    await submitUpload({ send, shrink: fakeShrink }, { kind: "ask", name: "ขอ", note: "", rights: false, files: [] }, who);
+  it("the owner's form, with no rights box, sends no rights", async () => {
+    const send = vi.fn(async () => ({ ok: true as const, id: "x", state: "ok" as const }));
+    expect((await submitUpload({ send, shrink: fakeShrink }, { kind: "part", name: "ก", note: "", rights: false, files: [png] }, owner)).ok).toBe(true);
     const fd = (send.mock.calls[0] as unknown as [FormData])[0];
     expect(fd.get("rights")).toBeNull();
+    expect(fd.get("kind")).toBe("part");
+  });
+  it("an ask never reaches send", async () => {
+    const send = vi.fn();
+    const r = await submitUpload({ send, shrink: fakeShrink }, { kind: "ask", name: "ขอ", note: "", rights: false, files: [] }, owner);
+    expect(r).toEqual({ ok: false, error: "เลือกแบบที่จะส่ง" });
+    expect(send).not.toHaveBeenCalled();
   });
   it("a file still over 5 MB after shrinking is refused before sending", async () => {
     const send = vi.fn();
@@ -102,29 +112,9 @@ describe("the lists after what happens", () => {
     expect(u.mine).toEqual([v]);
     expect(u.shared).toEqual([]);
   });
-  it("the owner's part or style joins shared too; an ask does not", () => {
+  it("the owner's part or style joins shared too", () => {
     const p = sentView({ kind: "part", name: "ก", note: "", files: 1 }, { id: "a", state: "ok" });
-    expect(withSent(set(), p, true).shared).toEqual([p]);
-    const a = sentView({ kind: "ask", name: "ก", note: "", files: 0 }, { id: "b", state: "wait" });
-    expect(withSent(set(), a, true).shared).toEqual([]);
-  });
-  it("ok moves a waiting row into shared; no and the ask verdicts drop it", () => {
-    const w = view({ id: "w", mine: false, by: "ลูกค้า" });
-    const ok = withVerdict(set({ waiting: [w] }), "w", "ok");
-    expect(ok.waiting).toEqual([]);
-    expect(ok.shared).toMatchObject([{ id: "w", state: "ok" }]);
-    const no = withVerdict(set({ waiting: [w] }), "w", "no", "อาจติดลิขสิทธิ์");
-    expect(no.waiting).toEqual([]);
-    expect(no.shared).toEqual([]);
-    const ask = view({ id: "k", kind: "ask", mine: false });
-    expect(withVerdict(set({ waiting: [ask] }), "k", "queue").shared).toEqual([]);
-  });
-  it("the owner's own row in mine follows the verdict", () => {
-    const m = view({ id: "w", kind: "ask" });
-    const u = withVerdict(set({ mine: [m], waiting: [m] }), "w", "closed");
-    expect(u.mine[0].state).toBe("closed");
-    const n = withVerdict(set({ mine: [view({ id: "w" })], waiting: [view({ id: "w" })] }), "w", "no", "ไม่เกี่ยวกับงานประกัน");
-    expect(n.mine[0]).toMatchObject({ state: "no", reason: "ไม่เกี่ยวกับงานประกัน" });
+    expect(withSent(set(), p, true)).toEqual(set({ mine: [p], shared: [p] }));
   });
   it("a removed row leaves every list", () => {
     const v = view({ id: "z" });
@@ -154,7 +144,7 @@ describe("uploadsFor: which upload cards the filter lets through", () => {
   const part = view({ id: "p", name: "ตะกร้าผลไม้", note: "ไอคอน", state: "ok", mine: false });
   const sty = view({ id: "s", kind: "style", name: "สีพาสเทล", state: "ok", mine: false });
   const base = { q: "", type: "any" as const, product: "any" as const, state: "ready" as const };
-  it("shows all under ทั้งหมด and ไฟล์จากสมาชิก", () => {
+  it("shows all under ทั้งหมด and ไฟล์ของฉัน", () => {
     expect(uploadsFor([part, sty], base)).toHaveLength(2);
     expect(uploadsFor([part, sty], { ...base, type: "upload" })).toHaveLength(2);
     expect(uploadsFor([part, sty], { ...base, state: "all" })).toHaveLength(2);
@@ -232,50 +222,29 @@ describe("afterSent: where the page goes and what ของฉัน holds", () 
   });
 });
 
-describe("afterDecide", () => {
-  const w = view({ id: "w", mine: false });
-  it("ok moves the row into shared, which เลือกดู then shows", () => {
-    const u = afterDecide(set({ waiting: [w] }), "w", "ok", undefined, { ok: true });
-    expect(u.waiting).toEqual([]);
-    const shown = uploadsFor(u.shared, { q: "", type: "any", product: "any", state: "ready" });
-    expect(shown.map((v) => v.id)).toEqual(["w"]);
-  });
-  it("'already decided' drops the row from the queue and adds it nowhere", () => {
-    const u = afterDecide(set({ waiting: [w] }), "w", "ok", undefined, { ok: false, error: "ไฟล์นี้ตรวจไปแล้ว" });
-    expect(u).toEqual(set());
-  });
-  it("any other error changes nothing", () => {
-    const start = set({ waiting: [w] });
-    expect(afterDecide(start, "w", "ok", undefined, { ok: false, error: "ทำไม่สำเร็จ" })).toBe(start);
-  });
-});
-
-describe("afterWithdraw", () => {
-  const theirs = view({ id: "s", state: "ok", mine: false, by: "สมชาย" });
-  it("ok takes the row out of shared, so เลือกดู no longer shows it", () => {
-    const u = afterWithdraw(set({ shared: [theirs] }), "s", { ok: true, removed: false }, "อาจติดลิขสิทธิ์");
-    expect(u.shared).toEqual([]);
-    expect(uploadsFor(u.shared, { q: "", type: "any", product: "any", state: "ready" })).toEqual([]);
-  });
-  it("the owner's own withdrawn row stays in mine as ถอนออกแล้ว with the reason", () => {
-    const own = view({ id: "o", state: "ok", mine: true });
-    const u = afterWithdraw(set({ mine: [own], shared: [own] }), "o", { ok: true, removed: false }, "ไม่เกี่ยวกับงานประกัน");
-    expect(u.shared).toEqual([]);
-    expect(u.mine).toEqual([{ ...own, state: "gone", reason: "ไม่เกี่ยวกับงานประกัน" }]);
+describe("withHidden and withShown: ไฟล์ของฉัน after ถอนออกจากคลัง and นำกลับเข้าคลัง", () => {
+  const own = view({ id: "o", state: "ok", mine: true });
+  const other = view({ id: "x", state: "ok", mine: true, name: "อื่น" });
+  const shown = (u: UploadSet) => uploadsFor(u.shared, { q: "", type: "any", product: "any", state: "ready" }).map((v) => v.id);
+  it("hidden: the file leaves shared (so เลือกดู) and stays in mine as ถอนออกแล้ว, no reason", () => {
+    const u = withHidden(set({ mine: [own, other], shared: [own, other] }), "o");
+    expect(shown(u)).toEqual(["x"]);
+    expect(u.mine).toEqual([{ ...own, state: "gone", reason: null }, other]);
     expect(stateWord(u.mine[0].kind, u.mine[0].state)).toBe("ถอนออกแล้ว");
   });
-  it("a row deleted with its gone sender leaves every list", () => {
-    expect(afterWithdraw(set({ shared: [theirs] }), "s", { ok: true, removed: true }, "อาจติดลิขสิทธิ์")).toEqual(set());
+  it("shown: the file is back in shared and ok in mine", () => {
+    const gone = { ...own, state: "gone" as const };
+    const u = withShown(set({ mine: [gone, other], shared: [other] }), "o");
+    expect(u.mine).toEqual([{ ...own, state: "ok", reason: null }, other]);
+    expect(shown(u).sort()).toEqual(["o", "x"]);
   });
-  it("'already decided' or 'not found' only drops it from shared", () => {
-    const w = view({ id: "w" });
-    for (const error of ["ไฟล์นี้ตรวจไปแล้ว", "ไม่พบไฟล์นี้"]) {
-      expect(afterWithdraw(set({ shared: [theirs], waiting: [w] }), "s", { ok: false, error })).toEqual(set({ waiting: [w] }));
-    }
-  });
-  it("any other error changes nothing", () => {
-    const start = set({ shared: [theirs] });
-    expect(afterWithdraw(start, "s", { ok: false, error: "ทำไม่สำเร็จ" })).toBe(start);
+  it("shown twice adds it once; an id not in mine changes nothing", () => {
+    const gone = { ...own, state: "gone" as const };
+    const once = withShown(set({ mine: [gone] }), "o");
+    expect(withShown(once, "o").shared).toHaveLength(1);
+    const start = set({ mine: [other], shared: [other] });
+    expect(withShown(start, "zz")).toEqual(start);
+    expect(withHidden(start, "zz")).toEqual(start);
   });
 });
 

@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 
 /**
- * The shared demo account's votes are left out of every count (marks.ts wantCounts), so the page tells
- * the board who is looking: the demo's own อยากได้ then moves its mark, never the number beside it.
+ * คลังแอนิเมชัน is the owner's alone (spec 2026-11-14-library-owner-only-design.md): the shared demo account,
+ * though it is drawn from the owner's own record, never reaches the board, and the owner's board is told nothing
+ * about demos or members any more.
  */
 const state = vi.hoisted(() => ({ viewer: null as unknown as Viewer, board: null as null | Record<string, unknown> }));
 
 vi.mock("@/lib/auth/viewer", () => ({ gatePage: async () => state.viewer, requireMember: async () => state.viewer }));
-vi.mock("@/lib/scene-library/marks", () => ({ marksOf: async () => ({ saved: [], wanted: [] }), wantCounts: async () => ({}) }));
+vi.mock("@/lib/scene-library/marks", () => ({ marksOf: async () => ({ saved: ["room"], wanted: ["x"] }), wantCounts: async () => ({}) }));
 vi.mock("@/lib/scene-library/uploads", () => ({ uploadViews: async () => ({ mine: [], shared: [], waiting: [] }) }));
 vi.mock("@/lib/switches/store", () => ({ closedFor: async () => null }));
 vi.mock("@/app/studio/library/LibraryBoard", () => ({ LibraryBoard: (p: Record<string, unknown>) => { state.board = p; return null; } }));
@@ -17,19 +18,20 @@ vi.mock("@/app/studio/library/LibraryBoard", () => ({ LibraryBoard: (p: Record<s
 import { OWNER } from "../helpers/signed-in";
 import LibraryPage from "@/app/studio/library/page";
 
-const DEMO: Viewer = { ...OWNER, kind: "demo", agentId: "00000000-0000-4000-8000-000000012345", code: "012345", name: "ลูกค้าทดลองใช้", staff: null };
-
 beforeEach(() => { state.board = null; });
 
-describe("the page tells the board when the viewer is the demo", () => {
-  it("demo: true for the demo account", async () => {
-    state.viewer = DEMO;
-    renderToStaticMarkup(await LibraryPage());
-    expect(state.board?.demo).toBe(true);
+describe("who reaches the board", () => {
+  it("the demo account does not, even with the owner's staff record", async () => {
+    state.viewer = { ...OWNER, kind: "demo" };
+    const html = renderToStaticMarkup(await LibraryPage());
+    expect(state.board).toBeNull();
+    expect(html).toContain("ฟังก์ชันนี้ปิดใช้งานอยู่");
   });
-  it("demo: false for anyone else", async () => {
+  it("the owner does, with the saves alone: no votes, no counts, no owner or demo switch", async () => {
     state.viewer = OWNER;
     renderToStaticMarkup(await LibraryPage());
-    expect(state.board?.demo).toBe(false);
+    expect(state.board).not.toBeNull();
+    expect(state.board?.saved).toEqual(["room"]);
+    for (const k of ["wanted", "counts", "owner", "demo"]) expect(state.board, k).not.toHaveProperty(k);
   });
 });
