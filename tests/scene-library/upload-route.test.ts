@@ -111,18 +111,32 @@ describe("POST", () => {
 });
 
 describe("GET", () => {
-  const OKROW = { id: ID, agentId: "someone", kind: "part", state: "ok", paths: [`library/${ID}.png`, `library/${ID}.jpg`] };
+  const OKROW = { id: ID, agentId: "someone", kind: "part", state: "ok", paths: [`library/${ID}.png`, `library/${ID}.jpg`, `library/${ID}.png`] };
 
-  it("answers the same 404 for an unknown id, a non-uuid, n out of range and a hidden row", async () => {
+  it("answers the same 404 for a bad id or n out of range, without asking the reader", async () => {
+    state.row = OKROW;
     const bodies: string[] = [];
-    state.row = null;
-    for (const qs of [`id=${ID}`, "id=zzz", "", `id=${ID}&n=3`, `id=${ID}&n=-1`, `id=${ID}&n=x`]) {
-      state.row = qs.includes("n=") ? OKROW : null;
+    for (const qs of ["id=zzz", "", `id=${ID}&n=3`, `id=${ID}&n=-1`, `id=${ID}&n=x`, `id=${ID}&n=1.5`]) {
       const r = await GET(get(qs));
       expect(r.status).toBe(404);
       bodies.push(await text(r));
     }
     expect(new Set(bodies)).toEqual(new Set(["ไม่พบไฟล์นี้"]));
+    expect(state.readerArgs).toEqual([]);
+  });
+
+  it("serves the last picture at the boundary n=2", async () => {
+    state.row = OKROW;
+    state.file = { bytes: Buffer.from(PNG), type: "image/png" };
+    expect((await GET(get(`id=${ID}&n=2`))).status).toBe(200);
+    expect(state.readerArgs).toHaveLength(1);
+  });
+
+  it("answers the same 404 for an unknown id", async () => {
+    state.row = null;
+    const r = await GET(get(`id=${ID}`));
+    expect(r.status).toBe(404);
+    expect(await text(r)).toBe("ไม่พบไฟล์นี้");
   });
 
   it("answers 404 for a row the reader may not see (readableUpload says null)", async () => {
