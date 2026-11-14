@@ -194,8 +194,10 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices, fx = false }: {
+export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices, fx = false, hide = [] }: {
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
+  /** ตั้งค่าส่วนตัว (owner, 2026-11-14): the instalments this agent switched off; the server applies them to the clip, the form only stops offering them */
+  hide?: PayMode[];
   /** the owner's price list (/admin/wallet), for the prices on the chips */
   prices: Prices;
   /** Gemini's voice used up for the day, and when it comes back; null while it is there */
@@ -272,7 +274,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [plan, setPlan] = useState(start?.plan && ihuPlans.some((p) => p.code === start.plan) ? start.plan : "GOLD");
   // วิดีโอเทียบ 4 แผน (owner chose ข, 2026-11-11): the iHealthy Ultra Package page in one clip, in its instalment;
   // null = the one-plan clip. It is Motion Graphic, upright and the whole length only: the form holds those
-  const [all4, setAll4] = useState<PayMode | null>(startProduct === "IHEALTHY" ? start?.allPlans ?? null : null);
+  // the 4-plan clip's instalments, less what the agent hid; a page's link in a hidden one opens yearly
+  const all4Modes = ALL4_MODES.filter((m) => m.mode === "annual" || !hide.includes(m.mode));
+  const [all4, setAll4] = useState<PayMode | null>(startProduct === "IHEALTHY" && start?.allPlans ? (hide.includes(start.allPlans) ? "annual" : start.allPlans) : null);
   const allOn = kind === "quote" && product === "IHEALTHY" && all4 !== null;
   const size: VideoSize = allOn ? "portrait" : pickedSize;
   const [compare, setCompare] = useState<string[]>([]);
@@ -906,7 +910,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                 <div>
                   <span className={label}>งวดชำระ</span>
                   <div className="flex flex-wrap gap-2">
-                    {ALL4_MODES.map((m) => <button key={m.mode} type="button" className={chip(all4 === m.mode)} onClick={() => setAll4(m.mode)}>{m.name}</button>)}
+                    {all4Modes.map((m) => <button key={m.mode} type="button" className={chip(all4 === m.mode)} onClick={() => setAll4(m.mode)}>{m.name}</button>)}
                   </div>
                 </div>
               )}
@@ -938,7 +942,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                 <span className={label}>เริ่มจาก</span>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : product === "PENSION" ? "บำนาญต่อเดือน" : product === "LEGACY" ? "ขนาดมรดก" : product === "PLB" ? "ทุน" : product === "GSAVING" ? "เบี้ยต่อปี" : "ทุนประกัน"}</button>
-                  <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>{product === "LEGACY" || product === "PLB" ? "งบเดือน" : "งบต่อเดือน"}</button>
+                  {/* a monthly budget is said as a monthly amount: not offered to an agent who hid the monthly instalment */}
+                  {!hide.includes("monthly") && <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>{product === "LEGACY" || product === "PLB" ? "งบเดือน" : "งบต่อเดือน"}</button>}
                   <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>{product === "LEGACY" || product === "PLB" ? "งบปี" : "งบต่อปี"}</button>
                 </div>
               </div>

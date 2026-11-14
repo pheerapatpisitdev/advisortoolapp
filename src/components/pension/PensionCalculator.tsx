@@ -11,6 +11,8 @@ import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
 import { pensionTablePath } from "@/lib/card-link";
 import { pensionQuoteText } from "@/lib/pension-cta";
+import { shows } from "@/lib/pay-prefs";
+import type { PayMode } from "@/calc/types";
 import { Highlighted } from "@/components/Highlighted";
 import { Circled } from "@/components/Circled";
 import { PenLayer } from "@/components/PenLayer";
@@ -59,7 +61,13 @@ const COL = "border-l border-[var(--op-line)] px-[5px]";
 /** the long headings, which take two lines when the pen's room leaves the table short of width */
 const WRAPS = new Set<string>(["มูลค่าเวนคืน", "บำนาญสะสม", "คุ้มครองชีวิต"]);
 
-export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
+export function PensionCalculator(
+  { sticky = false, hide = [] }: {
+    sticky?: boolean;
+    /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); yearly always stays */
+    hide?: PayMode[];
+  },
+) {
   const [age, setAge] = useState<number | "">(40);
   const [sex, setSex] = useState<"M" | "F">("M");
   const [pay, setPay] = useState<PensionPay>("untilAnnuity");
@@ -107,7 +115,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
   const overTyped = q && basis === "premium" && mode !== "annual" && !q.riders.length && amount !== ""
     ? Math.round((q.modePremium - amount) * 100) / 100 : 0;
   const who = { age: age === "" ? PENSION_LIMITS.ageMin : age, sex };
-  const copyText = q ? pensionQuoteText(who, q) : undefined;
+  const copyText = q ? pensionQuoteText(who, q, hide) : undefined;
   // the yearly table as the chat sends it: the main contract only, priced from the sum and the way of paying
   const tableCard = q && age !== "" ? pensionTablePath({ age, sex, start: chosenAge, pay, sumAssured: q.sumAssured, mode }) : undefined;
 
@@ -182,7 +190,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                 <div>
                   <label className="block text-sm font-medium">งวดชำระ</label>
                   <select className={field} value={mode} onChange={(e) => setMode(e.target.value as PensionMode)}>
-                    {(Object.keys(MODE_LABEL) as PensionMode[]).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
+                    {(Object.keys(MODE_LABEL) as PensionMode[]).filter((m) => shows(hide, m)).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
                   </select>
                 </div>
               </div>

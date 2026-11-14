@@ -6,6 +6,14 @@ import { getContact } from "@/lib/quote-video/contact";
 import { createPromptStory, redrawPicture } from "@/lib/quote-video/make";
 import { cleanCustomerName } from "@/lib/quote-video/script";
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
+import { hiddenFor } from "@/lib/pay-prefs-store";
+
+/**
+ * ตั้งค่าส่วนตัว (owner, 2026-11-14): an agent who hid the monthly instalment gets the figure without it —
+ * the writer is never told a monthly premium (it reads monthly 0 as "do not mention one"), the script
+ * check never allows it, and the clip keeps `hide` so a re-render says the same.
+ */
+const withoutMonthly = (f: StoryFigure, hide: readonly string[]): StoryFigure => (hide.includes("monthly") ? { ...f, monthly: 0 } : f);
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { geminiVoice } from "@/lib/voice/gemini";
 import { mayPromptStory, PROMPT_STORY_CLOSED } from "@/lib/prompt-story/access";
@@ -45,7 +53,7 @@ export async function writePromptStory(v: { brief: string; scenes: SceneCount; f
   if (v.figure) {
     const f = storyFigure(v.figure as Parameters<typeof storyFigure>[0]);
     if (typeof f === "string") return { ok: false, error: f };
-    figure = f;
+    figure = withoutMonthly(f, await hiddenFor(viewer.agentId));
   }
 
   // ตามโจทย์ · ละครสั้น 3 ฉาก · รีวิวเคสเคลม; anything else is written as ตามโจทย์
@@ -84,7 +92,9 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
   const gemini = eleven ? undefined : geminiVoice(v?.gemini);
   const asked = checkedPromptStory(v ?? {}, eleven ? eleven.sex : gemini ? gemini.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
   if (typeof asked === "string") return { ok: false, error: asked };
-  const input = gemini ? { ...asked, gemini: gemini.name } : asked;
+  const hide = await hiddenFor(viewer.agentId);
+  const kept = { ...asked, ...(asked.figure ? { figure: withoutMonthly(asked.figure, hide) } : {}), ...(hide.length ? { hide } : {}) };
+  const input = gemini ? { ...kept, gemini: gemini.name } : kept;
   const contact = await getContact(viewer.agentId);
   if (!(contact.name || viewer.name).trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอนะครับ" };
@@ -126,7 +136,7 @@ export async function rewritePromptScene(draftId: string, scene: number): Promis
       brief: typeof a.brief === "string" ? a.brief : "",
       scenes: taken.scenes,
       scene,
-      figure: typeof f === "object" ? f : undefined,
+      figure: typeof f === "object" ? withoutMonthly(f, await hiddenFor(viewer.agentId)) : undefined,
       format: isPromptFormat(a.format) ? a.format : undefined,
     });
     if (!r.ok) return { ...r, left };

@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { hiddenOnPage } from "@/lib/pay-prefs-store";
 import { Ci123Calculator } from "@/components/Ci123Calculator";
 import { ci123Table } from "@/lib/ci123-table";
 import { CalcTitle } from "@/components/sales/CalcTitle";
@@ -14,15 +15,21 @@ export const metadata = {
  * An agents' tool since 2026-10-14 (owner: the system is closed, so the selling went and the
  * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
-export default async function Ci123Page() {
+export default async function Ci123Page({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   // members only, trial included (owner, 2026-10-20)
-  await gateCalc("/ci123");
+  const viewer = await gateCalc("/ci123");
+  // ตั้งค่าส่วนตัว: the instalments this agent left out (src/lib/pay-prefs.ts)
+  const hide = await hiddenOnPage(viewer, await searchParams);
   const table = ci123Table();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="CI 123" kind="ประกันโรคร้ายแรง" facts={[`คุ้มครอง ${table.diseaseCount} โรค`, "จ่ายตามระยะของโรค", `รับแรกเกิด–${table.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
-        <Ci123Calculator table={table} sticky />
+        <Ci123Calculator table={table} hide={hide} sticky />
       </section>
       <DiseaseSection table={table} />
       <Disclaimer table={table} />

@@ -24,7 +24,7 @@ import { NAME_KEY } from "@/lib/customer-name";
  * the quote card and its value table: src/lib/card-link.ts cardQuery, in its order, then the
  * customer's name the send panel may add (src/lib/customer-name.ts)
  */
-export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "dci", "ci123", "fig", "v", NAME_KEY] as const;
+export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "dci", "ci123", "hide", "fig", "v", NAME_KEY] as const;
 /**
  * The quote card alone also reads `ph`, the bot's signed ask for a customer's photo
  * (src/lib/card-photo.ts). Not the table's: it draws no face, so a `ph` there is padding.
@@ -37,7 +37,7 @@ export const GSAVING_CARD_KEYS = ["age", "prem", "sum", "v", NAME_KEY] as const;
 /** one contract's illnesses: src/lib/card-link.ts diseaseCardPath */
 export const DISEASE_CARD_KEYS = ["of"] as const;
 /** the health card and its table: src/lib/ihealthy-link.ts cardQuery and cardPath, the menu's fit=phone */
-export const HEALTH_CARD_KEYS = ["age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r", "v", "cv", "l", "fit"] as const;
+export const HEALTH_CARD_KEYS = ["age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r", "hide", "v", "cv", "l", "fit"] as const;
 /**
  * The health card alone also reads the customer's name the send panel adds
  * (src/lib/customer-name.ts), last, as on the quote card. The plans-side-by-side table is the

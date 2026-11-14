@@ -8,6 +8,7 @@ import { initialFrom } from "@/lib/ihealthy-link";
 import type { Lang } from "@/lib/ihealthy-lang";
 import { MODES, plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
+import { shows } from "@/lib/pay-prefs";
 import { translateFacts } from "@/lib/ihealthy-translate";
 
 /**
@@ -61,7 +62,9 @@ export function compareLines(lang: Lang): CompareLine[] {
 export function iHealthyCompareCard(query: URLSearchParams, today: Date = new Date()): ReturnType<typeof iHealthyFullCard> {
   const card = iHealthyFullCard(query, today);
   const table = iHealthyTable(today);
-  const { age, sex } = initialFrom(table, Object.fromEntries(query));
+  const { age, sex, hide } = initialFrom(table, Object.fromEntries(query));
+  // the same instalments, in the same order, as the whole table's rows it re-prices
+  const modes = MODES.filter((m) => shows(hide ?? [], m));
   const plans = comparePlans(plansFor(table, age).map((p) => p.code));
   const every = iHealthyFacts().plans.map((p) => p.code);
   const kept = every.flatMap((code, i) => (plans.includes(code) ? [i] : []));
@@ -92,7 +95,7 @@ export function iHealthyCompareCard(query: URLSearchParams, today: Date = new Da
     premiumRows: card.premiumRows.map((r, i) => ({
       ...r,
       cells: plans.map((code) => ({
-        text: comparePremium(code, sex, age, MODES[i])?.toLocaleString("en-US") ?? "-", dim: false,
+        text: comparePremium(code, sex, age, modes[i])?.toLocaleString("en-US") ?? "-", dim: false,
       })),
     })),
   };

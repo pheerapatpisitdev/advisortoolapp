@@ -7,12 +7,13 @@ import { checkedLook, isGround, type FigureGround, type FigureLook } from "@/lib
 import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
 import { FESTIVALS, GRADUATE_AGE, INFO_SHELVES, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { PensionPay } from "@/calc/pension/engine";
+import type { PayMode } from "@/calc/types";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { plansFor } from "@/lib/ihealthy-quote";
 import { healthFigures, type HealthFigures } from "@/lib/scene-library/health-figures";
 import { pensionPremium, PENSION_NAME } from "./pension";
-import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
+import { cleanCustomerName, noMonthly, spokenBaht, spokenBy } from "./script";
 import { festivalGreeting } from "./story-after";
 import { knowEpisode, type KnowSceneKey } from "./story-knowledge";
 import { sizeOf, type VideoSize } from "./timeline";
@@ -94,6 +95,8 @@ export interface StoryVideoInput {
   art?: "minimal" | "info" | "paper" | "plot" | "line";
   ground?: FigureGround;
   cast?: { hero: FigureLook; narrator: FigureLook };
+  /** ตั้งค่าส่วนตัว (owner, 2026-11-14; src/lib/pay-prefs.ts): the instalments the agent switched off; absent = none */
+  hide?: PayMode[];
 }
 
 /**
@@ -463,7 +466,8 @@ export function storyCaption(input: StoryVideoInput): string {
   }
   if (input.topic !== "pool48") {
     return [
-      ...EPISODE_CAPTION[input.topic],
+      // "แบ่งจ่ายรายเดือนได้" goes where the agent hid the monthly instalment
+      ...(input.topic === "pricey" && noMonthly(input) ? ["เบี้ยแพง ไม่มีงบ?", "เริ่มเท่าที่จ่ายไหว เริ่มเล็กดีกว่าไม่เริ่ม"] : EPISODE_CAPTION[input.topic]),
       "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
       ...(input.health ? ["", healthFootnote(input.topic, input.health.figures.planName)]
         : input.figure || input.ladder || input.pension ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : input.pension ? PENSION_NAME : planName(input.figure!.plan)} ${PREMIUM_REAL}`] : []),

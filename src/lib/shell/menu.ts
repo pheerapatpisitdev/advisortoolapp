@@ -450,6 +450,8 @@ export function accountLinks(who?: Who | null): MenuLink[] {
     // a member's own name and PIN; UnitOS agents manage theirs in UnitOS (owner, 2026-10-01);
     // everyone's contact details for the วิดีโอนำเสนอ (owner, 2026-10-11)
     { href: "/studio/account", label: "บัญชีของฉัน", icon: "key", hue: "#2e4a7a" },
+    // each agent's own display choices, first the instalments their quotes show (owner, 2026-11-14)
+    { href: "/studio/settings", label: "ตั้งค่าส่วนตัว", icon: "gear", hue: "#4a5a7a" },
     // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); assistants have
     // one too (2026-10-02), only the owner writes without one
     ...(!noWallet ? [{ href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet" as const, hue: "#2b736f" }] : []),

@@ -1,6 +1,6 @@
 import { defaultPartner, faceOf } from "@/lib/story/faces";
 import { planName, termShort } from "@/lib/story/plans";
-import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
+import { cleanCustomerName, noMonthly, spokenBaht, spokenBy } from "./script";
 import type { StoryVideoInput } from "./story";
 import { AFTER_CLOSE, afterScenes, type AfterTopic } from "./story-after";
 import { familyScenes, FAMILY_CLOSE, type FamilyTopic } from "./story-family";
@@ -139,7 +139,10 @@ function sumVsPremium(input: StoryVideoInput): KnowScene[] {
   const sexWord = f?.sex === "M" ? "ผู้ชาย" : "ผู้หญิง";
   return [
     { key: "knowAsk", show: { layout: "ask", title: ["ทุน กับ เบี้ย", "ต่างกันยังไง?"] }, voice: "ทุนประกัน กับ เบี้ยประกัน สองคำนี้ต่างกันยังไงคะ หลายคนยังสับสนอยู่" },
-    { key: "knowOne", show: { layout: "flow", title: ["เบี้ย", "= เงินที่คุณจ่าย"], dir: "out", note: [small("จ่ายเป็นรายปี"), small("หรือแบ่งจ่ายรายเดือน")] }, voice: "เบี้ยประกัน คือเงินที่เราจ่ายให้บริษัท จ่ายเป็นรายปี หรือแบ่งจ่ายรายเดือนก็ได้ค่ะ" },
+    noMonthly(input)
+      // ตั้งค่าส่วนตัว: the agent hid the monthly instalment
+      ? { key: "knowOne", show: { layout: "flow", title: ["เบี้ย", "= เงินที่คุณจ่าย"], dir: "out", note: [small("จ่ายให้บริษัท"), small("ตามงวดที่เลือก")] }, voice: "เบี้ยประกัน คือเงินที่เราจ่ายให้บริษัท ตามงวดที่เลือกไว้ค่ะ" }
+      : { key: "knowOne", show: { layout: "flow", title: ["เบี้ย", "= เงินที่คุณจ่าย"], dir: "out", note: [small("จ่ายเป็นรายปี"), small("หรือแบ่งจ่ายรายเดือน")] }, voice: "เบี้ยประกัน คือเงินที่เราจ่ายให้บริษัท จ่ายเป็นรายปี หรือแบ่งจ่ายรายเดือนก็ได้ค่ะ" },
     { key: "knowTwo", show: { layout: "flow", title: ["ทุน", "= เงินที่บริษัทจ่ายให้"], dir: "in", note: [small("เมื่อเกิดเรื่อง"), small("ที่กรมธรรม์คุ้มครอง")] }, voice: "ส่วนทุนประกัน คือเงินที่บริษัทจ่ายให้ เมื่อเกิดเรื่องที่กรมธรรม์คุ้มครองค่ะ" },
     f
       ? {

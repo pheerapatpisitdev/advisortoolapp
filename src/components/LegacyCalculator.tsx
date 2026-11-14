@@ -5,6 +5,7 @@ import type { PayMode, Sex } from "@/calc/types";
 import type { LegacyAge } from "@/lib/legacy-cta";
 import { displayPremium, legacyQuoteText, perDayText } from "@/lib/legacy-cta";
 import { cardPath, diseaseCardPath } from "@/lib/card-link";
+import { showModes, shows } from "@/lib/pay-prefs";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
 import type { LegacyTable } from "@/lib/legacy-table";
@@ -53,6 +54,8 @@ export interface LegacyCalculatorProps {
    * which sum and age the customer has landed on.
    */
   sticky?: boolean;
+  /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
+  hide?: PayMode[];
 }
 
 /**
@@ -60,7 +63,7 @@ export interface LegacyCalculatorProps {
  * sum, the age and the sex — every other decision was made when the bundle was designed, and
  * the agent's own calculator is where the rest of them can still be changed.
  */
-export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProps) {
+export function LegacyCalculator({ table, sticky = false, hide = [] }: LegacyCalculatorProps) {
   const RANGE = { min: table.ageMin, max: table.ageMax };
   const AGES = useMemo(
     () => Array.from({ length: RANGE.max - RANGE.min + 1 }, (_, i) => RANGE.min + i),
@@ -74,12 +77,16 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
   // everyone else picks the way out and is answered rather than quoted.
   const inRange = typeof age === "number";
 
-  const modes = useMemo(
+  // every instalment the company prices: the contract split is worked from these
+  const priced = useMemo(
     () => (typeof age === "number"
       ? rowToModes(table.premiums[sex][millions - 1][age - table.ageMin] ?? null)
       : undefined),
     [table, age, sex, millions],
   );
+  // only what the agent shows: the headline, the box, the copied text and the card follow it
+  const modes = showModes(priced, hide);
+  const monthlyShown = shows(hide, "monthly");
   // the bands turn only on whether the insured has reached the booster age
   const death = typeof age === "number"
     ? (age >= table.death[millions - 1].under.beforeAge
@@ -91,22 +98,22 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
   // each contract's own premium: the base row from the server, the rider the rest of the total
   const contracts = useMemo(() => {
     const base = typeof age === "number" ? table.basePremiums[sex][age - table.ageMin] : null;
-    if (!modes || !base) return undefined;
-    const annual = modes.find((m) => m.mode === "annual")!.total;
-    const monthly = modes.find((m) => m.mode === "monthly");
+    if (!priced || !base) return undefined;
+    const annual = priced.find((m) => m.mode === "annual")!.total;
+    const monthly = priced.find((m) => m.mode === "monthly");
     return {
       base: { annual: base[0], monthly: base[2] },
       rider: { annual: annual - base[0], monthly: monthly ? monthly.total - base[2] : 0 },
       total: { annual, monthly: monthly?.total ?? 0 },
-      // the column goes when the company will not take this sum monthly
-      showMonthly: Boolean(monthly && !monthly.belowMinimum),
+      // the column goes when the company will not take this sum monthly, or the agent hides it
+      showMonthly: monthlyShown && Boolean(monthly && !monthly.belowMinimum),
     };
-  }, [table, age, sex, modes]);
+  }, [table, age, sex, priced, monthlyShown]);
   const annual = modes?.find((m) => m.mode === "annual");
 
   // the same figures the card is showing, or nothing: a copied quote must never say more than the page
   const card = typeof age === "number" && headline
-    ? cardPath({ kind: "bundle", bundleCode: table.bundleCode, tier: millions, age, sex, mode: headline.mode })
+    ? cardPath({ kind: "bundle", bundleCode: table.bundleCode, tier: millions, age, sex, mode: headline.mode, hide })
     : undefined;
   const quoteText = typeof age === "number" && modes && headline && death
     ? legacyQuoteText({ millions, age, sex, modes, minMonthly: table.minMonthlyTotal, critical: table.critical[millions - 1], death, diseaseCount: table.diseaseCount })

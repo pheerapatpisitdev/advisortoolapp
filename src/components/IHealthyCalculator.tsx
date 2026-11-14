@@ -21,6 +21,7 @@ import {
 import { cardPath, queryFrom } from "@/lib/ihealthy-link";
 import { fullCardPath } from "@/lib/ihealthy-full-link";
 import { PdfButton } from "@/components/ihealthy/PdfButton";
+import { shows } from "@/lib/pay-prefs";
 import { SEND_WORDS } from "@/lib/ihealthy-send-words";
 import { arrangementKey } from "@/components/ihealthy/rider-request";
 import { deathBenefitRows } from "@/lib/death-benefit";
@@ -96,6 +97,10 @@ export function IHealthyCalculator(
   // Likewise: the card headlines the yearly instalment and prints the other two beneath it,
   // so there is nothing for a picker to choose that the card is not already showing.
   const [mode] = useState<PayMode>(initial.mode);
+  /** the instalments the agent switched off (src/lib/pay-prefs.ts); the page never offers them */
+  const hide = initial.hide ?? [];
+  /** carried on the picture, the PDF and the whole table, which are drawn with nobody signed in */
+  const hideField = hide.length ? { hide } : {};
 
   const base = baseFor(table, wantBase);
   const sumOptions = sumsFor(base);
@@ -158,7 +163,7 @@ export function IHealthyCalculator(
               }, extras)
             : undefined,
         ]));
-        return MODES.map((m) => ({
+        return MODES.filter((m) => shows(hide, m)).map((m) => ({
           mode: m,
           label: w.mode[m],
           byPlan: Object.fromEntries(table.plans.map((p) => {
@@ -240,7 +245,7 @@ export function IHealthyCalculator(
       }, extras)
     : undefined;
   /** An expired rate set prices, but not at a figure anyone may be quoted. */
-  const shown = table.expired ? undefined : shownAt(priced, mode);
+  const shown = table.expired ? undefined : shownAt(priced, mode, hide);
   // The base plan's own answer until the fold has one: a rider that pays on death adds its
   // sum to what the family receives, and the card was charging for DCI while printing a
   // figure worked out as though nothing were attached.
@@ -265,6 +270,7 @@ export function IHealthyCalculator(
         territory: territory ?? wantTerritory,
         coverage: coverage ?? wantCoverage,
         riders: answered?.riders ?? picked,
+        ...hideField,
       }
     : undefined;
   const picture = drawn ? cardPath(table, drawn, lang) : undefined;

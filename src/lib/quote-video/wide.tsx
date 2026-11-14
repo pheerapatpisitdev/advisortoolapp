@@ -834,8 +834,8 @@ function Compare({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
             <div style={box({ fontSize: g.px(30, 46), fontWeight: 600 })}>{p.room}</div>
             <div style={box({ fontSize: lab, marginTop: 12, opacity: 0.8 })}>{vw.compareRows[2]}</div>
             <div style={box({ fontSize: g.px(30, 46), fontWeight: 600 })}>{p.opd}</div>
-            <div style={box({ fontSize: lab, marginTop: 12, opacity: 0.8 })}>{vw.perMonth}</div>
-            <div style={box({ fontSize: g.px(36, 54), fontWeight: 700 })}>{p.monthly}</div>
+            <div style={box({ fontSize: lab, marginTop: 12, opacity: 0.8 })}>{f.comparePer === "year" ? vw.perYear : vw.perMonth}</div>
+            <div style={box({ fontSize: g.px(36, 54), fontWeight: 700 })}>{f.comparePer === "year" ? p.yearly ?? "" : p.monthly}</div>
           </El>
         ))}
       </div>

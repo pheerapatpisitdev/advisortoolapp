@@ -21,6 +21,7 @@ import { SEND_WORDS } from "@/lib/ihealthy-send-words";
 import type { IHealthyTable } from "@/lib/ihealthy-table";
 import { baseWords, WORDS } from "@/lib/ihealthy-words";
 import { markPdfReady, registerPrepare } from "@/lib/quote-pdf/prepare";
+import { shows } from "@/lib/pay-prefs";
 import { videoStartHref } from "@/lib/quote-video/link";
 
 const label = "block text-sm text-[var(--lg-mute)]";
@@ -57,6 +58,9 @@ export function IHealthyCompare(
   const [age, setAge] = useState(initial.age);
   const [sex, setSex] = useState<Sex>(initial.sex);
   const [mode, setMode] = useState<PayMode>(initial.mode);
+  /** the instalments left after the agent's ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); the year always */
+  const hide = initial.hide;
+  const modes = MODES.filter((m) => shows(hide ?? [], m));
 
   const { base: baseVariant, sumAssured, territory, coverage } = IHEALTHY_OPENING;
   const codes = comparePlans(plansFor(table, age).map((p) => p.code));
@@ -73,7 +77,7 @@ export function IHealthyCompare(
     code,
     name: planLabel(code),
     ceiling: big(sheetPlans.find((p) => p.code === code)?.annualMax ?? 0),
-    premiums: MODES.map((m) => ({ label: w.mode[m], amount: amount(code, m) })),
+    premiums: modes.map((m) => ({ label: w.mode[m], amount: amount(code, m) })),
   }));
   const quoteText = priced
     ? compareText({
@@ -87,6 +91,7 @@ export function IHealthyCompare(
   const { plan } = resolveArrangement(table, age, { plan: IHEALTHY_OPENING.plan, territory, coverage });
   const drawn: IHealthyInitial = {
     age, sex, base: baseVariant, sumAssured, mode, plan: plan?.code ?? codes[0], territory, coverage,
+    ...(hide ? { hide } : {}),
   };
   const link = queryFrom(table, drawn);
   useEffect(() => {
@@ -144,8 +149,8 @@ export function IHealthyCompare(
         </div>
         <div className="col-span-2 sm:col-span-1">
           <span className={label}>{cw.paymentLabel}</span>
-          <div className="mt-1.5 grid grid-cols-3 gap-2">
-            {MODES.map((m) => (
+          <div className="mt-1.5 grid gap-2" style={{ gridTemplateColumns: `repeat(${modes.length}, minmax(0, 1fr))` }}>
+            {modes.map((m) => (
               <button key={m} type="button" aria-pressed={m === mode} onClick={() => setMode(m)} className={chip(m === mode)}>
                 {w.mode[m]}
               </button>

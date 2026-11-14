@@ -1,4 +1,5 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { hiddenOnPage } from "@/lib/pay-prefs-store";
 import { pensionFacts } from "@/lib/pension-facts";
 import { CalcTitle } from "@/components/sales/CalcTitle";
 import { PensionCalculator } from "@/components/pension/PensionCalculator";
@@ -15,15 +16,19 @@ export const metadata = {
  * An agents' tool since 2026-10-14 (owner: the system is closed, so the selling went and the
  * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
-export default async function PensionPage() {
+export default async function PensionPage(
+  { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
+) {
   // members only, trial included (owner, 2026-10-20)
-  await gateCalc("/bumnan95");
+  const viewer = await gateCalc("/bumnan95");
+  // ตั้งค่าส่วนตัว: the instalments this agent's quotes leave out (src/lib/pay-prefs-store.ts)
+  const hide = await hiddenOnPage(viewer, viewer ? undefined : await searchParams);
   const facts = pensionFacts();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="บำนาญ สมาร์ท 95" kind="ประกันบำนาญ ลดหย่อนภาษีได้" facts={[`เริ่มรับบำนาญอายุ ${facts.pensionAges.join(" ")} ปี`, `รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
-        <PensionCalculator sticky />
+        <PensionCalculator sticky hide={hide} />
       </section>
       <Disclaimer facts={facts} />
     </main>

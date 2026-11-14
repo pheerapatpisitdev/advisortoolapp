@@ -147,7 +147,7 @@ export function allowedNumbers(f: QuoteVideoFacts, note = ""): Set<number> {
   if (f.breakEven) { add(f.breakEven.age); add(f.breakEven.cash); }
   if (f.illness) { add(f.illness.early); add(f.illness.major); add(f.illness.total); }
   for (const b of f.benefits ?? []) add(b.amount.match(/[\d,]+/)?.[0]);
-  for (const c of f.compare ?? []) { add(c.monthly); add(c.opd.match(/[\d,]+/)?.[0]); add(c.room.match(/[\d,]+/)?.[0]); }
+  for (const c of f.compare ?? []) { add(c.monthly); add(c.yearly); add(c.opd.match(/[\d,]+/)?.[0]); add(c.room.match(/[\d,]+/)?.[0]); }
   if (f.budget) add(f.budget.amount);
   if (f.legacy) {
     const l = f.legacy;
@@ -223,6 +223,9 @@ export function lineProblem(text: string, f: QuoteVideoFacts, max: number, note 
   }
   // Global Savings: the index bonus is never promised (owner, 2026-10-20)
   if (f.product === "GSAVING" && /โบนัส[^\n]{0,20}?(?<!ไม่)(แน่นอน|ได้แน่|ชัวร์)/.test(t)) return "สัญญาว่าโบนัสได้แน่นอน";
+  // ตั้งค่าส่วนตัว (owner, 2026-11-14): never an instalment the agent hid; บำนาญ 95's own pension is paid monthly and may be said
+  if (f.hide?.includes("monthly") && (f.product === "PENSION" ? /รายเดือน|(ออม|จ่าย|ค่าใช้จ่าย)\s*(ต่อ)?เดือนละ/ : /รายเดือน|เดือนละ|ต่อเดือน/).test(t)) return "พูดถึงการจ่ายรายเดือน (ตัวแทนปิดไว้)";
+  if (f.hide?.includes("semi") && /ราย\s*6\s*เดือน|งวดละ/.test(t)) return "พูดถึงการจ่ายราย 6 เดือน (ตัวแทนปิดไว้)";
   const allowed = allowedNumbers(f, note);
   const stray = numbersIn(t).find((n, i, all) => !allowed.has(n) && !(i > 0 && all[i - 1] === n * 1_000_000));
   if (stray !== undefined) return `มีตัวเลข ${stray.toLocaleString("en-US")} ที่ไม่อยู่ในใบเสนอ`;
@@ -310,7 +313,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     shock: {
       LIFEPROTECT: perDay ? `วันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
       ISHIELD: perDay ? `วันละ ${perDay} บาท แลกกับเงินก้อนสูงสุด ${lead} ตอนป่วยหนัก` : `เงินก้อนสูงสุด ${lead} ตอนป่วยหนัก`,
-      IHEALTHY: `เดือนละ ${monthly} บาท ได้วงเงินค่ารักษาถึง ${lead}ต่อปี`,
+      IHEALTHY: `${f.spokenPrice.per} ${monthly} บาท ได้วงเงินค่ารักษาถึง ${lead}ต่อปี`,
       PENSION: `ออมวันนี้ แล้วรับเดือนละ ${f.pension?.monthly ?? ""} บาท ไปจนถึงอายุ 95`,
       LEGACY: perDay ? `ค่าใช้จ่ายปีแรกวันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
       PLB: perDay ? `ค่าใช้จ่ายวันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
@@ -357,7 +360,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     shock: {
       LIFEPROTECT: perDay ? [`วันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       ISHIELD: perDay ? [`วันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
-      IHEALTHY: [`เดือนละ ${monthly} บาท`, `วงเงิน ${lead}/ปี`],
+      IHEALTHY: [`${f.spokenPrice.per} ${monthly} บาท`, `วงเงิน ${lead}/ปี`],
       PENSION: [`รับเดือนละ ${f.pension?.monthly ?? ""} บาท`, "ไปจนถึงอายุ 95"],
       LEGACY: perDay ? [`ปีแรกวันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       PLB: perDay ? [`วันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],

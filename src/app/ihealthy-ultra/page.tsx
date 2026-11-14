@@ -1,4 +1,6 @@
 import { gateCalc } from "@/lib/auth/viewer";
+import { HIDE_KEY, hideParam } from "@/lib/pay-prefs";
+import { hiddenOnPage } from "@/lib/pay-prefs-store";
 import { cookies } from "next/headers";
 import { IHealthyCalculator } from "@/components/IHealthyCalculator";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -70,7 +72,7 @@ export default async function IHealthyPage(
   { searchParams }: { searchParams: Promise<IHealthyQuery> },
 ) {
   // members only, trial included (owner, 2026-10-20)
-  await gateCalc("/ihealthy-ultra");
+  const viewer = await gateCalc("/ihealthy-ultra");
   const table = iHealthyTable();
   const lang = await readerLang();
   const w = WORDS[lang];
@@ -97,7 +99,11 @@ export default async function IHealthyPage(
     // else quietly through this branch.
     if (!(thrown instanceof TypeError) || !Object.hasOwn(searchParams, "constructor")) throw thrown;
   }
-  const initial = initialFrom(table, query);
+  // ตั้งค่าส่วนตัว: the signed-in agent's own setting, or what the printed link says for the PDF
+  // printer (src/lib/pay-prefs-store.ts). Written over whatever `hide` the address carries, so a
+  // link copied from another agent opens on this agent's choice.
+  const hide = await hiddenOnPage(viewer, query);
+  const initial = initialFrom(table, { ...query, [HIDE_KEY]: hideParam(hide) });
   // Only the rows and the plan list are handed to the island, and the two sentences the
   // table itself has to print. The rest of `terms` is rendered by the server components
   // below. That is a smaller prop, not a smaller bundle: `ihealthy-facts.ts` imports the

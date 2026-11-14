@@ -22,6 +22,7 @@ import { easyProtectTable } from "@/lib/easyprotect-table";
 import { displayPremium, perDayText } from "@/lib/legacy-cta";
 import { FIRST_MONTHLY_INSTALMENTS, firstMonthlyPayment } from "@/lib/first-payment";
 import { LIFEPROTECT_PLAN, lifeProtectPriced, type SplitRow } from "@/lib/lifeprotect-card";
+import { HIDE_KEY, readHide, showModes } from "@/lib/pay-prefs";
 import { iShieldFootnote, levelPremiumFootnote, plbFootnote, priceLockNote } from "@/lib/plan-notes";
 import { legacyFromDeath, legacyLevel, type Legacy } from "@/lib/legacy-headline";
 import { riderDiseases } from "@/calc/riders/diseases";
@@ -160,6 +161,16 @@ function modeFrom(params: URLSearchParams): PayMode | undefined {
   return raw === "annual" || raw === "semi" || raw === "monthly" ? raw : undefined;
 }
 
+/**
+ * The instalments the agent switched off (ตั้งค่าส่วนตัว, src/lib/pay-prefs.ts), named in the
+ * link so a card opened by a customer shows what the agent chose. Absent — every bot's link —
+ * is nothing hidden, so the input carries no `hide` at all and reads as before.
+ */
+function hideFrom(params: URLSearchParams): { hide?: PayMode[] } {
+  const hide = readHide(params.get(HIDE_KEY));
+  return hide.length ? { hide } : {};
+}
+
 /** The insured named in a query, or undefined when either half is missing or impossible. */
 function insuredFrom(params: URLSearchParams): { age: number; sex: Sex } | undefined {
   const age = Number(params.get("age"));
@@ -176,7 +187,7 @@ function bundleInputFrom(code: string, params: URLSearchParams): BundleCardInput
   if (!bundle.tiers.some((t) => t.no === tier)) return undefined;
   const who = insuredFrom(params);
   if (!who) return undefined;
-  return { kind: "bundle", bundleCode: code, tier, ...who, mode: modeFrom(params) };
+  return { kind: "bundle", bundleCode: code, tier, ...who, mode: modeFrom(params), ...hideFrom(params) };
 }
 
 function planInputFrom(params: URLSearchParams): PlanCardInput | undefined {
@@ -191,7 +202,7 @@ function planInputFrom(params: URLSearchParams): PlanCardInput | undefined {
   if (!Number.isInteger(sumAssured) || sumAssured <= 0) return undefined;
   const riders = readRiders((k) => params.get(k));
   if (riders === null || (riders && planCode !== LIFEPROTECT_PLAN)) return undefined;
-  return { kind: "plan", planCode, variant, ...who, sumAssured, mode: modeFrom(params), ...(riders ? { riders } : {}) };
+  return { kind: "plan", planCode, variant, ...who, sumAssured, mode: modeFrom(params), ...(riders ? { riders } : {}), ...hideFrom(params) };
 }
 
 
@@ -552,7 +563,9 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
   // Life Protect is priced as its page prices it, so its riders are in the figures too
   const lifeProtect = input.planCode === LIFEPROTECT_PLAN ? lifeProtectPriced(input, today) : undefined;
   if (input.planCode === LIFEPROTECT_PLAN && !lifeProtect) return undefined;
-  const modes = quoteModePremiums(quoteInput(input, "annual"), today);
+  // the instalments the agent switched off go before the headline is chosen, so with monthly
+  // off the card leads with the year (lifeProtectPriced has filtered its own already)
+  const modes = showModes(quoteModePremiums(quoteInput(input, "annual"), today), input.hide ?? []);
   const { premium, perDay: perDayLine, summary } = premiumLines(
     lifeProtect ? lifeProtect.paid : modes, result.meta.expired, lifeProtect?.split,
   );
@@ -858,7 +871,7 @@ function bundleCard(input: BundleCardInput, today: Date): QuoteCard | undefined 
   // that: it is a fact about one instalment, and the card answers it by headlining the year.
   if (result.warnings.some((w) => w.level === "error" && w.code !== "MIN_MONTHLY")) return undefined;
 
-  const modes = bundleModePremiums(bundle, input.tier, who, today);
+  const modes = showModes(bundleModePremiums(bundle, input.tier, who, today), input.hide ?? []);
   const { premium, perDay: perDayLine, summary } = premiumLines(modes, result.meta.expired);
 
   // CI 123's benefit components are rows of the quote (the workbook itemises them) but not

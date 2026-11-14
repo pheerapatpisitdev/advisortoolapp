@@ -265,10 +265,11 @@ describe("the account box at the foot of every menu (owner chose ข, 2026-10-14
     expect(accountLinks()).toEqual([]);
   });
 
-  it("gives everyone their account page; a member their pass after the wallet", () => {
-    expect(hrefs(base)).toEqual(["/studio/account"]);
-    expect(hrefs({ ...base, wallet: true, prices: true })).toEqual(["/studio/account", "/studio/wallet"]);
-    expect(hrefs({ ...base, member: true, wallet: true, prices: true })).toEqual(["/studio/account", "/studio/wallet", "/membership"]);
+  it("gives everyone their account page and ตั้งค่าส่วนตัว; a member their pass after the wallet", () => {
+    expect(hrefs(base)).toEqual(["/studio/account", "/studio/settings"]);
+    expect(hrefs({ ...base, wallet: true, prices: true })).toEqual(["/studio/account", "/studio/settings", "/studio/wallet"]);
+    expect(hrefs({ ...base, member: true, wallet: true, prices: true })).toEqual(["/studio/account", "/studio/settings", "/studio/wallet", "/membership"]);
+    expect(accountLinks(base).find((l) => l.href === "/studio/settings")).toMatchObject({ label: "ตั้งค่าส่วนตัว", icon: "gear" });
     expect(accountLinks({ ...base, member: true }).find((l) => l.href === "/membership")).toMatchObject({ label: "สมาชิก", icon: "key", hue: "#2b736f" });
   });
 

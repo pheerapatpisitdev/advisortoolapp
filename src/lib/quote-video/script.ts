@@ -23,6 +23,7 @@ import { foreignScript } from "./ihealthy-foreign";
 import type { AllPlansFacts } from "./ihealthy-all-plans";
 import { allPlansCaption, allPlansScript, allPlansVideoFacts } from "./ihealthy-all-plans-script";
 import type { PayMode } from "@/calc/types";
+import { shows } from "@/lib/pay-prefs";
 
 /**
  * วิดีโอนำเสนอ (owner, 2026-10-11): what the scenes show and say, taken from the same quote the
@@ -109,7 +110,21 @@ export type VideoInput = (
    * absent on every other clip
    */
   recipe?: RecipeKey;
+  /**
+   * ตั้งค่าส่วนตัว (owner, 2026-11-14; src/lib/pay-prefs.ts): the instalments the agent who made the clip
+   * switched off, kept with the job so a re-render says the same. Absent (every clip before it) = nothing hidden
+   */
+  hide?: PayMode[];
 };
+
+/** what a job's input hides; anything unreadable, and every clip made before the setting, hides nothing */
+export function hideOf(v: { hide?: unknown }): PayMode[] {
+  const h: unknown[] = Array.isArray(v.hide) ? v.hide : [];
+  return (["semi", "monthly"] as const).filter((m) => h.includes(m));
+}
+
+/** whether the agent who made a clip (any kind: a story clip keeps `hide` too) hid the monthly instalment */
+export const noMonthly = (input: { hide?: unknown }): boolean => hideOf(input).includes("monthly");
 
 /** 15 s, ~50 s, ~90 s, ~2 min (owner, 2026-10-13: "สูงสุดถึง 2 นาที"; told.ts sceneOrder) */
 export type VideoLength = "short" | "full" | "long" | "max";
@@ -128,7 +143,8 @@ export const productOf = (v: VideoInput): Product => v.product ?? "LIFEPROTECT";
 /** `per`: the instalment a row is, where its label is not the Thai one (a clip in another language) */
 export interface PriceRow { label: string; amount: string; main: boolean; per?: "month" | "year" | "half" }
 export interface CoverRow { label: string; amount: string; mark: boolean }
-export interface ComparePlan { name: string; ceiling: string; room: string; opd: string; monthly: string; main: boolean; ceilingBaht?: number }
+/** `monthly` is "" and `yearly` the price shown when the agent hid the monthly instalment (facts `comparePer`) */
+export interface ComparePlan { name: string; ceiling: string; room: string; opd: string; monthly: string; main: boolean; ceilingBaht?: number; yearly?: string }
 
 /** Everything the clip shows, as the cards state it. Parts a product has not got are absent. */
 export interface QuoteVideoFacts {
@@ -214,6 +230,10 @@ export interface QuoteVideoFacts {
   gsaving?: GsVideoFacts;
   /** วิดีโอเทียบ 4 แผน: the iHealthy Ultra Package page's table (ihealthy-all-plans.ts) */
   allPlans?: AllPlansFacts;
+  /** ตั้งค่าส่วนตัว: what the agent hid (src/lib/pay-prefs.ts); present only when something is */
+  hide?: PayMode[];
+  /** the comparison prices each plan yearly (`yearly`) because the agent hid the monthly instalment */
+  comparePer?: "year";
 }
 
 /**
@@ -227,6 +247,8 @@ const SEX_WHO = { M: "คุณผู้ชาย", F: "คุณผู้หญ
 export const planInput = (v: Extract<VideoInput, { variant: string }>): PlanCardInput => ({
   kind: "plan", planCode: productOf(v), variant: v.variant, age: v.age, sex: v.sex, sumAssured: v.sumAssured,
   ...("riders" in v && v.riders && productOf(v) === LIFEPROTECT_PLAN ? { riders: v.riders } : {}),
+  // the card leaves out what the agent hid, and its headline and split follow (quote-card.ts)
+  ...(hideOf(v).length ? { hide: hideOf(v) } : {}),
 });
 
 /** each waiver as the voice says it; the medical plan (MEB) is "ค่าชดเชยรายวัน", as the chat and the pages call it */
@@ -316,14 +338,44 @@ function riderFacts(
   };
 }
 
+const PER_MODE: Record<NonNullable<PriceRow["per"]>, PayMode> = { month: "monthly", half: "semi", year: "annual" };
+const LABEL_MODE: Record<string, PayMode> = { รายเดือน: "monthly", "ราย 6 เดือน": "semi", รายปี: "annual" };
+/** the instalment a price row is; undefined for a row that is not one (วิดีโอเทียบ 4 แผน's plans) */
+const rowMode = (r: PriceRow): PayMode | undefined => (r.per ? PER_MODE[r.per] : LABEL_MODE[r.label]);
+const SPOKEN_MODE: Record<string, PayMode> = { เดือนละ: "monthly", งวดละ: "semi", ปีละ: "annual", ...LABEL_MODE };
+
+/**
+ * ตั้งค่าส่วนตัว (owner, 2026-11-14): a clip made by an agent who hid an instalment never shows or says it.
+ * The price rows lose it (the yearly row is then the main one), and a spoken price in it becomes the
+ * yearly one. What each product says beyond that is its own builder's (iHealthy, มรดก, Protection Life).
+ */
+export function hidePay(f: QuoteVideoFacts, hide: readonly PayMode[]): QuoteVideoFacts {
+  if (!hide.length) return f;
+  const kept = f.prices.filter((r) => { const m = rowMode(r); return !m || shows(hide, m); });
+  const prices = !kept.length || kept.some((r) => r.main) ? kept : kept.map((r) => ({ ...r, main: rowMode(r) === "annual" }));
+  const yearly = prices.find((r) => rowMode(r) === "annual");
+  const spokenMode = SPOKEN_MODE[f.spokenPrice.per];
+  const spokenPrice = spokenMode && !shows(hide, spokenMode) && yearly ? { per: "ปีละ", amount: yearly.amount } : f.spokenPrice;
+  const noMonthly = !shows(hide, "monthly");
+  return {
+    ...f, prices, spokenPrice, hide: [...hide],
+    // บำนาญ 95's highlighted line is its monthly instalment: the yearly one instead
+    ...(f.product === "PENSION" && noMonthly && yearly ? { priceMark: `ปีละ ${yearly.amount} บาท` } : {}),
+    ...(f.legacy && noMonthly ? { legacy: { ...f.legacy, monthly: undefined } } : {}),
+    ...(f.plb ? { plb: { ...f.plb, ...(noMonthly ? { monthly: undefined } : {}), ...(!shows(hide, "semi") ? { semi: undefined } : {}) } } : {}),
+  };
+}
+
 /** The facts for an arrangement; undefined for anything the clip cannot state (no price, not sold). */
 export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteVideoFacts | undefined {
-  const f = v.product === "IHEALTHY" ? iHealthyFacts(v, today)
+  const hide = hideOf(v);
+  const built = v.product === "IHEALTHY" ? iHealthyFacts(v, today, hide)
     : v.product === "PENSION" ? pensionVideoFacts(v)
     : v.product === "LEGACY" ? legacyVideoFacts(v, today)
     : v.product === "PLB" ? plbVideoFacts(v, today)
     : v.product === "GSAVING" ? gsavingVideoFacts(v)
     : planFacts(v, today);
+  const f = built && hide.length ? hidePay(built, hide) : built;
   if (!f || !v.budget) return f;
   // a clip begun from a budget says what the customer saves, in the instalment they named
   const per = v.budget.per;
@@ -437,8 +489,9 @@ function cellOf(rows: { label: string; cells: { text: string }[]; span?: string 
   return row?.span ?? row?.cells[i]?.text;
 }
 
-function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: Date): QuoteVideoFacts | undefined {
-  if (v.allPlans) return allPlansVideoFacts({ ...v, allPlans: v.allPlans }, today);
+function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: Date, hide: readonly PayMode[] = []): QuoteVideoFacts | undefined {
+  // an instalment the agent hid is never the one the four plans are priced in: yearly instead
+  if (v.allPlans) return allPlansVideoFacts({ ...v, allPlans: shows(hide, v.allPlans) ? v.allPlans : "annual" }, today);
   const query = setupQuery(v);
   const card = iHealthyCard(query, today);
   // another language: the same card read in it (ihealthy-card.ts `l=`), row for row and column
@@ -454,11 +507,14 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
   if (!card.insuredWho.endsWith(` ${v.age} ปี`)) return undefined;
   const price = (label: string, i: number) => card.premiumRows.find((r) => r.label === label)?.cells[i]?.text ?? "";
   const monthly = price("รายเดือน", at);
+  // the agent hid the monthly instalment (ตั้งค่าส่วนตัว): the first year's yearly price is the one said and shown
+  const yearOnly = !shows(hide, "monthly");
+  const yearly = price("รายปี", at);
   const PER: Record<string, PriceRow["per"]> = { รายเดือน: "month", รายปี: "year", "ราย 6 เดือน": "half" };
   const prices = card.premiumRows
-    .map((r, k) => ({ label: shown.premiumRows[k]?.label ?? r.label, amount: r.cells[at]?.text ?? "", main: r.label === "รายเดือน", per: PER[r.label] }))
+    .map((r, k) => ({ label: shown.premiumRows[k]?.label ?? r.label, amount: r.cells[at]?.text ?? "", main: r.label === (yearOnly ? "รายปี" : "รายเดือน"), per: PER[r.label] }))
     .filter((r) => digits(r.amount) > 0);
-  if (!monthly || prices.length === 0) return undefined;
+  if (!monthly || prices.length === 0 || (yearOnly && !yearly)) return undefined;
   /** a benefit row in Thai, for the voice, and as it is shown */
   const kept = card.rows
     .map((r, k) => ({ r, k }))
@@ -494,7 +550,8 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
       name: c.name, ceiling: shown.columns[i]?.ceiling ?? c.ceiling, main: i === at,
       room: (cellOf(shown.rows, shown.rows[cardRowAt(card.rows, "ค่าห้องและค่าอาหาร")]?.label ?? "", i) ?? "-").replace(perDay, ""),
       opd: cellOf(shown.rows, shown.rows[cardRowAt(card.rows, "ผู้ป่วยนอก OPD")]?.label ?? "", i) ?? "-",
-      monthly: price("รายเดือน", i),
+      monthly: yearOnly ? "" : price("รายเดือน", i),
+      ...(yearOnly ? { yearly: price("รายปี", i) } : {}),
       ceilingBaht: ceilingBaht(c.ceiling),
     }));
   const ceiling = ceilingBaht(col.ceiling);
@@ -509,10 +566,11 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     age: v.age,
     planName: col.name,
     lead: { label: w.annualLimit, amount: ceiling.toLocaleString("en-US"), baht: ceiling },
-    leadMark: vw.leadMark(monthly),
+    leadMark: yearOnly ? vw.leadMarkYear(yearly) : vw.leadMark(monthly),
+    ...(yearOnly ? { priceBig: { label: vw.firstYearYearly, amount: yearly, unit: vw.baht } } : {}),
     priceTitle: vw.priceTitle,
     prices,
-    spokenPrice: { per: "เดือนละ", amount: monthly },
+    spokenPrice: yearOnly ? { per: "ปีละ", amount: yearly } : { per: "เดือนละ", amount: monthly },
     pills: [],
     priceNotes: [shown.lines.map((l) => l.label).join(" · "), w.firstYearOnly],
     coverTitle: vw.coverTitle(col.name),
@@ -529,7 +587,7 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     includes,
     lifeSum: card.base.sum,
     ...(shown.riderNames.length ? { riderNames: shown.riderNames } : {}),
-    ...(compare.length >= 2 ? { compare } : {}),
+    ...(compare.length >= 2 ? { compare, ...(yearOnly ? { comparePer: "year" as const } : {}) } : {}),
   };
 }
 
@@ -694,7 +752,7 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
     const p = f.pension;
     return [
       { key: "lead", voice: `${f.budget ? budgetLead(f, "ถ้าออม") : "ออมวันนี้ "}ตั้งแต่อายุ ${p.start} รับบำนาญเดือนละ ${p.monthly} บาท ไปจนถึงอายุ 95 ค่ะ` },
-      { key: "price", voice: `ออมเดือนละ ${f.spokenPrice.amount} บาท เพียง ${f.payYears} ปี แถมลดหย่อนภาษีได้ค่ะ` },
+      { key: "price", voice: `ออม${f.spokenPrice.per} ${f.spokenPrice.amount} บาท เพียง ${f.payYears} ปี แถมลดหย่อนภาษีได้ค่ะ` },
       { key: "contact", voice: ask },
     ];
   }
@@ -722,7 +780,7 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
   if (f.product === "IHEALTHY") {
     return [
       { key: "lead", voice: `${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ` },
-      { key: "price", voice: `ปีแรกเดือนละ ${f.spokenPrice.amount} บาท รวม${includesSaid(f)}ค่ะ` },
+      { key: "price", voice: `ปีแรก${f.spokenPrice.per} ${f.spokenPrice.amount} บาท รวม${includesSaid(f)}ค่ะ` },
       { key: "contact", voice: ask },
     ];
   }
@@ -759,10 +817,10 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     const others = (f.compare ?? []).filter((p) => !p.main);
     return [
       { key: "lead", voice: `${hello} ขอเล่าแผนประกันสุขภาพนี้ให้ฟังสั้นๆ นะคะ ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}แผน ${f.planName} เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`.replace(/\s+/g, " ") },
-      { key: "price", voice: `ปีแรกค่าใช้จ่ายเดือนละ ${f.spokenPrice.amount} บาท รวม${includesSaid(f, "กับ", true)}ไว้แล้วค่ะ` },
+      { key: "price", voice: `ปีแรกค่าใช้จ่าย${f.spokenPrice.per} ${f.spokenPrice.amount} บาท รวม${includesSaid(f, "กับ", true)}ไว้แล้วค่ะ` },
       { key: "cover", voice: healthCoverLine(f) },
       ...(others.length
-        ? [{ key: "compare" as const, voice: `ถ้าอยากเทียบ ${others.map((p) => `แผน ${p.name} วงเงิน ${p.ceiling} เดือนละ ${p.monthly} บาท`).join(" และ")} ต่ออายุได้ถึงอายุ ${f.coverToAge} เลยค่ะ` }]
+        ? [{ key: "compare" as const, voice: `ถ้าอยากเทียบ ${others.map((p) => `แผน ${p.name} วงเงิน ${p.ceiling} ${f.comparePer === "year" ? `ปีละ ${p.yearly ?? ""}` : `เดือนละ ${p.monthly}`} บาท`).join(" และ")} ต่ออายุได้ถึงอายุ ${f.coverToAge} เลยค่ะ` }]
         : []),
       { key: "contact", voice: closing },
     ];
@@ -855,7 +913,7 @@ function pensionScript(f: QuoteVideoFacts, p: PensionVideoFacts, hello: string, 
     : i === later.length - 1 ? `และตั้งแต่ ${b.from} ได้ปีละ ${b.annual} บาท` : `อายุ ${b.from} ปีละ ${b.annual} บาท`));
   return [
     { key: "lead", voice: `${hello} ขอเล่าแผนบำนาญนี้ให้ฟังสั้นๆ นะคะ ${named ? "" : `${who} `}อยากมีเงินใช้ทุกเดือนหลังเกษียณ ${budgetLead(f, "ถ้าออม")}ตั้งแต่อายุ ${p.start} รับบำนาญเดือนละ ${p.monthly} บาท ไปจนถึงอายุ 95 เลยค่ะ`.replace(/\s+/g, " ") },
-    { key: "price", voice: `ออมปีละ ${annual} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท ออมเพียง ${f.payYears} ปีก็ครบ ยอดออมเท่าเดิมตลอด แล้วยังนำไปลดหย่อนภาษีได้ด้วยค่ะ` },
+    { key: "price", voice: `ออมปีละ ${annual} บาท${f.spokenPrice.per === "ปีละ" ? "" : ` หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท`} ออมเพียง ${f.payYears} ปีก็ครบ ยอดออมเท่าเดิมตลอด แล้วยังนำไปลดหย่อนภาษีได้ด้วยค่ะ` },
     { key: "cover", voice: `ยิ่งอายุมาก ยิ่งได้มากขึ้นค่ะ ${steps.join(" ")}ค่ะ` },
     { key: "value", voice: `ที่ชอบที่สุดคือ บำนาญ 15 ปีแรกรับประกันจ่าย ถ้าเป็นอะไรไปก่อน ครอบครัวยังได้ส่วนที่เหลือ รวมรับบำนาญถึงอายุ 95 ประมาณ ${total}ค่ะ` },
     { key: "contact", voice: closing },
@@ -963,7 +1021,7 @@ export function pageCaption(f: QuoteVideoFacts): string {
     const p = f.pension;
     return [
       `บำนาญเดือนละ ${p.monthly} บาท ตั้งแต่อายุ ${p.start} ถึง 95`,
-      `${who} ออมเดือนละ ${f.spokenPrice.amount} บาท จ่ายแค่ ${f.payYears} ปี เบี้ยลดหย่อนภาษีได้`,
+      `${who} ออม${f.spokenPrice.per} ${f.spokenPrice.amount} บาท จ่ายแค่ ${f.payYears} ปี เบี้ยลดหย่อนภาษีได้`,
       `บำนาญเพิ่มตามอายุ · รับประกันจ่าย 15 ปีแรก`,
       "",
       ask,
@@ -1005,7 +1063,7 @@ export function pageCaption(f: QuoteVideoFacts): string {
   if (f.product === "IHEALTHY") {
     return [
       `ประกันสุขภาพเหมาจ่าย แผน ${f.planName} วงเงิน ${spokenBaht(f.lead.baht)}บาทต่อปี`,
-      `${who} ปีแรกเดือนละ ${f.spokenPrice.amount} บาท`,
+      `${who} ปีแรก${f.spokenPrice.per} ${f.spokenPrice.amount} บาท`,
       `ต่ออายุได้ถึงอายุ ${f.coverToAge}`,
       "",
       ask,

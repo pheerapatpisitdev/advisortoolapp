@@ -1287,8 +1287,8 @@ function Compare({ c, t }: { c: MotionContext; t: number }) {
             <div style={box({ fontSize: 40, fontWeight: 600 })}>{p.room}</div>
             <div style={box({ fontSize: 30, marginTop: 20, opacity: 0.8 })}>{vw.compareRows[2]}</div>
             <div style={box({ fontSize: 40, fontWeight: 600 })}>{p.opd}</div>
-            <div style={box({ fontSize: 30, marginTop: 20, opacity: 0.8 })}>{vw.perMonth}</div>
-            <div style={box({ fontSize: 48, fontWeight: 700 })}>{p.monthly}</div>
+            <div style={box({ fontSize: 30, marginTop: 20, opacity: 0.8 })}>{f.comparePer === "year" ? vw.perYear : vw.perMonth}</div>
+            <div style={box({ fontSize: 48, fontWeight: 700 })}>{f.comparePer === "year" ? p.yearly ?? "" : p.monthly}</div>
           </El>
         ))}
       </div>

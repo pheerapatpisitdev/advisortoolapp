@@ -4,6 +4,8 @@ import { Disclaimer, TermsSection } from "@/components/ihealthy/Sections";
 import { LangSwitch } from "@/components/ihealthy/LangSwitch";
 import { CalcTitle } from "@/components/sales/CalcTitle";
 import { gateCalc } from "@/lib/auth/viewer";
+import { HIDE_KEY, hideParam } from "@/lib/pay-prefs";
+import { hiddenOnPage } from "@/lib/pay-prefs-store";
 import { compareLines } from "@/lib/ihealthy-compare-card";
 import { COMPARE_WORDS } from "@/lib/ihealthy-compare-words";
 import { iHealthyFacts } from "@/lib/ihealthy-facts";
@@ -30,7 +32,7 @@ export async function generateMetadata() {
 export default async function IHealthyComparePage(
   { searchParams }: { searchParams: Promise<IHealthyQuery> },
 ) {
-  await gateCalc("/ihealthy-ultra/compare");
+  const viewer = await gateCalc("/ihealthy-ultra/compare");
   const table = iHealthyTable();
   const lang = await readerLang();
   const w = WORDS[lang];
@@ -42,6 +44,8 @@ export default async function IHealthyComparePage(
   } catch (thrown) {
     if (!(thrown instanceof TypeError) || !Object.hasOwn(searchParams, "constructor")) throw thrown;
   }
+  // ตั้งค่าส่วนตัว, as on the calculator page: the agent's own setting, or the printed link's
+  const hide = await hiddenOnPage(viewer, query);
   return (
     <main lang={HTML_LANG[lang]} className="mx-auto max-w-lg px-4 pb-10 sm:max-w-3xl">
       <LangSwitch lang={lang} label={w.switchLabel} />
@@ -59,7 +63,7 @@ export default async function IHealthyComparePage(
       <IHealthyCompare
         table={table} lines={compareLines(lang)} plans={facts.plans}
         participationNote={facts.terms.participationNote}
-        initial={initialFrom(table, query)} lang={lang}
+        initial={initialFrom(table, { ...query, [HIDE_KEY]: hideParam(hide) })} lang={lang}
       />
       <div className="print:hidden">
         <TermsSection facts={facts} w={w} />

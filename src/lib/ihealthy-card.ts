@@ -5,6 +5,7 @@ import { PHONE_ROW_LABEL, phoneColumns } from "@/lib/ihealthy-phone";
 import { iHealthyFacts, isHeading, planLabel } from "@/lib/ihealthy-facts";
 import { deathBenefitRows, type BenefitRow as DeathRow } from "@/lib/death-benefit";
 import { initialFrom, ridersFrom } from "@/lib/ihealthy-link";
+import { shows } from "@/lib/pay-prefs";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import {
   MODES, deathBenefitOf, iHealthyPricing, plansFor,
@@ -218,7 +219,8 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
     });
   }
 
-  const premiumRows = table.expired ? [] : MODES.map((mode) => ({
+  // without the instalments the agent switched off (src/lib/pay-prefs.ts); the year stays
+  const premiumRows = table.expired ? [] : MODES.filter((mode) => shows(v.hide ?? [], mode)).map((mode) => ({
     label: w.mode[mode],
     cells: cellsOf((code) => {
       // A dash where the company refuses the instalment: its monthly floor is judged on the

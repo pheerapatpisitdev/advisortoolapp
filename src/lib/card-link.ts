@@ -1,5 +1,6 @@
 import type { PayMode, Sex } from "@/calc/types";
 import { cardVersionFor } from "@/lib/card-theme";
+import { writeHide } from "@/lib/pay-prefs";
 
 /**
  * What a card is asked for, and the link that asks for it.
@@ -48,6 +49,8 @@ export interface PlanCardInput {
   mode?: PayMode;
   /** Life Protect only: the riders its page priced in */
   riders?: CardRiders;
+  /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts) */
+  hide?: PayMode[];
 }
 
 /**
@@ -69,6 +72,8 @@ export interface BundleCardInput {
    * link anyway, because what was asked for is worth keeping even though it changes nothing.
    */
   mode?: PayMode;
+  /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts) */
+  hide?: PayMode[];
 }
 
 /** The Life Protect page's riders, written into a link the way every link of ours writes them. */
@@ -140,6 +145,8 @@ function cardQuery(input: CardInput, characters = false): string {
   if (input.mode) q.set("mode", input.mode);
   // after the arrangement and before the fingerprint, the order canonical.ts keeps
   writeRiders(q, input.kind === "plan" ? input.riders : undefined);
+  // what the agent hides; nothing when everything is shown, so older addresses stay as they were
+  writeHide(q, input.hide);
   // the chat's table only: the characters on the chart are asked for, not assumed
   if (characters) q.set("fig", "1");
   /**

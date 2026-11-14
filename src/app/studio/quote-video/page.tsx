@@ -17,6 +17,7 @@ import { walletPrices } from "@/lib/wallet/store";
 import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
 import { fxFor } from "@/lib/quote-video/fx-switch";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
+import { hiddenFor } from "@/lib/pay-prefs-store";
 import { ToolLogo } from "@/components/shell/ToolLogo";
 import { HelpLink } from "@/components/help/HelpLink";
 import { GS_AGE_MAX, GS_AGE_MIN } from "@/calc/global-saving/engine";
@@ -74,6 +75,8 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
   const quota = await voiceQuota();
   // ลูกเล่นคลิปใหม่: the music switch shows to whoever the back office gives the new look (fx-switch.ts)
   const fx = await fxFor(viewer);
+  // ตั้งค่าส่วนตัว: the instalments this agent hid, so the form stops offering them
+  const hide = await hiddenFor(viewer.agentId);
   const start = videoStartFrom(await searchParams);
   const fhc = await fhcChoices(start?.fhc).catch((e) => {
     console.error("fhc customers not read:", e);
@@ -88,7 +91,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       </p>
       <p className="mt-1.5"><HelpLink clip="quote-video">ดูคลิปวิธีทำ</HelpLink></p>
       <ClosedNotice viewer={viewer} feature="quote-video" />
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} fx={fx} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} fx={fx} hide={hide} />
     </div>
   );
 }
