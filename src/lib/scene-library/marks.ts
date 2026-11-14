@@ -1,3 +1,4 @@
+import { DEMO_ID } from "@/lib/auth/demo";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { libraryItem } from "./catalog";
 
@@ -35,12 +36,15 @@ export async function marksOf(agentId: string): Promise<{ saved: string[]; wante
   };
 }
 
-/** votes per item, across every viewer: only items someone wants appear */
+/**
+ * votes per item, across every viewer: only items someone wants appear. The shared demo account's
+ * votes are not counted (controller ruling R2, 2026-11-14): customers trying the system press it, not agents.
+ */
 export async function wantCounts(): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
   const db = supabaseAdmin();
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await db.from(TABLE).select("item").eq("kind", "want")
+    const { data, error } = await db.from(TABLE).select("item").eq("kind", "want").neq("agent_id", DEMO_ID)
       // a stable order (the primary key), or a row can fall between two pages
       .order("item", { ascending: true }).order("agent_id", { ascending: true })
       .range(from, from + PAGE - 1);

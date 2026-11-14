@@ -19,7 +19,9 @@ const mem = vi.hoisted(() => ({
 function answer(steps: Step[]): { data: unknown; error: unknown } {
   if (mem.failAll) return { data: null, error: mem.failAll };
   const eqs = steps.filter((s) => s.method === "eq");
-  const hit = (r: Row) => eqs.every((s) => String(r[s.args[0] as keyof Row]) === String(s.args[1]));
+  const neqs = steps.filter((s) => s.method === "neq");
+  const hit = (r: Row) => eqs.every((s) => String(r[s.args[0] as keyof Row]) === String(s.args[1]))
+    && neqs.every((s) => String(r[s.args[0] as keyof Row]) !== String(s.args[1]));
   const insert = steps.find((s) => s.method === "insert");
   if (insert) {
     if (mem.insertError) { const e = mem.insertError; mem.insertError = null; return { data: null, error: e }; }
@@ -64,6 +66,7 @@ import { LIBRARY } from "@/lib/scene-library/catalog";
 import { marksOf, toggleMark, wantCounts } from "@/lib/scene-library/marks";
 import { toggleLibraryMark } from "@/app/studio/library/actions";
 import { OWNER } from "../helpers/signed-in";
+import { DEMO_ID } from "@/lib/auth/demo";
 
 const READY = LIBRARY.find((i) => i.ready)!.id;
 const UNBUILT = LIBRARY.filter((i) => !i.ready).map((i) => i.id);
@@ -92,8 +95,7 @@ describe("toggleMark", () => {
   });
   it("refuses an item not in the catalogue, and a kind that is neither save nor want", async () => {
     expect(await toggleMark(A, "no-such-piece", "save")).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
-    const r = await toggleMark(A, UNBUILT[0], "x" as never);
-    expect(r.ok).toBe(false);
+    expect(await toggleMark(A, UNBUILT[0], "x" as never)).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
     expect(mem.rows).toEqual([]);
     expect(mem.queries).toHaveLength(0);
   });
@@ -135,6 +137,16 @@ describe("wantCounts", () => {
     for (let i = 0; i < 1500; i++) mem.rows.push({ agent_id: `agent-${i}`, item: UNBUILT[i % 2], kind: "want" });
     expect(await wantCounts()).toEqual({ [UNBUILT[0]]: 750, [UNBUILT[1]]: 750 });
   });
+  it("leaves out the shared demo account's votes, reading past the cap all the same", async () => {
+    await toggleMark(A, UNBUILT[0], "want");
+    await toggleMark(DEMO_ID, UNBUILT[0], "want");
+    await toggleMark(DEMO_ID, UNBUILT[1], "want");
+    expect(await wantCounts()).toEqual({ [UNBUILT[0]]: 1 });
+    expect(mem.queries.at(-1)!.some((s) => s.method === "neq" && s.args[0] === "agent_id" && s.args[1] === DEMO_ID)).toBe(true);
+    mem.rows = [];
+    for (let i = 0; i < 1500; i++) mem.rows.push({ agent_id: i % 3 ? `agent-${i}` : DEMO_ID, item: UNBUILT[0], kind: "want" });
+    expect(await wantCounts()).toEqual({ [UNBUILT[0]]: 1000 });
+  });
   it("is empty with no votes", async () => {
     expect(await wantCounts()).toEqual({});
   });
@@ -147,7 +159,7 @@ describe("toggleLibraryMark", () => {
   });
   it("refuses what toggleMark refuses", async () => {
     expect(await toggleLibraryMark(READY, "want")).toEqual({ ok: false, error: "ชิ้นนี้ใช้ได้แล้ว ไม่ต้องกดอยากได้" });
-    expect((await toggleLibraryMark(UNBUILT[0], "x")).ok).toBe(false);
+    expect(await toggleLibraryMark(UNBUILT[0], "x")).toEqual({ ok: false, error: "ไม่พบรายการนี้ในคลัง" });
     expect((await toggleLibraryMark(42 as never, "save")).ok).toBe(false);
   });
 });

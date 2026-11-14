@@ -15,6 +15,7 @@ export const TOOL_LOGOS = {
   ca: "Ca", // ปฏิทินโพสต์ · Calendar
   hk: "Hk", // คลังสูตรประโยคเปิด · Hooks
   pe: "Pe", // คลังบุคคล · People
+  an: "An", // คลังแอนิเมชัน · Animation library
 } as const;
 
 export type ToolLogoId = keyof typeof TOOL_LOGOS;
