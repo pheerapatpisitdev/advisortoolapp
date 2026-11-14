@@ -462,7 +462,7 @@ export async function previewStoryHealth(v: { plan?: string; sex?: string; age?:
  * คลิปเล่าเรื่อง (owner, 2026-10-15): a cartoon story clip. The premium it shows, if any, is
  * worked out again here from the plan's table, never taken from the form.
  */
-export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "health" | "home"> & { figure?: unknown; ladder?: unknown; pension?: unknown; health?: unknown; home?: unknown }, customer: string): Promise<Made> {
+export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "health" | "home" | "money"> & { figure?: unknown; ladder?: unknown; pension?: unknown; health?: unknown; home?: unknown; money?: unknown }, customer: string): Promise<Made> {
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "story-clip");
   if (closed) return { ok: false, error: closed };

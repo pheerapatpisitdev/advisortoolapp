@@ -16,6 +16,8 @@ import { pensionPremium, PENSION_NAME } from "./pension";
 import { cleanCustomerName, noMonthly, spokenBaht, spokenBy } from "./script";
 import { festivalGreeting } from "./story-after";
 import { knowEpisode, type KnowSceneKey } from "./story-knowledge";
+import { storyMoney, type StoryMoney } from "./story-money";
+import { TAX_YEAR } from "@/lib/scene-library/tax-th";
 import { sizeOf, type VideoSize } from "./timeline";
 
 /**
@@ -33,6 +35,7 @@ import { sizeOf, type VideoSize } from "./timeline";
 
 export { STORY_TOPICS, type StoryTopic } from "@/lib/story/topics";
 export { planName, termShort } from "@/lib/story/plans";
+export { storyMoney, type StoryMoney } from "./story-money";
 
 /** กองกลาง 48 คน's scenes, ความรู้ประกัน 1 นาที's (story-knowledge.ts), and the agent's card both end on */
 export type StorySceneKey = "storyHook" | "storyPool" | "storyHit" | "storyHelp" | "storyAll" | KnowSceneKey | "storyContact" | "freeScene";
@@ -77,6 +80,8 @@ export interface StoryVideoInput {
   health?: StoryHealth;
   /** เสาหลักหายไป, ค่าเรียนลูก, ผ่อนบ้าน and ใกล้เกษียณ: the household's own numbers, as the agent typed them */
   home?: StoryHome;
+  /** ทุนชีวิต ภาษี มรดก: the numbers the agent typed, each optional, checked by storyMoney (story-money.ts) */
+  money?: StoryMoney;
   /** เตือนชำระเบี้ย: the day the premium falls due (YYYY-MM-DD), and how much if the agent said */
   due?: { date: string; amount?: number };
   /** เทศกาล: which one */
@@ -279,7 +284,7 @@ export function storyDue(v: unknown): { date: string; amount?: number } | string
 }
 
 export function checkedStory(
-  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "health" | "home" | "due" | "festival"> & { figure?: unknown; ladder?: unknown; pension?: unknown; health?: unknown; home?: unknown; due?: unknown; festival?: unknown },
+  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "health" | "home" | "money" | "due" | "festival"> & { figure?: unknown; ladder?: unknown; pension?: unknown; health?: unknown; home?: unknown; money?: unknown; due?: unknown; festival?: unknown },
   narrator: "F" | "M", voice?: string,
 ): StoryVideoInput | string {
   const topic = topicOf(String(v.topic ?? ""));
@@ -332,6 +337,8 @@ export function checkedStory(
     if (typeof h === "string") return h;
     home = h;
   }
+  // ทุนชีวิต ภาษี มรดก: what was typed in range is kept, anything else left off (the device then says it in words)
+  const money = topic.shelf === "money" ? storyMoney(topic.key, v.money) : undefined;
   let minimal: Pick<StoryVideoInput, "art" | "ground" | "cast"> = {};
   if (v.art === "minimal") {
     const heroLook = checkedLook(v.cast?.hero), narratorLook = checkedLook(v.cast?.narrator);
@@ -361,7 +368,7 @@ export function checkedStory(
     product: "STORY", topic: topic.key, narrator, ...(voice ? { voice } : {}), style: "story", length: "full",
     size: sizeOf(v), palette: v.palette === "color" ? "color" : "reveal",
     faces: { narrator: narratorFace, hero, ...(partner ? { partner } : {}) }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}), ...(pension ? { pension } : {}), ...(health ? { health } : {}), ...(home ? { home } : {}),
-    ...(due ? { due } : {}), ...(festival ? { festival } : {}), ...minimal,
+    ...(money ? { money } : {}), ...(due ? { due } : {}), ...(festival ? { festival } : {}), ...minimal,
   };
 }
 
@@ -446,7 +453,14 @@ const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
   roomcost: ["ค่าห้องแพงกว่าที่แผนจ่าย ส่วนต่างใครจ่าย?", "ส่วนที่เกินวงเงินค่าห้อง เราจ่ายเอง ตามเงื่อนไขของแผน เลือกค่าห้องและวงเงินให้พอกับที่ใช้จริง"],
   waiting: ["สมัครประกันสุขภาพวันนี้ คุ้มครองเมื่อไหร่?", "นับช่วงรอจากวันที่กรมธรรม์มีผล ป่วยทั่วไปและบางโรคมีช่วงรอ โรคที่เป็นมาก่อนสมัครปกติไม่คุ้มครอง ตามเงื่อนไข แถลงสุขภาพให้ครบ"],
   agecost: ["ทำประกันสุขภาพตอนอายุน้อย เบี้ยถูกกว่าจริงไหม?", "สมัครตอนสุขภาพดี ยังไม่มีโรคเดิมให้ยกเว้น เบี้ยสุขภาพปรับตามอายุทุกปีที่ต่อสัญญา ช่วงอายุน้อยจึงจ่ายในอัตราที่ต่ำกว่า"],
+  lifeneed: ["ทุนประกันชีวิต ควรมีเท่าไหร่ถึงพอ?", "รวมหนี้ที่ยังค้าง ค่าใช้จ่ายครอบครัว และค่าเรียนลูก ได้เท่าไหร่ คือทุนชีวิตที่ควรมี และระบุผู้รับประโยชน์ให้ชัด"],
+  ciincome: ["ป่วยหนัก รายได้หายไปไหน?", "ระหว่างรักษา รายได้อาจหยุด แต่ค่าใช้จ่ายของบ้านไม่หยุดตาม ประกันโรคร้ายแรงจ่ายเป็นเงินก้อนเมื่อแพทย์วินิจฉัยตามเงื่อนไขกรมธรรม์"],
+  taxback: ["เบี้ยประกันชีวิต ลดหย่อนภาษีได้เท่าไหร่?", "กรมธรรม์ที่มีระยะเวลาคุ้มครอง 10 ปีขึ้นไป นำเบี้ยไปหักลดหย่อนในแบบ ภ.ง.ด. ได้ตามเพดาน ฐานภาษียิ่งสูง ภาษีที่ลดได้ยิ่งมาก"],
 };
+
+/** ทุนชีวิต ภาษี มรดก's footnotes (spec): the figures are the agent's own examples; the tax topic's are the law's, to be checked */
+const MONEY_FOOT = "*ตัวเลขในคลิปเป็นตัวอย่างจากที่ตัวแทนกรอก";
+const TAX_CAPTION_FOOT = `*ตามเกณฑ์กรมสรรพากร ${TAX_YEAR} ตรวจสอบเงื่อนไขก่อนใช้สิทธิ`;
 
 const PREMIUM_REAL = "เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท";
 
@@ -470,10 +484,11 @@ export function storyCaption(input: StoryVideoInput): string {
       // "แบ่งจ่ายรายเดือนได้" goes where the agent hid the monthly instalment
       ...(input.topic === "pricey" && noMonthly(input) ? ["เบี้ยแพง ไม่มีงบ?", "เริ่มเท่าที่จ่ายไหว เริ่มเล็กดีกว่าไม่เริ่ม"] : EPISODE_CAPTION[input.topic]),
       "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
-      ...(input.health ? ["", healthFootnote(input.topic, input.health.figures.planName)]
+      ...(topicOf(input.topic)?.shelf === "money" ? ["", MONEY_FOOT, ...(input.topic === "taxback" ? [TAX_CAPTION_FOOT] : [])]
+        : input.health ? ["", healthFootnote(input.topic, input.health.figures.planName)]
         : input.figure || input.ladder || input.pension ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : input.pension ? PENSION_NAME : planName(input.figure!.plan)} ${PREMIUM_REAL}`] : []),
       "",
-      { family: "#ครอบครัว #ประกันชีวิต", after: "#ดูแลหลังการขาย #ประกันชีวิต", objection: "#ตอบข้อสงสัย #ประกันชีวิต", life: "#ช่วงชีวิต #ประกันชีวิต", health: "#ความรู้ประกัน #ประกันสุขภาพ" }[topicOf(input.topic)?.shelf as string] ?? "#ความรู้ประกัน #ประกันชีวิต",
+      { family: "#ครอบครัว #ประกันชีวิต", after: "#ดูแลหลังการขาย #ประกันชีวิต", objection: "#ตอบข้อสงสัย #ประกันชีวิต", life: "#ช่วงชีวิต #ประกันชีวิต", health: "#ความรู้ประกัน #ประกันสุขภาพ", money: "#วางแผนการเงิน #ประกันชีวิต" }[topicOf(input.topic)?.shelf as string] ?? "#ความรู้ประกัน #ประกันชีวิต",
     ].join("\n");
   }
   return [

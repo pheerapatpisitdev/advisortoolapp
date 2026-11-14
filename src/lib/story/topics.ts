@@ -33,8 +33,9 @@ export type StoryTopic =
   | "deliver" | "claimish" | "remind" | "birthday" | "festival"
   | "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey" | "orphan"
   | "firstjob" | "wedding" | "mortgage" | "selfemployed" | "preretire"
-  | "lumpsum" | "roomcost" | "waiting" | "agecost";
-export type StoryShelf = "story" | "knowledge" | "objection" | "family" | "life" | "after" | "health";
+  | "lumpsum" | "roomcost" | "waiting" | "agecost"
+  | "lifeneed" | "ciincome" | "taxback";
+export type StoryShelf = "story" | "knowledge" | "objection" | "family" | "life" | "after" | "health" | "money";
 
 export interface StoryTopicInfo {
   key: StoryTopic;
@@ -83,6 +84,9 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "roomcost", name: "ค่าห้องเกิน ใครจ่าย", shelf: "health", blurb: "ห้องแพงกว่าที่แผนจ่าย ส่วนต่างเป็นของเรา", figure: "health" },
   { key: "waiting", name: "สมัครวันนี้ คุ้มครองเมื่อไหร่", shelf: "health", blurb: "ช่วงรอคอยของการป่วยทั่วไป และบางโรค", figure: "health" },
   { key: "agecost", name: "ทำตอนอายุน้อย เบี้ยถูกกว่า", shelf: "health", blurb: "เบี้ยสุขภาพขึ้นตามอายุ ยิ่งเริ่มเร็วยิ่งเริ่มต้นต่ำ", figure: "health" },
+  { key: "lifeneed", name: "ทุนชีวิตเท่าไหร่ถึงพอ", shelf: "money", blurb: "หนี้ ค่าใช้จ่ายครอบครัว ค่าเรียนลูก รวมเป็นทุนที่ควรมี", figure: null },
+  { key: "ciincome", name: "ป่วยหนัก รายได้หายไปไหน", shelf: "money", blurb: "รายได้หยุดระหว่างรักษา เงินก้อนตอนวินิจฉัยช่วยได้", figure: null },
+  { key: "taxback", name: "เบี้ยประกันลดหย่อนได้เท่าไหร่", shelf: "money", blurb: "เพดานลดหย่อน และภาษีที่ลดได้ตามฐานภาษี", figure: null },
   { key: "deliver", name: "ส่งมอบกรมธรรม์", shelf: "after", blurb: "ขอบคุณ สรุปสิ่งที่ได้ เบี้ย เริ่มคุ้มครองเมื่อไร", figure: "plan", figureRequired: true },
   { key: "claimish", name: "วิธีเคลม · โรคร้ายแรง", shelf: "after", blurb: "iShield: จ่ายตามระยะของโรค ยื่นเคลมยังไง", figure: "plan", plans: ["ISHIELD"] },
   { key: "remind", name: "เตือนชำระเบี้ย", shelf: "after", blurb: "วันครบกำหนด และยอด", figure: null, ask: "due", short: true },
@@ -99,7 +103,33 @@ export const FESTIVALS: { key: Festival; name: string }[] = [
 export const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
 /** the shelves อินโฟกราฟิก draws (owner chose ข, 2026-11-01): the ones told in points, not through a family */
-export const INFO_SHELVES: StoryShelf[] = ["knowledge", "objection", "health"];
+export const INFO_SHELVES: StoryShelf[] = ["knowledge", "objection", "health", "money"];
+
+/**
+ * ทุนชีวิต ภาษี มรดก (device round 2, spec 2026-11-14-devices-life-tax-design.md): three topics drawn by the round-2
+ * devices, every number one the agent may type on the form, none needed. A number is a whole number from 1 to
+ * `max`; anything else is left off (story.ts storyMoney) and the device says it in words. taxback's bracket is not
+ * typed: it is one of the tax table's rates (tax-th.ts TAX_RATES), picked by a chip.
+ */
+export type MoneyTopic = "lifeneed" | "ciincome" | "taxback";
+export type MoneyField = "debts" | "expenses" | "years" | "education" | "have" | "monthly" | "months" | "ciSum" | "premium";
+export interface MoneyInput { key: MoneyField; label: string; unit: "บาท" | "ปี" | "เดือน"; max: number }
+export const MONEY_INPUTS: Record<MoneyTopic, MoneyInput[]> = {
+  lifeneed: [
+    { key: "debts", label: "หนี้คงเหลือ", unit: "บาท", max: 100_000_000 },
+    { key: "expenses", label: "ค่าใช้จ่ายครอบครัวต่อปี", unit: "บาท", max: 50_000_000 },
+    { key: "years", label: "จำนวนปีที่ต้องดูแล", unit: "ปี", max: 50 },
+    { key: "education", label: "ค่าการศึกษาลูก", unit: "บาท", max: 50_000_000 },
+    { key: "have", label: "ทุนประกันที่มีอยู่", unit: "บาท", max: 100_000_000 },
+  ],
+  ciincome: [
+    { key: "monthly", label: "รายได้ต่อเดือน", unit: "บาท", max: 10_000_000 },
+    { key: "months", label: "จำนวนเดือนที่หยุดรักษา", unit: "เดือน", max: 60 },
+    { key: "ciSum", label: "ทุนโรคร้ายแรง", unit: "บาท", max: 100_000_000 },
+  ],
+  taxback: [{ key: "premium", label: "เบี้ยประกันชีวิตต่อปี", unit: "บาท", max: 10_000_000 }],
+};
+export const isMoneyTopic = (key: string): key is MoneyTopic => Object.prototype.hasOwnProperty.call(MONEY_INPUTS, key);
 
 /**
  * The looks drawn through อินโฟกราฟิก's route with no people (story-info-motion.tsx), so kept only on INFO_SHELVES:

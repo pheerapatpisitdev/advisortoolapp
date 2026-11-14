@@ -3,7 +3,7 @@ import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
-import type { HealthLayout } from "@/lib/quote-video/story-knowledge";
+import type { DeviceLayout, HealthLayout } from "@/lib/quote-video/story-knowledge";
 import { INFO_SHELVES, infoArt, topicOf, type StoryTopic } from "@/lib/story/topics";
 
 /**
@@ -56,10 +56,12 @@ const STORY_LOOKS = [
 const PLOT_TOPIC: StoryTopic = "sumvspremium";
 const DEVICE_LOOK_ORDER = ["paper", "minimal", "line", "plot", "board", "neon", "blueprint"] as const;
 
-/** the story topic that shows each health device */
-const DEVICE_TOPIC: Record<HealthLayout, StoryTopic> = {
+/** the story topic that shows each device (threegen is in no episode: the spec links it to ทุนชีวิตเท่าไหร่ถึงพอ) */
+const DEVICE_TOPIC: Record<DeviceLayout, StoryTopic> = {
   split: "lumpsum", limit: "lumpsum", room: "roomcost", overflow: "roomcost",
   waiting: "waiting", cashless: "waiting", groupgap: "groupins", agecost: "agecost",
+  lifeneed: "lifeneed", beneficiary: "lifeneed", moneysplit: "lifeneed", threegen: "lifeneed",
+  incomestop: "ciincome", cilump: "ciincome", taxcap: "taxback", taxback: "taxback",
 };
 
 /** what a viewer reads under each device (the DEVICES `when` lines are for the script writer) */

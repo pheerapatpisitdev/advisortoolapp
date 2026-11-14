@@ -6,7 +6,8 @@ import { availablePensionAges, PENSION_LIMITS, type PensionPay } from "@/calc/pe
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { CostView } from "@/lib/quote-video/make";
 import { STORY_DEFAULT_TERM, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { FESTIVALS, figureShown, GRADUATE_AGE, INFO_ARTS, INFO_SHELVES, infoArt, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type InfoArt, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { FESTIVALS, figureShown, GRADUATE_AGE, INFO_ARTS, INFO_SHELVES, infoArt, isMoneyTopic, LADDER_AGES, LADDER_PLAN, LIVE_TO, MONEY_INPUTS, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type InfoArt, type MoneyField, type MoneyTopic, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { TAX_RATES } from "@/lib/scene-library/tax-th";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
@@ -38,6 +39,9 @@ import { startLook, type StoryStart } from "@/lib/scene-library/links";
  * ตอบข้อโต้แย้ง and ช่วงชีวิต (mockup https://claude.ai/artifact/RiKE8s8a3tAPBW4sfygMaR) add two
  * shelves of five: the home loan for ผ่อนบ้าน, and for ใกล้เกษียณ a month's spending once retired
  * and บำนาญ 95's premium for the pension wanted.
+ *
+ * ทุนชีวิต ภาษี มรดก (device round 2, spec 2026-11-14-devices-life-tax-design.md) adds a shelf of three: the
+ * customer's own numbers, every one optional (MONEY_INPUTS), and for the tax topic a chip of the table's rates.
  */
 
 const chip = (on: boolean) =>
@@ -46,10 +50,12 @@ const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-pan
 const label = "mb-1 block text-sm font-medium";
 
 /** the stories still to come, as the mockup listed them */
-const COMING = ["ซื้อตอนหนุ่มถูกกว่า", "ผู้หญิงมักอายุยืนกว่า", "ลดหย่อนภาษีปลายปี"];
-const SHELF_NAME = { story: "เล่าเรื่อง", knowledge: "ความรู้ประกัน 1 นาที", objection: "ตอบข้อโต้แย้ง", family: "ครอบครัว", life: "ช่วงชีวิต", after: "หลังการขาย", health: "ประกันสุขภาพ" } as const;
+const COMING = ["ซื้อตอนหนุ่มถูกกว่า", "ผู้หญิงมักอายุยืนกว่า"];
+const SHELF_NAME = { story: "เล่าเรื่อง", knowledge: "ความรู้ประกัน 1 นาที", objection: "ตอบข้อโต้แย้ง", family: "ครอบครัว", life: "ช่วงชีวิต", after: "หลังการขาย", health: "ประกันสุขภาพ", money: "ทุนชีวิต ภาษี มรดก" } as const;
 /** the dropdown's order, as the mockup listed the shelves */
-const SHELVES = ["story", "knowledge", "family", "objection", "life", "after", "health"] as const;
+const SHELVES = ["story", "knowledge", "family", "objection", "life", "after", "health", "money"] as const;
+/** ทุนชีวิต ภาษี มรดก: the scenes each topic's numbers show in */
+const MONEY_SHOWS: Record<MoneyTopic, string> = { lifeneed: "ขึ้นในฉากที่ 2 และ 4", ciincome: "ขึ้นในฉากที่ 2 และ 3", taxback: "ขึ้นในฉากที่ 3" };
 /** a date input's value, a month from today: the usual next due day is near */
 const inAMonth = () => { const d = new Date(Date.now() + 30 * 86_400_000); return d.toISOString().slice(0, 10); };
 /** the family topics that have the hero's partner in them */
@@ -377,8 +383,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const afterSale = info.shelf === "after";
   const objection = info.shelf === "objection";
   const life = info.shelf === "life";
-  // the one who wonders: ความรู้ประกัน and ตอบข้อโต้แย้ง have one, not a hero
-  const asks = knowledge || objection;
+  const moneyTopic: MoneyTopic | null = isMoneyTopic(topic) ? topic : null;
+  // the one who wonders: ความรู้ประกัน, ตอบข้อโต้แย้ง and ทุนชีวิต ภาษี มรดก have one, not a hero
+  const asks = knowledge || objection || moneyTopic !== null;
   // ช่วงชีวิต draws a family for these two, the one who wonders for the rest
   const lifeFamily = topic === "wedding" || topic === "mortgage";
   const episode = info.shelf !== "story";
@@ -409,6 +416,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [groupBill, setGroupBill] = useState("300,000");
   const [groupSum, setGroupSum] = useState("50,000");
   const [health, setHealth] = useState<Awaited<ReturnType<typeof previewStoryHealth>> | null>(null);
+  // ทุนชีวิต ภาษี มรดก: the customer's numbers as typed (with their commas), and the tax bracket's chip, none = ไม่ระบุ
+  const [moneyTyped, setMoneyTyped] = useState<Partial<Record<MoneyField, string>>>({});
+  const [bracket, setBracket] = useState<number | null>(null);
   const [plan, setPlan] = useState<StoryPlan>(firstPlan);
   const [variant, setVariant] = useState(STORY_DEFAULT_TERM[firstPlan]);
   const [age, setAge] = useState("35");
@@ -586,8 +596,15 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
           ? num(retireMonthly) < 1_000 || num(retireMonthly) > 1_000_000 ? "ค่าใช้จ่ายหลังเกษียณต่อเดือน 1,000 – 1,000,000 บาท" : null
           : num(tuition) < 1_000 || num(tuition) > 2_000_000 ? "ค่าเรียนต่อปี 1,000 – 2,000,000 บาท" : null;
   const healthOk = healthTopic && health && "figures" in health ? health.figures : null;
+  // ทุนชีวิต ภาษี มรดก: what was typed goes; nothing typed is no number (the device says it in words)
+  const moneyFields = moneyTopic ? MONEY_INPUTS[moneyTopic] : [];
+  const moneyOut: Partial<Record<MoneyField | "bracket", number>> = {};
+  for (const f of moneyFields) if (num(moneyTyped[f.key] ?? "")) moneyOut[f.key] = num(moneyTyped[f.key] ?? "");
+  if (moneyTopic === "taxback" && bracket !== null) moneyOut.bracket = bracket;
+  const moneyOver = moneyFields.find((f) => num(moneyTyped[f.key] ?? "") > f.max);
+  const moneyBad = moneyOver ? `${moneyOver.label} ไม่เกิน ${baht(moneyOver.max)} ${moneyOver.unit}` : null;
   const figureReady = info.figure === "plan" ? figureOk : info.figure === "pension" ? pensionOk : info.figure === "health" ? healthOk : ladderOk;
-  const ready = (!showsFigure || Boolean(figureReady)) && !homeBad && (info.ask !== "due" || Boolean(dueDate));
+  const ready = (!showsFigure || Boolean(figureReady)) && !homeBad && !moneyBad && (info.ask !== "due" || Boolean(dueDate));
   const name = customer.trim();
 
   async function make() {
@@ -605,6 +622,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
         ...(showsFigure && info.figure === "pension" ? { pension: { sex: heroSex, age: Number(age), annuityAge: Number(annuityAge), pay, monthly: pensionBaht } } : {}),
         ...(showsFigure && info.figure === "health" ? { health: { plan: healthChosen, sex: heroSex, age: Number(age), ...(num(healthRoom) ? { room: num(healthRoom) } : {}), ...(num(healthBill) ? { bill: num(healthBill) } : {}) } } : {}),
         ...(showsHome ? { home } : {}),
+        ...(moneyTopic && Object.keys(moneyOut).length ? { money: moneyOut } : {}),
         ...(info.ask === "due" ? { due: { date: dueDate, ...(num(dueAmount) ? { amount: num(dueAmount) } : {}) } } : {}),
         ...(info.ask === "festival" ? { festival } : {}),
       }, topic === "festival" ? "" : customer);
@@ -658,7 +676,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
               <span className="block text-[11px] font-semibold text-[var(--ct-accent)]">{SHELF_NAME[info.shelf]}</span>
               <b className="block text-sm">{info.name}</b>
               <span className="block text-xs text-[var(--ct-mute)]">{info.blurb}</span>
-              <span className="mt-1 block text-[11px] text-[var(--ct-mute)]">{info.short ? `คลิปสั้น 15–20 วินาที · ฿${priceBaht(prices.videoStoryShort)}` : `${info.figureRequired ? "ใช้แบบที่ลูกค้าซื้อ · " : info.figure || info.home ? "ใส่ตัวเลขจริงได้ · " : ""}6 ฉาก ประมาณ ${info.shelf === "story" ? "45" : "50"} วินาที`}</span>
+              <span className="mt-1 block text-[11px] text-[var(--ct-mute)]">{info.short ? `คลิปสั้น 15–20 วินาที · ฿${priceBaht(prices.videoStoryShort)}` : `${info.figureRequired ? "ใช้แบบที่ลูกค้าซื้อ · " : info.figure || info.home || moneyTopic ? "ใส่ตัวเลขจริงได้ · " : ""}6 ฉาก ประมาณ ${info.shelf === "story" ? "45" : "50"} วินาที`}</span>
             </div>
             <details>
               <summary className="min-h-9 cursor-pointer text-xs font-medium text-[var(--ct-mute)]">เรื่องต่อไป · เร็ว ๆ นี้ ({COMING.length})</summary>
@@ -703,7 +721,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             <p className="text-xs text-[var(--ct-mute)]">{afterSale ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในคลิปและบนการ์ดตัวแทน · ไม่ถามเลขกรมธรรม์ วันเกิด หรือเบอร์ลูกค้า" : asks ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในประโยคปิดท้ายและบนปุ่มของการ์ดตัวแทน" : life ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน · คู่ชีวิตและลูกในเรื่อง ระบบเลือกหน้าให้" : family ? "ลูก และพ่อแม่ของตัวเอก ระบบเลือกจากหน้าชุดเด็กและผู้สูงอายุให้ · ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน" : "อีก 47 คนในโหล ระบบเลือกจากคลัง ชายหญิงครึ่งต่อครึ่ง"}</p>
           </Step>
 
-          <Step n={3} title={info.figureRequired ? "แบบที่ลูกค้าซื้อ" : info.ask === "due" ? "วันครบกำหนดชำระเบี้ย" : info.ask === "festival" ? "เทศกาล" : info.home ? "ตัวเลขของบ้าน และเบี้ยจริง" : "ข้อมูลจากแบบประกัน"} summary={[showsHome ? "ตัวเลขของบ้าน" : "", !showsFigure ? "" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : info.figure === "pension" ? "ตัวเลขจริง · บำนาญ 95" : info.figure === "health" ? "ตัวเลขจริง · iHealthy" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`].filter(Boolean).join(" · ") || "ไม่ใช้"}>
+          <Step n={3} title={info.figureRequired ? "แบบที่ลูกค้าซื้อ" : info.ask === "due" ? "วันครบกำหนดชำระเบี้ย" : info.ask === "festival" ? "เทศกาล" : info.home ? "ตัวเลขของบ้าน และเบี้ยจริง" : moneyTopic ? "ตัวเลขของลูกค้า" : "ข้อมูลจากแบบประกัน"} summary={[showsHome ? "ตัวเลขของบ้าน" : "", Object.keys(moneyOut).length ? `ใส่ไว้ ${Object.keys(moneyOut).length} ช่อง` : "", !showsFigure ? "" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : info.figure === "pension" ? "ตัวเลขจริง · บำนาญ 95" : info.figure === "health" ? "ตัวเลขจริง · iHealthy" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`].filter(Boolean).join(" · ") || "ไม่ใช้"}>
             {info.home && (
               <div className="space-y-2 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
                 <span className={label}>ตัวเลขของบ้าน (ไม่ใส่ก็ได้)</span>
@@ -799,7 +817,33 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 {FESTIVALS.map((f) => <button key={f.key} type="button" className={chip(festival === f.key)} onClick={() => setFestival(f.key)}>{f.name}</button>)}
               </div>
             )}
-            {!info.figure ? (
+            {moneyTopic && (
+              <div className="space-y-3 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
+                <span className={label}>ตัวเลขของลูกค้า (ไม่ใส่ก็ได้)</span>
+                <div className="grid gap-3 @sm:grid-cols-2">
+                  {moneyFields.map((f) => (
+                    <div key={f.key}>
+                      <label htmlFor={`sc-money-${f.key}`} className={label}>{f.label} ({f.unit})</label>
+                      <input id={`sc-money-${f.key}`} inputMode="numeric" className={field} value={moneyTyped[f.key] ?? ""} placeholder="ไม่ใส่ก็ได้"
+                        onChange={(e) => setMoneyTyped((was) => ({ ...was, [f.key]: digits(e.target.value, String(f.max).length + 1) }))} />
+                    </div>
+                  ))}
+                </div>
+                {moneyTopic === "taxback" && (
+                  <div>
+                    <span className={label}>ฐานภาษี</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label="ฐานภาษี">
+                      <button type="button" className={chip(bracket === null)} onClick={() => setBracket(null)}>ไม่ระบุ</button>
+                      {TAX_RATES.map((r) => <button key={r} type="button" className={chip(bracket === r)} onClick={() => setBracket(r)}>{r}%</button>)}
+                    </div>
+                  </div>
+                )}
+                <p className={moneyBad ? "rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]" : "text-xs text-[var(--ct-mute)]"}>
+                  {moneyBad ?? `ไม่ใส่ก็ได้ ระบบใช้คำแทนตัวเลข · ${MONEY_SHOWS[moneyTopic]}${moneyTopic === "taxback" ? " · เพดานลดหย่อนมาจากตารางภาษีในระบบ" : ""}`}
+                </p>
+              </div>
+            )}
+            {moneyTopic ? null : !info.figure ? (
               info.ask ? null : <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">{afterSale ? "ตัวเลขในคลิปมาจากสัญญาและเกณฑ์การเคลมในระบบ ไม่ต้องใส่อะไรเพิ่ม" : "ตอนนี้ไม่มีตัวเลขเบี้ย ใช้ได้กับลูกค้าทุกคนและลงเพจได้ทันที"}</p>
             ) : (
             <>

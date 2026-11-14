@@ -6,6 +6,7 @@ import { AFTER_CLOSE, afterScenes, type AfterTopic } from "./story-after";
 import { familyScenes, FAMILY_CLOSE, type FamilyTopic } from "./story-family";
 import { healthScenes, HEALTH_CLOSE, type HealthTopic } from "./story-health";
 import { lifeScenes, LIFE_CLOSE, type LifeTopic } from "./story-life";
+import { MONEY_CLOSE, moneyScenes, type MoneyTopic } from "./story-money";
 import { objectionScenes, OBJECTION_CLOSE, type ObjectionTopic } from "./story-objection";
 import { refundAt, TAX_CAPS, TAX_FOOT, TAX_RATES, TAX_YEAR } from "@/lib/scene-library/tax-th";
 
@@ -330,7 +331,7 @@ const fiveRisks = (): KnowScene[] => [
 ];
 
 /** each episode's closing: what the card's button says, and the voice under it */
-const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | AfterTopic | ObjectionTopic | LifeTopic | HealthTopic>, string> = {
+const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | AfterTopic | ObjectionTopic | LifeTopic | HealthTopic | MoneyTopic>, string> = {
   sumvspremium: "อยากรู้ว่าทุนเท่าไรถึงพอ ทักมาได้เลย",
   declare: "ไม่แน่ใจว่าต้องแถลงอะไร ทักมาถามได้เลย",
   mythclaim: "อยากให้ช่วยดูเงื่อนไข ทักมาได้เลย",
@@ -348,6 +349,7 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
   const objection = () => objectionScenes(input.topic as ObjectionTopic, input);
   const health = () => healthScenes(input.topic as HealthTopic, input, name);
   const life = () => lifeScenes(input.topic as LifeTopic, input, name);
+  const money = () => moneyScenes(input.topic as MoneyTopic, input);
   const scenes = {
     sumvspremium: () => sumVsPremium(input),
     declare,
@@ -380,6 +382,9 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
     roomcost: health,
     waiting: health,
     agecost: health,
+    lifeneed: money,
+    ciincome: money,
+    taxback: money,
   }[input.topic]();
   // story-family.ts and story-after.ts import this file's helpers, so their words are looked up here, at call time
   const after = input.topic in AFTER_CLOSE ? AFTER_CLOSE[input.topic as AfterTopic] : null;
@@ -387,7 +392,8 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
     : input.topic in FAMILY_CLOSE ? FAMILY_CLOSE[input.topic as FamilyTopic]
       : input.topic in OBJECTION_CLOSE ? OBJECTION_CLOSE[input.topic as ObjectionTopic]
         : input.topic in LIFE_CLOSE ? LIFE_CLOSE[input.topic as LifeTopic]
-          : input.topic in HEALTH_CLOSE ? HEALTH_CLOSE[input.topic as HealthTopic] : CLOSE[input.topic as keyof typeof CLOSE];
+          : input.topic in HEALTH_CLOSE ? HEALTH_CLOSE[input.topic as HealthTopic]
+            : input.topic in MONEY_CLOSE ? MONEY_CLOSE[input.topic as MoneyTopic] : CLOSE[input.topic as keyof typeof CLOSE];
   const said = (s: string) => spokenBy(s.replace(/\s+/g, " ").trim(), narrator);
   return {
     scenes: scenes.map((s) => ({ ...s, voice: said(s.voice) })),
