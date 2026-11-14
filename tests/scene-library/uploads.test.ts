@@ -27,7 +27,13 @@ const people = vi.hoisted(() => ({
   agent: null as unknown, member: null as unknown, superAdmin: null as unknown, bluewealth: null as unknown, kingclub: null as unknown,
   bwSet: true, kcSet: true, asked: [] as string[],
 }));
-const look = (name: string, v: unknown) => { people.asked.push(name); if (v instanceof Error) throw v; return v; };
+const HANG = vi.hoisted(() => Symbol("never answers"));
+const look = (name: string, v: unknown) => {
+  people.asked.push(name);
+  if (v === HANG) return new Promise(() => {});
+  if (v instanceof Error) throw v;
+  return v;
+};
 vi.mock("@/lib/auth/viewer", () => ({
   agentById: async () => look("agent", people.agent),
   memberById: async () => look("member", people.member),
@@ -391,6 +397,41 @@ describe("withdrawUpload", () => {
       expect(mem.rows).toContain(a);
     }
     expect(mem.removed).toEqual([]);
+  });
+  it("a sender found here (UnitClub, member, Super Admin) never makes Bluewealth or KingClub be asked", async () => {
+    for (const [k, asked] of [["agent", ["agent"]], ["member", ["agent", "member"]], ["superAdmin", ["agent", "member", "super"]]] as const) {
+      nobody();
+      people.asked = [];
+      people[k] = { id: A };
+      const a = seed({ state: "ok" });
+      expect(await withdrawUpload(OWNER, a.id, REASONS[0])).toEqual({ ok: true, removed: false });
+      expect(people.asked, k).toEqual(asked);
+    }
+  });
+  it("a local read that fails stops there, the outside systems not asked", async () => {
+    nobody();
+    people.member = new Error("members unreadable");
+    const a = seed({ state: "ok" });
+    expect(await withdrawUpload(OWNER, a.id, REASONS[0])).toEqual({ ok: true, removed: false });
+    expect(people.asked).toEqual(["agent", "member"]);
+    expect(mem.rows).toContain(a);
+  });
+  it("Bluewealth or KingClub not answering within 5 s cannot say nobody: the row is kept", async () => {
+    vi.useFakeTimers();
+    try {
+      for (const k of ["bluewealth", "kingclub"] as const) {
+        nobody();
+        people[k] = HANG;
+        const a = seed({ state: "ok" });
+        const done = withdrawUpload(OWNER, a.id, REASONS[0]);
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(await done, k).toEqual({ ok: true, removed: false });
+        expect(mem.rows).toContain(a);
+      }
+      expect(mem.removed).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it("the demo account is never taken for gone, and is not looked up", async () => {
     nobody();

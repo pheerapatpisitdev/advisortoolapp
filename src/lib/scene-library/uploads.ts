@@ -168,12 +168,23 @@ export async function withdrawUpload(by: string, id: string, reason: string): Pr
   return { ok: true, removed: true };
 }
 
+/** how long Bluewealth or KingClub may take to say whether they have an id; past it, they cannot tell */
+const REMOTE_WAIT_MS = 5000;
+
+/** the promise's answer, or a throw once `ms` have passed (the call itself is left to finish on its own) */
+function within<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, fail) => { timer = setTimeout(() => fail(new Error(`no answer in ${ms} ms`)), ms); });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
+
 /**
  * true only when it is known that nobody has this id any more: not the demo account, and looked up, without
- * error, as a UnitClub agent, a member, a Super Admin, a Bluewealth agent and a KingClub agent, and found as
- * none. Each of those lookups throws when it cannot read (displayNames and the *Names lists swallow their
- * errors, so they are not used here). Bluewealth or KingClub not set up cannot say "nobody", so that is
- * doubt too. Any doubt answers false, and the row is kept.
+ * error, as a UnitClub agent, a member and a Super Admin (here, one after another, stopping at the first found),
+ * then as a Bluewealth and a KingClub agent (each within REMOTE_WAIT_MS), and found as none. Each lookup throws
+ * when it cannot read (displayNames and the *Names lists swallow their errors, so they are never used here).
+ * Bluewealth or KingClub not set up, or not answering in time, cannot say "nobody", so that is doubt too. Any
+ * doubt answers false: a withdrawn row is kept, and ในคลังแล้ว says สมาชิก rather than SENDER_GONE.
  */
 async function senderGone(id: string): Promise<boolean> {
   try {
@@ -182,13 +193,15 @@ async function senderGone(id: string): Promise<boolean> {
     ]);
     if (id === demo.DEMO_ID) return false;
     if (!bluewealth.bluewealthConfigured() || !kingclub.kingclubConfigured()) return false;
-    const found = await Promise.all([
-      viewer.agentById(id), viewer.memberById(id), viewer.superAdminById(id),
-      bluewealth.bluewealthAgentById(id), kingclub.kingclubAgentById(id),
+    for (const here of [viewer.agentById, viewer.memberById, viewer.superAdminById]) {
+      if ((await here(id)) !== null) return false;
+    }
+    const outside = await Promise.all([
+      within(bluewealth.bluewealthAgentById(id), REMOTE_WAIT_MS), within(kingclub.kingclubAgentById(id), REMOTE_WAIT_MS),
     ]);
-    return found.every((r) => r === null);
+    return outside.every((r) => r === null);
   } catch (e) {
-    console.error("library sender not looked up, withdrawn file kept:", e instanceof Error ? e.message : e);
+    console.error("library sender not looked up, taken as still there:", e instanceof Error ? e.message : e);
     return false;
   }
 }
@@ -239,13 +252,17 @@ const toView = (r: UploadRow, who: string, by?: string): UploadView => ({
   mine: r.agentId === who, ...(by ? { by } : {}),
 });
 
-/** what the owner's ในคลังแล้ว calls a sender no lookup names (spec 2026-11-14-library-withdraw-design.md) */
+/** what the owner's ในคลังแล้ว calls a sender senderGone knows is gone (spec 2026-11-14-library-withdraw-design.md) */
 export const SENDER_GONE = "สมาชิกที่ลบบัญชีแล้ว";
+/** what it calls a sender with no name who may still be there (displayNames swallows a failed read) */
+export const SENDER_UNNAMED = "สมาชิก";
 
 /**
  * What the page may hold of the three lists: no agentId anywhere, and the sender's name only on the owner's
- * waiting rows and the owner's shared rows (ในคลังแล้ว, where a sender nobody names is SENDER_GONE). A
- * non-owner's `waiting` is empty and never read, and their shared rows carry no name. null when the table
+ * waiting rows and the owner's shared rows (ในคลังแล้ว). displayNames logs and swallows each source's failed read,
+ * so a missing name proves nothing: a shared sender it left unnamed is SENDER_GONE only when senderGone (the
+ * strict check a withdraw's delete uses) says so, and SENDER_UNNAMED on any doubt. A non-owner's `waiting` is
+ * empty and never read, their shared rows carry no name, and nobody is looked up for them. null when the table
  * cannot be read (trouble, or not migrated yet): the page then leaves the upload tabs out.
  */
 export async function uploadViews(who: { agentId: string; owner: boolean }): Promise<{ mine: UploadView[]; shared: UploadView[]; waiting: UploadView[] } | null> {
@@ -253,15 +270,19 @@ export async function uploadViews(who: { agentId: string; owner: boolean }): Pro
     const [mine, shared, waiting] = await Promise.all([
       myUploads(who.agentId), sharedUploads(), who.owner ? waitingUploads() : Promise.resolve([] as UploadRow[]),
     ]);
-    // the owner's lists only; names that cannot be read leave the rows without one (not SENDER_GONE), and the lists still show
+    // the owner's lists only; names that cannot be read leave the rows without one, and the lists still show
     const named = who.owner ? [...waiting, ...shared] : [];
-    const names = named.length
-      ? await import("@/lib/auth/viewer").then((m) => m.displayNames(named.map((r) => r.agentId))).catch((): null => null)
-      : null;
+    const names: Record<string, string> = named.length
+      ? await import("@/lib/auth/viewer").then((m) => m.displayNames(named.map((r) => r.agentId))).catch(() => ({}))
+      : {};
+    // a shared sender left unnamed: gone only on senderGone's word, each id asked once
+    const unnamed = who.owner ? [...new Set(shared.map((r) => r.agentId).filter((id) => !names[id]))] : [];
+    const gone = new Set((await Promise.all(unnamed.map(async (id) => ((await senderGone(id)) ? id : null)))).filter((id): id is string => id !== null));
+    const sharedBy = (id: string) => names[id] || (gone.has(id) ? SENDER_GONE : SENDER_UNNAMED);
     return {
       mine: mine.map((r) => toView(r, who.agentId)),
-      shared: shared.map((r) => toView(r, who.agentId, who.owner && names ? names[r.agentId] ?? SENDER_GONE : undefined)),
-      waiting: waiting.map((r) => toView(r, who.agentId, names?.[r.agentId])),
+      shared: shared.map((r) => toView(r, who.agentId, who.owner ? sharedBy(r.agentId) : undefined)),
+      waiting: waiting.map((r) => toView(r, who.agentId, names[r.agentId])),
     };
   } catch (e) {
     console.error("library uploads not read:", e);

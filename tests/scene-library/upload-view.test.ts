@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UploadRow } from "@/lib/scene-library/upload-rules";
 
 /** uploadViews: what the page may hold of the three lists (no agentId; `by` only on the owner's waiting) */
@@ -30,7 +30,15 @@ vi.mock("@/lib/supabase/admin", () => ({
     },
   }),
 }));
+/** the strict lookups senderGone makes: a row, nobody (null), or a failed read (an Error, thrown) */
+const people = vi.hoisted(() => ({ agent: null as unknown, member: null as unknown, superAdmin: null as unknown, bluewealth: null as unknown, kingclub: null as unknown, asked: [] as string[] }));
+const look = (name: string, v: unknown) => { people.asked.push(name); if (v instanceof Error) throw v; return v; };
+vi.mock("@/lib/auth/bluewealth", () => ({ bluewealthConfigured: () => true, bluewealthAgentById: async () => look("bluewealth", people.bluewealth) }));
+vi.mock("@/lib/auth/kingclub", () => ({ kingclubConfigured: () => true, kingclubAgentById: async () => look("kingclub", people.kingclub) }));
 vi.mock("@/lib/auth/viewer", () => ({
+  agentById: async (id: string) => look(`agent ${id.slice(-2)}`, people.agent),
+  memberById: async () => look("member", people.member),
+  superAdminById: async () => look("super", people.superAdmin),
   displayNames: async (ids: string[]) => {
     store.nameCalls.push(ids);
     if (store.namesFail) throw new Error("names down");
@@ -47,7 +55,12 @@ const row = (o: Partial<UploadRow>): UploadRow => ({
   id: crypto.randomUUID(), agentId: A, kind: "part", name: "ตะกร้า", note: "n", paths: ["library/a.png"], state: "wait", reason: null, createdAt: "2026-11-14T00:00:00Z", ...o,
 });
 
-beforeEach(() => { store.mine = []; store.shared = []; store.waiting = []; store.fail = false; store.namesFail = false; store.nameCalls = []; store.namesOf = null; });
+beforeEach(() => {
+  store.mine = []; store.shared = []; store.waiting = []; store.fail = false; store.namesFail = false; store.nameCalls = []; store.namesOf = null;
+  // by default every sender is a live UnitClub agent
+  Object.assign(people, { agent: { id: "x" }, member: null, superAdmin: null, bluewealth: null, kingclub: null, asked: [] });
+});
+afterEach(() => { vi.restoreAllMocks(); });
 
 describe("uploadViews", () => {
   it("never carries an agentId, and counts the files", async () => {
@@ -79,13 +92,51 @@ describe("uploadViews", () => {
     expect(JSON.stringify(v)).not.toContain(B);
   });
 
-  it("an in-library sender with no name is สมาชิกที่ลบบัญชีแล้ว", async () => {
-    const GONE = "00000000-0000-4000-8000-0000000000dd";
+  const GONE = "00000000-0000-4000-8000-0000000000dd";
+  it("an unnamed sender the strict lookups find nowhere is สมาชิกที่ลบบัญชีแล้ว", async () => {
     store.shared = [row({ agentId: GONE, state: "ok" }), row({ agentId: B, state: "ok" })];
     store.namesOf = (ids) => Object.fromEntries(ids.filter((i) => i !== GONE).map((i) => [i, `ชื่อของ ${i.slice(-2)}`]));
+    people.agent = null;
     const v = (await uploadViews({ agentId: A, owner: true }))!;
     expect(v.shared.map((s) => s.by)).toEqual(["สมาชิกที่ลบบัญชีแล้ว", "ชื่อของ 0b"]);
     expect(JSON.stringify(v)).not.toContain(GONE);
+    // only the unnamed id is looked up
+    expect(people.asked).toContain("agent dd");
+    expect(people.asked).not.toContain("agent 0b");
+  });
+
+  it("a displayNames that swallowed a failed read (no name for a live sender) says สมาชิก, not deleted", async () => {
+    store.shared = [row({ agentId: B, state: "ok" })];
+    store.namesOf = () => ({});
+    const v = (await uploadViews({ agentId: A, owner: true }))!;
+    expect(v.shared[0].by).toBe("สมาชิก");
+  });
+
+  it("an outside agent with no remembered name, still found at KingClub or Bluewealth, says สมาชิก", async () => {
+    for (const k of ["kingclub", "bluewealth"] as const) {
+      Object.assign(people, { agent: null, kingclub: null, bluewealth: null });
+      people[k] = { id: B };
+      store.shared = [row({ agentId: B, state: "ok" })];
+      store.namesOf = () => ({});
+      expect((await uploadViews({ agentId: A, owner: true }))!.shared[0].by, k).toBe("สมาชิก");
+    }
+  });
+
+  it("a strict lookup that fails says สมาชิก", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    store.shared = [row({ agentId: B, state: "ok" })];
+    store.namesOf = () => ({});
+    people.agent = new Error("agents unreadable");
+    expect((await uploadViews({ agentId: A, owner: true }))!.shared[0].by).toBe("สมาชิก");
+  });
+
+  it("each unnamed sender is looked up once, however many files", async () => {
+    store.shared = [row({ agentId: GONE, state: "ok" }), row({ agentId: GONE, state: "ok", kind: "style" })];
+    store.namesOf = () => ({});
+    people.agent = null;
+    const v = (await uploadViews({ agentId: A, owner: true }))!;
+    expect(v.shared.map((s) => s.by)).toEqual(["สมาชิกที่ลบบัญชีแล้ว", "สมาชิกที่ลบบัญชีแล้ว"]);
+    expect(people.asked.filter((x) => x === "agent dd")).toHaveLength(1);
   });
 
   it("nobody but the owner gets a name on the in-library rows, and none is looked up", async () => {
@@ -93,6 +144,7 @@ describe("uploadViews", () => {
     const v = (await uploadViews({ agentId: A, owner: false }))!;
     expect(v.shared[0].by).toBeUndefined();
     expect(store.nameCalls).toEqual([]);
+    expect(people.asked).toEqual([]);
   });
 
   it("still answers when only the names cannot be read", async () => {
@@ -102,8 +154,8 @@ describe("uploadViews", () => {
     const v = (await uploadViews({ agentId: A, owner: true }))!;
     expect(v.waiting).toHaveLength(1);
     expect(v.waiting[0].by).toBeUndefined();
-    // a failed read is not a deleted account
-    expect(v.shared[0].by).toBeUndefined();
+    // a failed read is not a deleted account: the sender is still found, so สมาชิก
+    expect(v.shared[0].by).toBe("สมาชิก");
   });
 
   it("answers null when the store throws", async () => {
