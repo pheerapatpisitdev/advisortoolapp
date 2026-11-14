@@ -400,4 +400,38 @@ describe("Task 3, Review Focus 2: every word can be read where it is drawn", () 
       expect(await readable(card, under, { x: 70, y: 220, w: W - 140, h: 260 }), `${art} card head`).toBeGreaterThan(400);
     }
   }, 120_000);
+
+  it("the agent's own lines under the card (contact.more), on the ground, in each look", async () => {
+    // the same card with the lines blank (a no-break space keeps each line's height): what differs is the lines' words alone
+    const withMore = (input: StoryVideoInput, more: string) => {
+      const c = { ...ctx(input), contact: { ...ctx(input).contact, more } };
+      return (
+        <div style={{ display: "flex", position: "relative", width: W, height: H }}>
+          <div style={{ position: "absolute", left: 0, top: 0, display: "flex" }}>{storyBackground("portrait", input)}</div>
+          <div style={{ position: "absolute", left: 0, top: 0, display: "flex" }}>{clipFrame("storyContact", c, END)}</div>
+        </div>
+      );
+    };
+    for (const art of NEW) {
+      const input = inputOf(art, "roomcost");
+      const under = await pixels(await bg(input));
+      const shown = await pixels(await png(withMore(input, "ใบอนุญาต 6501234567\nรับปรึกษาวางแผนฟรี")));
+      const blank = await pixels(await png(withMore(input, "\u00a0\n\u00a0")));
+      let words = 0, read = 0;
+      for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
+        const [p, q] = [shown(x, y), blank(x, y)];
+        if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]) < 12) continue;
+        words++;
+        if (contrast(p, under(x, y)) >= 3) read++;
+      }
+      expect(words, `${art} lines drawn`).toBeGreaterThan(300);
+      expect(read / words, `${art} lines read (${read}/${words})`).toBeGreaterThan(0.5);
+    }
+    // the looks before these keep their lines as they were, in the card's ink
+    for (const art of ["plot", "info"]) {
+      const c = ctx(inputOf(art, "roomcost"));
+      const html = renderToStaticMarkup(clipFrame("storyContact", { ...c, contact: { ...c.contact, more: "รับปรึกษาวางแผนฟรี" } }, END));
+      expect(html, art).toMatch(new RegExp(`color:${P.ink};line-height:1.45[^>]*>(<[^>]*>)*รับปรึกษาวางแผนฟรี`));
+    }
+  }, 120_000);
 });

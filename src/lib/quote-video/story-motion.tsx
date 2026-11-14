@@ -10,10 +10,10 @@ import { heroName, planName, storyEvent, termShort, type StorySceneKey, type Sto
 import { AFTER_CLOSE, type AfterTopic } from "./story-after";
 import type { KnowSceneKey } from "./story-knowledge";
 import { captionShown, wordAt } from "./caption";
-
-export { INFO_GROUND };
 import { LEAD, SIZES, wordTimes, type VideoSize } from "./timeline";
 import { VIDEO_WORDS } from "./video-words";
+
+export { INFO_GROUND };
 
 /**
  * คลิปเล่าเรื่อง's six scenes (story.ts), drawn on paper with the owner's cartoon faces, as the
@@ -528,8 +528,9 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
             {k.line ? <div style={box({ fontSize: g.px(46, 34, 44), color: P.mute })}>{`LINE ${k.line}`}</div> : null}
           </div>
         </El>
+        {/* the agent's own lines stand on the ground under the card: นีออน and บลูพริ้นท์ write them in the ground's ink */}
         {more.length > 0 && (
-          <El an={s.card} t={t} style={{ flexDirection: "column", fontSize: g.px(44, 34, 44), color: P.ink, lineHeight: 1.45, marginTop: g.px(30, 30, 30) }}>
+          <El an={s.card} t={t} style={{ flexDirection: "column", fontSize: g.px(44, 34, 44), color: dk && onDark ? paperInk(c.input) : P.ink, lineHeight: 1.45, marginTop: g.px(30, 30, 30) }}>
             {more.map((m, i) => <div key={i} style={box({})}>{m}</div>)}
           </El>
         )}
