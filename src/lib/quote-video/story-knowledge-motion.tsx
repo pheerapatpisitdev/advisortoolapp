@@ -9,7 +9,7 @@ import { healthBody, healthSpec } from "./story-health-motion";
 import { isDevice, knowEpisode, partnerFace, type Kin, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine, type PicIcon } from "./story-knowledge";
 import type { PoseName } from "@/lib/story/figure";
 import { lifeBody, lifeSpec } from "./story-life-motion";
-import { metaSpec } from "./story-meta-motion";
+import { metaBody, metaSpec } from "./story-meta-motion";
 import { Contact, contactSpec, fitHand, line, LineTitle, minimal, paper, paperInk, PaperTitle, Pic, whole, type StoryContext } from "./story-motion";
 import { LEAD, SIZES, TAIL, XFADE, type VideoSize } from "./timeline";
 
@@ -574,8 +574,7 @@ export function showBody(show: KnowShow, c: StoryContext, t: number) {
     case "lifeneed": case "beneficiary": case "cilump": case "incomestop": case "taxback": case "taxcap": case "moneysplit": case "threegen":
       return lifeBody(show, { c, t, s, g, w, ink });
     case "umbrella": case "housepillar": case "lifering": case "safetynet": case "seedtree": case "balance": case "bridge": case "shield":
-      // Task 2–4: the metaphors are drawn here; until then nothing is drawn (the title and the frame stand)
-      return null;
+      return metaBody(show, { c, t, s, g, w, ink });
   }
 }
 

@@ -171,7 +171,7 @@ export function fitWrap(texts: string[], room: number, band: number, cap: number
 const figWidth = (text: string, size: number) => Math.ceil(0.6 * size * [...text].length);
 
 /** lines set one under another, each a child of the column (never a fragment: satori lays a fragment's children apart) */
-const Lines = ({ lines, size, weight = 600, align = "flex-start", color }: { lines: string[]; size: number; weight?: number; align?: "flex-start" | "center"; color?: string }) => (
+export const Lines = ({ lines, size, weight = 600, align = "flex-start", color }: { lines: string[]; size: number; weight?: number; align?: "flex-start" | "center"; color?: string }) => (
   <div style={box({ flexDirection: "column", alignItems: align })}>
     {lines.map((x, i) => <div key={i} style={box({ fontSize: size, fontWeight: weight, lineHeight: 1.3, ...(color ? { color } : {}) })}>{x}</div>)}
   </div>
@@ -203,7 +203,7 @@ function fitBlock(texts: string[], room: number, band: number, cap: number): num
 }
 
 /** a card on paper standing in its column, as tall as its lines (Sheet's look, not placed on its own) */
-function Card({ an, t, tilt, pad, w, children }: { an?: Anim; t: number; tilt: number; pad: number; w: number; children: ReactNode }) {
+export function Card({ an, t, tilt, pad, w, children }: { an?: Anim; t: number; tilt: number; pad: number; w: number; children: ReactNode }) {
   const l = look(an, t);
   return (
     <div className="cut" style={{ display: "flex", width: w, flexDirection: "column", background: C.note, border: `4px solid ${C.ink}`, borderRadius: 16, padding: pad, opacity: l.opacity, transform: `rotate(${tilt}deg)${l.transform ? ` ${l.transform}` : ""}`, fontFamily: HAND, color: C.ink }}>
