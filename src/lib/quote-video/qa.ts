@@ -107,8 +107,9 @@ const FIRST: Record<string, string[]> = {
 };
 
 /** the two questions a clip answers, for its product and story */
-export function pickQas(product: Product, story?: string, variant?: string): SpokenQa[] {
-  const all = productQas(product, variant);
+export function pickQas(product: Product, story?: string, variant?: string, hide?: readonly string[]): SpokenQa[] {
+  // ตั้งค่าส่วนตัว: "จ่ายรายเดือนได้ไหม" names the instalments; never asked where the agent hid one
+  const all = productQas(product, variant).filter((q) => !(q.key === "monthly" && hide?.length));
   const first = FIRST[story ?? ""] ?? [];
   const ordered = [...first.map((k) => all.find((q) => q.key === k)).filter((q): q is SpokenQa => Boolean(q)), ...all];
   return ordered.filter((q, i) => ordered.findIndex((x) => x.key === q.key) === i).slice(0, 2);

@@ -52,7 +52,8 @@ export type MenuIcon =
   | "gear"
   | "send"
   | "coins"
-  | "play";
+  | "play"
+  | "bell";
 
 export interface MenuLink {
   href: string;
@@ -216,6 +217,9 @@ export const SALES_PAGES: MenuLink[] = SALES_SECTIONS.flatMap((s) => s.links);
 const MEMBERSHIP: MenuLink = { href: "/membership", label: "สมาชิก", icon: "key", hue: "#2b736f" };
 
 /** What each customer the agent kept from the Financial Health Check still lacks. */
+/** มีอะไรใหม่ (owner chose 1ข 2ก 3ก, 2026-11-14): src/lib/updates; the Sidebar draws who.news beside it */
+export const WHATS_NEW: MenuLink = { href: "/whats-new", label: "มีอะไรใหม่", icon: "bell", hue: "#2b4f80" };
+
 const FHC_CUSTOMERS: MenuLink = { href: "/fhc/customers", label: "ลูกค้า FHC ของฉัน", icon: "users", hue: "#3d3578" };
 
 
@@ -274,6 +278,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     pages: [
       { href: "/admin/ads", label: "โฆษณา", icon: "megaphone", hue: "#5b2e80" },
       { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#612d7e" },
+      // มีอะไรใหม่: Claude's drafts from each push, published to the agents (owner chose 2ก, 2026-11-14)
+      { href: "/admin/updates", label: "มีอะไรใหม่", icon: "bell", hue: "#672c7c" },
     ],
   },
 ];
@@ -354,6 +360,9 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
       // the how-to clips, open to everyone (owner chose ก ก, 2026-11-11)
       { href: "/help", label: "วิธีใช้งาน", icon: "play", hue: "#2e5480" },
+      // what changed in the app, a red number while anything is unread (owner chose 1ข, 2026-11-14); for
+      // whoever is signed in, not a customer an advertisement sent to a sales page
+      ...(who ? [WHATS_NEW] : []),
       ...(office ? [{ href: office, label: "หลังบ้าน", icon: "grid" as const, hue: "#2b736f" }] : []),
     ],
   }];
@@ -441,6 +450,8 @@ export function accountLinks(who?: Who | null): MenuLink[] {
     // a member's own name and PIN; UnitOS agents manage theirs in UnitOS (owner, 2026-10-01);
     // everyone's contact details for the วิดีโอนำเสนอ (owner, 2026-10-11)
     { href: "/studio/account", label: "บัญชีของฉัน", icon: "key", hue: "#2e4a7a" },
+    // each agent's own display choices, first the instalments their quotes show (owner, 2026-11-14)
+    { href: "/studio/settings", label: "ตั้งค่าส่วนตัว", icon: "gear", hue: "#4a5a7a" },
     // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); assistants have
     // one too (2026-10-02), only the owner writes without one
     ...(!noWallet ? [{ href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet" as const, hue: "#2b736f" }] : []),
@@ -477,6 +488,8 @@ export interface Who {
   demo?: boolean;
   /** the menu items of the tools switched off for now (src/lib/switches), marked ปิดชั่วคราว */
   closed?: string[];
+  /** มีอะไรใหม่ not read yet (src/lib/updates), the red number beside it and the dot on the phone's menu button */
+  news?: number;
 }
 
 

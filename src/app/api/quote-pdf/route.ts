@@ -3,6 +3,7 @@ import { bearerMatches } from "@/lib/cron-auth";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { initialFrom, queryFrom } from "@/lib/ihealthy-link";
 import { iHealthyTable } from "@/lib/ihealthy-table";
+import { HIDE_KEY } from "@/lib/pay-prefs";
 import { PLAN_PAGES, type PlanPage } from "@/lib/quote-pdf/pages";
 import { PRINTED_LANGS, type PrintedLang } from "@/lib/quote-pdf/langs";
 import { EXTERNAL_BROWSER, planInitialFrom, planQueryFor } from "@/lib/quote-pdf/link";
@@ -27,7 +28,7 @@ const allow = limiter(6, 60_000);
 
 const PLAN_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "age", "sex", "sum", "variant"]);
 /** every key `queryFrom` writes; `r` is the one a link repeats, once per rider */
-const IHEALTHY_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "l", "age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r"]);
+const IHEALTHY_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "l", "age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r", HIDE_KEY]);
 
 function html(status: number, body: string): Response {
   return new Response(

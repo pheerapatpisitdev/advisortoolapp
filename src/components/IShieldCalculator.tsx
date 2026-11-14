@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
-import type { Sex } from "@/calc/types";
+import type { PayMode, Sex } from "@/calc/types";
+import { showModes, shows } from "@/lib/pay-prefs";
 import { formatBaht } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import { cashProjection } from "@/lib/cash-projection";
@@ -23,7 +24,7 @@ import { ISHIELD_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
-import { BudgetBox, BudgetOutcome, BudgetSwitch } from "@/components/sales/BudgetBox";
+import { BudgetBox, BudgetOutcome, BudgetSwitch, startBudget } from "@/components/sales/BudgetBox";
 import { budgetFit, type PageBudget } from "@/lib/budget-sum";
 import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
 import { legacyLevel } from "@/lib/legacy-headline";
@@ -44,6 +45,10 @@ export interface IShieldCalculatorProps {
   table: IShieldTable;
   /** pin a copy of the contact buttons to the bottom of a phone screen */
   sticky?: boolean;
+  /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
+  hide?: PayMode[];
+  /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
+  pen?: boolean;
 }
 
 /**
@@ -54,7 +59,8 @@ export interface IShieldCalculatorProps {
  * buy is disabled rather than hidden, so the row does not reshuffle under a thumb, and the
  * selection moves to a term they can.
  */
-export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorProps) {
+export function IShieldCalculator({ table, sticky = false, hide = [], pen = true }: IShieldCalculatorProps) {
+  const monthlyShown = shows(hide, "monthly");
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -62,7 +68,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
   // by what the visitor can pay instead of by a sum: the page finds the biggest sum that fits
   const [byBudget, setByBudget] = useState(false);
-  const [budget, setBudget] = useState<PageBudget>(BUDGET_START);
+  const [budget, setBudget] = useState<PageBudget>(() => startBudget(BUDGET_START, monthlyShown));
   const [wanted, setWanted] = useState(TERM_START);
   const [age, setAge] = useState<IShieldAge>(AGE_START);
   const [sex, setSex] = useState<Sex>("M");
@@ -108,7 +114,8 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
   const sumAssured = fit ? fit.sum : ISHIELD_SUMS[sumIndex];
   const who = inRange && !budgetShort ? { sex, age: ageNum, sumAssured } : undefined;
 
-  const modes = who ? iShieldModes(table, term, who) : undefined;
+  // only what the agent shows: the headline, the box, the copied text and the card follow it
+  const modes = showModes(who ? iShieldModes(table, term, who) : undefined, hide);
   const headline = displayPremium(modes, table.expired);
   const annual = modes?.find((m) => m.mode === "annual");
   // smallest instalment upward, so the block under the headline reads day, half-year, year
@@ -138,12 +145,12 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
 
   // the same figures the card is showing, or nothing: a copied quote must never say more than the page
   const card = who && headline
-    ? cardPath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, mode: headline.mode })
+    ? cardPath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, mode: headline.mode, hide })
     : undefined;
   // the value table drawn the same way, from the same arrangement — and offered only where
   // there is a table to draw, so a button never points at a picture the engine would refuse
   const tableCard = who && projection
-    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured })
+    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, hide, pen })
     : undefined;
   const quoteText = who && headline
     ? iShieldQuoteText({
@@ -170,7 +177,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
       <div className="calc-side contents">
         <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
           <BudgetSwitch
-            byBudget={byBudget}
+            byBudget={byBudget} monthly={monthlyShown}
             onChange={(on) => {
               // leaving the budget keeps the sum it bought, so the sum field does not jump back
               if (!on && fit) setSumIndex(ISHIELD_SUMS.indexOf(fit.sum));
@@ -179,7 +186,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
           />
           {byBudget && (
             <div>
-              <BudgetBox id="is-budget" budget={budget} onChange={setBudget} />
+              <BudgetBox id="is-budget" budget={budget} onChange={setBudget} monthly={monthlyShown} />
               {inRange && (
                 <BudgetOutcome
                   budget={budget} fit={fit} minMonthly={table.minMonthly}
@@ -342,6 +349,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
                       to its break-even year; dragging the sum alone keeps the year in view */}
                   <CashValueChart key={`${term.variant}-${sex}-${who!.age}`} projection={projection} age={who!.age} />
                   <CashValueTable
+                pen={pen}
                     projection={projection}
                     caption={tableCaption}
                     cardPath={tableCard}

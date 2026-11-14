@@ -5,6 +5,8 @@ import { insuredWho, whoRowHeight, type WhoStyle } from "../insured-who";
 import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
 import { cardPaletteFor, BLUE_PEN, NOTE_BIG, NOTE_BUBBLE } from "@/lib/card-theme";
 import { highlighterUri, loopUri } from "@/lib/highlighter";
+import { PEN_KEY, readPen } from "@/lib/pay-prefs";
+import { noPenNotes } from "../table/pen-notes";
 import { PENSION_TABLE_KEYS, toCanonical } from "../canonical";
 import { RING_PAD, figureWidth, penSvgUri } from "../table/pen-notes";
 import { googleFontSubset } from "@/lib/google-font";
@@ -117,7 +119,8 @@ export async function GET(req: NextRequest) {
 
   // the same notes as the page's, aimed by this table's own geometry; the ring stands RING_PAD
   // out beside a figure that does not move, so half of it is passed as the ring's reach
-  const notes = pensionPenNotes(rows, q.sumAssured, {
+  // แสดงคำอธิบายในตาราง: the agent may have switched the pen notes off (src/lib/pay-prefs.ts)
+  const notes = !readPen(req.nextUrl.searchParams.get(PEN_KEY)) ? noPenNotes() : pensionPenNotes(rows, q.sumAssured, {
     widths: COLS, caption: H.caption, head: H.head, row: H.row, cellPad: CELL_PAD,
     // Plex's figures at 22px run a little wider than the value table's estimate
     measure: (f) => figureWidth(f) * 1.07,

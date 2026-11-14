@@ -45,6 +45,8 @@ export interface CashValueTableProps {
    * that page (2026-09-25).
    */
   notes?: boolean;
+  /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no braces, words or pen rings */
+  pen?: boolean;
 }
 
 const HEAD = ["ปีที่", "อายุ", "เบี้ย/ปี", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
@@ -68,7 +70,7 @@ const CELL = "whitespace-nowrap border-b border-white/5 px-[5px] py-1.5";
  * try to surrender — and it is said plainly, by the 0 in the column and by the note
  * underneath, rather than by making the numbers harder to read.
  */
-export function CashValueTable({ projection, caption, cardPath, planName, notes = true }: CashValueTableProps) {
+export function CashValueTable({ projection, caption, cardPath, planName, notes = true, pen = true }: CashValueTableProps) {
   const { rows, breakEven, zeroYears, maturityAge } = projection;
   const tableRef = useRef<HTMLTableElement>(null);
   if (!rows.length) return null;
@@ -110,10 +112,11 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
     })),
   };
   // which cells are ringed does not depend on where they are, so it is read without measuring
-  const rings = penNotes(penCard, { widths: head.map(() => 100), caption: 0, head: 0, row: 0, cellPad: 0 }).rings;
+  // none at all when the agent switched the notes off; the break-even ring is the figures' own and stays
+  const rings = pen ? penNotes(penCard, { widths: head.map(() => 100), caption: 0, head: 0, row: 0, cellPad: 0 }).rings : [];
   const ringed = (n: number, column: string) => rings.some((g) => g.row === n && g.column === column);
   // room beside the premiums for the เบี้ยคงที่ brace and its word, as the picture makes (BRACE_ROOM)
-  const braceRoom = needsBraceRoom(penCard);
+  const braceRoom = pen && needsBraceRoom(penCard);
 
   return (
     <section className="print-table mt-3.5 border-t border-[var(--lg-panel-line)] pt-3">
@@ -301,12 +304,12 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           )}
         </table>
         {/* after the table, so the table is there to be measured when the layer first draws */}
-        <PenLayer
+        {pen && <PenLayer
           table={tableRef}
           figures={penCard.rows.flatMap((r) => [r.due, r.cash ?? "", r.cover, String(r.year)])}
           notes={(g) => penNotes(penCard, g)}
           scale={PEN_SCALE} caption={PEN_CAPTION} cellPad={PEN_CELL_PAD}
-        />
+        />}
         </div>
       </div>
       </Watermark>

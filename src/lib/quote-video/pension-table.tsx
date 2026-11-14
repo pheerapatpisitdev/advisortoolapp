@@ -46,7 +46,8 @@ export function pensionTableImage(f: QuoteVideoFacts) {
   const p = f.pension;
   const rows = p?.years ?? [];
   const height = Math.max(ROW_H, rows.length * ROW_H);
-  const notes = p
+  // the agent may have switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no notes and no pen rings
+  const notes = p && f.pen !== false
     ? pensionPenNotes(rows, p.sumAssured, {
       widths: PENSION_COLUMNS.map((c) => WIDTHS[c]), caption: 0, head: 0, row: ROW_H, cellPad: CELL_PAD, measure: fig, penSize: PEN,
       // the one ring the notes aim at here is the อายุ one, standing past its figure by the rest of its padding
@@ -54,7 +55,7 @@ export function pensionTableImage(f: QuoteVideoFacts) {
     }, RING / 2)
     : { rings: [], strokes: [], blueStrokes: [], labels: [] };
   // the clip's table has no ปีที่, so the last paying year is ringed at its อายุ
-  const rings = pensionRings(rows, "อายุ");
+  const rings = f.pen === false ? [] : pensionRings(rows, "อายุ");
   const ringed = (n: number, c: PensionColumn) => rings.some((g) => g.row === n && g.column === c);
   const el = (
     <div style={{ display: "flex", flexDirection: "column", position: "relative", width: TABLE.w, height, background: C.paper, fontFamily: "Plex", fontSize: FONT, color: P.ink }}>

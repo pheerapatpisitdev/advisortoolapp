@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
-import type { Sex } from "@/calc/types";
+import type { PayMode, Sex } from "@/calc/types";
+import { showModes } from "@/lib/pay-prefs";
 import { formatBaht } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import type { PlbTable } from "@/lib/plb-table";
@@ -30,6 +31,10 @@ export interface PlbCalculatorProps {
   table: PlbTable;
   /** pin a copy of the contact buttons to the bottom of a phone screen */
   sticky?: boolean;
+  /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
+  hide?: PayMode[];
+  /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
+  pen?: boolean;
 }
 
 /**
@@ -41,7 +46,7 @@ export interface PlbCalculatorProps {
  * costs — the day rate, the total over the term, and the price per million, which is the only
  * way the sum-assured discount is visible.
  */
-export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
+export function PlbCalculator({ table, sticky = false, hide = [], pen = true }: PlbCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -76,7 +81,8 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
   const ageNum = typeof age === "number" ? age : undefined;
   const who = ageNum !== undefined ? { sex, age: ageNum, sumAssured } : undefined;
 
-  const modes = who ? plbModes(table, term, who) : undefined;
+  // only what the agent shows: the headline, the box, the copied text and the card follow it
+  const modes = showModes(who ? plbModes(table, term, who) : undefined, hide);
   const headline = displayPremium(modes, table.expired);
   const annual = modes?.find((m) => m.mode === "annual");
   // smallest instalment upward, so the block under the headline reads day, half-year, year
@@ -86,7 +92,7 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
 
   // the same figures the card is showing, or nothing: a copied quote must never say more than the page
   const card = who && headline
-    ? cardPath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, mode: headline.mode })
+    ? cardPath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, mode: headline.mode, hide })
     : undefined;
   /**
    * The year-by-year sheet, which for this plan is a table of cover rather than of value:
@@ -94,7 +100,7 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
    * the contract ends.
    */
   const tableCard = who
-    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured })
+    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: term.variant, age: who.age, sex, sumAssured, hide, pen })
     : undefined;
   /**
    * The same years the card draws, for the page to show.

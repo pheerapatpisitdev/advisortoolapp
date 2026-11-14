@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
-import type { Sex } from "@/calc/types";
+import type { PayMode, Sex } from "@/calc/types";
+import { showModes } from "@/lib/pay-prefs";
 import { formatBaht } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import { cashProjection } from "@/lib/cash-projection";
@@ -33,6 +34,10 @@ export interface LifeTreasureCalculatorProps {
   table: LifeTreasureTable;
   /** pin a copy of the contact buttons to the bottom of a phone screen */
   sticky?: boolean;
+  /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
+  hide?: PayMode[];
+  /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
+  pen?: boolean;
 }
 
 /**
@@ -43,7 +48,7 @@ export interface LifeTreasureCalculatorProps {
  * they are deciding whether the money is better left here than anywhere else, and that is a
  * comparison between two totals.
  */
-export function LifeTreasureCalculator({ table, sticky = false }: LifeTreasureCalculatorProps) {
+export function LifeTreasureCalculator({ table, sticky = false, hide = [], pen = true }: LifeTreasureCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -78,7 +83,8 @@ export function LifeTreasureCalculator({ table, sticky = false }: LifeTreasureCa
   const ageNum = typeof age === "number" ? age : undefined;
   const who = ageNum !== undefined ? { sex, age: ageNum, sumAssured } : undefined;
 
-  const modes = who ? lifeTreasureModes(table, term, who) : undefined;
+  // only what the agent shows: the headline, the box, the copied text and the card follow it
+  const modes = showModes(who ? lifeTreasureModes(table, term, who) : undefined, hide);
   const headline = displayPremium(modes, table.expired);
   const annual = modes?.find((m) => m.mode === "annual");
   // smallest instalment upward, so the block under the headline reads day, half-year, year
@@ -109,12 +115,12 @@ export function LifeTreasureCalculator({ table, sticky = false }: LifeTreasureCa
 
   // the same figures the card is showing, or nothing: a copied quote must never say more than the page
   const card = who && headline
-    ? cardPath({ kind: "plan", planCode: table.planCode, variant, age: who.age, sex, sumAssured, mode: headline.mode })
+    ? cardPath({ kind: "plan", planCode: table.planCode, variant, age: who.age, sex, sumAssured, mode: headline.mode, hide })
     : undefined;
   // the value table drawn the same way, from the same arrangement — and offered only where
   // there is a table to draw, so a button never points at a picture the engine would refuse
   const tableCard = who && projection
-    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured })
+    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured, hide, pen })
     : undefined;
   const quoteText = who && headline && total !== null
     ? lifeTreasureQuoteText({
@@ -295,6 +301,7 @@ export function LifeTreasureCalculator({ table, sticky = false }: LifeTreasureCa
                       to its break-even year; dragging the sum alone keeps the year in view */}
                   <CashValueChart key={`${variant}-${sex}-${who.age}`} projection={projection} age={who.age} />
                   <CashValueTable
+                pen={pen}
                     projection={projection}
                     caption={tableCaption}
                     cardPath={tableCard}

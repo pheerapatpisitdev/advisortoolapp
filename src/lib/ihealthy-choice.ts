@@ -34,6 +34,12 @@ export interface IHealthyInitial {
    * agent has just taken off.
    */
   riders?: AttachedRider[];
+  /**
+   * The instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts), carried so a
+   * picture or a printed page drawn with nobody signed in shows what the agent chose. Absent —
+   * every bot's arrangement — is everything shown.
+   */
+  hide?: PayMode[];
 }
 
 /**

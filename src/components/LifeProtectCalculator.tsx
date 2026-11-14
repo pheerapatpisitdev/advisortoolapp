@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
-import type { Sex } from "@/calc/types";
+import type { PayMode, Sex } from "@/calc/types";
+import { showModes, shows } from "@/lib/pay-prefs";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht, formatSatang } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
@@ -26,7 +27,7 @@ import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
-import { BudgetBox, BudgetOutcome, BudgetSwitch } from "@/components/sales/BudgetBox";
+import { BudgetBox, BudgetOutcome, BudgetSwitch, startBudget } from "@/components/sales/BudgetBox";
 import { budgetFit, type PageBudget } from "@/lib/budget-sum";
 import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
 import { legacyFromDeath } from "@/lib/legacy-headline";
@@ -110,13 +111,18 @@ export interface LifeProtectCalculatorProps {
   table: LifeProtectTable;
   /** pin a copy of the contact buttons to the bottom of a phone screen */
   sticky?: boolean;
+  /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
+  hide?: PayMode[];
+  /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no pen notes on the table */
+  pen?: boolean;
 }
 
 /**
  * The customer's calculator for the base plan on its own. Four choices — sum, term, age, sex —
  * and every figure on the card follows from them at once, in the browser, from the table.
  */
-export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalculatorProps) {
+export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = true }: LifeProtectCalculatorProps) {
+  const monthlyShown = shows(hide, "monthly");
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -126,7 +132,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
   // by what the visitor can pay instead of by a sum: the page finds the biggest sum that fits
   const [byBudget, setByBudget] = useState(false);
-  const [budget, setBudget] = useState<PageBudget>(BUDGET_START);
+  const [budget, setBudget] = useState<PageBudget>(() => startBudget(BUDGET_START, monthlyShown));
   // the sum as it is being typed; null once it has landed on a step
   const [sumTyped, setSumTyped] = useState<string | null>(null);
   const settleSum = () => {
@@ -261,9 +267,14 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
    * this rather than on the plan alone, because the company's monthly floor is a floor on
    * the whole premium — a plan just under it becomes payable monthly once a rider is added.
    */
-  const paid = modes
-    ? totalModes(table, modes, addModes(riderPrice, medicalPrice, ...illnessPriced.map((i) => i.price)))
-    : undefined;
+  const paid = showModes(
+    modes
+      ? totalModes(table, modes, addModes(riderPrice, medicalPrice, ...illnessPriced.map((i) => i.price)))
+      : undefined,
+    // only what the agent shows: the headline, the box, the split, the copied text and the card follow it;
+    // the monthly floor above is still settled on every instalment
+    hide,
+  );
   const headline = displayPremium(paid, table.expired);
   const paidAnnual = paid?.find((m) => m.mode === "annual");
   // the figure in the largest type stays the plan's own price; what the rider adds and the
@@ -337,7 +348,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   // the same figures the card is showing, or nothing: a copied quote must never say more than the page
   const card = who && headline
     ? cardPath({
-        kind: "plan", planCode: table.planCode, variant, age: who.age, sex, sumAssured, mode: headline.mode,
+        kind: "plan", planCode: table.planCode, variant, age: who.age, sex, sumAssured, mode: headline.mode, hide,
         ...(cardRiders ? { riders: cardRiders } : {}),
       })
     : undefined;
@@ -345,7 +356,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   // there is a table to draw, so a button never points at a picture the engine would refuse
   const tableCard = who && projection
     ? valueTablePath({
-        kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured,
+        kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured, hide, pen,
         ...(cardRiders ? { riders: cardRiders } : {}),
       })
     : undefined;
@@ -431,7 +442,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
       <div className="calc-side contents">
         <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
           <BudgetSwitch
-            byBudget={byBudget}
+            byBudget={byBudget} monthly={monthlyShown}
             onChange={(on) => {
               // leaving the budget keeps the sum it bought, so the sum field does not jump back;
               // a sum the slider's steps skip (750,000) becomes one more stop, as a typed one does
@@ -445,7 +456,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           />
           {byBudget && (
             <div>
-              <BudgetBox id="lp-budget" budget={budget} onChange={setBudget} />
+              <BudgetBox id="lp-budget" budget={budget} onChange={setBudget} monthly={monthlyShown} />
               {ageNum !== undefined && (
                 <BudgetOutcome
                   budget={budget} fit={fit} minMonthly={table.minMonthly} stepNote="ทุนปัดถึงหลักบาท เท่ากับ AdvisorZone"
@@ -882,6 +893,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                   to its break-even year; dragging the sum alone keeps the year in view */}
               <CashValueChart key={`${variant}-${sex}-${who!.age}`} projection={projection} age={who!.age} />
               <CashValueTable
+                pen={pen}
                 projection={projection}
                 caption={tableCaption}
                 cardPath={tableCard}

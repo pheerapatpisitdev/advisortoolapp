@@ -559,7 +559,7 @@ function Compare({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: 
   const top = g.top + g.px(50, 60);
   const rowH = g.px(92, 104);
   const rows: [string, (p: (typeof plans)[number]) => string][] = [
-    [vw.compareRows[0], (p) => p.ceiling], [vw.compareRows[1], (p) => p.room], [vw.compareRows[2], (p) => p.opd], [vw.compareRows[3], (p) => `${p.monthly} ${vw.baht}`],
+    [vw.compareRows[0], (p) => p.ceiling], [vw.compareRows[1], (p) => p.room], [vw.compareRows[2], (p) => p.opd], [c.facts.comparePer === "year" ? vw.compareYear : vw.compareRows[3], (p) => `${c.facts.comparePer === "year" ? p.yearly ?? "" : p.monthly} ${vw.baht}`],
   ];
   const mainAt = plans.findIndex((p) => p.main);
   return (

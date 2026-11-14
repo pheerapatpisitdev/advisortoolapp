@@ -3,6 +3,7 @@ import { formatSatang } from "@/calc/money";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import type { CardRiders, PlanCardInput } from "@/lib/card-link";
 import { displayPremium } from "@/lib/legacy-cta";
+import { showModes } from "@/lib/pay-prefs";
 import { childPriceNote, illnessDeathLine, illnessLabel, lifeProtectFootnote, payerWords, waiverNote } from "@/lib/lifeprotect-cta";
 import { lifeProtectTable, type LifeProtectIllness } from "@/lib/lifeprotect-table";
 import {
@@ -94,9 +95,12 @@ export function lifeProtectPriced(input: PlanCardInput, today: Date): LifeProtec
     illness.push({ rider, sumAssured: pick.sumAssured, price: table.expired ? undefined : price });
   }
 
-  const paid = modes
-    ? totalModes(table, modes, addModes(riderPrice, medicalPrice, ...illness.map((i) => i.price)))
-    : undefined;
+  // without the instalments the agent switched off (src/lib/pay-prefs.ts), before the headline
+  // and its "แยกตามสัญญา · …" box are chosen from it
+  const paid = showModes(
+    modes ? totalModes(table, modes, addModes(riderPrice, medicalPrice, ...illness.map((i) => i.price))) : undefined,
+    input.hide ?? [],
+  );
   const headline = displayPremium(paid, table.expired);
   const at = (m: ModePremium[] | undefined) => (headline ? m?.find((x) => x.mode === headline.mode) : undefined);
   const riderPart = at(riderPrice);

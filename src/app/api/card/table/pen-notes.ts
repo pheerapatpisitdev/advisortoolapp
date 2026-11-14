@@ -67,6 +67,9 @@ export interface PenBubble {
   lines: { text: string; under?: string; tail?: string; big?: true }[];
 }
 
+/** No notes at all: what a table draws when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts). */
+export const noPenNotes = (): PenNotes => ({ rings: [], strokes: [], blueStrokes: [], labels: [] });
+
 export interface PenNotes {
   /** cells to ring, by row index and column name; `dark` in the ink of the figures, not the red pen */
   rings: { row: number; column: string; dark?: true }[];

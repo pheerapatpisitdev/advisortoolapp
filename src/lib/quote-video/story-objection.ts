@@ -1,4 +1,5 @@
 import { planName, termShort } from "@/lib/story/plans";
+import { noMonthly } from "./script";
 import type { StoryFigure, StoryVideoInput } from "./story";
 import { big, n, small, withBaht, type KnowScene, type KnowShow, type NoteLine } from "./story-knowledge";
 
@@ -118,15 +119,20 @@ function bank(input: StoryVideoInput): KnowScene[] {
 
 function pricey(input: StoryVideoInput): KnowScene[] {
   const f = input.figure;
+  // ตั้งค่าส่วนตัว: the agent hid the monthly instalment, so the yearly premium and no monthly paying
+  const yearOnly = noMonthly(input);
   return [
     scene("knowAsk", { layout: "myth", quote: ["“เบี้ยแพง", "ไม่มีงบ”"] }, "ประกันแพง ตอนนี้ยังไม่มีงบ หลายคนคิดแบบนี้ค่ะ"),
     f
-      ? scene("knowOne", { layout: "fact", crossed: "แพง", note: [small(`${sexShort(f)} ${f.age} ทุน ${n(f.sumAssured)}`), big(`เดือนละ ${n(f.monthly)} บาท`), small(`เฉลี่ยวันละราว ${n(f.annual / 365)} บาท`)] },
-        `${sexWord(f)}อายุ ${f.age} ทุนชีวิต ${withBaht(f.sumAssured)} จ่ายเดือนละ ${n(f.monthly)} บาท เฉลี่ยวันละราว ${n(f.annual / 365)} บาทค่ะ`)
+      ? scene("knowOne", { layout: "fact", crossed: "แพง", note: [small(`${sexShort(f)} ${f.age} ทุน ${n(f.sumAssured)}`), big(yearOnly ? `ปีละ ${n(f.annual)} บาท` : `เดือนละ ${n(f.monthly)} บาท`), small(`เฉลี่ยวันละราว ${n(f.annual / 365)} บาท`)] },
+        `${sexWord(f)}อายุ ${f.age} ทุนชีวิต ${withBaht(f.sumAssured)} จ่าย${yearOnly ? `ปีละ ${n(f.annual)}` : `เดือนละ ${n(f.monthly)}`} บาท เฉลี่ยวันละราว ${n(f.annual / 365)} บาทค่ะ`)
       : scene("knowOne", { layout: "fact", crossed: "แพง", note: [small("แบ่งเบี้ยเป็นรายวัน"), big("อาจน้อยกว่า"), big("ค่ากาแฟแก้วเดียว")] },
         "ลองแบ่งเบี้ยเป็นรายวันดูค่ะ หลายแบบน้อยกว่าค่ากาแฟแก้วเดียว"),
-    scene("knowTwo", { layout: "list", title: ["เริ่มเล็ก", "ก่อนได้"], mark: "check", items: ["เลือกทุนที่จ่ายไหว", "แบ่งจ่ายรายเดือน", "ทำเพิ่มทีหลังเมื่อรายได้โต"] },
-      "เริ่มเล็กก่อนได้ค่ะ เลือกทุนที่จ่ายไหว แบ่งจ่ายรายเดือน แล้วค่อยทำเพิ่มเมื่อรายได้โตขึ้น"),
+    yearOnly
+      ? scene("knowTwo", { layout: "list", title: ["เริ่มเล็ก", "ก่อนได้"], mark: "check", items: ["เลือกทุนที่จ่ายไหว", "เริ่มจากแผนเดียวก่อน", "ทำเพิ่มทีหลังเมื่อรายได้โต"] },
+        "เริ่มเล็กก่อนได้ค่ะ เลือกทุนที่จ่ายไหว เริ่มจากแผนเดียวก่อน แล้วค่อยทำเพิ่มเมื่อรายได้โตขึ้น")
+      : scene("knowTwo", { layout: "list", title: ["เริ่มเล็ก", "ก่อนได้"], mark: "check", items: ["เลือกทุนที่จ่ายไหว", "แบ่งจ่ายรายเดือน", "ทำเพิ่มทีหลังเมื่อรายได้โต"] },
+        "เริ่มเล็กก่อนได้ค่ะ เลือกทุนที่จ่ายไหว แบ่งจ่ายรายเดือน แล้วค่อยทำเพิ่มเมื่อรายได้โตขึ้น"),
     scene("knowThree", { layout: "note", title: ["สิ่งที่แพงกว่าเบี้ย", ""], dim: true, note: [big("วันที่ไม่มีอะไร", "red"), big("รองรับ", "red")] },
       "สิ่งที่แพงกว่าเบี้ย คือวันที่เกิดเรื่องแล้วไม่มีอะไรรองรับค่ะ"),
     scene("knowRecap", { layout: "recap", lines: [big("เริ่มเท่าที่ไหว"), big("ดีกว่าไม่เริ่ม")] }, "จำง่าย ๆ ค่ะ เริ่มเท่าที่ไหว ดีกว่าไม่เริ่ม"),

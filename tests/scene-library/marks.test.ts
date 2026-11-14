@@ -205,10 +205,14 @@ describe("migration", () => {
     // the nightly job already exists (20261209): scheduling it again would add a second one
     expect(sql).not.toMatch(/cron\.schedule/);
   });
-  it("no later migration redefines either function, bar the uploads one's member delete (kept in step in uploads.test.ts)", () => {
-    const later = readdirSync("supabase/migrations").filter((f) => f > "20261210_library_marks.sql" && f !== "20261211_library_uploads.sql");
-    for (const f of later) expect(readFileSync(`supabase/migrations/${f}`, "utf8"), f).not.toMatch(/function public\.ins_(member_delete|demo_wipe)/);
-    expect(readFileSync("supabase/migrations/20261211_library_uploads.sql", "utf8")).not.toMatch(/function public\.ins_demo_wipe/);
+  it("a later migration that redefines either function keeps the marks' delete", () => {
+    // 20261213_whats_new.sql redefines both to add มีอะไรใหม่'s reads (tests/updates/migration.test.ts)
+    const later = readdirSync("supabase/migrations").filter((f) => f > "20261210_library_marks.sql");
+    for (const f of later) {
+      const text = readFileSync(`supabase/migrations/${f}`, "utf8");
+      if (/function public\.ins_member_delete/.test(text)) expect(fn(text, "ins_member_delete"), f).toMatch(/delete from ins_library_marks where agent_id = p_member;/);
+      if (/function public\.ins_demo_wipe/.test(text)) expect(fn(text, "ins_demo_wipe"), f).toMatch(/delete from public\.ins_library_marks where agent_id = demo;/);
+    }
   });
 });
 

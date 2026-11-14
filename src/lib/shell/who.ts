@@ -2,6 +2,7 @@ import type { Viewer } from "@/lib/auth/access";
 import { whoOf } from "@/lib/auth/viewer";
 import { closedHrefs } from "@/lib/switches/features";
 import { readSwitches } from "@/lib/switches/store";
+import { unreadCount } from "@/lib/updates/store";
 import { walletSettings } from "@/lib/wallet/store";
 import type { Who } from "./menu";
 
@@ -19,8 +20,15 @@ import type { Who } from "./menu";
 export async function shellWho(viewer: Viewer | null): Promise<Who | null> {
   const who = whoOf(viewer);
   if (!who) return null;
-  const [settings, switches] = await Promise.all([walletSettings().catch(() => null), readSwitches()]);
+  // มีอะไรใหม่'s red number (owner chose 1ข, 2026-11-14): 0 when it cannot be read, never the page's failure
+  const [settings, switches, news] = await Promise.all([walletSettings().catch(() => null), readSwitches(), unreadCount(viewer)]);
   const on = settings?.enabled === true;
   const closed = closedHrefs(switches);
-  return { ...who, wallet: who.owner || who.demo ? false : on, prices: who.demo ? false : on, ...(closed.length ? { closed } : {}) };
+  return {
+    ...who,
+    wallet: who.owner || who.demo ? false : on,
+    prices: who.demo ? false : on,
+    ...(closed.length ? { closed } : {}),
+    ...(news > 0 ? { news } : {}),
+  };
 }

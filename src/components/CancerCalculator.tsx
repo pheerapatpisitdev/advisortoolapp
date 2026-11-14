@@ -11,6 +11,7 @@ import {
 } from "@/lib/cancer-benefits";
 import { Highlighted } from "@/components/Highlighted";
 import { cardPath } from "@/lib/card-link";
+import { showModes, shows } from "@/lib/pay-prefs";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import type { CancerTable } from "@/lib/cancer-table";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
@@ -38,7 +39,12 @@ function rowToModes(row: readonly number[] | null | undefined): ModePremium[] | 
  * arrangement was designed. Every tier is priced for the same person underneath, because
  * "and how much for two million?" is the question that always comes next.
  */
-export function CancerCalculator({ table, sticky = false }: { table: CancerTable; sticky?: boolean }) {
+export function CancerCalculator({ table, sticky = false, hide = [] }: {
+  table: CancerTable;
+  sticky?: boolean;
+  /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
+  hide?: PayMode[];
+}) {
   const RANGE = { min: table.ageMin, max: table.ageMax };
   const AGES = useMemo(
     () => Array.from({ length: RANGE.max - RANGE.min + 1 }, (_, i) => RANGE.min + i),
@@ -50,13 +56,14 @@ export function CancerCalculator({ table, sticky = false }: { table: CancerTable
 
   const t = table.tiers[tier - 1];
   const at = typeof age === "number" ? age - table.ageMin : -1;
-  const modes = at >= 0 ? rowToModes(table.premiums[sex][tier - 1][at]) : undefined;
+  // only what the agent shows: the headline (ต่อปี when monthly is hidden), the box, the copied text and the card follow it
+  const modes = showModes(at >= 0 ? rowToModes(table.premiums[sex][tier - 1][at]) : undefined, hide);
   const headline = displayPremium(modes, table.expired);
   const annual = modes?.find((m) => m.mode === "annual");
   const parts = at >= 0 ? table.parts[sex][tier - 1][at] : null;
 
   const card = typeof age === "number" && headline
-    ? cardPath({ kind: "bundle", bundleCode: table.bundleCode, tier, age, sex, mode: headline.mode })
+    ? cardPath({ kind: "bundle", bundleCode: table.bundleCode, tier, age, sex, mode: headline.mode, hide })
     : undefined;
   const quoteText = typeof age === "number" && modes && headline
     ? cancerQuoteText({ cpr: t.cpr, hic: t.hic, baseSum: t.baseSum, age, sex, modes, minMonthly: table.minMonthlyTotal })
@@ -266,7 +273,7 @@ export function CancerCalculator({ table, sticky = false }: { table: CancerTable
       )}
 
       {typeof age === "number" && !table.expired && (
-        <AllTiers table={table} age={age} sex={sex} tier={tier} onPick={setTier} />
+        <AllTiers table={table} age={age} sex={sex} tier={tier} onPick={setTier} hide={hide} />
       )}
 
 
@@ -281,8 +288,13 @@ export function CancerCalculator({ table, sticky = false }: { table: CancerTable
 
 /** Every tier for the same person, a row each; tapping a row makes it the one above. */
 function AllTiers(
-  { table, age, sex, tier, onPick }: { table: CancerTable; age: number; sex: Sex; tier: number; onPick: (t: number) => void },
+  { table, age, sex, tier, onPick, hide }: {
+    table: CancerTable; age: number; sex: Sex; tier: number; onPick: (t: number) => void; hide: PayMode[];
+  },
 ) {
+  // the agent's hidden instalments lose their column, and the monthly floor its note
+  const semi = shows(hide, "semi");
+  const monthly = shows(hide, "monthly");
   const at = age - table.ageMin;
   if (at < 0 || at > table.ageMax - table.ageMin) return null;
   return (
@@ -296,8 +308,8 @@ function AllTiers(
           <tr className="text-xs text-[var(--lg-mute)]">
             <th className="py-1.5 text-left font-normal">ทุน / ต่อวัน</th>
             <th className="py-1.5 text-right font-normal">รายปี</th>
-            <th className="py-1.5 text-right font-normal">ราย 6 เดือน</th>
-            <th className="py-1.5 text-right font-normal">รายเดือน</th>
+            {semi && <th className="py-1.5 text-right font-normal">ราย 6 เดือน</th>}
+            {monthly && <th className="py-1.5 text-right font-normal">รายเดือน</th>}
           </tr>
         </thead>
         <tbody>
@@ -314,9 +326,9 @@ function AllTiers(
                   <span className="ml-1 text-xs opacity-70">/ {x.hic.toLocaleString("en-US")}</span>
                 </td>
                 <td className="py-2 text-right">{row ? formatBaht(row[0]) : "—"}</td>
-                <td className="py-2 text-right">{row ? formatBaht(row[1]) : "—"}</td>
+                {semi && <td className="py-2 text-right">{row ? formatBaht(row[1]) : "—"}</td>}
                 {/* an instalment the company will not take is not a price, so it is not shown as one */}
-                <td className="py-2 text-right">{row && row[3] === 0 ? formatBaht(row[2]) : "—"}</td>
+                {monthly && <td className="py-2 text-right">{row && row[3] === 0 ? formatBaht(row[2]) : "—"}</td>}
               </tr>
             );
           })}
@@ -324,8 +336,8 @@ function AllTiers(
       </table>
       </Watermark>
       <p className="mt-3 text-xs text-[var(--lg-mute)] opacity-80">
-        รวมเบี้ย Life Protect x 2 ของแต่ละแพ็กแล้ว · รายเดือนต้องไม่ต่ำกว่า{" "}
-        {table.minMonthlyTotal.toLocaleString("en-US")} บาท (—)
+        รวมเบี้ย Life Protect x 2 ของแต่ละแพ็กแล้ว
+        {monthly && <> · รายเดือนต้องไม่ต่ำกว่า{" "}{table.minMonthlyTotal.toLocaleString("en-US")} บาท (—)</>}
       </p>
     </div>
   );

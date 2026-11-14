@@ -7,7 +7,8 @@ import { cardInputFrom, valueTableCard, valueTableChart, type CardChart, type Va
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { highlighterUri, loopUri } from "@/lib/highlighter";
 import { QUOTE_CARD_KEYS, toCanonical } from "../canonical";
-import { BLUE_PEN, BRACE_ROOM, PEN_TEXT, RING_PAD, needsBraceRoom, penNotes, penSvgUri, type PenNotes } from "./pen-notes";
+import { BLUE_PEN, BRACE_ROOM, PEN_TEXT, RING_PAD, needsBraceRoom, noPenNotes, penNotes, penSvgUri, type PenNotes } from "./pen-notes";
+import { PEN_KEY, readPen } from "@/lib/pay-prefs";
 import { googleFontSubset } from "@/lib/google-font";
 import { Chart, chartBlockHeight } from "../chart-drawing";
 import { quoteFor } from "@/lib/life-quotes";
@@ -342,13 +343,17 @@ export async function GET(req: NextRequest) {
    */
   const short = isShort(card);
   // a short table's premium column is only as wide as its figure: the brace needs room beside it
-  const room = short && needsBraceRoom(card) ? BRACE_ROOM : 0;
+  // แสดงคำอธิบายในตาราง: the agent may have switched the pen notes off (src/lib/pay-prefs.ts)
+  const withNotes = readPen(req.nextUrl.searchParams.get(PEN_KEY));
+  const room = withNotes && short && needsBraceRoom(card) ? BRACE_ROOM : 0;
   const width = (short ? half + PAD * 2 : wide) + room;
   const stretch = (width - room - PAD * 2) / half;
   const cols = (short ? narrow : narrow.map((c) => ({ ...c, w: Math.floor(c.w * stretch) })))
     .map((c, i) => (i === 2 ? { ...c, w: c.w + room } : c));
   // the agent's red-pen notes, aimed by the table's own geometry (pen-notes.ts)
-  const notes = penNotes(card, { widths: cols.map((c) => c.w), caption: H.caption, head: H.head, row: H.row, cellPad: CELL_PAD });
+  const notes = withNotes
+    ? penNotes(card, { widths: cols.map((c) => c.w), caption: H.caption, head: H.head, row: H.row, cellPad: CELL_PAD })
+    : noPenNotes();
   const tableHeight = H.caption + H.head + card.rows.length * H.row;
   // the drawing as wide as the table it is read with
   // the characters are asked for by the link, which only a chat's table carries

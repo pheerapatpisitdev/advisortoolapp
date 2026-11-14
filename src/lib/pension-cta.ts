@@ -1,4 +1,6 @@
 import { MODE_FACTOR, MODE_INSTALMENTS, MODE_LABEL, type PensionQuote } from "@/calc/pension/engine";
+import type { PayMode } from "@/calc/types";
+import { shows } from "@/lib/pay-prefs";
 
 /**
  * The words that leave /bumnan95: what the customer's chat opens with, and the quotation an
@@ -28,8 +30,16 @@ export function pensionMessage(who: PensionWho, q: PensionQuote | null): string 
     + ` เบี้ยประมาณ ${baht(q.totalYearlyPaid)} บาท/ปี`;
 }
 
+/** "ราย 6 เดือน X · รายเดือน Y บาท", only the instalments still shown; nothing when neither is. */
+function otherModesLine(q: PensionQuote, hide: readonly PayMode[], withRiders: boolean): string[] {
+  const parts = ([["semi", "ราย 6 เดือน"], ["monthly", "รายเดือน"]] as const)
+    .filter(([m]) => shows(hide, m))
+    .map(([m, label]) => `${label} ${baht(rdown2(q.annualPremium * MODE_FACTOR[m]))}`);
+  return parts.length ? [`${parts.join(" · ")} บาท${withRiders ? " (สัญญาหลัก)" : ""}`] : [];
+}
+
 /** The quotation as plain text: the pension first, because that is what is being bought. */
-export function pensionQuoteText(who: PensionWho, q: PensionQuote): string {
+export function pensionQuoteText(who: PensionWho, q: PensionQuote, hide: readonly PayMode[] = []): string {
   const first = q.bands[0];
   const last = q.bands[q.bands.length - 1];
   const withRiders = q.riders.some((r) => !r.error);
@@ -44,8 +54,9 @@ export function pensionQuoteText(who: PensionWho, q: PensionQuote): string {
     q.mode === "annual"
       ? `💰 เบี้ย${withRiders ? "รวม" : ""}ปีละ ${baht(q.totalAnnualPremium)} บาท`
       : `💰 เบี้ย${withRiders ? "รวม" : ""}${MODE_LABEL[q.mode]} ${baht(q.totalModePremium)} บาท · ${MODE_INSTALMENTS[q.mode]} งวด รวมปีละ ${baht(q.totalYearlyPaid)} บาท`,
-    `ราย 6 เดือน ${baht(rdown2(q.annualPremium * MODE_FACTOR.semi))} · รายเดือน ${baht(rdown2(q.annualPremium * MODE_FACTOR.monthly))} บาท`
-      + (withRiders ? " (สัญญาหลัก)" : ""),
+    // the other instalments, less the ones the agent switched off (src/lib/pay-prefs.ts); the
+    // line goes altogether when both are off
+    ...otherModesLine(q, hide, withRiders),
     ...q.riders.filter((r) => !r.error).map((r) => `- ${r.label} ปีละ ${baht(r.annual)} บาท`),
     "",
     `📌 ทุนประกัน ${q.sumAssured.toLocaleString("en-US")} บาท · เบี้ยสัญญาหลักรวม ${baht(q.totalPremium)} บาท`,

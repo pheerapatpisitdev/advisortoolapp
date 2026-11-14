@@ -34,6 +34,15 @@ export interface VideoWords {
   firstYearMonthly: string;
   /** the highlighted line under the opening figure */
   leadMark: (monthly: string) => string;
+  /**
+   * ตั้งค่าส่วนตัว (owner, 2026-11-14; src/lib/pay-prefs.ts): the same three where the agent hid the
+   * monthly instalment and the clip shows the first year's yearly price
+   */
+  firstYearYearly: string;
+  leadMarkYear: (yearly: string) => string;
+  /** the comparison's last row and the Motion comparison's label, over the yearly price */
+  compareYear: string;
+  perYear: string;
   coverTitle: (plan: string) => string;
   compareHeader: string;
   compareTitle: string;
@@ -67,6 +76,10 @@ const TH: VideoWords = {
   priceTitle: "เบี้ยประกันปีแรก",
   firstYearMonthly: "ปีแรก เดือนละ",
   leadMark: (m) => `เบี้ยปีแรก เดือนละ ${m} บาท`,
+  firstYearYearly: "ปีแรก ปีละ",
+  leadMarkYear: (y) => `เบี้ยปีแรก ปีละ ${y} บาท`,
+  compareYear: "รายปี",
+  perYear: "ปีละ",
   coverTitle: (plan) => `แผน ${plan} คุ้มครอง`,
   compareHeader: "เลือกแผนที่ใช่",
   compareTitle: "เทียบแผน iHealthy Ultra",
@@ -91,6 +104,10 @@ const EN: VideoWords = {
   priceTitle: "First-year premium",
   firstYearMonthly: "First year, per month",
   leadMark: (m) => `First year ${m} baht a month`,
+  firstYearYearly: "First year, per year",
+  leadMarkYear: (y) => `First year ${y} baht a year`,
+  compareYear: "Yearly",
+  perYear: "Per year",
   coverTitle: (plan) => `What the ${plan} plan covers`,
   compareHeader: "Find the right plan",
   compareTitle: "Compare iHealthy Ultra plans",
@@ -115,6 +132,10 @@ const ZH: VideoWords = {
   priceTitle: "首年保费",
   firstYearMonthly: "首年 每月",
   leadMark: (m) => `首年每月 ${m} 泰铢`,
+  firstYearYearly: "首年 每年",
+  leadMarkYear: (y) => `首年每年 ${y} 泰铢`,
+  compareYear: "年缴",
+  perYear: "每年",
   coverTitle: (plan) => `${plan} 计划保障`,
   compareHeader: "选择适合的计划",
   compareTitle: "iHealthy Ultra 计划对比",
@@ -139,6 +160,10 @@ const RU: VideoWords = {
   priceTitle: "Взнос за первый год",
   firstYearMonthly: "Первый год, в месяц",
   leadMark: (m) => `Первый год ${m} бат в месяц`,
+  firstYearYearly: "Первый год, в год",
+  leadMarkYear: (y) => `Первый год ${y} бат в год`,
+  compareYear: "В год",
+  perYear: "В год",
   coverTitle: (plan) => `Что покрывает план ${plan}`,
   compareHeader: "Выберите свой план",
   compareTitle: "Сравнение планов iHealthy Ultra",
@@ -163,6 +188,10 @@ const MY: VideoWords = {
   priceTitle: "ပထမနှစ် ပရီမီယံ",
   firstYearMonthly: "ပထမနှစ် တစ်လ",
   leadMark: (m) => `ပထမနှစ် တစ်လ ${m} ဘတ်`,
+  firstYearYearly: "ပထမနှစ် တစ်နှစ်",
+  leadMarkYear: (y) => `ပထမနှစ် တစ်နှစ် ${y} ဘတ်`,
+  compareYear: "နှစ်စဉ်",
+  perYear: "တစ်နှစ်",
   coverTitle: (plan) => `${plan} အစီအစဉ် အကာအကွယ်`,
   compareHeader: "သင့်တော်သော အစီအစဉ် ရွေးပါ",
   compareTitle: "iHealthy Ultra အစီအစဉ် နှိုင်းယှဉ်ချက်",

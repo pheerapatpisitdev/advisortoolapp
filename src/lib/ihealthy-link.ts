@@ -3,6 +3,7 @@ import type { AttachedRider } from "@/lib/ihealthy-rider-quote";
 import type { IHealthyTable } from "@/lib/ihealthy-table";
 import type { Lang } from "@/lib/ihealthy-lang";
 import { CARD_PALETTE, cardPaletteVersion } from "@/lib/card-theme";
+import { HIDE_KEY, readHide, shows, writeHide } from "@/lib/pay-prefs";
 import {
   IHEALTHY_OPENING, baseFor, resolveArrangement, sumFor, type IHealthyInitial,
 } from "@/lib/ihealthy-choice";
@@ -117,9 +118,13 @@ export function initialFrom(table: IHealthyTable, query: IHealthyQuery): IHealth
    * answers to.
    */
   const wantedMode = one(query, "mode");
-  const mode: PayMode = wantedMode !== undefined && Object.hasOwn(table.modeFactors, wantedMode)
+  // what the agent switched off (src/lib/pay-prefs.ts); an instalment asked for that is one of
+  // them falls back to the year, which is always shown
+  const hide = readHide(one(query, HIDE_KEY));
+  const asked: PayMode = wantedMode !== undefined && Object.hasOwn(table.modeFactors, wantedMode)
     ? (wantedMode as PayMode)
     : IHEALTHY_OPENING.mode;
+  const mode: PayMode = shows(hide, asked) ? asked : "annual";
 
   // `has` and not the parsed list: an `r` that spells no rider at all is still the fold
   // saying it is empty, which is a different answer from a link that never mentions riders.
@@ -139,6 +144,7 @@ export function initialFrom(table: IHealthyTable, query: IHealthyQuery): IHealth
     territory: territory ?? IHEALTHY_OPENING.territory,
     coverage: coverage ?? IHEALTHY_OPENING.coverage,
     mode,
+    ...(hide.length ? { hide } : {}),
   };
 }
 
@@ -163,6 +169,9 @@ export function queryFrom(table: IHealthyTable, v: IHealthyInitial): string {
     mode: v.mode,
   });
   appendRiders(q, v.riders);
+  // after the riders, before a card's `v`: the order canonical.ts keeps. Nothing when every
+  // instalment is shown, so the addresses already out there stay as they were.
+  writeHide(q, v.hide);
   return q.toString();
 }
 

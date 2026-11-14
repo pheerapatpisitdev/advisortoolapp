@@ -9,6 +9,15 @@ const KINDS = {
   year: { presets: [20_000, 50_000, 100_000, 200_000], min: 10_000, max: 1_000_000, step: 5_000, label: "ต่อปี", unit: "บาท / ปี" },
 } as const;
 
+/**
+ * The budget a page opens on for an agent who hides the monthly premium (ตั้งค่าส่วนตัว,
+ * src/lib/pay-prefs.ts): a monthly start becomes the year it adds up to, since only ต่อปี is
+ * offered. Anything else is left as it is.
+ */
+export function startBudget(start: PageBudget, monthly: boolean): PageBudget {
+  return monthly || start.per === "year" ? start : { per: "year", baht: Math.max(start.baht * 12, KINDS.year.min) };
+}
+
 const short = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000} ล้าน` : n >= 100_000 ? `${n / 100_000} แสน` : n >= 10_000 ? `${n / 10_000} หมื่น` : `${n / 1_000} พัน`);
 
 export interface BudgetBoxProps {
@@ -16,6 +25,8 @@ export interface BudgetBoxProps {
   id: string;
   budget: PageBudget;
   onChange: (budget: PageBudget) => void;
+  /** false when the agent hides the monthly premium: only ต่อปี is offered */
+  monthly?: boolean;
 }
 
 /**
@@ -24,7 +35,7 @@ export interface BudgetBoxProps {
  * Moving between the two keeps the visitor's money — a yearly figure becomes the monthly one
  * that is a twelfth of it — rather than leaving a hundred thousand a month on the screen.
  */
-export function BudgetBox({ id, budget, onChange }: BudgetBoxProps) {
+export function BudgetBox({ id, budget, onChange, monthly = true }: BudgetBoxProps) {
   const kind = KINDS[budget.per];
   // the amount as it is being typed; null once it has landed
   const [typed, setTyped] = useState<string | null>(null);
@@ -44,6 +55,8 @@ export function BudgetBox({ id, budget, onChange }: BudgetBoxProps) {
   return (
     <div>
       <label htmlFor={id} className="block text-sm text-[var(--lg-mute)]">งบเบี้ยประกัน</label>
+      {/* with the monthly premium hidden there is nothing to switch between: the field is a year's */}
+      {monthly && (
       <div className="mt-1.5 grid grid-cols-2 gap-2">
         {(["month", "year"] as const).map((per) => (
           <button
@@ -54,6 +67,7 @@ export function BudgetBox({ id, budget, onChange }: BudgetBoxProps) {
           </button>
         ))}
       </div>
+      )}
       <div className="lg-figure mt-3 flex items-baseline gap-2 text-3xl tabular-nums">
         <input
           id={id} type="text" inputMode="numeric" autoComplete="off"
@@ -91,7 +105,12 @@ export function BudgetBox({ id, budget, onChange }: BudgetBoxProps) {
 }
 
 /** The switch above the sum: name the sum, or name what can be paid and let the page find the sum. */
-export function BudgetSwitch({ byBudget, onChange }: { byBudget: boolean; onChange: (byBudget: boolean) => void }) {
+export function BudgetSwitch({ byBudget, onChange, monthly = true }: {
+  byBudget: boolean;
+  onChange: (byBudget: boolean) => void;
+  /** false when the agent hides the monthly premium: the button names a yearly budget only */
+  monthly?: boolean;
+}) {
   const on = "lg-metal-face border-[var(--lg-gold)] font-medium";
   const off = "border-[var(--lg-panel-line)] text-[var(--lg-mute)]";
   return (
@@ -99,7 +118,7 @@ export function BudgetSwitch({ byBudget, onChange }: { byBudget: boolean; onChan
       <button type="button" aria-pressed={!byBudget} onClick={() => onChange(false)}
         className={`rounded-sm border py-2.5 text-sm transition-colors ${!byBudget ? on : off}`}>รู้ทุนที่ต้องการ</button>
       <button type="button" aria-pressed={byBudget} onClick={() => onChange(true)}
-        className={`rounded-sm border py-2.5 text-sm transition-colors ${byBudget ? on : off}`}>มีงบต่อปี / ต่อเดือน</button>
+        className={`rounded-sm border py-2.5 text-sm transition-colors ${byBudget ? on : off}`}>{monthly ? "มีงบต่อปี / ต่อเดือน" : "มีงบต่อปี"}</button>
     </div>
   );
 }

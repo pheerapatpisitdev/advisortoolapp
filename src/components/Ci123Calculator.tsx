@@ -6,6 +6,7 @@ import { formatBaht } from "@/calc/money";
 import { displayPremium, perDayText } from "@/lib/legacy-cta";
 import { ci123QuoteText, stagePays, sumWords, type Ci123Age } from "@/lib/ci123-cta";
 import { cardPath, diseaseCardPath } from "@/lib/card-link";
+import { showModes, shows } from "@/lib/pay-prefs";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import type { Ci123Table } from "@/lib/ci123-table";
 import { Highlighted } from "@/components/Highlighted";
@@ -35,7 +36,12 @@ function rowToModes(row: readonly number[] | null | undefined): ModePremium[] | 
  * in a table for the same person, because "and how much for two million?" is the question
  * that always comes next — the owner's older page was nothing but that table.
  */
-export function Ci123Calculator({ table, sticky = false }: { table: Ci123Table; sticky?: boolean }) {
+export function Ci123Calculator({ table, sticky = false, hide = [] }: {
+  table: Ci123Table;
+  sticky?: boolean;
+  /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); none by default */
+  hide?: PayMode[];
+}) {
   const RANGE = { min: table.ageMin, max: table.ageMax };
   const AGES = useMemo(
     () => Array.from({ length: RANGE.max - RANGE.min + 1 }, (_, i) => RANGE.min + i),
@@ -47,13 +53,14 @@ export function Ci123Calculator({ table, sticky = false }: { table: Ci123Table; 
 
   const sum = table.sums[tier - 1];
   const at = typeof age === "number" ? age - table.ageMin : -1;
-  const modes = at >= 0 ? rowToModes(table.premiums[sex][tier - 1][at]) : undefined;
+  // only what the agent shows: the headline (ต่อปี when monthly is hidden), the box, the copied text and the card follow it
+  const modes = showModes(at >= 0 ? rowToModes(table.premiums[sex][tier - 1][at]) : undefined, hide);
   const headline = displayPremium(modes, table.expired);
   const annual = modes?.find((m) => m.mode === "annual");
   const base = at >= 0 ? table.basePremiums[sex][at] : null;
 
   const card = typeof age === "number" && headline
-    ? cardPath({ kind: "bundle", bundleCode: table.bundleCode, tier, age, sex, mode: headline.mode })
+    ? cardPath({ kind: "bundle", bundleCode: table.bundleCode, tier, age, sex, mode: headline.mode, hide })
     : undefined;
   const quoteText = typeof age === "number" && modes && headline
     ? ci123QuoteText({
@@ -224,7 +231,7 @@ export function Ci123Calculator({ table, sticky = false }: { table: Ci123Table; 
       )}
 
       {typeof age === "number" && !table.expired && (
-        <AllSums table={table} age={age} sex={sex} tier={tier} onPick={setTier} />
+        <AllSums table={table} age={age} sex={sex} tier={tier} onPick={setTier} hide={hide} />
       )}
 
       {/* the illness list goes out with or without a price, as on iShield */}
@@ -240,8 +247,13 @@ export function Ci123Calculator({ table, sticky = false }: { table: Ci123Table; 
 
 /** Every sum for the same person, a row each; tapping a row makes it the one above. */
 function AllSums(
-  { table, age, sex, tier, onPick }: { table: Ci123Table; age: number; sex: Sex; tier: number; onPick: (t: number) => void },
+  { table, age, sex, tier, onPick, hide }: {
+    table: Ci123Table; age: number; sex: Sex; tier: number; onPick: (t: number) => void; hide: PayMode[];
+  },
 ) {
+  // the agent's hidden instalments lose their column, and the monthly floor its note
+  const semi = shows(hide, "semi");
+  const monthly = shows(hide, "monthly");
   const at = age - table.ageMin;
   if (at < 0 || at > table.ageMax - table.ageMin) return null;
   return (
@@ -255,8 +267,8 @@ function AllSums(
           <tr className="text-xs text-[var(--lg-mute)]">
             <th className="py-1.5 text-left font-normal">ทุน CI 123</th>
             <th className="py-1.5 text-right font-normal">รายปี</th>
-            <th className="py-1.5 text-right font-normal">ราย 6 เดือน</th>
-            <th className="py-1.5 text-right font-normal">รายเดือน</th>
+            {semi && <th className="py-1.5 text-right font-normal">ราย 6 เดือน</th>}
+            {monthly && <th className="py-1.5 text-right font-normal">รายเดือน</th>}
           </tr>
         </thead>
         <tbody>
@@ -270,9 +282,9 @@ function AllSums(
               >
                 <td className="py-2">{sumWords(s)}</td>
                 <td className="py-2 text-right">{row ? formatBaht(row[0]) : "—"}</td>
-                <td className="py-2 text-right">{row ? formatBaht(row[1]) : "—"}</td>
+                {semi && <td className="py-2 text-right">{row ? formatBaht(row[1]) : "—"}</td>}
                 {/* an instalment the company will not take is not a price, so it is not shown as one */}
-                <td className="py-2 text-right">{row && row[3] === 0 ? formatBaht(row[2]) : "—"}</td>
+                {monthly && <td className="py-2 text-right">{row && row[3] === 0 ? formatBaht(row[2]) : "—"}</td>}
               </tr>
             );
           })}
@@ -280,8 +292,8 @@ function AllSums(
       </table>
       </Watermark>
       <p className="mt-3 text-xs text-[var(--lg-mute)] opacity-80">
-        รวมเบี้ย Life Protect x 2 ทุน {table.baseSum.toLocaleString("en-US")} แล้ว · รายเดือนต้องไม่ต่ำกว่า{" "}
-        {table.minMonthlyTotal.toLocaleString("en-US")} บาท (—)
+        รวมเบี้ย Life Protect x 2 ทุน {table.baseSum.toLocaleString("en-US")} แล้ว
+        {monthly && <> · รายเดือนต้องไม่ต่ำกว่า{" "}{table.minMonthlyTotal.toLocaleString("en-US")} บาท (—)</>}
       </p>
     </div>
   );

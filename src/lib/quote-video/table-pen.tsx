@@ -56,6 +56,8 @@ const blankPremium = (r: NonNullable<QuoteVideoFacts["rows"]>[number]) => r.due 
 /** Every note this table earns, placed — a note with no clear room for its words is left out, as on the card. */
 /** `win`: the window the table is seen through — where each note wants the table to stand depends on its height */
 export function tableNotes(f: QuoteVideoFacts, win: Rect = TABLE): TableNote[] {
+  // the agent switched แสดงคำอธิบายในตาราง off: the table only walks down (src/lib/pay-prefs.ts)
+  if (f.pen === false) return [];
   const rows = f.rows ?? [];
   const be = f.breakEven?.index ?? -1;
   const notes: TableNote[] = [];

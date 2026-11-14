@@ -80,7 +80,7 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     : f.product === "PLB" ? "บริษัทพิจารณาแล้วรับกรมธรรม์" : "อนุมัติแล้วเริ่มคุ้มครอง";
   return {
     story: { points: w.points ?? [] },
-    qas: pickQas(f.product, told.brief?.story, f.plb?.variant),
+    qas: pickQas(f.product, told.brief?.story, f.plb?.variant, f.hide),
     versus,
     steps: ["ทักมาคุยกัน", "รับใบเสนอ กรอกใบคำขอ", third],
   };

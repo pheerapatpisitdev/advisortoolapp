@@ -867,7 +867,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 </div>
                 <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
                   {figureOk
-                    ? <p><b className="text-base">ปีละ {figureOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">หรือเดือนละ {figureOk.monthly.toLocaleString("en-US")} บาท · ขึ้นในฉากที่ {figureAt}{topic === "pool48" ? " เป็นโน้ตแปะ" : " ตัวอย่าง"}</span></p>
+                    ? <p><b className="text-base">ปีละ {figureOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">{figureOk.monthly > 0 ? `หรือเดือนละ ${figureOk.monthly.toLocaleString("en-US")} บาท · ` : ""}ขึ้นในฉากที่ {figureAt}{topic === "pool48" ? " เป็นโน้ตแปะ" : " ตัวอย่าง"}</span></p>
                     : <p className="text-[var(--ct-mute)]">{figure && "error" in figure ? figure.error : "กำลังคิดเบี้ย…"}</p>}
                 </div>
               </div>

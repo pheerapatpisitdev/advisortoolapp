@@ -105,6 +105,8 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     "- picture คือคำอธิบายภาพที่จะวาด ห้ามมีตัวเลขเลย ห้ามสั่งให้วาดข้อความหรือตัวอักษรในภาพ",
     "- ห้ามอีโมจิ ห้ามลิงก์",
     figure ? "- มีตัวเลขแผนให้โชว์ได้ ให้ตั้ง showFigure เป็น true ได้อย่างมาก 1 ฉากเท่านั้น" : "- showFigure เป็น false ทุกฉาก",
+    // ตั้งค่าส่วนตัว (owner, 2026-11-14): a figure without its monthly premium is an agent who hid that instalment
+    ...(figure && !figure.monthly ? ["- ห้ามพูดถึงเบี้ยรายเดือน การแบ่งจ่ายรายเดือน หรือยอดต่อเดือน ให้พูดเป็นรายปีหรือวันละเท่านั้น"] : []),
     ...(format ? FORMAT_LINES[format] : []),
     "",
     "อุปกรณ์สุขภาพ: ภาพที่ระบบวาดเองแทนรูป AI ใส่ใน device ของฉากได้ เมื่อฉากนั้นพูดเรื่องที่อุปกรณ์อธิบายได้ ฉากอื่นใส่ device เป็น null",

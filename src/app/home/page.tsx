@@ -15,7 +15,10 @@ import { memberAccess } from "@/lib/members/access";
 import { listVideos } from "@/lib/quote-video/rows";
 import { boardOf } from "@/lib/quote-video/board";
 import { walletView } from "@/lib/wallet/store";
+import { barText } from "@/lib/updates/rules";
+import { updatesFor } from "@/lib/updates/store";
 import { HomeToday } from "./HomeToday";
+import { NewsBar } from "./NewsBar";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +60,7 @@ export default async function Home() {
   const owner = can(viewer, "owner");
   const [from, to] = bangkokDay(now);
 
-  const [reminder, access, wallet, allowance, pages, drafts, customers, videos, history] = await Promise.all([
+  const [reminder, access, wallet, allowance, pages, drafts, customers, videos, history, news] = await Promise.all([
     reminderOf(viewer, memberAccess),
     memberAccess(viewer).catch(orNull("pass")),
     // the owner pays for nothing and has no wallet (2026-10-02)
@@ -71,6 +74,8 @@ export default async function Home() {
     readHistory(viewer, new Date(now.getTime() - HISTORY_DAYS * 24 * 60 * 60 * 1000), now, HISTORY_SHOWN)
       .then((list) => list.slice(0, HISTORY_SHOWN).map((h) => ({ ...h, when: whenShort(h.at, now) })))
       .catch(orNull("history")),
+    // มีอะไรใหม่'s bar while anything is unread (owner chose 1ข, 2026-11-14)
+    updatesFor(viewer).then((u) => u.unread).catch(orNull("whats-new")),
   ]);
 
   const names = new Map(pages.map((p) => [p.pageId, p.pageName]));
@@ -106,7 +111,12 @@ export default async function Home() {
     <div className="home-chat">
       <AppShell who={await shellWho(viewer)}>
         <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 pb-10 pt-3 lg:pt-6">
-          <HomeToday today={today} notice={reminder ? <PassReminder {...reminder} /> : viewer.kind === "demo" ? <DemoBanner /> : null} history={history} />
+          <HomeToday
+            today={today}
+            notice={reminder ? <PassReminder {...reminder} /> : viewer.kind === "demo" ? <DemoBanner /> : null}
+            news={news && news.length > 0 ? <NewsBar {...barText(news)} /> : null}
+            history={history}
+          />
         </div>
       </AppShell>
     </div>

@@ -11,6 +11,8 @@ import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
 import { pensionTablePath } from "@/lib/card-link";
 import { pensionQuoteText } from "@/lib/pension-cta";
+import { shows } from "@/lib/pay-prefs";
+import type { PayMode } from "@/calc/types";
 import { Highlighted } from "@/components/Highlighted";
 import { Circled } from "@/components/Circled";
 import { PenLayer } from "@/components/PenLayer";
@@ -59,7 +61,15 @@ const COL = "border-l border-[var(--op-line)] px-[5px]";
 /** the long headings, which take two lines when the pen's room leaves the table short of width */
 const WRAPS = new Set<string>(["มูลค่าเวนคืน", "บำนาญสะสม", "คุ้มครองชีวิต"]);
 
-export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
+export function PensionCalculator(
+  { sticky = false, hide = [], pen = true }: {
+    sticky?: boolean;
+    /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no braces, notes or pen rings */
+    pen?: boolean;
+    /** the instalments the agent switched off in ตั้งค่าส่วนตัว (src/lib/pay-prefs.ts); yearly always stays */
+    hide?: PayMode[];
+  },
+) {
   const [age, setAge] = useState<number | "">(40);
   const [sex, setSex] = useState<"M" | "F">("M");
   const [pay, setPay] = useState<PensionPay>("untilAnnuity");
@@ -107,23 +117,23 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
   const overTyped = q && basis === "premium" && mode !== "annual" && !q.riders.length && amount !== ""
     ? Math.round((q.modePremium - amount) * 100) / 100 : 0;
   const who = { age: age === "" ? PENSION_LIMITS.ageMin : age, sex };
-  const copyText = q ? pensionQuoteText(who, q) : undefined;
+  const copyText = q ? pensionQuoteText(who, q, hide) : undefined;
   // the yearly table as the chat sends it: the main contract only, priced from the sum and the way of paying
-  const tableCard = q && age !== "" ? pensionTablePath({ age, sex, start: chosenAge, pay, sumAssured: q.sumAssured, mode }) : undefined;
+  const tableCard = q && age !== "" ? pensionTablePath({ age, sex, start: chosenAge, pay, sumAssured: q.sumAssured, mode, pen }) : undefined;
 
   // the yearly table's pen notes (pension-pen-notes.ts): what is ringed, and the room the braces need
   const tableRef = useRef<HTMLTableElement>(null);
   const rows = q?.illustration ?? [];
   const marks = pensionMarks(rows);
-  const rings = pensionRings(rows);
+  const rings = pen ? pensionRings(rows) : [];
   const ringed = (n: number, c: PensionColumn) => rings.some((g) => g.row === n && g.column === c);
   // the surrender value the green lump-sum note points at, ringed in the figures' ink
-  const lump = pensionLumpRing(rows);
+  const lump = pen ? pensionLumpRing(rows) : undefined;
   const lumpRinged = (n: number, c: PensionColumn) => lump?.row === n && lump.column === c;
   // room left of the figures for the braces, on the rows a ring has not already widened:
   // the premium brace and its word, and the guarantee's brace clear of the pension's rings
-  const braceRoom = pensionBraceRoom(rows);
-  const pensionRoom = marks.start >= 0;
+  const braceRoom = pen && pensionBraceRoom(rows);
+  const pensionRoom = pen && marks.start >= 0;
 
   // switching keeps the same plan on screen: the new box starts at the figure the old one came to
   function switchBasis(next: PensionBasis) {
@@ -182,7 +192,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                 <div>
                   <label className="block text-sm font-medium">งวดชำระ</label>
                   <select className={field} value={mode} onChange={(e) => setMode(e.target.value as PensionMode)}>
-                    {(Object.keys(MODE_LABEL) as PensionMode[]).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
+                    {(Object.keys(MODE_LABEL) as PensionMode[]).filter((m) => shows(hide, m)).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
                   </select>
                 </div>
               </div>
@@ -371,12 +381,12 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                     </tbody>
                   </table>
                   {/* after the table, so the table is there to be measured when the layer first draws */}
-                  <PenLayer
+                  {pen && <PenLayer
                     table={tableRef}
                     figures={q.illustration.flatMap((y) => Object.values(pensionCells(y)))}
                     notes={(g) => pensionPenNotes(q.illustration, q.sumAssured, { ...g, bubbles: true })}
                     scale={PENSION_PEN_SCALE} caption={0} cellPad={PENSION_CELL_PAD}
-                  />
+                  />}
                 </div>
               </div>
               </Watermark>

@@ -2,6 +2,7 @@ import type { ModePremium } from "@/calc/mode-premiums";
 import { applyModeFactor, applyModeFactorToFixed, toHundredths } from "@/calc/money";
 import type { DeathBenefit, PayMode, Sex } from "@/calc/types";
 import type { IHealthyBase, IHealthyPlanOption, IHealthyTable } from "@/lib/ihealthy-table";
+import { shows } from "@/lib/pay-prefs";
 
 /** Same order as calc/mode-premiums; repeated here so the browser does not import the engine. */
 export const MODES: PayMode[] = ["annual", "semi", "monthly"];
@@ -251,7 +252,9 @@ export interface IHealthyShown {
  * It lived in the calculator until the bot needed it. The calculator is a client component,
  * and a server module importing a value out of one drags the whole component after it.
  */
-export function shownAt(priced: IHealthyPricing | undefined, mode: PayMode): IHealthyShown | undefined {
+export function shownAt(
+  priced: IHealthyPricing | undefined, mode: PayMode, hide: readonly PayMode[] = [],
+): IHealthyShown | undefined {
   if (priced === undefined) return undefined;
   const base = priced.base.find((m) => m.mode === mode);
   const rider = priced.rider.find((m) => m.mode === mode);
@@ -267,8 +270,10 @@ export function shownAt(priced: IHealthyPricing | undefined, mode: PayMode): IHe
     total: total.total,
     belowMinimum: total.belowMinimum,
     others: priced.total
-      .filter((m) => m.mode !== mode && !m.belowMinimum)
+      .filter((m) => m.mode !== mode && !m.belowMinimum && shows(hide, m.mode))
       .map((m) => ({ mode: m.mode, total: m.total })),
-    refused: priced.total.filter((m) => m.mode !== mode && m.belowMinimum).map((m) => m.mode),
+    // an instalment the agent switched off (src/lib/pay-prefs.ts) is neither offered nor
+    // explained away: the customer is not told about a way of paying they were not shown
+    refused: priced.total.filter((m) => m.mode !== mode && m.belowMinimum && shows(hide, m.mode)).map((m) => m.mode),
   };
 }

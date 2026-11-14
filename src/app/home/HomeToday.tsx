@@ -20,7 +20,13 @@ const card = "rounded-xl border border-[var(--hm-hair)] bg-[var(--hm-panel)]";
  * `notice` is the member's pass bar, drawn under the greeting as the mockup has it. `history` is
  * the latest of ประวัติการทำงาน (option ก, 2026-10-14), under งานค้าง; null when unread.
  */
-export function HomeToday({ today, notice, history }: { today: Today; notice?: React.ReactNode; history: (HistItem & { when: string })[] | null }) {
+export function HomeToday({ today, notice, news, history }: {
+  today: Today;
+  notice?: React.ReactNode;
+  /** มีอะไรใหม่'s bar, under the pass bar where the mockup has it (owner chose 1ข, 2026-11-14) */
+  news?: React.ReactNode;
+  history: (HistItem & { when: string })[] | null;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <header className="max-lg:ml-12">
@@ -29,6 +35,7 @@ export function HomeToday({ today, notice, history }: { today: Today; notice?: R
       </header>
 
       {notice}
+      {news}
 
       {today.tiles.length > 0 && (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">

@@ -143,11 +143,13 @@ function compareLine(lang: Foreign, f: QuoteVideoFacts): string | undefined {
   if (!others.length) return undefined;
   const each = others.map((p) => {
     const ceil = bigSaid(lang, p.ceilingBaht!);
-    const m = bahtSaid(lang, num(p.monthly));
-    if (lang === "en") return `the ${p.name} plan covers ${ceil} a year for ${m} a month`;
-    if (lang === "zh") return `${p.name}计划 每年 ${ceil} 每月 ${m}`;
-    if (lang === "ru") return `план ${p.name} — ${ceil} в год за ${m} в месяц`;
-    return `${p.name} အစီအစဉ် တစ်နှစ် ${ceil} တစ်လ ${m}`;
+    // the agent hid the monthly instalment (ตั้งค่าส่วนตัว): each plan's yearly price instead
+    const year = f.comparePer === "year";
+    const m = bahtSaid(lang, num(year ? p.yearly ?? "" : p.monthly));
+    if (lang === "en") return `the ${p.name} plan covers ${ceil} a year for ${m} ${year ? "a year" : "a month"}`;
+    if (lang === "zh") return `${p.name}计划 每年 ${ceil} ${year ? "年缴" : "每月"} ${m}`;
+    if (lang === "ru") return `план ${p.name} — ${ceil} в год за ${m} ${year ? "в год" : "в месяц"}`;
+    return `${p.name} အစီအစဉ် တစ်နှစ် ${ceil} ${year ? "တစ်နှစ်" : "တစ်လ"} ${m}`;
   });
   const age = f.coverToAge;
   // no colon: after the voice's own instruction it takes a second one for another, and says nothing (2026-10-15)
@@ -180,7 +182,13 @@ export function foreignScript(f: QuoteVideoFacts, lang: Foreign, name: string, s
   const b = budget(lang, f);
   const join = (...xs: string[]) => xs.filter(Boolean).join(" ");
 
-  const price = {
+  // the yearly price where the agent hid the monthly instalment (ตั้งค่าส่วนตัว; script.ts iHealthyFacts)
+  const price = f.spokenPrice.per === "ปีละ" ? {
+    en: `In the first year it's ${monthly} a year, with ${inc} already included.`,
+    zh: `第一年 每年 ${monthly}， 已包含 ${inc}。`,
+    ru: `В первый год — ${monthly} в год, уже включая ${inc}.`,
+    my: `ပထမနှစ်မှာ တစ်နှစ်ကို ${monthly} ပါ။ ${inc} ပါဝင်ပြီးသားပါ။`,
+  }[lang] : {
     en: `In the first year it's ${monthly} a month, with ${inc} already included.`,
     zh: `第一年 每月 ${monthly}， 已包含 ${inc}。`,
     ru: `В первый год — ${monthly} в месяц, уже включая ${inc}.`,
