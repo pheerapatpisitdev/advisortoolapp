@@ -26,6 +26,8 @@ describe("วิธีใช้งาน's clips", () => {
     // the two pages that link straight to their clip
     expect(helpClip("topup")).toBeDefined();
     expect(helpClip("quote-video")).toBeDefined();
+    // ตั้งค่าส่วนตัว links to its clip from ข้อความส่งให้ลูกค้า
+    expect(helpClip("share-text")).toBeDefined();
   });
 
   it("writes a length the way a player does", () => {
