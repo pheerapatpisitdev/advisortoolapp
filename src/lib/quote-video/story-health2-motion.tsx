@@ -1,11 +1,19 @@
-import { a, type Anim } from "./motion";
-import type { Health2Show } from "./story-knowledge";
+import { Fragment, type ReactNode } from "react";
+import { STORY_CLIP_COLORS } from "@/lib/card-theme";
+import { a, abs, box, El, look, type Anim } from "./motion";
+import type { Dev } from "./story-health-motion";
+import { HEALTH2_WORDS as W, n, type Health2Show } from "./story-knowledge";
+import { geoOf, Title, type Rect } from "./story-knowledge-motion";
+import { Card, handWidth } from "./story-life-motion";
+import { line, paper } from "./story-motion";
+import { figWidth, fitFig, noteGeo, NoteLines } from "./story-save-motion";
+import type { VideoSize } from "./timeline";
 
 /**
  * สุขภาพเพิ่มเติม (device round 5, spec 2026-11-15-devices-health2-design.md): the eight devices' timing, which kspec hands
  * on. ipdopd opens its two doors in turn, deductible grows its bill bar in two parts, copay splits its sheet, renew98 draws
  * the timeline and its arc, parentshealth shows the parents then the child, groupcost the six people and two cards,
- * hospitals one bar a province, paclaim its cards in turn. The drawers (showBody, the info route) come with Tasks 2-4.
+ * hospitals one bar a province, paclaim its cards in turn. The drawers of ipdopd, deductible, copay and renew98 in the story looks (paper, warm, line) are below (Task 2); the other four and the info looks' come with Tasks 3-4.
  */
 export function health2Spec(show: Health2Show): Record<string, Anim> {
   const s: Record<string, Anim> = { title: a(0.2, "up") };
@@ -70,4 +78,619 @@ export function health2Spec(show: Health2Show): Record<string, Anim> {
   const end = Math.max(...Object.values(s).map((x) => x.at + x.dur));
   s.note = a(end + 0.2, "fade");
   return s;
+}
+
+const C = STORY_CLIP_COLORS;
+const HAND = "Mali";
+/** the blue of ผู้ป่วยใน, the green of what the insurer pays and of ผู้ป่วยนอก, the gold of what we pay, the red of the cut */
+const BLUE = C.plotPen;
+const GREEN = C.green;
+const GOLD = C.coin;
+const RED = C.red;
+
+/**
+ * Where a round-5 health device stands in the frame: the device's room and the frame's text size (the story looks'), or the
+ * info route's room under its own title. Every geometry below takes it so that route can reuse the same placing.
+ */
+export interface H2Place { room: Rect; text: number }
+export const health2Place = (size: VideoSize): H2Place => ({ room: geoOf(size).dev, text: geoOf(size).text });
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const clamp01 = (x: number) => clamp(x, 0, 1);
+const ease = (p: number) => 1 - (1 - clamp01(p)) ** 3;
+const inside = (r: Rect, room: Rect) => r.x >= room.x && r.y >= room.y && r.x + r.w <= room.x + room.w && r.y + r.h <= room.y + room.h;
+export { inside as h2Inside };
+
+/* ---------- the words, set as lines ---------- */
+
+/** where each long phrase may break (the drawing breaks Thai only where it is told to): its words, in order */
+const PHRASE: Record<string, string[]> = {
+  [W.noOpd]: ["แผนนี้", "ไม่มี", "ผู้ป่วยนอก"],
+  [W.opdIncludes]: ["ผู้ป่วยนอก", "รวม", "ค่าแพทย์ ", "ยา ", "และ", "กายภาพ"],
+  [W.notBeyond]: ["ไม่เกิน", "ระยะเวลา", "ของ", "สัญญาหลัก"],
+  [W.byAge]: ["เบี้ยปรับ", "ตาม", "ช่วงอายุ"],
+  [W.notYet]: ["ยังไม่ถึง", "ส่วนที่", "ประกันจ่าย"],
+  [W.restPays]: ["ประกันจ่าย", "ส่วนที่เหลือ"],
+  [W.deductibleCard]: ["ส่วนรับผิดชอบ", "แรก", "ของแผน"],
+};
+const segsOf = (text: string) => PHRASE[text] ?? text.split(/(?<= )/);
+
+/** `segs` filled into lines `room` px wide at `size`; null when one piece alone is wider than the room */
+function fill(segs: string[], size: number, room: number): string[] | null {
+  const lines: string[] = [];
+  let cur = "";
+  for (const seg of segs) {
+    if (handWidth(seg.trimEnd(), size) > room) return null;
+    const next = cur + seg;
+    if (cur && handWidth(next.trimEnd(), size) > room) { lines.push(cur.trimEnd()); cur = seg; } else cur = next;
+  }
+  if (cur) lines.push(cur.trimEnd());
+  return lines;
+}
+
+/**
+ * `text` as at most `maxLines` lines in the largest size up to `cap` that fits `room` px; fewer lines are preferred: a phrase
+ * goes on one line unless that costs more than a fifth of the size, on two unless that costs more again
+ */
+export function setPhrase(text: string, room: number, cap: number, maxLines = 2): { size: number; lines: string[] } {
+  const segs = segsOf(text);
+  for (let ml = 1; ml <= maxLines; ml += 1) {
+    const floor = ml === maxLines ? 8 : Math.round(cap * 0.8);
+    for (let size = Math.floor(cap); size > floor; size -= 1) {
+      const lines = fill(segs, size, room);
+      if (lines && lines.length <= ml) return { size, lines };
+    }
+  }
+  return { size: 8, lines: [text] };
+}
+
+/** a block of text lines in one size, colour and weight */
+export interface Blk { lines: string[]; size: number; color: string; weight: number }
+export const blkH = (b: Blk) => Math.round(b.lines.length * b.size * 1.3);
+const one = (text: string, room: number, cap: number, color: string, weight = 700): Blk => ({ lines: [text], size: fitFig(text, room, Math.max(10, Math.round(cap))), color, weight });
+const phrase = (text: string, room: number, cap: number, color: string, weight = 600, maxLines = 2): Blk => ({ ...setPhrase(text, room, Math.max(10, Math.round(cap)), maxLines), color, weight });
+
+/** blocks one under another, centred, each line a child of its column */
+function Blocks({ blocks, align = "center" }: { blocks: Blk[]; align?: "center" | "flex-start" }) {
+  return (
+    <div style={box({ flexDirection: "column", alignItems: align })}>
+      {blocks.map((b) => b.lines.map((x, i) => <div key={`${b.color}${x}${i}`} style={box({ fontSize: b.size, fontWeight: b.weight, lineHeight: 1.3, color: b.color, whiteSpace: "nowrap" })}>{x}</div>))}
+    </div>
+  );
+}
+
+/** a piece popping in at its place */
+function Pop({ an, t, r, part, children }: { an?: Anim; t: number; r: Rect; part: string; children?: ReactNode }) {
+  const l = look(an, t);
+  return <div data-part={part} style={abs({ left: r.x, top: r.y, width: r.w, height: r.h, opacity: l.opacity, ...(l.transform ? { transform: l.transform } : {}) })}>{children}</div>;
+}
+
+/** a card standing at `r`, as tall as its blocks, centred in `r` vertically */
+function CardAt({ an, t, r, pad, tilt, part, children }: { an?: Anim; t: number; r: Rect; pad: number; tilt: number; part: string; children: ReactNode }) {
+  return (
+    <div data-part={part} style={abs({ left: r.x, top: r.y, width: r.w, height: r.h, flexDirection: "column", justifyContent: "center" })}>
+      <Card an={an} t={t} tilt={tilt} pad={pad} w={r.w}>{children}</Card>
+    </div>
+  );
+}
+
+/** the line under the picture, in the hand, fading in */
+function LineBlock({ an, t, g, color }: { an?: Anim; t: number; g: { x: number; y: number; w: number; h: number; size: number; lines: string[] }; color: string }) {
+  return (
+    <El an={an} t={t} style={{ position: "absolute", left: g.x, top: g.y, width: g.w, height: g.h, flexDirection: "column", alignItems: "center", fontFamily: HAND, color }}>
+      {g.lines.map((x, i) => <div key={i} style={box({ fontSize: g.size, fontWeight: 600, lineHeight: 1.3 })}>{x}</div>)}
+    </El>
+  );
+}
+
+/** the line's geometry: as many lines as it needs, `w` wide at its place `y` */
+function lineGeo(text: string, x: number, y: number, w: number, cap: number) {
+  const p = setPhrase(text, w - 40, cap, 2);
+  return { x, y, w, size: p.size, lines: p.lines, h: Math.round(p.lines.length * p.size * 1.3) };
+}
+
+/* ---------- ipdopd: สองประตู ผู้ป่วยใน ผู้ป่วยนอก ---------- */
+
+/** a door's own sheet, in its units */
+export const DOOR = { w: 200, h: 270 };
+
+/** how far each door is open at t (0 closed, 1 open); the second stays shut when the plan has no OPD */
+export function ipdopdAt(s: Record<string, Anim>, show: Health2Show<"ipdopd">, t: number) {
+  return { open: [look(s.door0, t).p, show.opd === "none" ? 0 : look(s.door1, t).p] };
+}
+
+/** the card of one door: its name, then the figure (or the words that stand for it) */
+function doorBlocks(kind: 0 | 1, show: Health2Show<"ipdopd">, inner: number, text: number, f: number): Blk[] {
+  const color = kind === 0 ? BLUE : GREEN;
+  const head = one(kind === 0 ? W.inpatient : W.outpatient, inner, text * 1.25 * f, color, 700);
+  if (kind === 0) return [head, one(W.room, inner, text * 0.95 * f, C.ink, 600), one(`${n(show.room)} ${W.perDay}`, inner, text * 1.6 * f, color, 700)];
+  if (show.opd === "none") return [head, phrase(W.noOpd, inner, text * 1.15 * f, C.ink, 700)];
+  if (show.opd === "actual") return [head, phrase(W.actual, inner, text * 1.5 * f, color, 700, 1)];
+  return [head, one(W.opdLimit, inner, text * 0.95 * f, C.ink, 600), one(`${n(show.opd)} ${W.baht}`, inner, text * 1.6 * f, color, 700)];
+}
+
+/** where the two doors stand with their cards, the plan's name over them, the line and the note under */
+export function ipdopdGeo(size: VideoSize, show: Health2Show<"ipdopd">, place: H2Place = health2Place(size)) {
+  const r = place.room;
+  const text = place.text;
+  const note = noteGeo(show.note, r.w - 40, text);
+  const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
+  const gap = Math.round(text * 0.4);
+  const padChip = Math.round(text * 0.4);
+  let planSize = Math.round(text * 1.1);
+  while (show.planName && planSize > 10 && handWidth(show.planName, planSize) + padChip * 2 + 8 > r.w * 0.8) planSize -= 1;
+  const plan = show.planName ? (() => { const w = Math.ceil(handWidth(show.planName!, planSize)) + padChip * 2 + 8; const h = Math.round(planSize * 1.3) + padChip + 8; return { text: show.planName!, size: planSize, pad: padChip, w, h, x: r.x + Math.round((r.w - w) / 2), y: r.y }; })() : null;
+  const ln = show.opd === "none" ? null : lineGeo(W.opdIncludes, r.x, 0, r.w, Math.round(text * 0.95));
+  const lineBlock = ln ? ln.h + gap : 0;
+  const top = r.y + (plan ? plan.h + gap : 0);
+  const bottom = r.y + r.h - noteBlock - lineBlock;
+  const body = { x: r.x, y: top, w: r.w, h: bottom - top };
+  const side = r.w / r.h > 2;
+  const gapC = Math.round(text * 0.7);
+  const cells: Rect[] = side
+    ? [0, 1].map((i) => { const w = Math.floor((body.w - gapC) / 2); return { x: body.x + i * (w + gapC), y: body.y, w, h: body.h }; })
+    : [0, 1].map((i) => { const h = Math.floor((body.h - gap) / 2); return { x: body.x, y: body.y + i * (h + gap), w: body.w, h }; });
+  const pad = Math.round(text * 0.4);
+  const doors = cells.map((cell, i) => {
+    const k = Math.min(cell.h / DOOR.h, (cell.w * 0.36) / DOOR.w);
+    const door = { x: cell.x + 4, y: cell.y + Math.round((cell.h - DOOR.h * k) / 2), w: Math.round(DOOR.w * k), h: Math.round(DOOR.h * k), k };
+    const cx = cell.x + door.w + gapC;
+    const cardW = cell.x + cell.w - cx;
+    const inner = cardW - pad * 2 - 8;
+    let blocks: Blk[] = [];
+    for (let f = 1; f > 0.3; f -= 0.04) {
+      blocks = doorBlocks(i as 0 | 1, show, inner, text, f);
+      if (blocks.reduce((h, b) => h + blkH(b), 0) + pad * 2 + 8 <= cell.h) break;
+    }
+    const content = blocks.reduce((h, b) => h + blkH(b), 0) + pad * 2 + 8;
+    return { cell, door, card: { x: cx, y: cell.y, w: cardW, h: cell.h, pad, inner, blocks, content }, color: i === 0 ? BLUE : GREEN };
+  });
+  const lineAt = ln ? { ...ln, y: bottom + gap } : null;
+  return { plan, doors, line: lineAt, side, note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null };
+}
+
+/** the door on its sheet: its frame, what is inside (a bed, a cross), and the leaf swung `open` (0 to 1) toward the hinge */
+function DoorSvg({ color, tint, open, kind }: { color: string; tint: string; open: number; kind: 0 | 1 }) {
+  const e = ease(open);
+  const rx = 14 + 172 * (1 - 0.8 * e);
+  const dy = 18 * e;
+  return (
+    <svg width="100%" height="100%" viewBox={`0 0 ${DOOR.w} ${DOOR.h}`}>
+      <rect x={14} y={10} width={172} height={250} rx={8} fill={tint} />
+      {e > 0.15 ? (
+        <g opacity={clamp01((e - 0.15) * 1.6)}>
+          {kind === 0 ? (
+            <>
+              <rect x={46} y={106} width={10} height={64} rx={3} fill={C.ink} />
+              <rect x={56} y={132} width={96} height={24} rx={6} fill={C.white} stroke={C.ink} strokeWidth={3} />
+              <rect x={88} y={132} width={64} height={24} rx={6} fill={BLUE} stroke={C.ink} strokeWidth={3} />
+              <ellipse cx={74} cy={126} rx={15} ry={8} fill={C.white} stroke={C.ink} strokeWidth={3} />
+              <rect x={56} y={156} width={96} height={8} fill={C.ink} />
+              <rect x={146} y={156} width={8} height={16} fill={C.ink} />
+            </>
+          ) : (
+            <>
+              <path d="M100 100 V176 M62 138 H138" stroke={C.ink} strokeWidth={30} strokeLinecap="round" fill="none" />
+              <path d="M100 100 V176 M62 138 H138" stroke={C.white} strokeWidth={20} strokeLinecap="round" fill="none" />
+            </>
+          )}
+        </g>
+      ) : null}
+      <polygon points={`14,10 ${rx.toFixed(1)},${(10 + dy).toFixed(1)} ${rx.toFixed(1)},${(260 - dy).toFixed(1)} 14,260`} fill={color} stroke={C.ink} strokeWidth={4} strokeLinejoin="round" />
+      <rect x={14 + (rx - 14) * 0.2} y={42 + dy * 0.3} width={(rx - 14) * 0.6} height={62 - dy * 0.6} rx={6} fill={C.white} opacity={0.55} />
+      <circle cx={rx - 14} cy={150} r={7} fill={C.coin} stroke={C.ink} strokeWidth={3} />
+      <rect x={14} y={10} width={172} height={250} rx={8} fill="none" stroke={C.ink} strokeWidth={5} />
+      <path d="M2 264 H198" stroke={C.ink} strokeWidth={5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** สองประตู: the blue door of ผู้ป่วยใน opens and its card follows, then the green door of ผู้ป่วยนอก; the line last */
+function IpdOpd({ d, show }: { d: Dev; show: Health2Show<"ipdopd"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const geo = ipdopdGeo(c.size, show);
+  const at = ipdopdAt(s, show, t);
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      {geo.plan ? (
+        <El an={s.title} t={t} style={{ position: "absolute", left: geo.plan.x, top: geo.plan.y, width: geo.plan.w, height: geo.plan.h, justifyContent: "center", alignItems: "center", background: C.note, border: `4px solid ${C.ink}`, borderRadius: 999, fontFamily: HAND, fontSize: geo.plan.size, fontWeight: 700, lineHeight: 1.3, color: C.ink }}>{geo.plan.text}</El>
+      ) : null}
+      {geo.doors.map((dr, i) => (
+        <Fragment key={i}>
+          <div data-part={`door${i}`} style={abs({ left: dr.door.x, top: dr.door.y, width: dr.door.w, height: dr.door.h })}>
+            <DoorSvg color={i === 1 && show.opd === "none" ? C.struck : dr.color} tint={i === 0 ? C.blanket : C.tiles[1]} open={at.open[i]} kind={i as 0 | 1} />
+          </div>
+          <CardAt an={s[`card${i}`]} t={t} r={dr.card} pad={dr.card.pad} tilt={i === 0 ? -0.8 : 0.8} part={`card${i}`}>
+            <Blocks blocks={dr.card.blocks} />
+          </CardAt>
+        </Fragment>
+      ))}
+      {geo.line ? <LineBlock an={s.line} t={t} g={geo.line} color={ink} /> : null}
+      <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
+    </>
+  );
+}
+
+/* ---------- deductible: ส่วนรับผิดชอบแรก ---------- */
+
+/** what the bill splits into: ours up to the deductible, the insurer's the rest (never negative); none of it without a bill */
+export function deductibleParts(show: Health2Show<"deductible">) {
+  const bill = show.bill !== undefined && show.bill > 0 ? show.bill : undefined;
+  if (bill === undefined) return { bill, ours: undefined, theirs: undefined, below: false, frac: 0.4 };
+  const ours = Math.min(bill, show.deductible);
+  const theirs = Math.max(0, bill - show.deductible);
+  return { bill, ours, theirs, below: bill <= show.deductible, frac: ours / bill };
+}
+
+/** how much of the bar, our part and the insurer's part is drawn at t (0 to 1 each) */
+export function deductibleAt(s: Record<string, Anim>, t: number) {
+  return { bill: look(s.bill, t).p, ours: look(s.ours, t).p, theirs: look(s.theirs, t).p };
+}
+
+/** where the bill bar stands: the bar to one scale (the split at the deductible), the amounts under each part, the card */
+export function deductibleGeo(size: VideoSize, show: Health2Show<"deductible">, place: H2Place = health2Place(size)) {
+  const r = place.room;
+  const text = place.text;
+  const parts = deductibleParts(show);
+  const note = noteGeo(show.note, r.w - 40, text);
+  const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
+  const gap = Math.round(text * 0.55);
+  const W0 = r.w - 40;
+  const x0 = r.x + 20;
+  const barH = Math.round(text * 2.6);
+  // the split: to scale, a few pixels at least so a small part is still seen
+  const hasGreen = parts.theirs !== undefined ? parts.theirs > 0 : true;
+  let goldW = parts.below ? W0 : Math.round(W0 * parts.frac);
+  if (!parts.below && parts.ours !== undefined && parts.ours > 0) goldW = clamp(goldW, 14, W0 - 14);
+  const greenW = hasGreen ? W0 - goldW : 0;
+  // a label's size: the largest at which both fit side by side under the bar
+  const names: [string, string] = [W.weOwn, W.insurerPays];
+  const amounts: [string | undefined, string | undefined] = [parts.ours === undefined ? undefined : n(parts.ours), parts.theirs === undefined || !hasGreen ? undefined : n(parts.theirs)];
+  const labelW = (i: 0 | 1, ns: number, as: number) => Math.ceil(Math.max(handWidth(names[i], ns), amounts[i] ? figWidth(`${amounts[i]} ${W.baht}`, as) : 0));
+  let nameSize = Math.round(text * 1.05);
+  let amtSize = Math.round(text * 1.45);
+  while (amtSize > 12 && labelW(0, nameSize, amtSize) + (hasGreen ? labelW(1, nameSize, amtSize) : 0) + 24 > W0) { amtSize -= 1; nameSize = Math.min(nameSize, Math.round(amtSize * 0.8)); }
+  const lw = [labelW(0, nameSize, amtSize), labelW(1, nameSize, amtSize)];
+  const labelH = Math.round(nameSize * 1.3 + (amounts[0] ? amtSize * 1.3 : 0));
+  const goldC = x0 + goldW / 2;
+  const greenC = x0 + goldW + greenW / 2;
+  let gx = clamp(Math.round(goldC - lw[0] / 2), x0, x0 + W0 - lw[0]);
+  let rx = clamp(Math.round(greenC - lw[1] / 2), x0, x0 + W0 - lw[1]);
+  if (hasGreen && gx + lw[0] + 16 > rx) { gx = x0; rx = x0 + W0 - lw[1]; }
+  const tick = 22;
+  // the bar's own caption: the bill's total, over its left end
+  const billSize = Math.round(text * 1.0);
+  const billH = parts.bill !== undefined ? Math.round(billSize * 1.3) + 8 : 0;
+  // the "not yet" line, only when the bill stays inside our part
+  const notYet = parts.below ? lineGeo(W.notYet, r.x, 0, r.w, Math.round(text * 1.0)) : null;
+  // the card
+  const pad = Math.round(text * 0.4);
+  const cardW = Math.min(r.w - 40, 760);
+  const inner = cardW - pad * 2 - 8;
+  const cardBlocks: Blk[] = [phrase(W.deductibleCard, inner, text * 1.05, C.ink, 600, 1), one(`${n(show.deductible)} ${W.perYear}`, inner, text * 1.6, C.ink, 700)];
+  const cardH = cardBlocks.reduce((h, b) => h + blkH(b), 0) + pad * 2 + 8;
+  const groupH = billH + barH + tick + labelH + (notYet ? gap + notYet.h : 0) + gap * 1.5 + cardH;
+  const area = r.h - noteBlock;
+  const y0 = r.y + Math.max(0, Math.round((area - groupH) / 2));
+  const barY = y0 + billH;
+  const labelY = barY + barH + tick;
+  const notYetY = labelY + labelH + gap;
+  const cardY = (notYet ? notYetY + notYet.h : labelY + labelH) + Math.round(gap * 1.5);
+  const seg = (i: 0 | 1) => (i === 0 ? { x: x0, w: goldW } : { x: x0 + goldW, w: greenW });
+  const lab = (i: 0 | 1, lx: number) => {
+    const sg = seg(i);
+    const lo = Math.max(sg.x, lx);
+    const hi = Math.min(sg.x + sg.w, lx + lw[i]);
+    return { x: lx, y: labelY, w: lw[i], h: labelH, name: names[i], amount: amounts[i] ? `${amounts[i]} ${W.baht}` : undefined, nameSize, amtSize, tickX: Math.round((lo + hi) / 2), color: i === 0 ? GOLD : GREEN, textColor: i === 0 ? C.ink : GREEN };
+  };
+  return {
+    parts, goldW, greenW,
+    bar: { x: x0, y: barY, w: W0, h: barH },
+    bill: parts.bill !== undefined ? { text: `${W.bill} ${n(parts.bill)} ${W.baht}`, size: billSize, x: x0, y: y0, w: W0, h: billH } : null,
+    labels: [lab(0, gx), ...(hasGreen ? [lab(1, rx)] : [])],
+    tick: { y: barY + barH, h: tick },
+    notYet: notYet ? { ...notYet, y: notYetY } : null,
+    card: { x: r.x + Math.round((r.w - cardW) / 2), y: cardY, w: cardW, h: cardH, pad, inner, blocks: cardBlocks },
+    note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
+  };
+}
+
+/** ส่วนรับผิดชอบแรก: the bill bar, our part gold up to the deductible then the insurer's green, to scale; amounts only when a bill was given */
+function Deductible({ d, show }: { d: Dev; show: Health2Show<"deductible"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const geo = deductibleGeo(c.size, show);
+  const at = deductibleAt(s, t);
+  const b = geo.bar;
+  const inner = { x: b.x + 4, y: b.y + 4, h: b.h - 8 };
+  const goldNow = Math.round(Math.max(0, geo.goldW - 4) * at.ours);
+  const greenNow = Math.round((geo.greenW - (geo.goldW === b.w ? 0 : 0)) * at.theirs);
+  const bothDone = at.ours >= 1 && at.theirs >= 1 && geo.greenW > 0;
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      {geo.bill ? <div data-part="bill" style={abs({ left: geo.bill.x, top: geo.bill.y, width: geo.bill.w, height: geo.bill.h, fontFamily: HAND, fontSize: geo.bill.size, fontWeight: 700, lineHeight: 1.3, color: ink, opacity: at.bill > 0 ? 1 : 0 })}>{geo.bill.text}</div> : null}
+      <div data-part="trough" style={abs({ left: b.x, top: b.y, width: Math.round(b.w * at.bill), height: b.h, background: C.note, borderRadius: 14, opacity: at.bill > 0 ? 1 : 0 })} />
+      {goldNow > 0 ? <div data-part="ours" style={abs({ left: inner.x, top: inner.y, width: goldNow, height: inner.h, background: GOLD })} /> : null}
+      {geo.greenW > 0 && greenNow > 0 ? <div data-part="theirs" style={abs({ left: b.x + geo.goldW, top: inner.y, width: Math.min(greenNow, geo.greenW - 4), height: inner.h, background: GREEN })} /> : null}
+      <div style={abs({ left: b.x, top: b.y, width: Math.round(b.w * at.bill), height: b.h, border: `4px solid ${C.ink}`, borderRadius: 14, opacity: at.bill > 0 ? 1 : 0 })} />
+      {bothDone ? (
+        <div data-part="split" style={abs({ left: b.x + geo.goldW - 2, top: b.y - 10, width: 4, height: b.h + 20 })}>
+          <svg width={4} height={b.h + 20} viewBox={`0 0 4 ${b.h + 20}`}><line x1={2} y1={0} x2={2} y2={b.h + 20} stroke={C.ink} strokeWidth={4} strokeDasharray="8 6" /></svg>
+        </div>
+      ) : null}
+      {geo.labels.map((l, i) => {
+        const p = i === 0 ? at.ours : at.theirs;
+        return (
+          <Fragment key={i}>
+            <div data-part={i === 0 ? "tick-ours" : "tick-theirs"} style={abs({ left: l.tickX - 3, top: geo.tick.y, width: 6, height: geo.tick.h, background: l.color, opacity: p > 0 ? 1 : 0 })} />
+            <div data-part={i === 0 ? "label-ours" : "label-theirs"} style={abs({ left: l.x, top: l.y, width: l.w, height: l.h, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: l.textColor, opacity: p > 0 ? 1 : 0 })}>
+              <div style={box({ fontSize: l.nameSize, fontWeight: 700, lineHeight: 1.3, color: l.textColor })}>{l.name}</div>
+              {l.amount ? <div style={box({ fontSize: l.amtSize, fontWeight: 700, lineHeight: 1.3, color: l.textColor, whiteSpace: "nowrap" })}>{l.amount}</div> : null}
+            </div>
+          </Fragment>
+        );
+      })}
+      {geo.notYet ? <LineBlock an={s.theirs} t={t} g={geo.notYet} color={ink} /> : null}
+      <CardAt an={s.card} t={t} r={geo.card} pad={geo.card.pad} tilt={-0.8} part="card"><Blocks blocks={geo.card.blocks} /></CardAt>
+      <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
+    </>
+  );
+}
+
+/* ---------- copay: ร่วมจ่าย ---------- */
+
+/** how the bill splits at the sheet's percent: ours is the floor (computed, never supplied); the insurer pays the rest */
+export function copaySplit(show: Health2Show<"copay">) {
+  if (show.bill === undefined || !(show.bill > 0)) return null;
+  const ours = Math.floor((show.bill * show.percent) / 100);
+  return { bill: show.bill, ours, theirs: show.bill - ours };
+}
+
+/** how much of the dashed cut is drawn, and whether each part has come in, at t */
+export function copayAt(s: Record<string, Anim>, t: number) {
+  return { sheet: look(s.sheet, t).p, cut: look(s.cut, t).p, ours: look(s.ours, t).p, theirs: look(s.theirs, t).p };
+}
+
+/** where the bill sheet stands: the sheet split at the percent (to scale), the two labels beside it, the card */
+export function copayGeo(size: VideoSize, show: Health2Show<"copay">, place: H2Place = health2Place(size)) {
+  const r = place.room;
+  const text = place.text;
+  const split = copaySplit(show);
+  const note = noteGeo(show.note, r.w - 40, text);
+  const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
+  const gap = Math.round(text * 0.55);
+  const row = r.w / r.h > 2;
+  const pad = Math.round(text * 0.4);
+  const area = { x: r.x, y: r.y, w: r.w, h: r.h - noteBlock };
+  // the card: three short lines, only with a bill
+  const cardW = row ? Math.min(Math.round(area.w * 0.36), 600) : Math.min(area.w - 40, 760);
+  const inner = cardW - pad * 2 - 8;
+  const cap = text * 1.15;
+  const build = (f: number) => split ? [
+    one(`${W.bill} ${n(split.bill)}`, inner, cap * f, C.ink, 700),
+    one(`${W.weOwn} ${n(split.ours)}`, inner - Math.round(cap * f), cap * f, C.ink, 700),
+    one(`${W.insurerPays} ${n(split.theirs)}`, inner, cap * f, GREEN, 700),
+  ] : [];
+  const cardBlocks = build(1);
+  const cardH = split ? cardBlocks.reduce((h, b) => h + blkH(b), 0) + pad * 2 + 8 : 0;
+  // the sheet and its labels
+  const tabSize = Math.round(text * 0.95);
+  const tabH = Math.round(tabSize * 1.4);
+  const sheetArea = row
+    ? { x: area.x, y: area.y, w: area.w - (split ? cardW + gap * 2 : 0), h: area.h }
+    : { x: area.x, y: area.y, w: area.w, h: area.h - (split ? cardH + gap : 0) };
+  const sh = Math.min(sheetArea.h - tabH - 8, Math.round(sheetArea.w * 0.8));
+  const sw = Math.min(Math.round(sh * 0.74), Math.round(sheetArea.w * 0.4));
+  const innerH = sh - 8;
+  const oursH = clamp(Math.round((innerH * show.percent) / 100), show.percent > 0 ? 10 : 0, innerH);
+  const theirsH = innerH - oursH;
+  const hasTheirs = show.percent < 100;
+  // labels: "เราจ่าย 20%" beside the top part, "ประกันจ่ายส่วนที่เหลือ" beside the rest
+  const oursText = `${W.weOwn} ${show.percent}%`;
+  const labelRoom = Math.max(120, sheetArea.w - sw - 60 - Math.round(text * 0.5));
+  const oursB = one(oursText, labelRoom, text * 1.5, C.ink, 700);
+  const theirsB = phrase(W.restPays, labelRoom, text * 1.15, GREEN, 700, 2);
+  const oh = blkH(oursB);
+  const th = hasTheirs ? blkH(theirsB) : 0;
+  const bw = Math.max(figWidth(oursText, oursB.size), hasTheirs ? Math.max(...theirsB.lines.map((x) => handWidth(x, theirsB.size))) : 0);
+  const groupW = sw + 28 + Math.ceil(bw);
+  // in a wide room the sheet with its labels and the card are centred together
+  const together = row && split ? groupW + gap * 2 + cardW : groupW;
+  const sx = row && split ? area.x + Math.round((area.w - together) / 2) : sheetArea.x + Math.round((sheetArea.w - groupW) / 2);
+  const sy = sheetArea.y + Math.round((sheetArea.h - (sh + tabH + 8)) / 2) + tabH + 8;
+  const sheet = { x: sx, y: sy, w: sw, h: sh };
+  const oursMid = sy + 4 + oursH / 2;
+  const theirsMid = sy + 4 + oursH + theirsH / 2;
+  const oy = clamp(Math.round(oursMid - oh / 2), sy, sy + sh - oh - (hasTheirs ? th + 12 : 0));
+  const ty = clamp(Math.round(theirsMid - th / 2), oy + oh + 12, sy + sh - th);
+  const lx = sx + sw + 28;
+  const cardRect = split ? (row ? { x: sx + groupW + gap * 2, y: area.y + Math.round((area.h - cardH) / 2), w: cardW, h: cardH } : { x: area.x + Math.round((area.w - cardW) / 2), y: area.y + area.h - cardH, w: cardW, h: cardH }) : null;
+  return {
+    split, row, sheet, tab: { x: sx, y: sy - tabH - 8, w: sw, h: tabH, size: tabSize },
+    ours: { y: sy + 4, h: oursH }, theirs: { y: sy + 4 + oursH, h: theirsH }, cutY: sy + 4 + oursH,
+    bracket: { x: sx + sw + 10, w: 10 },
+    labels: { ours: { x: lx, y: oy, h: oh, blk: oursB, w: Math.ceil(bw) }, theirs: hasTheirs ? { x: lx, y: ty, h: th, blk: theirsB, w: Math.ceil(bw) } : null },
+    card: cardRect ? { ...cardRect, pad, inner, blocks: cardBlocks } : null,
+    note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
+  };
+}
+
+/** an arrow from the bill to our part, in the card (drawn, not a letter the hand font may lack) */
+const Arrow = ({ size, color }: { size: number; color: string }) => (
+  <svg width={Math.round(size * 0.9)} height={Math.round(size * 0.7)} viewBox="0 0 36 28"><path d="M3 14 H29 M19 5 L30 14 L19 23" stroke={color} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+);
+
+/** ร่วมจ่าย: a bill sheet cut by a dashed red line at the percent (to scale); what we pay at the top, the insurer's share below it */
+function Copay({ d, show }: { d: Dev; show: Health2Show<"copay"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const geo = copayGeo(c.size, show);
+  const at = copayAt(s, t);
+  const sh = geo.sheet;
+  const lines = 7;
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      <div data-part="tab" style={abs({ left: geo.tab.x, top: geo.tab.y, width: geo.tab.w, height: geo.tab.h, justifyContent: "center", fontFamily: HAND, fontSize: geo.tab.size, fontWeight: 700, lineHeight: 1.3, color: ink, opacity: at.sheet > 0 ? 1 : 0 })}>{W.bill}</div>
+      <Pop an={s.sheet} t={t} r={sh} part="sheet">
+        <div style={abs({ left: 0, top: 0, width: sh.w, height: sh.h, background: C.note, border: `4px solid ${C.ink}`, borderRadius: 10 })} />
+        {at.ours > 0 ? <div data-part="ours" style={abs({ left: 4, top: geo.ours.y - sh.y, width: sh.w - 8, height: geo.ours.h, background: GOLD, opacity: clamp01(at.ours * 2) })} /> : null}
+        {at.theirs > 0 && geo.theirs.h > 0 ? <div data-part="theirs" style={abs({ left: 4, top: geo.theirs.y - sh.y, width: sh.w - 8, height: geo.theirs.h, background: GREEN, opacity: clamp01(at.theirs * 2) })} /> : null}
+        <svg width={sh.w} height={sh.h} viewBox={`0 0 ${sh.w} ${sh.h}`} style={{ position: "absolute", left: 0, top: 0 }}>
+          {Array.from({ length: lines }, (_, i) => { const y = 4 + ((sh.h - 8) * (i + 1)) / (lines + 1); return <line key={i} x1={20} y1={y} x2={sh.w - 20} y2={y} stroke={C.ink} strokeWidth={3} opacity={0.18} strokeLinecap="round" />; })}
+        </svg>
+        <div style={abs({ left: 0, top: 0, width: sh.w, height: sh.h, border: `4px solid ${C.ink}`, borderRadius: 10 })} />
+      </Pop>
+      {at.cut > 0 ? (
+        <div data-part="cut" style={abs({ left: sh.x - 16, top: geo.cutY - 5, width: sh.w + 32, height: 10 })}>
+          <svg width={sh.w + 32} height={10} viewBox={`0 0 ${sh.w + 32} 10`}><line x1={0} y1={5} x2={Math.round((sh.w + 32) * at.cut)} y2={5} stroke={C.white} strokeWidth={10} strokeLinecap="round" opacity={0.9} /><line x1={0} y1={5} x2={Math.round((sh.w + 32) * at.cut)} y2={5} stroke={RED} strokeWidth={6} strokeLinecap="round" strokeDasharray="16 10" /></svg>
+        </div>
+      ) : null}
+      {at.ours > 0 ? <div data-part="bracket-ours" style={abs({ left: geo.bracket.x, top: geo.ours.y + 2, width: geo.bracket.w, height: Math.max(4, geo.ours.h - 4), background: GOLD, border: `3px solid ${C.ink}`, borderRadius: 6, opacity: clamp01(at.ours * 2) })} /> : null}
+      {at.theirs > 0 && geo.theirs.h > 0 ? <div data-part="bracket-theirs" style={abs({ left: geo.bracket.x, top: geo.theirs.y + 2, width: geo.bracket.w, height: Math.max(4, geo.theirs.h - 4), background: GREEN, border: `3px solid ${C.ink}`, borderRadius: 6, opacity: clamp01(at.theirs * 2) })} /> : null}
+      <Pop an={s.ours} t={t} r={{ x: geo.labels.ours.x, y: geo.labels.ours.y, w: geo.labels.ours.w, h: geo.labels.ours.h }} part="label-ours">
+        <div style={abs({ left: 0, top: 0, width: geo.labels.ours.w, flexDirection: "column", alignItems: "flex-start", fontFamily: HAND })}><Blocks blocks={[geo.labels.ours.blk]} align="flex-start" /></div>
+      </Pop>
+      {geo.labels.theirs ? (
+        <Pop an={s.theirs} t={t} r={{ x: geo.labels.theirs.x, y: geo.labels.theirs.y, w: geo.labels.theirs.w, h: geo.labels.theirs.h }} part="label-theirs">
+          <div style={abs({ left: 0, top: 0, width: geo.labels.theirs.w, flexDirection: "column", alignItems: "flex-start", fontFamily: HAND })}><Blocks blocks={[geo.labels.theirs.blk]} align="flex-start" /></div>
+        </Pop>
+      ) : null}
+      {geo.card ? (
+        <CardAt an={s.card} t={t} r={geo.card} pad={geo.card.pad} tilt={0.8} part="card">
+          <div style={box({ flexDirection: "column", alignItems: "center" })}>
+            <Blocks blocks={[geo.card.blocks[0]]} />
+            <div style={box({ alignItems: "center", justifyContent: "center", marginTop: 2 })}>
+              <Arrow size={geo.card.blocks[1].size} color={C.ink} />
+              <div style={box({ width: Math.round(geo.card.blocks[1].size * 0.25) })} />
+              <Blocks blocks={[geo.card.blocks[1]]} />
+            </div>
+            <Blocks blocks={[geo.card.blocks[2]]} />
+          </div>
+        </CardAt>
+      ) : null}
+      <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
+    </>
+  );
+}
+
+/* ---------- renew98: ต่ออายุได้ถึง ---------- */
+
+/** how far the timeline, its dashed arc, and the two marks are drawn at t */
+export function renewAt(s: Record<string, Anim>, t: number) {
+  return { line: look(s.line, t).p, arc: look(s.arc, t).p, today: look(s.today, t).p, to: look(s.to, t).p };
+}
+
+/** the age shown for today: only below the renewal age (a person at or past it has no timeline to show) */
+export const renewAge = (show: Health2Show<"renew98">) => (show.age !== undefined && show.age < show.to ? show.age : undefined);
+
+/** a point on the dashed arc (a quadratic from one mark to the other) at fraction u */
+export function arcPoint(g: { x1: number; x2: number; y: number; peak: number }, u: number) {
+  const cx = (g.x1 + g.x2) / 2;
+  const cy = g.y - g.peak * 2;
+  return { x: (1 - u) * (1 - u) * g.x1 + 2 * (1 - u) * u * cx + u * u * g.x2, y: (1 - u) * (1 - u) * g.y + 2 * (1 - u) * u * cy + u * u * g.y };
+}
+
+/** where the timeline stands: today's mark at the left, the renewal age at the right, the arc over them, the card under */
+export function renewGeo(size: VideoSize, show: Health2Show<"renew98">, place: H2Place = health2Place(size)) {
+  const r = place.room;
+  const text = place.text;
+  const age = renewAge(show);
+  const note = noteGeo(show.note, r.w - 40, text);
+  const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
+  const area = r.h - noteBlock;
+  const gap = Math.round(text * 0.5);
+  const pad = Math.round(text * 0.4);
+  const cardW = Math.min(r.w - 40, 760);
+  const inner = cardW - pad * 2 - 8;
+  const DOT = Math.round(text * 0.5);
+  const build = (f: number) => {
+    const todayBlocks: Blk[] = [one(W.today, r.w * 0.4, text * 1.2 * f, C.ink, 700), ...(age !== undefined ? [one(`อายุ ${age}`, r.w * 0.4, text * 1.1 * f, C.ink, 600)] : [])];
+    const toBlocks: Blk[] = [one(W.renewTo.split(" ")[0], r.w * 0.5, text * 0.95 * f, C.ink, 600), one(`${W.renewTo.split(" ")[1]} ${show.to}`, r.w * 0.5, text * 1.6 * f, GREEN, 700)];
+    const cardBlocks: Blk[] = [phrase(W.notBeyond, inner, text * 1.1 * f, C.ink, 700), phrase(W.byAge, inner, text * 1.1 * f, GREEN, 700)];
+    return { todayBlocks, toBlocks, cardBlocks };
+  };
+  let f = 1;
+  let parts = build(1);
+  const labelH = (bs: Blk[]) => bs.reduce((h, b) => h + blkH(b), 0);
+  const heights = (p: typeof parts) => ({ labels: Math.max(labelH(p.todayBlocks), labelH(p.toBlocks)), card: labelH(p.cardBlocks) + pad * 2 + 8 });
+  const arcMin = Math.round(text * 1.2);
+  for (; f > 0.4; f -= 0.04) {
+    parts = build(f);
+    const h = heights(parts);
+    if (arcMin + DOT * 2 + gap + h.labels + gap * 1.5 + h.card <= area) break;
+  }
+  const h = heights(parts);
+  const wToday = Math.ceil(Math.max(...parts.todayBlocks.map((b) => Math.max(...b.lines.map((x) => figWidth(x, b.size))))));
+  const wTo = Math.ceil(Math.max(...parts.toBlocks.map((b) => Math.max(...b.lines.map((x) => figWidth(x, b.size))))));
+  const m = Math.round(Math.max(wToday, wTo) / 2) + 12;
+  const x1 = r.x + m;
+  const x2 = r.x + r.w - m;
+  const rest = DOT * 2 + gap + h.labels + Math.round(gap * 1.5) + h.card;
+  const peak = clamp(Math.min(Math.round((x2 - x1) * 0.2), area - rest), arcMin, Math.round(r.h * 0.3));
+  const total = peak * 2 + rest - peak; // the arc's visible height is its peak (a quadratic reaches half its control's lift)
+  const y0 = r.y + Math.max(0, Math.round((area - (peak + rest)) / 2));
+  const lineY = y0 + peak + DOT;
+  const labelsY = lineY + DOT + gap;
+  const cardY = labelsY + h.labels + Math.round(gap * 1.5);
+  void total;
+  return {
+    age, f, x1, x2, lineY, dot: DOT, peak,
+    arc: { x1, x2, y: lineY - DOT, peak },
+    today: { x: x1 - Math.round(wToday / 2) - 6, y: labelsY, w: wToday + 12, blocks: parts.todayBlocks },
+    to: { x: x2 - Math.round(wTo / 2) - 6, y: labelsY, w: wTo + 12, blocks: parts.toBlocks },
+    labelsH: h.labels,
+    card: { x: r.x + Math.round((r.w - cardW) / 2), y: cardY, w: cardW, h: h.card, pad, inner, blocks: parts.cardBlocks },
+    note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
+  };
+}
+
+/** ต่ออายุได้ถึง: a timeline from วันนี้ to the renewal age, a dashed arc over it, and what the renewal is bound by */
+function Renew({ d, show }: { d: Dev; show: Health2Show<"renew98"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const geo = renewGeo(c.size, show);
+  const at = renewAt(s, t);
+  const D = geo.dot;
+  const pts = Array.from({ length: 41 }, (_, i) => arcPoint(geo.arc, (i / 40) * at.arc));
+  const x0 = geo.x1 - D - 6;
+  const arcPath = at.arc > 0 ? `M${pts.map((p) => `${(p.x - x0).toFixed(1)} ${(p.y - (geo.arc.y - geo.arc.peak - 6)).toFixed(1)}`).join(" L")}` : "";
+  const svgW = geo.x2 - geo.x1 + (D + 6) * 2;
+  const svgH = geo.peak + D * 2 + 12;
+  const top = geo.arc.y - geo.arc.peak - 6;
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      <div data-part="timeline" style={abs({ left: x0, top, width: svgW, height: svgH })}>
+        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+          <line x1={D + 6} y1={geo.lineY - top} x2={D + 6 + (geo.x2 - geo.x1) * at.line} y2={geo.lineY - top} stroke={C.ink} strokeWidth={7} strokeLinecap="round" />
+          {arcPath ? <path d={arcPath} fill="none" stroke={GREEN} strokeWidth={6} strokeLinecap="round" strokeDasharray="16 12" /> : null}
+        </svg>
+      </div>
+      <Pop an={s.today} t={t} r={{ x: geo.x1 - D, y: geo.lineY - D, w: D * 2, h: D * 2 }} part="dot-today">
+        <div style={box({ width: D * 2, height: D * 2, borderRadius: D, background: GOLD, border: `4px solid ${C.ink}` })} />
+      </Pop>
+      <Pop an={s.to} t={t} r={{ x: geo.x2 - D, y: geo.lineY - D, w: D * 2, h: D * 2 }} part="dot-to">
+        <div style={box({ width: D * 2, height: D * 2, borderRadius: D, background: GREEN, border: `4px solid ${C.ink}` })} />
+      </Pop>
+      <Pop an={s.today} t={t} r={{ x: geo.today.x, y: geo.today.y, w: geo.today.w, h: geo.labelsH }} part="label-today">
+        <div style={abs({ left: 0, top: 0, width: geo.today.w, justifyContent: "center", fontFamily: HAND })}><Blocks blocks={geo.today.blocks} /></div>
+      </Pop>
+      <Pop an={s.to} t={t} r={{ x: geo.to.x, y: geo.to.y, w: geo.to.w, h: geo.labelsH }} part="label-to">
+        <div style={abs({ left: 0, top: 0, width: geo.to.w, justifyContent: "center", fontFamily: HAND })}><Blocks blocks={geo.to.blocks} /></div>
+      </Pop>
+      <CardAt an={s.card} t={t} r={geo.card} pad={geo.card.pad} tilt={-0.8} part="card"><Blocks blocks={geo.card.blocks} /></CardAt>
+      <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
+    </>
+  );
+}
+
+/** a round-5 health device's frame body at scene time t (showBody hands it the frame, the movements, where things stand, the ink); the four not drawn yet stand empty */
+export function health2Body(show: Health2Show, d: Dev) {
+  switch (show.layout) {
+    case "ipdopd": return <IpdOpd d={d} show={show} />;
+    case "deductible": return <Deductible d={d} show={show} />;
+    case "copay": return <Copay d={d} show={show} />;
+    case "renew98": return <Renew d={d} show={show} />;
+    default: return null;
+  }
 }

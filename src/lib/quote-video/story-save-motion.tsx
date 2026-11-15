@@ -78,7 +78,7 @@ const baht = (v: number) => `${n(v)} บาท`;
 const baht0 = (v: number) => n(v);
 
 /** the note under a saving device's picture: as many lines as it needs (broken at a space) in the largest size that fits two */
-function noteGeo(note: string | undefined, room: number, text: number, grow = 1.1) {
+export function noteGeo(note: string | undefined, room: number, text: number, grow = 1.1) {
   if (!note) return null;
   const cap = Math.round(text * grow);
   const size = fitWrap([note], room, Math.round(cap * 1.3 * 2) + 1, cap);
@@ -241,7 +241,7 @@ function SaveJar({ d, show }: { d: Dev; show: SaveShow<"savejar"> }) {
 }
 
 /** the note under a saving device, as plain lines of hand, fading in last */
-function NoteLines({ n: note, an, t, ink }: { n: { x: number; y: number; w: number; h: number; size: number; lines: string[] } | null; an?: Anim; t: number; ink: string }) {
+export function NoteLines({ n: note, an, t, ink }: { n: { x: number; y: number; w: number; h: number; size: number; lines: string[] } | null; an?: Anim; t: number; ink: string }) {
   if (!note) return null;
   return (
     <El an={an} t={t} style={{ position: "absolute", left: note.x, top: note.y, width: note.w, height: note.h, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: ink }}>
