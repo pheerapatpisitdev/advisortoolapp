@@ -201,6 +201,8 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     if (/\p{Nd}/u.test(t)) fail.push(`${field}: มีตัวเลข`);
     for (const f of [...FORBIDDEN, ...FREE_FORBIDDEN]) if (f.re.test(t)) fail.push(`${field}: ${f.why}`);
     // specs 2026-11-15-devices-saving and -health2: no IRR on a saving or a round-5 health device (FORBIDDEN has no IRR; other devices and scripts are unchanged)
+    // spec: the PA weekly benefit is never called "รายวัน" (paclaim only)
+    if (layout === "paclaim" && /รายวัน/.test(t)) fail.push(`${field}: เรียกค่าชดเชยรายสัปดาห์ว่ารายวัน`);
     if ((isSaveLayout || isHealth2Layout) && /\birr\b/i.test(t)) fail.push(`${field}: พูดถึงผลตอบแทน`);
     return t;
   };
@@ -389,8 +391,7 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     }
     case "groupcost": {
       const perYear = baht("perYear", o.perYear, true, sourced(FIXED.groupPerYear));
-      // the head-count band is one of three keys (the drawer writes the words); anything else is no band
-      if (o.band !== undefined && o.band !== null && !(GROUP_BANDS as readonly unknown[]).includes(o.band)) fail.push("band: ต้องเป็น 10-25, 26-50 หรือ 51-100");
+      // the head-count band is one of three keys (the drawer writes the words); anything else is dropped, as any optional field
       out = { layout, title, ...note, perYear: perYear ?? 0, ...((GROUP_BANDS as readonly unknown[]).includes(o.band) ? { band: o.band as (typeof GROUP_BANDS)[number] } : {}) };
       break;
     }

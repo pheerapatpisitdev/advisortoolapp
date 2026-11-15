@@ -239,7 +239,8 @@ describe("checkDevice: round-5 health devices", () => {
     expect(typeof ok({ layout: "groupcost", title: T }, NONE)).toBe("string");
     for (const band of GROUP_BANDS) expect(ok({ ...BARE[5], band }, NONE)).toMatchObject({ band });
     expect(ok({ ...BARE[5], band: null }, NONE)).toEqual(BARE[5]);
-    for (const band of ["10–25", "5-9", "พนักงาน 10-25 คน", "", 10, true]) expect(typeof ok({ ...BARE[5], band }, NONE), String(band)).toBe("string");
+    // an invalid band is dropped, the device stays
+    for (const band of ["10–25", "5-9", "พนักงาน 10-25 คน", "", 10, true]) expect(ok({ ...BARE[5], band }, NONE), String(band)).toEqual(BARE[5]);
   });
   it("hospitals: the total and every count must equal the hospital list's (Review Focus 1)", () => {
     const row = (p: { province: string; count: number }) => ({ province: p.province, count: p.count });
@@ -297,6 +298,12 @@ describe("checkDevice: round-5 health devices", () => {
     // a province carries none either, even one the brief gave
     expect(typeof ok({ ...BARE[6], rows: [{ province: "ชลบุรี5", count: 49 }] }, new Set([5]))).toBe("string");
     expect(typeof ok({ ...FULL[0], note: "ค่าห้อง 9,000" }, new Set([9_000]))).toBe("string");
+  });
+  it("paclaim refuses \"รายวัน\" in its title and note; other devices are unchanged", () => {
+    for (const patch of [{ title: ["รายวัน", "ก"] }, { title: ["ก", "ชดเชยรายวัน"] }, { note: "รายวัน" }]) {
+      expect(typeof ok({ ...FULL[7], ...patch }), JSON.stringify(patch)).toBe("string");
+    }
+    expect(ok({ ...FULL[0], note: "รายวัน" })).toMatchObject({ note: "รายวัน" });
   });
   it("refuses a word over its limit and passes one exactly at it (title 20, note 34, label 14)", () => {
     for (const f of wordFields((x) => x)) {
