@@ -8,7 +8,6 @@ import type { IHealthyTable } from "@/lib/ihealthy-table";
 import type { BenefitTableData } from "@/components/ihealthy/BenefitTable";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { BenefitTable } from "@/components/ihealthy/BenefitTable";
-import { PHONE_PLANS } from "@/lib/ihealthy-phone";
 import { RiderPanel } from "@/components/ihealthy/RiderPanel";
 import {
   MODES, deathBenefitOf, iHealthyPricing, shownAt,
@@ -475,9 +474,7 @@ export function IHealthyCalculator(
               <button
                 key={p.code} type="button" aria-pressed={p.code === plan?.code}
                 onClick={() => setWantPlan(p.code)}
-                className={`${chip(p.code === plan?.code)} ${
-                  PHONE_PLANS.includes(p.code) || p.code === plan?.code ? "" : "hidden sm:block"
-                }`}
+                className={chip(p.code === plan?.code)}
               >
                 <span className="block">{planLabel(p.code)}</span>
                 <span className="mt-0.5 block text-xs tabular-nums opacity-80">
