@@ -28,6 +28,11 @@ import { it } from "vitest";
  * until 60: pricerise, savejar (20 years, 2,724,410) and paidgot (2,724,410 over 40-59 against 6,023,625 over 60-95) are the
  * scenes of เก็บเงินไว้ใช้ตอนเกษียณ that open them; pensionsteps is in no episode, so it is a คลิปตามโจทย์ scene on the four
  * bands 118,110 / 157,480 / 196,851 / 236,221 (60-75, 76-80, 81-85, 86-95).
+ * The สุขภาพเพิ่มเติม devices (device round 5, 2026-11-15) are told on iHealthy GOLD (ชาย 35 ปี: room 9,000 a day, OPD 12,000 a year,
+ * deductible 50,000, co-payment 20 percent, renewal to 98): ipdopd, renew98 and hospitals (the list's total 537 and its five largest
+ * provinces) are the scenes of the episode ipdopd; deductible (bill 100,000), copay (bill 100,000), parentshealth (cap 15,000),
+ * groupcost (plan 1, 10-25 heads, 2,552 a year) and paclaim (Platinum 03: medical 150,000, weekly 3,000, 52 weeks) are in no
+ * episode, so they are คลิปตามโจทย์ scenes on those figures.
  * The voice is silence; no database, no paid call.
  */
 
@@ -56,6 +61,8 @@ const EPISODES = [
   { topic: "selfemployed", devices: ["safetynet"], people: true },
   // ออมเงิน (round 4): the scenes of เก็บเงินไว้ใช้ตอนเกษียณ, told on the pension the spec's example types
   { topic: "retiresave", pension: { sex: "M", age: 40, annuityAge: 60, pay: "untilAnnuity", monthly: 10_000 }, devices: ["pricerise", "savejar", "paidgot"] },
+  // สุขภาพเพิ่มเติม (round 5): the scenes of ผู้ป่วยใน ผู้ป่วยนอก ต่างกันยังไง on iHealthy GOLD, a man of 35
+  { topic: "ipdopd", health: { plan: "GOLD", sex: "M", age: 35 }, devices: ["ipdopd", "renew98", "hospitals"] },
 ] as const;
 /** the devices in no episode, as a คลิปตามโจทย์ writer may give them: one device scene, then the agent's card */
 const FREE = [
@@ -72,6 +79,17 @@ const FREE = [
   { file: "pensionsteps", title: "บำนาญขั้นบันได", voice: "บำนาญที่ได้รับ ขยับขึ้นเป็นขั้น ตามช่วงอายุค่ะ",
     device: { layout: "pensionsteps", title: ["บำนาญ", "ขั้นบันได"], note: "ค่าครองชีพก็สูงขึ้น วางแผนเผื่อไว้",
       rows: [{ from: 60, to: 75, annual: 118_110 }, { from: 76, to: 80, annual: 157_480 }, { from: 81, to: 85, annual: 196_851 }, { from: 86, to: 95, annual: 236_221 }] } },
+  // สุขภาพเพิ่มเติม (round 5): in no episode, so as คลิปตามโจทย์ scenes on the sheet's, the tables' and the spec's own figures, in every look
+  { file: "deductible", title: "ส่วนรับผิดชอบแรก", voice: "บิลหนึ่งใบ ส่วนแรกเราจ่ายเอง ส่วนที่เหลือประกันจ่ายค่ะ",
+    device: { layout: "deductible", title: ["ส่วนรับผิดชอบแรก", "เราจ่ายก่อน"], note: "ตามเงื่อนไขของแผน", deductible: 50_000, bill: 100_000 } },
+  { file: "copay", title: "ร่วมจ่าย", voice: "บิลหนึ่งใบ แบ่งกันจ่าย ส่วนหนึ่งเรา ส่วนหนึ่งประกันค่ะ",
+    device: { layout: "copay", title: ["ร่วมจ่าย", "ตามเงื่อนไข"], note: "แบ่งตามส่วน", percent: 20, bill: 100_000 } },
+  { file: "parentshealth", title: "ประกันสุขภาพให้พ่อแม่", voice: "ซื้อประกันสุขภาพให้พ่อแม่ แล้วนำค่าประกันไปลดหย่อนภาษีได้ตามเพดานค่ะ",
+    device: { layout: "parentshealth", title: ["ประกันสุขภาพ", "ให้พ่อแม่"], note: "ตามเงื่อนไขของแผน", cap: 15_000 } },
+  { file: "groupcost", title: "ต้นทุนต่อหัว ประกันกลุ่ม", voice: "ประกันกลุ่มของบริษัท ต้นทุนต่อคนต่อปี หารเป็นเดือนได้เท่านี้ค่ะ",
+    device: { layout: "groupcost", title: ["ต้นทุนต่อหัว", "ประกันกลุ่ม"], note: "ตามตารางประกันกลุ่ม", perYear: 2_552, band: "10-25" } },
+  { file: "paclaim", title: "อุบัติเหตุหนึ่งครั้ง", voice: "อุบัติเหตุหนึ่งครั้ง ประกันจ่ายค่ารักษาและชดเชยรายสัปดาห์ตามแผนค่ะ",
+    device: { layout: "paclaim", title: ["อุบัติเหตุ", "หนึ่งครั้ง"], note: "ตามแผนที่เลือก", medical: 150_000, weekly: 3_000, weeks: 52 } },
 ] as const;
 /** ปากกาพล็อตเตอร์ ไวต์บอร์ด นีออน บลูพริ้นท์: kept only on the shelves told in points (story/topics.ts INFO_ARTS) */
 const INFO_LOOKS: readonly string[] = ["plot", "board", "neon", "blueprint"];
@@ -155,7 +173,7 @@ it.runIf(Boolean(process.env.LIBRARY))("prepares the library's preview props", a
     const { plans, moment } = clip(name, { topic: LOOK_SCENE.topic }, look);
     shots.push({ file: `look-${look}.jpg`, props: name, at: moment(plans.findIndex((p) => p.key === LOOK_SCENE.key)) });
   }
-  // 7 looks × (28 devices + the look picture): the 63 of round 1 and the new looks, round 2's 8 × 7 = 56, round 3's 8 × 7 = 56 and round 4's 4 × 7 = 28
-  if (new Set(shots.map((s) => s.file)).size !== 203 || shots.length !== 203) throw new Error(`203 pictures expected: ${shots.map((s) => s.file).join(" ")}`);
+  // 7 looks × (36 devices + the look picture): the 63 of round 1 and the new looks, round 2's 8 × 7 = 56, round 3's 8 × 7 = 56, round 4's 4 × 7 = 28 and round 5's 8 × 7 = 56
+  if (new Set(shots.map((s) => s.file)).size !== 259 || shots.length !== 259) throw new Error(`259 pictures expected: ${shots.map((s) => s.file).join(" ")}`);
   writeFileSync(join(PUB, "props/library.json"), JSON.stringify(shots, null, 1));
 });

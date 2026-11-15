@@ -464,6 +464,57 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
     writeFileSync(join(PUB, `props/st-free-save-${style}.json`), JSON.stringify(storyClipProps({ ...save, style } as never, "portrait", "", "F", CONTACT, vPlans, vScript, vSecs, clipLength(vPlans), "audio/st-free-save.wav", [undefined, undefined, undefined])));
   }
 
+  // สุขภาพเพิ่มเติม (device round 5, 2026-11-15, spec 2026-11-15-devices-health2-design): ผู้ป่วยใน ผู้ป่วยนอก ต่างกันยังไง in paper and one
+  // info look (นีออน), told on iHealthy GOLD for a man of 35, checked as the form checks it so the look and the plan are kept; its
+  // scenes must be the three health devices, whose figures are the sheet's and the hospital list's. props/st-health2-ipdopd.json is a
+  // ship.sh smoke render. The voice is the Mac's Narisa
+  for (const [name, art] of [["st-health2-ipdopd", "paper"], ["st-health2-ipdopd-neon", "neon"]] as const) {
+    const m = checkedStory({ topic: "ipdopd", faces: { narrator: "w26", hero: "m09" }, art, health: { plan: "GOLD", sex: "M", age: 35 } } as never, "F");
+    if (typeof m === "string") throw new Error(`${name}: ${m}`);
+    if (m.art !== art) throw new Error(`${name}: drawn in ${m.art}, not ${art}`);
+    const layouts = knowEpisode(m).scenes.map((x) => x.show.layout).join(" ");
+    if (layouts !== "ask ipdopd renew98 hospitals recap") throw new Error(`${name}: scenes ${layouts}`);
+    const iScript = storyScript(m, "", "F");
+    const pcms = narisa(join(OUT, "voice-health2-ipdopd"), iScript);
+    const iSecs = pcms.map((p) => pcmSeconds(p, 24000));
+    const iPlans = planScenes(iScript.map((x, i) => ({ key: x.key, voice: x.voice, voiceSec: iSecs[i], windows: clipWindows(x.key, m, "portrait"), fps: MOTION_FPS, ...clipTail(x.key, m, iSecs[i]) })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), mixNarration(pcms.map((pcm, i) => ({ pcm, at: iPlans[i].voiceAt })), clipLength(iPlans), 24000));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(m, "portrait", "", "F", CONTACT, iPlans, iScript, iSecs, clipLength(iPlans), `audio/${name}.wav`, [])));
+  }
+
+  // the same in คลิปตามโจทย์ (device round 5): deductible, copay, groupcost and paclaim in place of the painter's pictures, every figure
+  // one the brief writes or the sheet's, the tables' and the plans' own, held to it by the app's own check
+  const h2Brief = "ลูกค้าอายุ 35 ปี ถามเรื่องประกันสุขภาพ แผน iHealthy Gold บิลค่ารักษา 100,000 บาท ส่วนรับผิดชอบแรก 50,000 บาท ร่วมจ่าย 20 เปอร์เซ็นต์ "
+    + "แล้วประกันกลุ่มของบริษัทลูกค้า 10 ถึง 25 คน เบี้ยปีละ 2,552 บาท และประกันอุบัติเหตุ ค่ารักษาไม่เกิน 150,000 บาท ชดเชยสัปดาห์ละ 3,000 บาท ไม่เกิน 52 สัปดาห์";
+  const h2 = {
+    ...free, brief: h2Brief, title: "ประกันสุขภาพและอุบัติเหตุ", narrator: "F", faces: { narrator: "w26" }, pictures: [null, null, null, null],
+    scenes: [
+      { voice: "บิล 100,000 บาท ส่วนแรก 50,000 บาท เราจ่ายเอง ที่เหลือประกันจ่ายค่ะ", screen: "", picture: "",
+        device: { layout: "deductible", title: ["ส่วนรับผิดชอบแรก", "เราจ่ายก่อน"], note: "ตามเงื่อนไขของแผน", deductible: 50_000, bill: 100_000 } },
+      { voice: "บิล 100,000 บาท ถ้าแผนมีร่วมจ่าย ส่วนหนึ่งเราจ่าย อีกส่วนประกันจ่ายค่ะ", screen: "", picture: "",
+        device: { layout: "copay", title: ["ร่วมจ่าย", "ตามเงื่อนไข"], note: "แบ่งตามส่วน", percent: 20, bill: 100_000 } },
+      { voice: "ประกันกลุ่มของบริษัท ต้นทุนต่อคนต่อปี 2,552 บาท หารเป็นเดือนได้เท่าไร ดูในภาพค่ะ", screen: "", picture: "",
+        device: { layout: "groupcost", title: ["ต้นทุนต่อหัว", "ประกันกลุ่ม"], note: "ตามตารางประกันกลุ่ม", perYear: 2_552, band: "10-25" } },
+      { voice: "ประกันอุบัติเหตุ จ่ายค่ารักษาไม่เกิน 150,000 บาท และชดเชยสัปดาห์ละ 3,000 บาท ไม่เกิน 52 สัปดาห์ค่ะ", screen: "", picture: "",
+        device: { layout: "paclaim", title: ["อุบัติเหตุ", "หนึ่งครั้ง"], note: "ตามแผนที่เลือก", medical: 150_000, weekly: 3_000, weeks: 52 } },
+    ],
+  } as const;
+  const h2Bad = checkScript(h2.scenes as never, h2Brief);
+  if (h2Bad.length) throw new Error(`st-free-health2: ${JSON.stringify(h2Bad)}`);
+  const h2Allowed = deviceAllowed(h2Brief);
+  for (const sc of h2.scenes) {
+    const d = checkDevice(sc.device, h2Allowed);
+    if (typeof d === "string" || JSON.stringify(d) !== JSON.stringify(sc.device)) throw new Error(`st-free-health2 ${sc.device.layout}: ${typeof d === "string" ? d : `changed to ${JSON.stringify(d)}`}`);
+  }
+  const hScript2 = [...h2.scenes.map((sc) => ({ key: "freeScene" as const, voice: sc.voice })), { key: "storyContact" as const, voice: "สนใจรายละเอียดเพิ่มเติม ทักมาได้เลยนะคะ" }];
+  const hPcms = narisa(join(OUT, "voice-health2-free"), hScript2);
+  const hSecs2 = hPcms.map((p) => pcmSeconds(p, 24000));
+  const hPlans2 = planScenes(hScript2.map((x, i) => ({ key: x.key, voice: x.voice, voiceSec: hSecs2[i], windows: x.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS, ...(x.key === "storyContact" ? {} : freeTail(h2.scenes[i], hSecs2[i])) })));
+  writeFileSync(join(PUB, "audio/st-free-health2.wav"), mixNarration(hPcms.map((pcm, i) => ({ pcm, at: hPlans2[i].voiceAt })), clipLength(hPlans2), 24000));
+  for (const style of ["paper", "neon"] as const) {
+    writeFileSync(join(PUB, `props/st-free-health2-${style}.json`), JSON.stringify(storyClipProps({ ...h2, style } as never, "portrait", "", "F", CONTACT, hPlans2, hScript2, hSecs2, clipLength(hPlans2), "audio/st-free-health2.wav", [undefined, undefined, undefined, undefined])));
+  }
+
   // health devices in place of the painter's pictures (scene library, 2026-11-13): a clip of two device scenes in
   // each look, drawn by the system on the look's ground, no picture filed for them
   const devices = {

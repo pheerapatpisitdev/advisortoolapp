@@ -17,8 +17,8 @@ describe("filterLibrary", () => {
 
     const healthReady = filterLibrary(LIBRARY, { ...ALL, type: "device", product: "health", state: "ready" });
     expect(healthReady.map((i) => i.id)).toEqual(LIBRARY.filter((i) => i.type === "device" && i.product === "health" && i.ready).map((i) => i.id));
-    // round 1's eight and round 2's two โรคร้าย devices (cilump, incomestop)
-    expect(healthReady).toHaveLength(10);
+    // round 1's eight, round 2's two โรคร้าย devices (cilump, incomestop) and round 5's eight
+    expect(healthReady).toHaveLength(18);
 
     const soonSaving = filterLibrary(LIBRARY, { ...ALL, product: "saving", state: "soon" });
     expect(soonSaving.length).toBeGreaterThan(0);

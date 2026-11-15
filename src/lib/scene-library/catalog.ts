@@ -1,4 +1,4 @@
-import { DEVICES, isHealth2Device } from "./devices";
+import { DEVICES } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
@@ -67,8 +67,9 @@ const DEVICE_TOPIC: Record<DeviceLayout, StoryTopic | undefined> = {
   balance: "bank", bridge: "welfare", lifering: "ciincome", shield: "fiverisks",
   // ออมเงิน (round 4): the topic เก็บเงินไว้ใช้ตอนเกษียณ opens with pricerise, savejar and paidgot; pensionsteps is in no episode (คลิปตามโจทย์ only)
   savejar: "retiresave", paidgot: "retiresave", pricerise: "retiresave", pensionsteps: undefined,
-  // สุขภาพเพิ่มเติม (round 5): Task 5 adds the topic ipdopd (ipdopd, renew98, hospitals), Task 7 points these at it; until then คลิปตามโจทย์ only
-  ipdopd: undefined, deductible: undefined, copay: undefined, renew98: undefined, parentshealth: undefined, groupcost: undefined, hospitals: undefined, paclaim: undefined,
+  // สุขภาพเพิ่มเติม (round 5): the topic ผู้ป่วยใน ผู้ป่วยนอก ต่างกันยังไง (ipdopd) shows ipdopd, renew98 and hospitals; the other five are in no episode (คลิปตามโจทย์ only)
+  ipdopd: "ipdopd", renew98: "ipdopd", hospitals: "ipdopd",
+  deductible: undefined, copay: undefined, parentshealth: undefined, groupcost: undefined, paclaim: undefined,
 };
 
 /** what a viewer reads under each device (the DEVICES `when` lines are for the script writer) */
@@ -116,9 +117,8 @@ const DEVICE_TELLS: Record<DeviceLayout, string> = {
 };
 /** whether คลิปเล่าเรื่อง keeps this look on this topic: the info-route looks (INFO_ARTS) only on the shelves told in points */
 const lookFits = (topic: StoryTopic, look: string): boolean => !infoArt(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
-/** all twenty-eight devices, health, ชีวิต ภาษี มรดก, อุปมา and ออมเงิน, each with a still in every look */
-// round 5's eight health devices join in Task 7 (their stills and the topic ipdopd come first)
-const readyDevices: LibraryItem[] = DEVICES.filter((d) => !isHealth2Device(d)).map((d) => {
+/** all thirty-six devices, health (rounds 1 and 5), ชีวิต ภาษี มรดก, อุปมา and ออมเงิน, each with a still in every look */
+const readyDevices: LibraryItem[] = DEVICES.map((d) => {
   const topic = DEVICE_TOPIC[d.key];
   return {
     id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: d.product, ready: true,
@@ -226,19 +226,10 @@ const unbuilt: LibraryItem[] = [
   dev("all", "cta-chat-button", "ปุ่มชวนทัก", "ปุ่มชวนทักแชตตอนจบคลิป"),
   dev("all", "countdown-open", "นับถอยหลังเปิดคลิป", "นับถอยหลังก่อนเริ่มเรื่อง"),
   // devices: health
-  dev("health", "ipd-opd", "IPD กับ OPD สองประตู", "ผู้ป่วยในกับผู้ป่วยนอก คนละประตู คนละวงเงิน"),
-  dev("health", "copay", "Co-payment แบ่งบิล", "บิลแบ่งกันจ่าย ลูกค้าส่วนหนึ่ง ประกันส่วนหนึ่ง"),
-  dev("health", "deductible", "ส่วนรับผิดชอบแรก (Deductible)", "ส่วนแรกที่ลูกค้าจ่ายก่อน ประกันจ่ายส่วนที่เกิน"),
   dev("health", "medical-inflation", "ค่ารักษาแพงขึ้นทุกปี", "เส้นราคาค่ารักษาที่ไต่ขึ้นทุกปี ทำให้ทุนเดิมไม่พอ"),
-  dev("health", "renewable-to-age", "ต่ออายุได้ถึงอายุ…", "เส้นเวลาที่ต่ออายุได้ถึงอายุที่กำหนด"),
   dev("health", "preexisting", "โรคที่เป็นมาก่อน / ข้อยกเว้น", "โรคที่เป็นก่อนทำประกัน และข้อยกเว้นหลัก"),
-  dev("health", "hospital-map", "แผนที่ รพ. ในเครือ", "แผนที่โรงพยาบาลในเครือข่าย"),
   dev("health", "tax-health-premium", "ลดหย่อนภาษีค่าเบี้ยสุขภาพ", "เบี้ยที่จ่ายแล้วนำไปลดหย่อนภาษีได้เท่าไร"),
-  dev("health", "health-for-parents", "ประกันสุขภาพให้พ่อแม่", "ซื้อประกันสุขภาพให้พ่อแม่ ลูกเป็นผู้จ่าย"),
   dev("health", "ci-uncovered-costs", "ค่าใช้จ่ายที่ประกันสุขภาพไม่จ่าย", "ค่าใช้จ่ายนอกบิลโรงพยาบาลที่ประกันสุขภาพไม่จ่าย"),
-  dev("health", "group-cost-per-head", "ต้นทุนต่อหัวต่อเดือน", "ต้นทุนประกันกลุ่มต่อพนักงานต่อเดือน"),
-  dev("health", "pa-cost-per-visit", "ค่ารักษาอุบัติเหตุต่อครั้ง", "ค่ารักษาอุบัติเหตุแต่ละครั้งที่ PA จ่าย"),
-  dev("health", "pa-daily-benefit", "ชดเชยรายวัน", "เงินชดเชยรายวันระหว่างนอนโรงพยาบาล"),
   // devices: saving
   dev("saving", "past-returns-chart", "กราฟผลตอบแทนย้อนหลัง", "เส้นกราฟผลตอบแทนของกองทุนในอดีต"),
   dev("saving", "fund-risk-1-8", "ระดับความเสี่ยงกองทุน 1–8", "สเกลความเสี่ยงกองทุนตั้งแต่ 1 ถึง 8"),

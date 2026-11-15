@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LIBRARY, libraryItem, usesFor, storyLibraryHref, promptLibraryHref, TYPE_NAME, PRODUCT_NAME } from "@/lib/scene-library/catalog";
-import { DEVICES as ALL_DEVICES, isHealth2Device } from "@/lib/scene-library/devices";
-/** the twenty-eight devices of rounds 1-4; Task 7 widens these checks to round 5's eight health devices (not in the library until then) */
-const DEVICES = ALL_DEVICES.filter((d) => !isHealth2Device(d));
+import { DEVICES } from "@/lib/scene-library/devices";
 import { PROMPT_FORMATS, PICTURE_STYLES } from "@/lib/prompt-story/types";
 import { SOUNDS, MUSIC_MOODS, joinCues } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
@@ -62,9 +60,9 @@ describe("catalogue", () => {
     for (const d of DEVICES) {
       const item = libraryItem(d.key)!;
       const storyHref = item.uses.find((u) => u.tool === "story-clip")?.href;
-      // pensionsteps is in no episode: its links open คลิปตามโจทย์ only
+      // pensionsteps and round 5's deductible, copay, parentshealth, groupcost and paclaim are in no episode: their links open คลิปตามโจทย์ only
       if (!storyHref) {
-        expect(d.key).toBe("pensionsteps");
+        expect(["pensionsteps", "deductible", "copay", "parentshealth", "groupcost", "paclaim"]).toContain(d.key);
         for (const l of item.looks!) {
           expect(l.uses.map((u) => u.tool), `${d.key} ${l.id}`).toEqual(["prompt-story"]);
           expect(q(l.uses[0].href).get("style"), `${d.key} ${l.id}`).toBe(STYLE[l.id]);
@@ -195,8 +193,8 @@ describe("catalogue", () => {
       ["lifeneed", "life", "lifeneed"], ["beneficiary", "life", "lifeneed"], ["moneysplit", "life", "lifeneed"], ["threegen", "life", "lifeneed"],
       ["cilump", "health", "ciincome"], ["incomestop", "health", "ciincome"], ["taxback", "saving", "taxback"], ["taxcap", "saving", "taxback"],
     ] as const;
-    expect(DEVICES.filter((d) => d.family !== "ออมเงิน")).toHaveLength(24);
-    expect(ALL_DEVICES).toHaveLength(36);
+    expect(DEVICES.filter((d) => d.family !== "ออมเงิน")).toHaveLength(32);
+    expect(DEVICES).toHaveLength(36);
     for (const [key, product, topic] of EIGHT) {
       const item = libraryItem(key)!;
       expect([item.type, item.ready, item.product], key).toEqual(["device", true, product]);
@@ -210,7 +208,7 @@ describe("catalogue", () => {
     }
     // the planned devices that are not these eight stay planned
     expect(libraryItem("device-tax-health-premium")?.ready).toBe(false);
-    expect(libraryItem("device-health-for-parents")?.ready).toBe(false);
+    expect(libraryItem("device-medical-inflation")?.ready).toBe(false);
   });
   it("the อุปมา metaphors are ready, for every product, each on the topic it opens, their planned entries gone", () => {
     // spec 2026-11-15-devices-metaphor-design "The library" and the eight openers
@@ -240,7 +238,6 @@ describe("catalogue", () => {
   it("the ออมเงิน devices are ready on the saving product, savejar, paidgot and pricerise on the topic that opens with them, pensionsteps on คลิปตามโจทย์ only", () => {
     // spec 2026-11-15-devices-saving-design "The library"
     const LOOKS = ["paper", "minimal", "line", "plot", "board", "neon", "blueprint"];
-    expect(DEVICES).toHaveLength(28);
     for (const key of ["savejar", "paidgot", "pricerise", "pensionsteps"]) {
       const item = libraryItem(key)!;
       expect([item.type, item.ready, item.product], key).toEqual(["device", true, "saving"]);
@@ -256,7 +253,33 @@ describe("catalogue", () => {
     // the planned lines for these four are gone; the three fund devices stay planned
     for (const id of ["growing-jar", "inflation-eats", "pension-inflation", "irr-per-year"]) expect(libraryItem(`device-${id}`), id).toBeUndefined();
     for (const id of ["fund-risk-1-8", "portfolio-mix", "past-returns-chart"]) expect(libraryItem(`device-${id}`)?.ready, id).toBe(false);
-    expect(LIBRARY.filter((i) => i.type === "device" && i.ready)).toHaveLength(28);
+    expect(LIBRARY.filter((i) => i.type === "device" && i.ready)).toHaveLength(36);
+  });
+  it("the สุขภาพเพิ่มเติม devices are ready on the health product, three on the topic ipdopd, five on คลิปตามโจทย์ only, their planned entries gone", () => {
+    // spec 2026-11-15-devices-health2-design "The library"
+    const LOOKS = ["paper", "minimal", "line", "plot", "board", "neon", "blueprint"];
+    const EIGHT = ["ipdopd", "deductible", "copay", "renew98", "parentshealth", "groupcost", "hospitals", "paclaim"];
+    for (const key of EIGHT) {
+      const item = libraryItem(key)!;
+      expect([item.type, item.ready, item.product], key).toEqual(["device", true, "health"]);
+      expect(item.preview, key).toBe(`/library/${key}-paper.jpg`);
+      expect(item.looks!.map((l) => l.preview), key).toEqual(LOOKS.map((l) => `/library/${key}-${l}.jpg`));
+      expect(item.tells, key).not.toMatch(/[0-9๐-๙]/);
+    }
+    for (const key of ["ipdopd", "renew98", "hospitals"]) {
+      expect(libraryItem(key)!.uses.map((u) => u.href), key).toEqual(["/studio/story-clip?topic=ipdopd", "/studio/prompt-story"]);
+    }
+    for (const key of ["deductible", "copay", "parentshealth", "groupcost", "paclaim"]) {
+      expect(libraryItem(key)!.uses.map((u) => u.href), key).toEqual(["/studio/prompt-story"]);
+      expect(libraryItem(key)!.looks!.find((l) => l.id === "neon")!.uses.map((u) => u.href), key).toEqual(["/studio/prompt-story?style=neon"]);
+    }
+    expect(topicOf("ipdopd")?.shelf).toBe("health");
+    expect(libraryItem("ipdopd")!.looks!.find((l) => l.id === "neon")!.uses[0].href).toBe("/studio/story-clip?topic=ipdopd&look=neon");
+    // the nine planned lines for these eight are gone; the four others stay planned
+    for (const id of ["ipd-opd", "copay", "deductible", "renewable-to-age", "hospital-map", "health-for-parents", "group-cost-per-head", "pa-cost-per-visit", "pa-daily-benefit"]) {
+      expect(libraryItem(`device-${id}`), id).toBeUndefined();
+    }
+    for (const id of ["medical-inflation", "preexisting", "tax-health-premium", "ci-uncovered-costs"]) expect(libraryItem(`device-${id}`)?.ready, id).toBe(false);
   });
   it("cashless says the plan's conditions apply", () => {
     expect(libraryItem("cashless")?.tells).toContain("ตามเงื่อนไขของแผน");
