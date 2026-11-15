@@ -2,11 +2,12 @@ import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { StoryTopic } from "@/lib/story/topics";
 import type React from "react";
 import { abs, box, El, look, type Anim } from "./motion";
-import { HEALTH_WORDS as HW, isLife, n, type KnowEpisode, type KnowSceneKey, type KnowShow, type LifeShow, type MetaShow, type NoteLine } from "./story-knowledge";
+import { HEALTH_WORDS as HW, isLife, n, type KnowEpisode, type KnowSceneKey, type KnowShow, type LifeShow, type MetaShow, type NoteLine, type SaveShow } from "./story-knowledge";
 import { ageRows, baht, groupBars, limitFigs, overflowBar, PART_FILL, roomFigs, splitParts, wrapLines } from "./story-health-motion";
 import { kspec } from "./story-knowledge-motion";
 import { lifeInfo } from "./story-life-info";
 import { metaInfo } from "./story-meta-info";
+import { saveInfo } from "./story-save-info";
 import { infoIcon, type InfoIcon } from "./story-info-icons";
 import { Contact, type StoryContext } from "./story-motion";
 import { INFO_KIT, kitFor, type Kit } from "./story-kits";
@@ -434,6 +435,9 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
     case "umbrella": case "housepillar": case "lifering": case "safetynet": case "seedtree": case "balance": case "bridge": case "shield":
       // device round 3: in story-meta-info.tsx, the paper's sheet drawn with this file's Kit and pieces
       return metaInfo({ c, t, s, g, w, k, a: devArea(c.size), icon: icon ?? "doc" }, show as MetaShow);
+    case "savejar": case "paidgot": case "pricerise": case "pensionsteps":
+      // device round 4: in story-save-info.tsx, the paper's geometry drawn with this file's Kit and pieces
+      return saveInfo({ c, t, s, g, w, k, a: devArea(c.size), icon: icon ?? "doc" }, show as SaveShow);
     default:
       // the shelves that tell a family's story (kin, timeline, pic) are not offered in this look
       return null;

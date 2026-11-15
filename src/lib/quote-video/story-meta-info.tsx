@@ -70,7 +70,7 @@ type SvgProps = React.SVGProps<SVGPathElement>;
 const lw = (x: number) => r1(Math.max(1.2, x * kit().line));
 
 /** a line in `color`, `width` sheet units; in นีออน a wide faint line of its own colour under it, its glow */
-function ln(key: string | number, d: string, color: string, width = 2.6, extra: SvgProps = {}) {
+export function ln(key: string | number, d: string, color: string, width = 2.6, extra: SvgProps = {}) {
   const K = kit();
   const w = lw(width);
   const base: SvgProps = { d, fill: "none", stroke: color, strokeWidth: w, strokeLinecap: "round", strokeLinejoin: "round", ...extra };
@@ -84,16 +84,16 @@ function ln(key: string | number, d: string, color: string, width = 2.6, extra: 
 }
 
 /** a closed shape: อินโฟกราฟิก's flat fill; a drawn look's outline, its inside the page's own ground when `mask` (hiding what is behind) */
-function shape(key: string | number, d: string, color: string, width = 2.6, mask = false, extra: SvgProps = {}) {
+export function shape(key: string | number, d: string, color: string, width = 2.6, mask = false, extra: SvgProps = {}) {
   const K = kit();
   if (!K.drawn) return <path key={key} d={d} fill={color} {...extra} />;
   return ln(key, d, color, width, { fill: mask ? K.page : "none", ...extra });
 }
 
 /** a rect as a path, for shape() */
-const rectD = (x: number, y: number, w: number, h: number) => `M${r1(x)} ${r1(y)} h${r1(w)} v${r1(h)} h${r1(-w)} Z`;
+export const rectD = (x: number, y: number, w: number, h: number) => `M${r1(x)} ${r1(y)} h${r1(w)} v${r1(h)} h${r1(-w)} Z`;
 /** a circle (or an ellipse) as a path, for shape() */
-const ovalD = (cx: number, cy: number, rx: number, ry = rx) => `M${r1(cx - rx)} ${r1(cy)} a${r1(rx)} ${r1(ry)} 0 1 0 ${r1(rx * 2)} 0 a${r1(rx)} ${r1(ry)} 0 1 0 ${r1(-rx * 2)} 0 Z`;
+export const ovalD = (cx: number, cy: number, rx: number, ry = rx) => `M${r1(cx - rx)} ${r1(cy)} a${r1(rx)} ${r1(ry)} 0 1 0 ${r1(rx * 2)} 0 a${r1(rx)} ${r1(ry)} 0 1 0 ${r1(-rx * 2)} 0 Z`;
 
 /** one layer of the picture in the sheet's units; a helper line's layer (a throw, a fall, stones, hits) says so */
 function svg(geo: MetaGeo, body: ReactNode, opts: { opacity?: number; helper?: boolean } = {}) {
