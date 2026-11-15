@@ -118,8 +118,8 @@ export type KnowShow =
    */
   /** กระปุกโตทุกปี: a jar filling in four steps marked "ปีที่ N"; `years` = paying years, `paid` = the total paid, baht */
   | { layout: "savejar"; title: [string, string]; note?: string; years?: number; paid?: number }
-  /** ส่งเท่าไร ได้คืนเท่าไร: two bars to one scale, `paid` and `got` (both required), the ages of each given in pairs */
-  | { layout: "paidgot"; title: [string, string]; note?: string; paid: number; got: number; payFrom?: number; payTo?: number; getFrom?: number; getTo?: number }
+  /** ส่งเท่าไร ได้คืนเท่าไร: two bars to one scale, `paid` and `got` (both required), the ages of each given in pairs; `fromPlan` is set by the story's own code alone (its figures are the plan engine's), never by the writer or checkDevice, and only then is the foot line "ตามตารางผลประโยชน์ของแผน" drawn */
+  | { layout: "paidgot"; title: [string, string]; note?: string; paid: number; got: number; payFrom?: number; payTo?: number; getFrom?: number; getTo?: number; fromPlan?: true }
   /** เงินเท่าเดิม ซื้อได้น้อยลง: two baskets, no figure; the default note stands when `note` is left out */
   | { layout: "pricerise"; title: [string, string]; note?: string }
   /** บำนาญขั้นบันได: one to five steps, each an age span and its baht a year, ascending by age */

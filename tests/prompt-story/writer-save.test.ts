@@ -41,12 +41,9 @@ describe("writeStory with the four ออมเงิน devices", () => {
   }
 
   const BAD: [string, Record<string, unknown>][] = [
-    ["a savejar years not in the brief", { ...GOOD.savejar, years: 25 }],
-    ["a savejar paid not in the brief", { ...GOOD.savejar, paid: 3_000_000 }],
     ["a paidgot got not in the brief", { ...GOOD.paidgot, got: 7_000_000 }],
     ["a paidgot with only paid", { layout: "paidgot", title: T, paid: 2_724_410 }],
     ["a paidgot with only got", { layout: "paidgot", title: T, got: 6_023_625 }],
-    ["a paidgot age not in the brief", { ...GOOD.paidgot, payFrom: 33 }],
     ["a pensionsteps annual not in the brief", { layout: "pensionsteps", title: T, rows: [{ from: 60, to: 75, annual: 120_000 }] }],
     ["pensionsteps without rows", { layout: "pensionsteps", title: T, rows: [] }],
     ["six pensionsteps rows", { layout: "pensionsteps", title: T, rows: Array.from({ length: 6 }, () => ({ from: 60, to: 75, annual: 118_110 })) }],
@@ -73,6 +70,27 @@ describe("writeStory with the four ออมเงิน devices", () => {
     });
   }
 
+  // spec: a number that cannot be sourced is left off; the device is drawn without it (the dropped field is not in the output)
+  const KEPT: [string, Record<string, unknown>, Record<string, unknown>][] = [
+    ["a savejar years not in the brief", { ...GOOD.savejar, years: 25 }, { ...GOOD.savejar, years: undefined }],
+    ["a savejar paid not in the brief", { ...GOOD.savejar, paid: 3_000_000 }, { ...GOOD.savejar, paid: undefined }],
+    ["one paidgot age not in the brief (its pair goes)", { ...GOOD.paidgot, payFrom: 33 }, { ...GOOD.paidgot, payFrom: undefined, payTo: undefined }],
+    ["a paidgot age pair running backwards", { ...GOOD.paidgot, getFrom: 95, getTo: 60 }, { ...GOOD.paidgot, getFrom: undefined, getTo: undefined }],
+  ];
+  for (const [what, device, want] of KEPT) {
+    it(`${what}: the device is kept without it`, async () => {
+      const r = await write([sc({ picture: "", device }), sc(), sc(), sc(), sc()]);
+      expect(r.scenes[0].device).toEqual(JSON.parse(JSON.stringify(want)));
+      expect(r.scenes[0].picture).toBe("");
+    });
+  }
+
+  it("paidgot's foot-line mark is never taken from the writer's reply", async () => {
+    const r = await write([sc({ picture: "", device: { ...GOOD.paidgot, fromPlan: true } }), sc(), sc(), sc(), sc()]);
+    expect(r.scenes[0].device).toEqual(GOOD.paidgot);
+    expect(r.scenes[0].device).not.toHaveProperty("fromPlan");
+  });
+
   it("a savejar without figures, and a pricerise, need no number in the brief", async () => {
     const plain = "ลูกค้าอยากเก็บเงินไว้ใช้ตอนเกษียณ";
     const bare = { layout: "savejar", title: T };
@@ -92,6 +110,9 @@ describe("the system prompt for the ออมเงิน devices", () => {
     expect(lines.find((l) => l.startsWith("- pensionsteps"))).toContain('"annual"');
     expect(system).toContain(`ไม่เกิน ${SAVE_LIMITS.titleLine} ตัวอักษร note ไม่เกิน ${SAVE_LIMITS.note}`);
     expect(system).toContain("1,000,000,000");
+    // paidgot's amounts are the whole contract's, as the brief states them, never a year's
+    expect(lines.find((l) => l.startsWith("- paidgot"))).toContain("ยอดรวมของทั้งสัญญา");
+    expect(lines.find((l) => l.startsWith("- pensionsteps"))).toContain(`1–${SAVE_LIMITS.rows} แถว`);
   });
 });
 

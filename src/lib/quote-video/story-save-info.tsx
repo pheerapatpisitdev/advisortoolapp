@@ -5,7 +5,7 @@ import { SAVE_WORDS as SW, type SaveShow } from "./story-knowledge";
 import { geoOf } from "./story-knowledge-motion";
 import { ln, metaTitleSize, ovalD, rectD, shape } from "./story-meta-info";
 import { r1 } from "./story-meta-motion";
-import { jarAt, JAR, jarGeo, jarTick, paidGeo, pensionAt, pensionGeo, PRICE, priceAt, priceGeo, type SavePlace } from "./story-save-motion";
+import { BASKET, goodParts, goodTransform, GOODS_X, jarAt, JAR, JAR_BODY, JAR_LID, JAR_NECK, jarFill, jarGeo, jarTick, paidGeo, pensionAt, pensionGeo, PRICE, priceAt, priceGeo, type Part, type SavePlace } from "./story-save-motion";
 import type { VideoSize } from "./timeline";
 
 /**
@@ -62,27 +62,22 @@ const Sheet = ({ w, h, sheet, children }: { w: number; h: number; sheet: { w: nu
 
 /* ---------- savejar: กระปุกโตทุกปี ---------- */
 
-const JAR_BODY = "M40 100 Q40 76 64 76 H176 Q200 76 200 100 V256 Q200 288 168 288 H72 Q40 288 40 256 Z";
-
 /** the jar and its gold lid on its sheet, filled to `level` (0 to 1) with three coins on the surface, a mark at each step reached */
 function jarPic(level: number, marks: boolean[]) {
   const K = kit();
-  const yTop = JAR.floor - level * (JAR.floor - JAR.top);
-  const h = JAR.floor - yTop;
+  const { fill: spot, coins: spots } = jarFill(level);
   const water = K.drawn ? K.gold : K.sky;
   const wet = { fill: water, fillOpacity: K.drawn ? 0.35 : 1 };
-  const filled = level <= 0.001 ? null : yTop <= 258
-    ? <path key="level" d={`M${JAR.left} ${yTop.toFixed(1)} H${JAR.right} V258 Q${JAR.right} ${JAR.floor} 168 ${JAR.floor} H72 Q${JAR.left} ${JAR.floor} ${JAR.left} 258 Z`} {...wet} />
-    : <rect key="level" x={JAR.left} y={yTop.toFixed(1)} width={JAR.right - JAR.left} height={h.toFixed(1)} rx={Math.min(14, h / 2).toFixed(1)} {...wet} />;
-  const coins = level > 0.05 && yTop < 270 ? [[78, 0], [118, 5], [158, -3]].map(([x, dy]) => shape(`coin${x}`, ovalD(x, yTop + 4 + dy, 17, 6.5), K.gold, 2.4, true)) : null;
+  const filled = !spot ? null : "d" in spot ? <path key="level" d={spot.d} {...wet} /> : <rect key="level" x={spot.x} y={spot.y} width={spot.width} height={spot.height} rx={spot.rx} {...wet} />;
+  const coins = spots ? spots.map((c) => shape(`coin${c.x}`, ovalD(c.x, c.y, c.rx, c.ry), K.gold, 2.4, true)) : null;
   return (
     <>
       {K.drawn ? <path d={JAR_BODY} fill={K.page} /> : <path d={JAR_BODY} fill={K.tile} />}
       {filled}
       {coins}
       {K.drawn ? ln("body", JAR_BODY, K.white, 3.6) : <path d={JAR_BODY} fill="none" stroke={K.soft} strokeWidth={4} strokeLinejoin="round" />}
-      {shape("neck", rectD(66, 54, 108, 24), K.drawn ? K.white : K.soft, 3.2, true)}
-      {shape("lid", rrectD(56, 22, 128, 34, 9), K.gold, 3.6, true)}
+      {shape("neck", rectD(JAR_NECK.x, JAR_NECK.y, JAR_NECK.w, JAR_NECK.h), K.drawn ? K.white : K.soft, 3.2, true)}
+      {shape("lid", rrectD(JAR_LID.x, JAR_LID.y, JAR_LID.w, JAR_LID.h, JAR_LID.r), K.gold, 3.6, true)}
       {marks.map((on, i) => (on ? ln(`mark${i}`, `M206 ${jarTick(i)} H234`, K.white, 3.6) : null))}
     </>
   );
@@ -126,7 +121,7 @@ function savejar(d: Dev, show: SaveShow<"savejar">) {
 
 /* ---------- paidgot: ส่งเท่าไร ได้คืนเท่าไร ---------- */
 
-/** ส่งเท่าไร ได้คืนเท่าไร: the two bars to one scale grow in turn, each with its baht above, its name and ages under; the fixed line under both */
+/** ส่งเท่าไร ได้คืนเท่าไร: the two bars to one scale grow in turn, each with its baht above, its name and ages under; the foot line under both when the plan's own (fromPlan) */
 function paidgot(d: Dev, show: SaveShow<"paidgot">) {
   const K = kit();
   const { c, t, s } = d;
@@ -152,7 +147,7 @@ function paidgot(d: Dev, show: SaveShow<"paidgot">) {
         );
       })}
       <div style={abs({ left: first - 16, top: geo.base - Math.round(rule / 2), width: last - first + 32, height: rule, background: K.white, borderRadius: Math.round(rule / 2), ...glowBox(K.white) })} />
-      <E an={s.foot} t={t} style={{ position: "absolute", left: geo.foot.x, top: geo.foot.y, width: geo.foot.w, justifyContent: "center", fontSize: geo.footSize, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...ink(K.soft) }}>{SW.foot}</E>
+      {show.fromPlan ? <E an={s.foot} t={t} style={{ position: "absolute", left: geo.foot.x, top: geo.foot.y, width: geo.foot.w, justifyContent: "center", fontSize: geo.footSize, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...ink(K.soft) }}>{SW.foot}</E> : null}
       <NoteLines n={geo.note} d={d} />
     </>
   );
@@ -160,45 +155,49 @@ function paidgot(d: Dev, show: SaveShow<"paidgot">) {
 
 /* ---------- pricerise: เงินเท่าเดิม ซื้อได้น้อยลง ---------- */
 
-/** one of the five goods standing at centre x, its foot at y = 124: an outline in a drawn look, a flat fill in อินโฟกราฟิก */
+/**
+ * one of the five goods standing at centre x, its foot at y = 124 (geometry: story-save-motion.tsx's goodParts): an outline in a
+ * drawn look, a flat fill in อินโฟกราฟิก
+ */
 function good(i: number, cx: number) {
   const K = kit();
   // what is drawn on a flat fill (a stem, a band) is the navy; on the page, the look's white
   const mark = K.drawn ? K.white : K.page;
-  switch (i) {
-    case 0: // an apple
-      return <>{shape("a", ovalD(cx, 104, 19), K.red, 3, true)}{ln("as", `M${cx} 86 Q${cx + 2} 78 ${cx + 6} 75`, K.white, 2.8)}{shape("al", ovalD(cx + 9, 80, 7, 4), K.green, 2.2, true)}</>;
-    case 1: // a bottle
-      return <>{shape("b", rrectD(cx - 12, 80, 24, 44, 7), K.sky, 3, true)}{shape("bn", rectD(cx - 7, 64, 14, 18), K.sky, 3, true)}{shape("bc", rectD(cx - 8, 60, 16, 7), K.gold, 2.4, true)}</>;
-    case 2: // a loaf
-      return <>{shape("l", rrectD(cx - 19, 92, 38, 32, 15), K.white, 3, true)}{ln("ls", `M${cx - 8} 98 L${cx - 4} 108 M${cx + 2} 98 L${cx + 6} 108 M${cx + 12} 98 L${cx + 14} 106`, mark, 2.4)}</>;
-    case 3: // a can
-      return <>{shape("c", rrectD(cx - 15, 78, 30, 46, 5), K.soft, 3, true)}{ln("cb", `M${cx - 15} 90 H${cx + 15} M${cx - 15} 112 H${cx + 15}`, mark, 2.4)}</>;
-    default: // a lettuce
-      return <>{shape("t", ovalD(cx, 103, 20), K.green, 3, true)}{ln("ts", `M${cx - 10} 108 Q${cx} 92 ${cx + 10} 108`, mark, 2.8)}</>;
-  }
+  // each piece's own key, ink and width in this route; `sharp`: drawn square-cornered, as this route always has
+  const style: Record<string, { key: string; color: string; w: number; sharp?: true }> = {
+    apple: { key: "a", color: K.red, w: 3 }, "apple-stem": { key: "as", color: K.white, w: 2.8 }, "apple-leaf": { key: "al", color: K.green, w: 2.2 },
+    bottle: { key: "b", color: K.sky, w: 3 }, "bottle-neck": { key: "bn", color: K.sky, w: 3, sharp: true }, "bottle-cap": { key: "bc", color: K.gold, w: 2.4, sharp: true },
+    loaf: { key: "l", color: K.white, w: 3 }, "loaf-slits": { key: "ls", color: mark, w: 2.4 },
+    can: { key: "c", color: K.soft, w: 3 }, "can-bands": { key: "cb", color: mark, w: 2.4 },
+    lettuce: { key: "t", color: K.green, w: 3 }, "lettuce-vein": { key: "ts", color: mark, w: 2.8 },
+  };
+  const draw = (p: Part) => {
+    const st = style[p.id];
+    if (p.kind === "line") return ln(st.key, p.d, st.color, st.w);
+    if (p.kind === "oval") return shape(st.key, ovalD(p.cx, p.cy, p.rx, p.ry === p.rx ? undefined : p.ry), st.color, st.w, true);
+    return shape(st.key, st.sharp ? rectD(p.x, p.y, p.w, p.h) : rrectD(p.x, p.y, p.w, p.h, p.r), st.color, st.w, true);
+  };
+  return <>{goodParts(i, cx).map(draw)}</>;
 }
-
-const GOODS_X = [44, 82, 120, 158, 196];
 
 /** a basket on its sheet with its goods (each at its opacity; 0 leaves it out) and the banknote under it */
 function basketPic(which: "a" | "b", goods: number[]) {
   const K = kit();
+  const B = BASKET;
   const basket = K.drawn ? K.white : K.gold;
   const mark = K.drawn ? K.white : K.page;
   return (
     <>
-      {ln("handle", "M52 108 Q120 -40 188 108", basket, 4.6)}
-      {GOODS_X.map((cx, i) => (goods[i] > 0.01 ? <g key={i} data-good={which} opacity={goods[i].toFixed(3)} transform={`translate(${cx} 124) scale(1.22) translate(${-cx} -124)`}>{good(i, cx)}</g> : null))}
-      {shape("body", "M30 112 H210 L194 188 Q192 198 182 198 H58 Q48 198 46 188 Z", basket, 3.6, true)}
-      {ln("weave", "M40 140 H200 M44 166 H196 M86 114 L82 196 M120 114 V198 M154 114 L158 196", mark, 2.2, { opacity: 0.45 })}
-      {shape("rim", rrectD(24, 104, 192, 14, 6), K.drawn ? K.white : K.soft, 3.6, true)}
+      {ln("handle", B.handle, basket, 4.6)}
+      {GOODS_X.map((cx, i) => (goods[i] > 0.01 ? <g key={i} data-good={which} opacity={goods[i].toFixed(3)} transform={goodTransform(cx)}>{good(i, cx)}</g> : null))}
+      {shape("body", B.body, basket, 3.6, true)}
+      {ln("weave", B.weave, mark, 2.2, { opacity: 0.45 })}
+      {shape("rim", rrectD(B.rim.x, B.rim.y, B.rim.w, B.rim.h, B.rim.r), K.drawn ? K.white : K.soft, 3.6, true)}
       <g data-part="banknote">
-        {shape("note", rrectD(50, 212, 140, 60, 8), K.green, 3.4, true)}
-        {ln("noteIn", rrectD(58, 220, 124, 44, 4), K.drawn ? K.green : K.white, 2.2)}
-        {shape("coin", ovalD(120, 242, 14), K.gold, 3, true)}
-        {shape("d1", ovalD(68, 230, 4), K.drawn ? K.green : K.white, 1.6)}
-        {shape("d2", ovalD(172, 254, 4), K.drawn ? K.green : K.white, 1.6)}
+        {shape("note", rrectD(B.note.x, B.note.y, B.note.w, B.note.h, B.note.r), K.green, 3.4, true)}
+        {ln("noteIn", rrectD(B.noteIn.x, B.noteIn.y, B.noteIn.w, B.noteIn.h, B.noteIn.r), K.drawn ? K.green : K.white, 2.2)}
+        {shape("coin", ovalD(B.coin.cx, B.coin.cy, B.coin.r), K.gold, 3, true)}
+        {B.dots.map((dot, i) => shape(`d${i + 1}`, ovalD(dot.cx, dot.cy, dot.r), K.drawn ? K.green : K.white, 1.6))}
       </g>
     </>
   );

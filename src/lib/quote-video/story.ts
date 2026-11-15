@@ -465,6 +465,9 @@ const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
 const MONEY_FOOT = "*ตัวเลขในคลิปเป็นตัวอย่างจากที่ตัวแทนกรอก";
 /** เก็บเงินไว้ใช้ตอนเกษียณ: its figures are the pension table's, not typed (spec 2026-11-15-devices-saving-design.md) */
 const RETIRESAVE_FOOT = `ตัวเลขจากตารางผลประโยชน์ ${PENSION_NAME} ตรวจสอบเงื่อนไขก่อนตัดสินใจ`;
+/** and says it is an example, whose (the agent's own sex, age and monthly pension, as ใกล้เกษียณ's footnote does), then where the figures are from */
+const retiresaveFoot = (p?: StoryPension): string =>
+  `*ตัวอย่าง${p ? ` ${p.sex === "M" ? "ชาย" : "หญิง"} ${p.age} ปี บำนาญเดือนละ ${n(p.monthlyPension)} บาท` : ""} ${RETIRESAVE_FOOT}`;
 const TAX_CAPTION_FOOT = `*ตามเกณฑ์กรมสรรพากร ${TAX_YEAR} ตรวจสอบเงื่อนไขก่อนใช้สิทธิ`;
 
 const PREMIUM_REAL = "เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท";
@@ -489,7 +492,7 @@ export function storyCaption(input: StoryVideoInput): string {
       // "แบ่งจ่ายรายเดือนได้" goes where the agent hid the monthly instalment
       ...(input.topic === "pricey" && noMonthly(input) ? ["เบี้ยแพง ไม่มีงบ?", "เริ่มเท่าที่จ่ายไหว เริ่มเล็กดีกว่าไม่เริ่ม"] : EPISODE_CAPTION[input.topic]),
       "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
-      ...(input.topic === "retiresave" ? ["", RETIRESAVE_FOOT]
+      ...(input.topic === "retiresave" ? ["", retiresaveFoot(input.pension)]
         : topicOf(input.topic)?.shelf === "money" ? ["", MONEY_FOOT, ...(input.topic === "taxback" ? [TAX_CAPTION_FOOT] : [])]
         : input.health ? ["", healthFootnote(input.topic, input.health.figures.planName)]
         : input.figure || input.ladder || input.pension ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : input.pension ? PENSION_NAME : planName(input.figure!.plan)} ${PREMIUM_REAL}`] : []),

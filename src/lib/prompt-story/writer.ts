@@ -78,9 +78,9 @@ const SHAPES: Record<DeviceLayout, string> = {
   shield: `{"layout":"shield","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","arrows":["เรื่องร้ายที่อาจมาถึง"] 1–5 คำ}`,
   // ออมเงิน (round 4): words digit-free; every figure a whole number written in the brief (the drawers add nothing up)
   savejar: `{"layout":"savejar","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","years":ตัวเลขจำนวนปีที่ส่ง (ละได้),"paid":ตัวเลขยอดส่งรวม (ละได้)}`,
-  paidgot: `{"layout":"paidgot","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","paid":ตัวเลขยอดส่งรวม,"got":ตัวเลขบำนาญรวมที่ได้รับ,"payFrom":อายุเริ่มส่ง (ละได้),"payTo":อายุส่งถึง (ละได้),"getFrom":อายุเริ่มรับ (ละได้),"getTo":อายุรับถึง (ละได้)} ต้องมี paid และ got ทั้งคู่ และต้องเป็นยอดที่โจทย์ให้ไว้`,
+  paidgot: `{"layout":"paidgot","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","paid":ตัวเลขยอดส่งรวม,"got":ตัวเลขบำนาญรวมที่ได้รับ,"payFrom":อายุเริ่มส่ง (ละได้),"payTo":อายุส่งถึง (ละได้),"getFrom":อายุเริ่มรับ (ละได้),"getTo":อายุรับถึง (ละได้)} ต้องมี paid และ got ทั้งคู่ และต้องเป็นยอดที่โจทย์ให้ไว้ paid และ got คือยอดรวมของทั้งสัญญาที่โจทย์ระบุ ไม่ใช่ยอดต่อปี`,
   pricerise: `{"layout":"pricerise","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)"}`,
-  pensionsteps: `{"layout":"pensionsteps","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","rows":[{"from":อายุเริ่มรับ,"to":อายุรับถึง,"annual":ตัวเลขบำนาญต่อปี}] 1–5 แถว เรียงตามอายุจากน้อยไปมาก}`,
+  pensionsteps: `{"layout":"pensionsteps","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","rows":[{"from":อายุเริ่มรับ,"to":อายุรับถึง,"annual":ตัวเลขบำนาญต่อปี}] 1–${SAVE_LIMITS.rows} แถว เรียงตามอายุจากน้อยไปมาก}`,
 };
 
 /** the format's order of beats (owner, 2026-11-13, 2ก); ตามโจทย์ adds nothing */

@@ -50,11 +50,11 @@ const SHOWS: SaveShow[] = [
   /* 3 */ { layout: "savejar", title: T },
   /* 4 */ { layout: "savejar", title: LONG_TITLE, note: LONG_NOTE, years: 60, paid: 123_456_789 },
   /* 5 */ { layout: "savejar", title: T, note: SOLID_NOTE, years: 3, paid: 123_456_789 },
-  /* 6 */ { layout: "paidgot", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], note: "ดูตามตาราง", paid: 2_724_411, got: 6_023_625, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95 },
-  /* 7 */ { layout: "paidgot", title: T, paid: 2_724_411, got: 6_023_625 },
+  /* 6 */ { layout: "paidgot", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], note: "ดูตามตาราง", paid: 2_724_411, got: 6_023_625, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95, fromPlan: true },
+  /* 7 */ { layout: "paidgot", title: T, paid: 2_724_411, got: 6_023_625, fromPlan: true },
   /* 8 */ { layout: "paidgot", title: T, paid: 2_724_411, got: 6_023_625, payFrom: 40, getFrom: 60, getTo: 95 },
-  /* 9 */ { layout: "paidgot", title: LONG_TITLE, note: LONG_NOTE, paid: 123_456_789, got: 987_654_321, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95 },
-  /* 10 */ { layout: "paidgot", title: T, note: SOLID_NOTE, paid: 1_000_000_000, got: 1_000, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95 },
+  /* 9 */ { layout: "paidgot", title: LONG_TITLE, note: LONG_NOTE, paid: 123_456_789, got: 987_654_321, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95, fromPlan: true },
+  /* 10 */ { layout: "paidgot", title: T, note: SOLID_NOTE, paid: 1_000_000_000, got: 1_000, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95, fromPlan: true },
   /* 11 */ { layout: "pricerise", title: ["เงินเท่าเดิม", "ซื้อได้น้อยลง"] },
   /* 12 */ { layout: "pricerise", title: LONG_TITLE, note: LONG_NOTE },
   /* 13 */ { layout: "pensionsteps", title: ["บำนาญขั้นบันได", "เกษียณสบายใจ"], rows: SPEC_ROWS },
@@ -169,6 +169,7 @@ describe("they tell the paper's story with its words and figures", () => {
       expect(none, label).toContain(SAVE_WORDS.foot);
       const half = words(draw(gots[2], size, art));
       expect(half, label).not.toContain("อายุ 40");
+      expect(half, label).not.toContain(SAVE_WORDS.foot); // not the plan engine's: no foot line
       expect(half, label).toContain("อายุ 60–95");
     });
   });

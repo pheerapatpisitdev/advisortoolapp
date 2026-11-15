@@ -37,7 +37,7 @@ const META_FIELD: Record<string, string> = { note: "บรรทัดใต้�
 const SAVE_FIELD: Record<string, Record<string, string>> = {
   savejar: { years: "ปีที่ส่ง", paid: "ยอดส่งรวม" },
   paidgot: { paid: "ยอดส่งรวม", got: "บำนาญรวม", payFrom: "อายุเริ่มส่ง", payTo: "อายุส่งถึง", getFrom: "อายุเริ่มรับ", getTo: "อายุรับถึง" },
-  pensionsteps: { rows: "ช่วงอายุ", from: "อายุเริ่มรับ", to: "อายุรับถึง", annual: "บำนาญต่อปี" },
+  pensionsteps: { rows: "ช่วงอายุ", annual: "บำนาญต่อปี" },
 };
 export const fieldName = (f: string, layout?: string): string =>
   SAVE_FIELD[layout ?? ""]?.[f] ?? (isMetaLayout(layout) || isSaveLayout(layout) ? META_FIELD[f] : undefined) ?? FIELD[f] ?? f;
@@ -72,7 +72,7 @@ export function sceneKind(s: PromptScene, forDevice: Set<number>, tax?: TaxSourc
   if (!s.device) return asset ? { kind: "asset", id: asset } : { kind: "picture" };
   const d = checkDevice(s.device, forDevice, tax);
   const name = deviceInfo(String(s.device.layout))?.name ?? "อุปกรณ์";
-  if (typeof d !== "string") return { kind: "device", device: s.device, name };
+  if (typeof d !== "string") return { kind: "device", device: d, name };
   return asset ? { kind: "asset", id: asset } : { kind: "broken", reason: deviceReason(d, String(s.device.layout)), name };
 }
 

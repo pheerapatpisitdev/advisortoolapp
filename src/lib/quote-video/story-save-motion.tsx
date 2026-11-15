@@ -12,7 +12,7 @@ import type { VideoSize } from "./timeline";
  * ออมเงินและเกษียณ (device round 4, spec 2026-11-15-devices-saving-design.md): the four saving devices' timing, which
  * kspec hands on. savejar fills in four steps, paidgot grows its two bars in turn, pricerise shows the baskets and
  * fades two goods, pensionsteps raises one step for each row and draws the cost-of-living line over them. The drawers
- * of the four in the story looks (paper, warm, line) are below; the info route comes with Task 4.
+ * of the four in the story looks (paper, warm, line) are below; the info looks' are in story-save-info.tsx.
  */
 export function saveSpec(show: SaveShow): Record<string, Anim> {
   const s: Record<string, Anim> = { title: a(0.2, "up") };
@@ -27,7 +27,7 @@ export function saveSpec(show: SaveShow): Record<string, Anim> {
       // two bars to one scale, in turn: what was paid, then what comes back
       s.paid = a(0.6, "grow", 0.9);
       s.got = a(1.7, "grow", 0.9);
-      s.foot = a(2.8, "fade");
+      if (show.fromPlan) s.foot = a(2.8, "fade");
       break;
     case "pricerise":
       // today's basket, the same banknote later, two goods fade out, the red line
@@ -57,7 +57,7 @@ const GREEN = C.green;
 
 /**
  * Where a saving device stands in the frame: the device's room and the frame's text size (the story looks'), or the
- * info route's room under its own title (Task 4).
+ * info route's room under its own title.
  */
 export interface SavePlace { room: Rect; text: number }
 const paperPlace = (size: VideoSize): SavePlace => ({ room: geoOf(size).dev, text: geoOf(size).text });
@@ -168,24 +168,39 @@ export function jarGeo(size: VideoSize, show: SaveShow<"savejar">, place: SavePl
   };
 }
 
+/** the jar's body outline on its sheet, the neck and the gold lid's boxes: shared by every route that draws the jar (story-save-info.tsx styles them) */
+export const JAR_BODY = "M40 100 Q40 76 64 76 H176 Q200 76 200 100 V256 Q200 288 168 288 H72 Q40 288 40 256 Z";
+export const JAR_NECK = { x: 66, y: 54, w: 108, h: 24 };
+export const JAR_LID = { x: 56, y: 22, w: 128, h: 34, r: 9 };
+/**
+ * The jar's contents at `level` (0 to 1): the surface's y, the fill (a path while it is above the curve of the base, else a
+ * rounded rect; none while empty) and the three coins resting on the surface (centre x, y; each rx 17, ry 6.5).
+ */
+export function jarFill(level: number) {
+  const yTop = JAR.floor - level * (JAR.floor - JAR.top);
+  const h = JAR.floor - yTop;
+  const fill = level <= 0.001 ? null : yTop <= 258
+    ? { d: `M${JAR.left} ${yTop.toFixed(1)} H${JAR.right} V258 Q${JAR.right} ${JAR.floor} 168 ${JAR.floor} H72 Q${JAR.left} ${JAR.floor} ${JAR.left} 258 Z` }
+    : { x: JAR.left, y: yTop.toFixed(1), width: JAR.right - JAR.left, height: h.toFixed(1), rx: Math.min(14, h / 2).toFixed(1) };
+  const coins = level > 0.05 && yTop < 270 ? ([[78, 0], [118, 5], [158, -3]] as const).map(([x, dy]) => ({ x, y: yTop + 4 + dy, rx: 17, ry: 6.5 })) : null;
+  return { yTop, fill, coins };
+}
+
 /** the jar and its gold lid on its sheet, filled to `level` (0 to 1), a mark at each step reached */
 function jarSvg(level: number, marks: boolean[]) {
-  const yTop = JAR.floor - level * (JAR.floor - JAR.top);
-  const body = `M40 100 Q40 76 64 76 H176 Q200 76 200 100 V256 Q200 288 168 288 H72 Q40 288 40 256 Z`;
-  const h = JAR.floor - yTop;
-  const filled = level <= 0.001 ? null : yTop <= 258
-    ? <path d={`M${JAR.left} ${yTop.toFixed(1)} H${JAR.right} V258 Q${JAR.right} ${JAR.floor} 168 ${JAR.floor} H72 Q${JAR.left} ${JAR.floor} ${JAR.left} 258 Z`} fill={C.blanket} />
-    : <rect x={JAR.left} y={yTop.toFixed(1)} width={JAR.right - JAR.left} height={h.toFixed(1)} rx={Math.min(14, h / 2).toFixed(1)} fill={C.blanket} />;
+  const { fill, coins: spots } = jarFill(level);
+  const filled = !fill ? null : "d" in fill ? <path d={fill.d} fill={C.blanket} /> : <rect x={fill.x} y={fill.y} width={fill.width} height={fill.height} rx={fill.rx} fill={C.blanket} />;
   // three coins resting on the surface
-  const coins = level > 0.05 && yTop < 270 ? [[78, 0], [118, 5], [158, -3]].map(([x, dy]) => <ellipse key={x} cx={x} cy={(yTop + 4 + dy).toFixed(1)} rx={17} ry={6.5} fill={C.coin} stroke={C.ink} strokeWidth={2.4} />) : null;
+  const coins = spots ? spots.map((c) => <ellipse key={c.x} cx={c.x} cy={c.y.toFixed(1)} rx={c.rx} ry={c.ry} fill={C.coin} stroke={C.ink} strokeWidth={2.4} />) : null;
+  const body = JAR_BODY;
   return (
     <>
       <path d={body} fill={C.jar} stroke={C.ink} strokeWidth={4} strokeLinejoin="round" />
       {filled}
       {coins}
       <path d={body} fill="none" stroke={C.ink} strokeWidth={4} strokeLinejoin="round" />
-      <rect x={66} y={54} width={108} height={24} fill={C.jar} stroke={C.ink} strokeWidth={4} />
-      <rect x={56} y={22} width={128} height={34} rx={9} fill={C.coin} stroke={C.ink} strokeWidth={4} />
+      <rect x={JAR_NECK.x} y={JAR_NECK.y} width={JAR_NECK.w} height={JAR_NECK.h} fill={C.jar} stroke={C.ink} strokeWidth={4} />
+      <rect x={JAR_LID.x} y={JAR_LID.y} width={JAR_LID.w} height={JAR_LID.h} rx={JAR_LID.r} fill={C.coin} stroke={C.ink} strokeWidth={4} />
       <path d="M70 32 H128" stroke={C.white} strokeWidth={4} strokeLinecap="round" opacity={0.7} />
       <path d="M54 110 V180" stroke={C.white} strokeWidth={5} strokeLinecap="round" opacity={0.7} />
       {marks.map((on, i) => (on ? <path key={i} d={`M206 ${jarTick(i)} H234`} stroke={C.ink} strokeWidth={4} strokeLinecap="round" /> : null))}
@@ -246,9 +261,10 @@ export function paidGeo(size: VideoSize, show: SaveShow<"paidgot">, place: SaveP
   const text = place.text;
   const note = noteGeo(show.note, r.w - 40, text);
   const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
+  // the foot line is the plan's table's: drawn only when the story's own code set `fromPlan`, never in a คลิปตามโจทย์
   let footSize = Math.round(text * 0.85);
   while (footSize > 8 && handWidth(SW.foot, footSize) > r.w - 40) footSize -= 1;
-  const footH = Math.round(footSize * 1.4);
+  const footH = show.fromPlan ? Math.round(footSize * 1.4) : 0;
   const gapC = 16;
   const slot = Math.min(Math.floor((r.w - gapC) / 2), 520);
   const x0 = r.x + Math.round((r.w - slot * 2 - gapC) / 2);
@@ -304,7 +320,7 @@ function PaidGot({ d, show }: { d: Dev; show: SaveShow<"paidgot"> }) {
         );
       })}
       <div style={abs({ left: first - 16, top: geo.base - 3, width: last - first + 32, height: 6, background: ink, borderRadius: 3 })} />
-      <El an={s.foot} t={t} style={{ position: "absolute", left: geo.foot.x, top: geo.foot.y, width: geo.foot.w, justifyContent: "center", fontFamily: HAND, fontSize: geo.footSize, fontWeight: 600, lineHeight: 1.3, color: ink }}>{SW.foot}</El>
+      {show.fromPlan ? <El an={s.foot} t={t} style={{ position: "absolute", left: geo.foot.x, top: geo.foot.y, width: geo.foot.w, justifyContent: "center", fontFamily: HAND, fontSize: geo.footSize, fontWeight: 600, lineHeight: 1.3, color: ink }}>{SW.foot}</El> : null}
       <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
     </>
   );
@@ -316,7 +332,7 @@ function PaidGot({ d, show }: { d: Dev; show: SaveShow<"paidgot"> }) {
 /** a basket's own sheet, in its units: 240 wide, 280 tall; the goods stand in the basket (y 64..124), the banknote under it */
 export const PRICE = { w: 240, h: 280 };
 /** where the five goods stand in a basket (centre x); the last two are the ones that fade out of the later basket */
-const GOODS_X = [44, 82, 120, 158, 196];
+export const GOODS_X = [44, 82, 120, 158, 196];
 
 /** how many of each basket's pieces show at t: today's and later's baskets (0 to 1, as they pop in), and how much of the two extra goods is left in the later one (1 to 0) */
 export function priceAt(s: Record<string, Anim>, t: number) {
@@ -356,38 +372,104 @@ export function priceGeo(size: VideoSize, show: SaveShow<"pricerise">, place: Sa
   };
 }
 
-/** one of the five goods standing at centre x, its foot at y = 124 */
-function good(i: number, cx: number) {
-  const ink = { stroke: C.ink, strokeWidth: 3.2, strokeLinejoin: "round" as const };
+/** a piece of a good or of the basket: its place on the basket's sheet, never its colours (each route styles it by `id`) */
+export type Part =
+  | { id: string; kind: "oval"; cx: number; cy: number; rx: number; ry: number }
+  | { id: string; kind: "rect"; x: number; y: number; w: number; h: number; r: number }
+  | { id: string; kind: "line"; d: string };
+
+/** one of the five goods standing at centre x, its foot at y = 124 (shapes in drawing order) */
+export function goodParts(i: number, cx: number): Part[] {
   switch (i) {
     case 0: // an apple
-      return <><circle cx={cx} cy={104} r={19} fill={C.red} {...ink} /><path d={`M${cx} 86 Q${cx + 2} 78 ${cx + 6} 75`} stroke={C.ink} strokeWidth={3} fill="none" strokeLinecap="round" /><ellipse cx={cx + 9} cy={80} rx={7} ry={4} fill={C.green} {...ink} strokeWidth={2.4} /></>;
+      return [
+        { id: "apple", kind: "oval", cx, cy: 104, rx: 19, ry: 19 },
+        { id: "apple-stem", kind: "line", d: `M${cx} 86 Q${cx + 2} 78 ${cx + 6} 75` },
+        { id: "apple-leaf", kind: "oval", cx: cx + 9, cy: 80, rx: 7, ry: 4 },
+      ];
     case 1: // a bottle
-      return <><rect x={cx - 12} y={80} width={24} height={44} rx={7} fill={C.water} {...ink} /><rect x={cx - 7} y={64} width={14} height={18} rx={3} fill={C.water} {...ink} /><rect x={cx - 8} y={60} width={16} height={7} rx={2} fill={C.coin} {...ink} strokeWidth={2.4} /></>;
+      return [
+        { id: "bottle", kind: "rect", x: cx - 12, y: 80, w: 24, h: 44, r: 7 },
+        { id: "bottle-neck", kind: "rect", x: cx - 7, y: 64, w: 14, h: 18, r: 3 },
+        { id: "bottle-cap", kind: "rect", x: cx - 8, y: 60, w: 16, h: 7, r: 2 },
+      ];
     case 2: // a loaf
-      return <><rect x={cx - 19} y={92} width={38} height={32} rx={15} fill={C.kraft} {...ink} /><path d={`M${cx - 8} 98 L${cx - 4} 108 M${cx + 2} 98 L${cx + 6} 108 M${cx + 12} 98 L${cx + 14} 106`} stroke={C.ink} strokeWidth={2.6} fill="none" strokeLinecap="round" /></>;
+      return [
+        { id: "loaf", kind: "rect", x: cx - 19, y: 92, w: 38, h: 32, r: 15 },
+        { id: "loaf-slits", kind: "line", d: `M${cx - 8} 98 L${cx - 4} 108 M${cx + 2} 98 L${cx + 6} 108 M${cx + 12} 98 L${cx + 14} 106` },
+      ];
     case 3: // a can
-      return <><rect x={cx - 15} y={78} width={30} height={46} rx={5} fill={C.cake} {...ink} /><path d={`M${cx - 15} 90 H${cx + 15} M${cx - 15} 112 H${cx + 15}`} stroke={C.ink} strokeWidth={2.6} /></>;
+      return [
+        { id: "can", kind: "rect", x: cx - 15, y: 78, w: 30, h: 46, r: 5 },
+        { id: "can-bands", kind: "line", d: `M${cx - 15} 90 H${cx + 15} M${cx - 15} 112 H${cx + 15}` },
+      ];
     default: // a lettuce
-      return <><circle cx={cx} cy={103} r={20} fill={C.green} {...ink} /><path d={`M${cx - 10} 108 Q${cx} 92 ${cx + 10} 108`} stroke={C.white} strokeWidth={3} fill="none" strokeLinecap="round" /></>;
+      return [
+        { id: "lettuce", kind: "oval", cx, cy: 103, rx: 20, ry: 20 },
+        { id: "lettuce-vein", kind: "line", d: `M${cx - 10} 108 Q${cx} 92 ${cx + 10} 108` },
+      ];
   }
+}
+
+/** where a good stands in the basket: its foot, and the scale it is drawn at about it */
+export const goodTransform = (cx: number) => `translate(${cx} 124) scale(1.22) translate(${-cx} -124)`;
+
+/** the basket and its banknote on their sheet (shapes in drawing order, ids for each route's styling) */
+export const BASKET = {
+  handle: "M52 108 Q120 -40 188 108",
+  body: "M30 112 H210 L194 188 Q192 198 182 198 H58 Q48 198 46 188 Z",
+  weave: "M40 140 H200 M44 166 H196 M86 114 L82 196 M120 114 V198 M154 114 L158 196",
+  rim: { x: 24, y: 104, w: 192, h: 14, r: 6 },
+  note: { x: 50, y: 212, w: 140, h: 60, r: 8 },
+  noteIn: { x: 58, y: 220, w: 124, h: 44, r: 4 },
+  coin: { cx: 120, cy: 242, r: 14 },
+  dots: [{ cx: 68, cy: 230, r: 4 }, { cx: 172, cy: 254, r: 4 }],
+} as const;
+
+const GOOD_STYLE: Record<string, Record<string, string | number>> = {
+  apple: { fill: C.red, stroke: C.ink, strokeWidth: 3.2, strokeLinejoin: "round" },
+  "apple-stem": { stroke: C.ink, strokeWidth: 3, fill: "none", strokeLinecap: "round" },
+  "apple-leaf": { fill: C.green, stroke: C.ink, strokeWidth: 2.4, strokeLinejoin: "round" },
+  bottle: { fill: C.water, stroke: C.ink, strokeWidth: 3.2, strokeLinejoin: "round" },
+  "bottle-neck": { fill: C.water, stroke: C.ink, strokeWidth: 3.2, strokeLinejoin: "round" },
+  "bottle-cap": { fill: C.coin, stroke: C.ink, strokeWidth: 2.4, strokeLinejoin: "round" },
+  loaf: { fill: C.kraft, stroke: C.ink, strokeWidth: 3.2, strokeLinejoin: "round" },
+  "loaf-slits": { stroke: C.ink, strokeWidth: 2.6, fill: "none", strokeLinecap: "round" },
+  can: { fill: C.cake, stroke: C.ink, strokeWidth: 3.2, strokeLinejoin: "round" },
+  "can-bands": { stroke: C.ink, strokeWidth: 2.6 },
+  lettuce: { fill: C.green, stroke: C.ink, strokeWidth: 3.2, strokeLinejoin: "round" },
+  "lettuce-vein": { stroke: C.white, strokeWidth: 3, fill: "none", strokeLinecap: "round" },
+};
+
+/** one of the five goods standing at centre x, its foot at y = 124 */
+function good(i: number, cx: number) {
+  return (
+    <>
+      {goodParts(i, cx).map((p) => {
+        const st = GOOD_STYLE[p.id];
+        if (p.kind === "oval") return p.rx === p.ry ? <circle key={p.id} cx={p.cx} cy={p.cy} r={p.rx} {...st} /> : <ellipse key={p.id} cx={p.cx} cy={p.cy} rx={p.rx} ry={p.ry} {...st} />;
+        if (p.kind === "rect") return <rect key={p.id} x={p.x} y={p.y} width={p.w} height={p.h} rx={p.r} {...st} />;
+        return <path key={p.id} d={p.d} {...st} />;
+      })}
+    </>
+  );
 }
 
 /** a basket on its sheet with its goods (those listed in `shown`, each at its opacity) and the banknote under it */
 function basketSvg(which: "a" | "b", goods: number[]) {
+  const B = BASKET;
   return (
     <>
-      <path d="M52 108 Q120 -40 188 108" fill="none" stroke={C.ink} strokeWidth={5} strokeLinecap="round" />
-      {GOODS_X.map((cx, i) => (goods[i] > 0.01 ? <g key={i} data-good={which} opacity={goods[i].toFixed(3)} transform={`translate(${cx} 124) scale(1.22) translate(${-cx} -124)`}>{good(i, cx)}</g> : null))}
-      <path d="M30 112 H210 L194 188 Q192 198 182 198 H58 Q48 198 46 188 Z" fill={C.kraft} stroke={C.ink} strokeWidth={4} strokeLinejoin="round" />
-      <path d="M40 140 H200 M44 166 H196 M86 114 L82 196 M120 114 V198 M154 114 L158 196" stroke={C.ink} strokeWidth={2.4} opacity={0.45} fill="none" />
-      <rect x={24} y={104} width={192} height={14} rx={6} fill={C.kraft} stroke={C.ink} strokeWidth={4} />
+      <path d={B.handle} fill="none" stroke={C.ink} strokeWidth={5} strokeLinecap="round" />
+      {GOODS_X.map((cx, i) => (goods[i] > 0.01 ? <g key={i} data-good={which} opacity={goods[i].toFixed(3)} transform={goodTransform(cx)}>{good(i, cx)}</g> : null))}
+      <path d={B.body} fill={C.kraft} stroke={C.ink} strokeWidth={4} strokeLinejoin="round" />
+      <path d={B.weave} stroke={C.ink} strokeWidth={2.4} opacity={0.45} fill="none" />
+      <rect x={B.rim.x} y={B.rim.y} width={B.rim.w} height={B.rim.h} rx={B.rim.r} fill={C.kraft} stroke={C.ink} strokeWidth={4} />
       <g data-part="banknote">
-        <rect x={50} y={212} width={140} height={60} rx={8} fill={C.green} stroke={C.ink} strokeWidth={4} />
-        <rect x={58} y={220} width={124} height={44} rx={4} fill="none" stroke={C.white} strokeWidth={2.5} />
-        <circle cx={120} cy={242} r={14} fill={C.coin} stroke={C.ink} strokeWidth={3} />
-        <circle cx={68} cy={230} r={4} fill={C.white} />
-        <circle cx={172} cy={254} r={4} fill={C.white} />
+        <rect x={B.note.x} y={B.note.y} width={B.note.w} height={B.note.h} rx={B.note.r} fill={C.green} stroke={C.ink} strokeWidth={4} />
+        <rect x={B.noteIn.x} y={B.noteIn.y} width={B.noteIn.w} height={B.noteIn.h} rx={B.noteIn.r} fill="none" stroke={C.white} strokeWidth={2.5} />
+        <circle cx={B.coin.cx} cy={B.coin.cy} r={B.coin.r} fill={C.coin} stroke={C.ink} strokeWidth={3} />
+        {B.dots.map((d) => <circle key={d.cx} cx={d.cx} cy={d.cy} r={d.r} fill={C.white} />)}
       </g>
     </>
   );
@@ -508,9 +590,11 @@ export function pensionGeo(size: VideoSize, show: SaveShow<"pensionsteps">, plac
     }
     if (best) break;
   }
+  // never reached by a figure that fits some size; kept so a drawing is never refused: steps to scale (the main path's rule), the smallest figures
   const fallback = (): Plan => {
     const colW = Math.min(300, Math.floor((r.w - 16) / n));
-    return { figSize: 10, Hs: minHs, ageSize: 14, colW, x0: r.x + 8, hs: rows.map(() => 20), boxes: rows.map((_, i) => ({ x: r.x + 8 + i * colW, y: base - 40, w: colW, h: 13 })), raised: rows.map(() => false), a: minHs, s: minHs * 0.35 };
+    const hs = rows.map((x) => Math.max(6, Math.round((minHs * x.annual) / maxAnnual)));
+    return { figSize: 10, Hs: minHs, ageSize: 14, colW, x0: r.x + 8, hs, boxes: rows.map((_, i) => ({ x: r.x + 8 + i * colW, y: base - hs[i] - G - 13, w: colW, h: 13 })), raised: rows.map(() => false), a: minHs, s: minHs * 0.35 };
   };
   const p = best ?? fallback();
   const { colW, x0 } = p;

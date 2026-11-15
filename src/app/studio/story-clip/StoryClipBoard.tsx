@@ -385,7 +385,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const life = info.shelf === "life";
   const moneyTopic: MoneyTopic | null = isMoneyTopic(topic) ? topic : null;
   // the one who wonders: ความรู้ประกัน, ตอบข้อโต้แย้ง and ทุนชีวิต ภาษี มรดก have one, not a hero
-  const asks = knowledge || objection || moneyTopic !== null;
+  const asks = knowledge || objection || info.shelf === "money";
   // ช่วงชีวิต draws a family for these two, the one who wonders for the rest
   const lifeFamily = topic === "wedding" || topic === "mortgage";
   const episode = info.shelf !== "story";

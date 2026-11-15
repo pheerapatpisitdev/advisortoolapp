@@ -132,7 +132,21 @@ describe("retiresave: the figures are the engine's", () => {
   it("every figure on screen passes checkDevice with the engine's numbers as its only source", () => {
     const e = engine();
     const only = new Set([e.years, e.paid, e.got, e.payFrom, e.payTo, e.getFrom, e.getTo]);
-    for (const x of scenes().filter((y) => isDevice(y.show))) expect(checkDevice(x.show, only), x.show.layout).toEqual(x.show);
+    // `fromPlan` is the story's own mark, never kept by the check: the show is the checked device plus that mark
+    for (const x of scenes().filter((y) => isDevice(y.show))) {
+      const { fromPlan: _mark, ...plain } = x.show as Record<string, unknown>;
+      void _mark;
+      expect(checkDevice(x.show, only), x.show.layout).toEqual(plain);
+    }
+  });
+
+  it("marks only paidgot as the plan engine's own (its foot line), and the check never takes that mark", () => {
+    const [, , , three] = scenes();
+    expect(three.show).toMatchObject({ layout: "paidgot", fromPlan: true });
+    for (const x of scenes().filter((y) => y.show.layout !== "paidgot")) expect(x.show).not.toHaveProperty("fromPlan");
+    const e = engine();
+    const only = new Set([e.paid, e.got]);
+    expect(checkDevice(three.show, only)).not.toHaveProperty("fromPlan");
   });
 
   it("says no figure aloud: the voice carries no digit and the screen's figures are the engine's", () => {
@@ -173,7 +187,9 @@ describe("retiresave: no return word, no percent", () => {
 
   it("has the spec's caption line, and its own two lines on top", () => {
     const c = storyCaption(input());
-    expect(c).toContain("ตัวเลขจากตารางผลประโยชน์ บำนาญ สมาร์ท 95 ตรวจสอบเงื่อนไขก่อนตัดสินใจ");
+    // an example, said whose (the agent's own input), then where the figures are from
+    expect(c).toContain("*ตัวอย่าง ชาย 40 ปี บำนาญเดือนละ 10,000 บาท ตัวเลขจากตารางผลประโยชน์ บำนาญ สมาร์ท 95 ตรวจสอบเงื่อนไขก่อนตัดสินใจ");
+    expect(storyCaption(input({ pension: { ...PENSION, sex: "F", age: 35 } }))).toContain("*ตัวอย่าง หญิง 35 ปี บำนาญเดือนละ 10,000 บาท ตัวเลข");
     expect(c).not.toContain("ตัวแทนกรอก");
     expect(c.split("\n")[0]).toBe("เก็บเงินไว้ใช้ตอนเกษียณ");
     expect(c).toContain("#วางแผนการเงิน");

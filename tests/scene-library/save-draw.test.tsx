@@ -38,11 +38,11 @@ const SHOWS: KnowShow[] = [
   /* 3 */ { layout: "savejar", title: T },
   /* 4 */ { layout: "savejar", title: LONG_TITLE, note: LONG_NOTE, years: 60, paid: 123_456_789 },
   /* 5 */ { layout: "savejar", title: T, note: SOLID_NOTE, years: 3, paid: 123_456_789 },
-  /* 6 */ { layout: "paidgot", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], note: "ดูตามตาราง", paid: 2_724_411, got: 6_023_625, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95 },
-  /* 7 */ { layout: "paidgot", title: T, paid: 2_724_411, got: 6_023_625 },
+  /* 6 */ { layout: "paidgot", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], note: "ดูตามตาราง", paid: 2_724_411, got: 6_023_625, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95, fromPlan: true },
+  /* 7 */ { layout: "paidgot", title: T, paid: 2_724_411, got: 6_023_625, fromPlan: true },
   /* 8 */ { layout: "paidgot", title: T, paid: 2_724_411, got: 6_023_625, payFrom: 40, getFrom: 60, getTo: 95 },
-  /* 9 */ { layout: "paidgot", title: LONG_TITLE, note: LONG_NOTE, paid: 123_456_789, got: 987_654_321, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95 },
-  /* 10 */ { layout: "paidgot", title: T, note: SOLID_NOTE, paid: 1_000_000_000, got: 1_000, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95 },
+  /* 9 */ { layout: "paidgot", title: LONG_TITLE, note: LONG_NOTE, paid: 123_456_789, got: 987_654_321, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95, fromPlan: true },
+  /* 10 */ { layout: "paidgot", title: T, note: SOLID_NOTE, paid: 1_000_000_000, got: 1_000, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95, fromPlan: true },
   /* 11 */ { layout: "pricerise", title: ["เงินเท่าเดิม", "ซื้อได้น้อยลง"] },
   /* 12 */ { layout: "pricerise", title: LONG_TITLE, note: LONG_NOTE },
   /* 13 */ { layout: "pensionsteps", title: ["บำนาญขั้นบันได", "เกษียณสบายใจ"], rows: SPEC_ROWS },
@@ -211,6 +211,7 @@ describe("paidgot", () => {
     // payFrom without payTo: no age under the paid bar; the got bar has both
     const half = words(html(gots[2]));
     expect(half).not.toContain("อายุ 40");
+    expect(half).not.toContain(SAVE_WORDS.foot); // not the plan engine's: no foot line
     expect(half).toContain("อายุ 60–95");
   });
 
@@ -322,7 +323,30 @@ describe("pricerise", () => {
   });
 });
 
+describe("paidgot's foot line", () => {
+  it("takes no room when the plan engine's mark is not set (a คลิปตามโจทย์), and the bars grow into it", () => {
+    const withFoot = paidGeo("portrait", gots[0]);
+    const without = paidGeo("portrait", { ...gots[0], fromPlan: undefined });
+    expect(without.bars[0].h).toBeGreaterThan(withFoot.bars[0].h);
+    expect(html({ ...gots[0], fromPlan: undefined })).not.toContain(SAVE_WORDS.foot);
+    expect(words(html(gots[0]))).toContain(SAVE_WORDS.foot);
+  });
+});
+
 describe("pensionsteps", () => {
+  it("the fallback plan (no size fits) draws every step to scale, not a flat 20 px", () => {
+    // five steps in a room too narrow for any column: plan() refuses every size, the fallback stands
+    const room = { x: 0, y: 0, w: 280, h: 500 };
+    const rows = [{ from: 60, to: 64, annual: 100_000 }, { from: 65, to: 69, annual: 200_000 }, { from: 70, to: 79, annual: 400_000 }, { from: 80, to: 89, annual: 150_000 }, { from: 90, to: 95, annual: 50_000 }];
+    const geo = pensionGeo("portrait", { layout: "pensionsteps", title: T, rows }, { room, text: 40 });
+    const hs = geo.bars.map((b) => b.h);
+    // proportional to the baht, the tallest the one of 400,000
+    expect(new Set(hs).size).toBe(5);
+    const k = hs[2] / 400_000;
+    hs.forEach((h, i) => expect(Math.abs(h - Math.max(6, rows[i].annual * k)), `step ${i}`).toBeLessThanOrEqual(1));
+    expect(geo.figSize).toBe(10);
+  });
+
   it("draws every figure with its commas, each age range, the caption, the cost-of-living label (no figure) and the note", () => {
     for (const show of pensions) {
       const w = words(html(show));

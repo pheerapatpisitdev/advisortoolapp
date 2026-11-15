@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDevice, checkScene, checkScript } from "@/lib/prompt-story/check";
+import { allowedFor, checkDevice, checkScene, checkScript, deviceAllowed } from "@/lib/prompt-story/check";
 import { DEVICES, deviceInfo } from "@/lib/scene-library/devices";
 import {
   HEALTH_LAYOUTS, isDevice, isMeta, isSave, knowText, LIFE_LAYOUTS, META_LAYOUTS, SAVE_DEFAULTS, SAVE_LAYOUTS, SAVE_LIMITS, saveWords, showText,
@@ -158,23 +158,30 @@ describe("checkDevice: saving devices", () => {
     expect(checkDevice(FULL[2], NONE)).toEqual(FULL[2]);
     expect(checkDevice({ ...FULL[2], years: 20, paid: 1000 }, ALL)).toEqual(FULL[2]);
   });
-  it("a figure not in the brief is refused (Review Focus 1): savejar, paidgot, pensionsteps", () => {
-    const got = checkDevice(FULL[0], new Set([20]));
-    expect(typeof got).toBe("string");
-    expect(got as string).toContain("paid");
-    expect(typeof checkDevice(FULL[0], new Set([2_724_411]))).toBe("string");
-    expect(typeof checkDevice(FULL[1], new Set([2_724_411, 6_023_625]))).toBe("string");
+  it("a figure not in the brief: an optional one is left off, a needed one refuses the device (spec: a number that cannot be sourced is left off)", () => {
+    // savejar: each of years and paid is dropped on its own, the device stays
+    const jar = FULL[0] as Extract<KnowShow, { layout: "savejar" }>;
+    const noYears = { layout: jar.layout, title: jar.title, note: jar.note, paid: jar.paid };
+    const noPaid = { layout: jar.layout, title: jar.title, note: jar.note, years: jar.years };
+    expect(checkDevice(FULL[0], new Set([20]))).toEqual(noPaid);
+    expect(checkDevice(FULL[0], new Set([2_724_411]))).toEqual(noYears);
+    const T0 = (FULL[0] as { title: [string, string] }).title;
+    expect(checkDevice(FULL[0], NONE)).toEqual({ layout: "savejar", title: T0, note: "ส่งเท่าเดิมทุกปี" });
+    // paidgot: paid and got are needed; its ages are not
+    expect(typeof checkDevice(FULL[1], new Set([2_724_411, 6_023_625, 40, 59, 60]))).toBe("object");
+    expect(typeof checkDevice(FULL[1], new Set([2_724_411]))).toBe("string");
+    expect(typeof checkDevice(FULL[1], new Set([6_023_625]))).toBe("string");
+    expect(typeof checkDevice(BARE[1], NONE)).toBe("string");
+    // pensionsteps: every number of every row is needed
     expect(typeof checkDevice(FULL[3], new Set([60, 75]))).toBe("string");
-    const none = checkDevice(BARE[1], NONE);
-    expect(typeof none).toBe("string");
   });
-  it("savejar: years and paid are each optional, never zero, a fraction or past their limit", () => {
+  it("savejar: years and paid are each optional, never zero, a fraction or past their limit; one that is not is left off, not refused", () => {
     expect(checkDevice({ layout: "savejar", title: T, years: 20 }, ALL)).toEqual({ layout: "savejar", title: T, years: 20 });
     expect(checkDevice({ layout: "savejar", title: T, paid: 2_724_411 }, ALL)).toEqual({ layout: "savejar", title: T, paid: 2_724_411 });
-    for (const years of [0, -1, 1.5, 61, "20"]) expect(typeof checkDevice({ ...BARE[0], years }, new Set([0, -1, 1.5, 61, 20]))).toBe("string");
+    for (const years of [0, -1, 1.5, 61, "20"]) expect(checkDevice({ ...BARE[0], years }, new Set([0, -1, 1.5, 61, 20])), String(years)).toEqual(BARE[0]);
     for (const years of [1, 60]) expect(checkDevice({ ...BARE[0], years }, new Set([years]))).toMatchObject({ years });
     expect(checkDevice({ ...BARE[0], paid: SAVE_LIMITS.baht }, new Set([SAVE_LIMITS.baht]))).toMatchObject({ paid: 1_000_000_000 });
-    expect(typeof checkDevice({ ...BARE[0], paid: SAVE_LIMITS.baht + 1 }, new Set([SAVE_LIMITS.baht + 1]))).toBe("string");
+    expect(checkDevice({ ...BARE[0], paid: SAVE_LIMITS.baht + 1 }, new Set([SAVE_LIMITS.baht + 1]))).toEqual(BARE[0]);
     expect(checkDevice({ ...BARE[0], years: null, paid: null }, NONE)).toEqual(BARE[0]);
   });
   it("paidgot: refused unless both paid and got are there (Review Focus 1)", () => {
@@ -185,14 +192,21 @@ describe("checkDevice: saving devices", () => {
     expect(typeof checkDevice({ ...BARE[1], paid: SAVE_LIMITS.baht + 1 }, new Set([SAVE_LIMITS.baht + 1, 200_000]))).toBe("string");
     expect(checkDevice({ ...BARE[1], paid: 123_456_789, got: 987_654_321 }, new Set([123_456_789, 987_654_321]))).toMatchObject({ paid: 123_456_789, got: 987_654_321 });
   });
-  it("paidgot: an age is 1 to 99, a pair runs from at most to; the ages are optional", () => {
-    expect(checkDevice({ ...BARE[1], payFrom: 40, payTo: 59 }, new Set([100_000, 200_000, 40, 59]))).toMatchObject({ payFrom: 40, payTo: 59 });
-    expect(checkDevice({ ...BARE[1], getFrom: 60 }, new Set([100_000, 200_000, 60]))).toMatchObject({ getFrom: 60 });
+  it("paidgot: an age pair is drawn only when both ages are sourced, 1 to 99 and from at most to; else that pair is left off", () => {
+    const base = new Set([100_000, 200_000]);
+    expect(checkDevice({ ...BARE[1], payFrom: 40, payTo: 59 }, new Set([...base, 40, 59]))).toMatchObject({ payFrom: 40, payTo: 59 });
+    expect(checkDevice({ ...BARE[1], payFrom: 50, payTo: 50 }, new Set([...base, 50]))).toMatchObject({ payFrom: 50, payTo: 50 });
+    // one age alone, or one unsourced: the whole pair goes, the other pair stays
+    expect(checkDevice({ ...BARE[1], getFrom: 60 }, new Set([...base, 60]))).toEqual(BARE[1]);
+    expect(checkDevice({ ...BARE[1], payFrom: 40, payTo: 59, getFrom: 60, getTo: 95 }, new Set([...base, 40, 59, 60]))).toEqual({ ...BARE[1], payFrom: 40, payTo: 59 });
+    // out of range, a fraction, or from after to: the pair is left off, never a reason
     for (const [k, v] of [["payFrom", 0], ["payTo", 100], ["getFrom", -5], ["getTo", 1.5]] as const) {
-      expect(typeof checkDevice({ ...BARE[1], [k]: v }, new Set([100_000, 200_000, v])), k).toBe("string");
+      const pair = k.startsWith("pay") ? { payFrom: 40, payTo: 59 } : { getFrom: 60, getTo: 95 };
+      expect(checkDevice({ ...BARE[1], ...pair, [k]: v }, new Set([...base, 40, 59, 60, 95, v])), k).toEqual(BARE[1]);
     }
-    expect(typeof checkDevice({ ...BARE[1], payFrom: 59, payTo: 40 }, new Set([100_000, 200_000, 59, 40]))).toBe("string");
-    expect(checkDevice({ ...BARE[1], payFrom: 50, payTo: 50 }, new Set([100_000, 200_000, 50]))).toMatchObject({ payFrom: 50, payTo: 50 });
+    expect(checkDevice({ ...BARE[1], payFrom: 59, payTo: 40 }, new Set([...base, 59, 40]))).toEqual(BARE[1]);
+    // the internal flag is never taken from the writer
+    expect(checkDevice({ ...BARE[1], fromPlan: true }, ALL)).toEqual(BARE[1]);
   });
   it("pensionsteps: one to five rows, each from at most to, ascending by age, all three numbers (Review Focus 1)", () => {
     const some = (n: number) => Array.from({ length: n }, (_, i) => ({ from: 50 + i * 10, to: 59 + i * 10, annual: 100_000 + i }));
@@ -209,6 +223,10 @@ describe("checkDevice: saving devices", () => {
     expect(typeof ok([{ from: 70, to: 75, annual: 100_000 }, { from: 60, to: 69, annual: 100_001 }])).toBe("string");
     expect(typeof ok([{ from: 60, to: 75, annual: 100_000 }, { from: 60, to: 80, annual: 100_001 }])).toBe("string");
     expect(typeof ok([{ from: 60, to: 99, annual: 100_000 }, { from: 65, to: 70, annual: 100_001 }])).toBe("string");
+    // a from or a to the brief does not give: the row, so the device, is refused (only `annual` was held before)
+    expect(typeof checkDevice({ ...BARE[3], rows: [{ from: 61, to: 95, annual: 120_000 }] }, ALL)).toBe("string");
+    expect(typeof checkDevice({ ...BARE[3], rows: [{ from: 60, to: 94, annual: 120_000 }] }, ALL)).toBe("string");
+    expect(checkDevice({ ...BARE[3], rows: [{ from: 60, to: 95, annual: 120_000 }] }, ALL)).toEqual(BARE[3]);
     // ages 1 to 99
     expect(typeof ok([{ from: 0, to: 70, annual: 100_000 }])).toBe("string");
     expect(typeof ok([{ from: 60, to: 100, annual: 100_000 }])).toBe("string");
@@ -265,18 +283,26 @@ describe("checkDevice: saving devices", () => {
       }
     }
   });
+  it("IRR is whole-word: refused beside Thai text, but a word that holds the letters passes (mirror)", () => {
+    for (const w of ["IRR", "irr", "Irr"]) for (const t of [`กระปุก ${w} สูง`, `กระปุก${w}สูง`, `${w}`]) expect(typeof checkDevice({ ...FULL[0], note: t }, ALL), t).toBe("string");
+    for (const t of ["mirror กระปุก", "irregular กระปุก", "กระปุกstirring"]) expect(checkDevice({ ...FULL[0], note: t }, ALL), t).toMatchObject({ note: t });
+  });
   it("holds a word to the script's forbidden words, and refuses a return word on the device", () => {
     expect(typeof checkDevice({ ...FULL[0], note: "ไม่ต้องตรวจสุขภาพ" }, ALL)).toBe("string");
     expect(typeof checkDevice({ ...FULL[2], note: "เอไอเอ" }, ALL)).toBe("string");
   });
   it("is refused the way a forged-figure device is: checkScene names the device, checkScript the scene", () => {
-    const scene: PromptScene = { voice: "ส่งทีละปี", screen: "ส่งทีละปี", picture: "กระปุก", device: { ...FULL[0], paid: 999_999 } as never };
-    expect(checkScene(scene, ALL, ALL).some((r) => r.startsWith("device:") && r.includes("paid"))).toBe(true);
+    const scene: PromptScene = { voice: "ส่งทีละปี", screen: "ส่งทีละปี", picture: "กระปุก", device: { layout: "paidgot", title: T, paid: 2_724_411, got: 999_999 } as never };
+    expect(checkScene(scene, ALL, ALL).some((r) => r.startsWith("device:") && r.includes("got"))).toBe(true);
     const brief = "ส่งปีละ 136,220 บาท ส่ง 20 ปี รวม 2,724,411 บาท";
     const ok: PromptScene = { ...scene, voice: "ส่งยี่สิบปี", screen: "ส่งยี่สิบปี", device: { layout: "savejar", title: T, years: 20, paid: 2_724_411 } };
     expect(checkScript([ok], brief)).toEqual([]);
+    // a forged amount the device does not need is left off, the scene stays; one it needs refuses it
     const forged: PromptScene = { ...ok, device: { layout: "savejar", title: T, years: 20, paid: 9_999_999 } };
-    expect(checkScript([forged], brief)).toEqual([{ scene: 0, reasons: [expect.stringContaining("device: paid")] }]);
+    expect(checkScript([forged], brief)).toEqual([]);
+    expect(checkScene(forged, allowedFor(brief), deviceAllowed(brief))).toEqual([]);
+    const forgedGot: PromptScene = { ...ok, device: { layout: "paidgot", title: T, paid: 2_724_411, got: 9_999_999 } };
+    expect(checkScript([forgedGot], brief)).toEqual([{ scene: 0, reasons: [expect.stringContaining("device: got")] }]);
     const lone: PromptScene = { ...ok, device: { layout: "paidgot", title: T, paid: 2_724_411 } as never };
     expect(checkScript([lone], brief)).toEqual([{ scene: 0, reasons: [expect.stringContaining("device: got")] }]);
   });

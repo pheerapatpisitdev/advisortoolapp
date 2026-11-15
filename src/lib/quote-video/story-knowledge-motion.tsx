@@ -579,7 +579,7 @@ export function showBody(show: KnowShow, c: StoryContext, t: number) {
     case "umbrella": case "housepillar": case "lifering": case "safetynet": case "seedtree": case "balance": case "bridge": case "shield":
       return metaBody(show, { c, t, s, g, w, ink });
     case "savejar": case "paidgot": case "pricerise": case "pensionsteps":
-      // savejar and paidgot are drawn; pricerise and pensionsteps draw nothing until Task 3
+      // the four saving devices, drawn in story-save-motion.tsx
       return saveBody(show, { c, t, s, g, w, ink });
   }
 }

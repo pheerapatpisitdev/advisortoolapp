@@ -200,7 +200,7 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     if (/\p{Nd}/u.test(t)) fail.push(`${field}: มีตัวเลข`);
     for (const f of [...FORBIDDEN, ...FREE_FORBIDDEN]) if (f.re.test(t)) fail.push(`${field}: ${f.why}`);
     // spec 2026-11-15-devices-saving: no IRR on a saving device (FORBIDDEN has no IRR; other devices and scripts are unchanged)
-    if (isSaveLayout && /irr/i.test(t)) fail.push(`${field}: พูดถึงผลตอบแทน`);
+    if (isSaveLayout && /\birr\b/i.test(t)) fail.push(`${field}: พูดถึงผลตอบแทน`);
     return t;
   };
   const metaOpt = (field: string, x: unknown, max: number) => {
@@ -212,9 +212,13 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
   // an ออมเงิน device's words are digit-free as a metaphor's, within SAVE_LIMITS (its figures are the fields below)
   const words = isMetaLayout || isSaveLayout;
   const limits = isSaveLayout ? SAVE_LIMITS : META_LIMITS;
-  // a figure of a saving device: a whole number from `lo` to `hi`, from the brief (the allowed set) like round 2's num
+  // a figure of a saving device: a whole number from `lo` to `hi`, from the brief (the allowed set). `need`: a figure the
+  // device cannot be drawn without refuses it (spec: paidgot's two amounts, pensionsteps' rows); an optional figure that
+  // is not a whole number, out of range or not in the brief is left off, never a reason (spec 2026-11-15: a number that
+  // cannot be sourced is left off)
   const ranged = (field: string, x: unknown, need: boolean, lo: number, hi: number): number | undefined => {
-    const n = num(field, x, need);
+    if (!need) return typeof x === "number" && Number.isInteger(x) && x >= lo && x <= hi && allowed.has(x) ? x : undefined;
+    const n = num(field, x, true);
     if (n !== undefined && (n < lo || n > hi)) {
       fail.push(`${field}: ต้องอยู่ระหว่าง ${lo.toLocaleString("en-US")} ถึง ${hi.toLocaleString("en-US")}`);
       return undefined;
@@ -224,6 +228,11 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
   const baht = (field: string, x: unknown, need: boolean) => ranged(field, x, need, 1, SAVE_LIMITS.baht);
   const age = (field: string, x: unknown, need: boolean) => ranged(field, x, need, 1, SAVE_LIMITS.age);
   const given = <K extends string>(field: K, n: number | undefined): { [P in K]?: number } => (n === undefined ? {} : ({ [field]: n } as { [P in K]?: number }));
+  /** an age pair of paidgot: both ages given and from at most to, else neither is drawn */
+  const agePair = (a: string, b: string, from: unknown, to: unknown): { [k: string]: number } => {
+    const x = age(a, from, false), y = age(b, to, false);
+    return x !== undefined && y !== undefined && x <= y ? { [a]: x, [b]: y } : {};
+  };
 
   const rawTitle = Array.isArray(o.title) && o.title.length >= 1 && o.title.length <= 2 ? o.title : null;
   if (!rawTitle) fail.push("title: ใส่หัวข้อ 1–2 บรรทัด");
@@ -319,8 +328,8 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     }
     case "shield": {
       // an arrow left blank (cleared in the editor: "", spaces, null) is no arrow: dropped before the count
-      const given = Array.isArray(o.arrows) ? o.arrows.filter((x) => !(x === null || (typeof x === "string" && !x.trim()))) : null;
-      const raw = given && given.length >= 1 && given.length <= META_LIMITS.arrows ? given : null;
+      const kept = Array.isArray(o.arrows) ? o.arrows.filter((x) => !(x === null || (typeof x === "string" && !x.trim()))) : null;
+      const raw = kept && kept.length >= 1 && kept.length <= META_LIMITS.arrows ? kept : null;
       if (!raw) fail.push(`arrows: ใส่ลูกศร 1–${META_LIMITS.arrows} คำ`);
       out = { layout, title, ...note, arrows: (raw ?? []).map((x) => meta("arrows", x, META_LIMITS.arrow, true)) };
       break;
@@ -329,17 +338,11 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
       out = { layout, title, ...note, ...given("years", ranged("years", o.years, false, 1, SAVE_LIMITS.years)), ...given("paid", baht("paid", o.paid, false)) };
       break;
     case "paidgot": {
-      // both amounts or no device (the bars compare them); an age pair is drawn only when both ages are given, and runs from at most to
+      // both amounts or no device (the bars compare them); each age pair is drawn only when both of its ages are
+      // sourced and it runs from at most to, else that bar has no ages. The internal `fromPlan` is never taken from here
       const paid = baht("paid", o.paid, true);
       const got = baht("got", o.got, true);
-      const payFrom = age("payFrom", o.payFrom, false), payTo = age("payTo", o.payTo, false);
-      const getFrom = age("getFrom", o.getFrom, false), getTo = age("getTo", o.getTo, false);
-      if (payFrom !== undefined && payTo !== undefined && payFrom > payTo) fail.push("payFrom: อายุเริ่มต้องไม่มากกว่าอายุสิ้นสุด");
-      if (getFrom !== undefined && getTo !== undefined && getFrom > getTo) fail.push("getFrom: อายุเริ่มต้องไม่มากกว่าอายุสิ้นสุด");
-      out = {
-        layout, title, ...note, paid: paid ?? 0, got: got ?? 0,
-        ...given("payFrom", payFrom), ...given("payTo", payTo), ...given("getFrom", getFrom), ...given("getTo", getTo),
-      };
+      out = { layout, title, ...note, paid: paid ?? 0, got: got ?? 0, ...agePair("payFrom", "payTo", o.payFrom, o.payTo), ...agePair("getFrom", "getTo", o.getFrom, o.getTo) };
       break;
     }
     case "pricerise":

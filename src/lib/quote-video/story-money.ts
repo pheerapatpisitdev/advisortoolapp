@@ -209,13 +209,16 @@ export function retireFigures(p: NonNullable<StoryVideoInput["pension"]>) {
   };
 }
 
+/** the plan engine's own paidgot says so (`fromPlan`): the foot line "ตามตารางผลประโยชน์ของแผน" is drawn only then; the check never keeps the flag */
+const withFoot = (d: Device): Device => (d.layout === "paidgot" && d.paid > 0 ? { ...d, fromPlan: true } : d);
+
 function retiresave(input: StoryVideoInput): KnowScene[] {
   const f = input.pension ? retireFigures(input.pension) : undefined;
   const allowed = new Set<number>(f ? Object.values(f) : []);
   const jar = sourced({ layout: "savejar", title: ["ส่งทีละปี", "ก้อนโตขึ้นเรื่อยๆ"], ...(f ? { years: f.years, paid: f.paid } : {}) }, allowed);
   // paidgot needs both amounts: with no pension to price the scene is a note in words
   const paidGot: KnowShow = f
-    ? sourced({ layout: "paidgot", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], paid: f.paid, got: f.got, payFrom: f.payFrom, payTo: f.payTo, getFrom: f.getFrom, getTo: f.getTo }, allowed)
+    ? withFoot(sourced({ layout: "paidgot", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], paid: f.paid, got: f.got, payFrom: f.payFrom, payTo: f.payTo, getFrom: f.getFrom, getTo: f.getTo }, allowed))
     : { layout: "note", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], note: [small("ตัวเลขอยู่ในตาราง"), big("ผลประโยชน์ของแผน", "green")] };
   return [
     scene("knowAsk", { layout: "ask", title: ["เกษียณแล้ว", "เงินเก็บพอไหม?"] }, "เกษียณแล้ว เงินเดือนหยุด แต่ค่าใช้จ่ายยังเดินต่อทุกเดือน เงินที่เก็บไว้จะพอใช้ไปอีกกี่ปีคะ"),

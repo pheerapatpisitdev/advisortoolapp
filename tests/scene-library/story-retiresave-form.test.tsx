@@ -30,6 +30,15 @@ describe("คลิปเล่าเรื่อง's form: เก็บเง�
     expect(html).toContain("ตัวเลขจากเครื่องคิดหน้า /bumnan95");
   });
 
+  it("asks for the one who wonders, not a hero or the pool of 48", () => {
+    const html = story({ topic: "retiresave" });
+    expect(html).toContain("คนที่สงสัย");
+    expect(html).toContain("ฉากเปิด · คนที่สงสัย");
+    expect(html).not.toContain("47 คน");
+    expect(html).not.toContain("วงแดง");
+    expect(html).not.toContain("ตัวเอกของเรื่อง");
+  });
+
   it("keeps the switch on ใกล้เกษียณ, where the pension is optional", () => {
     const html = story({ topic: "preretire" });
     expect(html).toContain("ใส่ตัวเลขจริง</b>");
