@@ -1,6 +1,6 @@
 import { FORBIDDEN, numbersIn } from "@/lib/quote-video/brief";
 import type { StoryFigure } from "@/lib/quote-video/story";
-import { META_LAYOUTS, META_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
+import { META_LAYOUTS, META_LIMITS, SAVE_LAYOUTS, SAVE_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { deviceInfo } from "@/lib/scene-library/devices";
 import { isTaxRate, TAX_WORD_FIGURES } from "@/lib/scene-library/tax-th";
 import { SCREEN_MAX, type DeviceScene, type PromptScene } from "./types";
@@ -206,13 +206,29 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     return t ? { [field]: t } : {};
   };
   const isMetaLayout = (META_LAYOUTS as readonly string[]).includes(layout);
+  const isSaveLayout = (SAVE_LAYOUTS as readonly string[]).includes(layout);
+  // an ออมเงิน device's words are digit-free as a metaphor's, within SAVE_LIMITS (its figures are the fields below)
+  const words = isMetaLayout || isSaveLayout;
+  const limits = isSaveLayout ? SAVE_LIMITS : META_LIMITS;
+  // a figure of a saving device: a whole number from `lo` to `hi`, from the brief (the allowed set) like round 2's num
+  const ranged = (field: string, x: unknown, need: boolean, lo: number, hi: number): number | undefined => {
+    const n = num(field, x, need);
+    if (n !== undefined && (n < lo || n > hi)) {
+      fail.push(`${field}: ต้องอยู่ระหว่าง ${lo.toLocaleString("en-US")} ถึง ${hi.toLocaleString("en-US")}`);
+      return undefined;
+    }
+    return n;
+  };
+  const baht = (field: string, x: unknown, need: boolean) => ranged(field, x, need, 1, SAVE_LIMITS.baht);
+  const age = (field: string, x: unknown, need: boolean) => ranged(field, x, need, 1, SAVE_LIMITS.age);
+  const given = <K extends string>(field: K, n: number | undefined): { [P in K]?: number } => (n === undefined ? {} : ({ [field]: n } as { [P in K]?: number }));
 
   const rawTitle = Array.isArray(o.title) && o.title.length >= 1 && o.title.length <= 2 ? o.title : null;
   if (!rawTitle) fail.push("title: ใส่หัวข้อ 1–2 บรรทัด");
-  const title: [string, string] = isMetaLayout
-    ? [meta("title", rawTitle?.[0], META_LIMITS.titleLine, true), meta("title", rawTitle?.[1] ?? "", META_LIMITS.titleLine, false)]
+  const title: [string, string] = words
+    ? [meta("title", rawTitle?.[0], limits.titleLine, true), meta("title", rawTitle?.[1] ?? "", limits.titleLine, false)]
     : [word("title", rawTitle?.[0], true), word("title", rawTitle?.[1], false)];
-  const note = isMetaLayout ? metaOpt("note", o.note, META_LIMITS.note) : {};
+  const note = words ? metaOpt("note", o.note, limits.note) : {};
 
   let out: DeviceScene;
   switch (layout) {
@@ -305,6 +321,38 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
       const raw = given && given.length >= 1 && given.length <= META_LIMITS.arrows ? given : null;
       if (!raw) fail.push(`arrows: ใส่ลูกศร 1–${META_LIMITS.arrows} คำ`);
       out = { layout, title, ...note, arrows: (raw ?? []).map((x) => meta("arrows", x, META_LIMITS.arrow, true)) };
+      break;
+    }
+    case "savejar":
+      out = { layout, title, ...note, ...given("years", ranged("years", o.years, false, 1, SAVE_LIMITS.years)), ...given("paid", baht("paid", o.paid, false)) };
+      break;
+    case "paidgot": {
+      // both amounts or no device (the bars compare them); an age pair is drawn only when both ages are given, and runs from at most to
+      const paid = baht("paid", o.paid, true);
+      const got = baht("got", o.got, true);
+      const payFrom = age("payFrom", o.payFrom, false), payTo = age("payTo", o.payTo, false);
+      const getFrom = age("getFrom", o.getFrom, false), getTo = age("getTo", o.getTo, false);
+      if (payFrom !== undefined && payTo !== undefined && payFrom > payTo) fail.push("payFrom: อายุเริ่มต้องไม่มากกว่าอายุสิ้นสุด");
+      if (getFrom !== undefined && getTo !== undefined && getFrom > getTo) fail.push("getFrom: อายุเริ่มต้องไม่มากกว่าอายุสิ้นสุด");
+      out = {
+        layout, title, ...note, paid: paid ?? 0, got: got ?? 0,
+        ...given("payFrom", payFrom), ...given("payTo", payTo), ...given("getFrom", getFrom), ...given("getTo", getTo),
+      };
+      break;
+    }
+    case "pricerise":
+      out = { layout, title, ...note };
+      break;
+    case "pensionsteps": {
+      // one to five steps; each from at most to, all three numbers; ascending: a step starts after the one before it began and does not end before it
+      const rows = list("rows", o.rows, 1, SAVE_LIMITS.rows).map((r) => ({
+        from: age("rows", r.from, true) ?? 0, to: age("rows", r.to, true) ?? 0, annual: baht("rows", r.annual, true) ?? 0,
+      }));
+      rows.forEach((r, i) => {
+        if (r.from > r.to) fail.push("rows: อายุเริ่มต้องไม่มากกว่าอายุสิ้นสุด");
+        if (i > 0 && (r.from <= rows[i - 1].from || r.to < rows[i - 1].to)) fail.push("rows: ต้องเรียงตามอายุจากน้อยไปมาก");
+      });
+      out = { layout, title, ...note, rows };
       break;
     }
   }

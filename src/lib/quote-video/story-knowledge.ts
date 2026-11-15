@@ -109,7 +109,21 @@ export type KnowShow =
   /** สะพานข้ามช่วงยาก */
   | { layout: "bridge"; title: [string, string]; note?: string }
   /** โล่กันลูกศร: one to five words, each an arrow */
-  | { layout: "shield"; title: [string, string]; note?: string; arrows: string[] };
+  | { layout: "shield"; title: [string, string]; note?: string; arrows: string[] }
+  /*
+   * ออมเงินและเกษียณ devices (round 4, spec 2026-11-15-devices-saving-design.md): figures in baht only (no percent, no
+   * return word), each an input (the engine's in คลิปเล่าเรื่อง, the brief's in คลิปตามโจทย์); every word field is
+   * digit-free and within SAVE_LIMITS. A figure that cannot be sourced is left off, and a device that cannot be drawn
+   * without it (paidgot, pensionsteps) is refused by checkDevice.
+   */
+  /** กระปุกโตทุกปี: a jar filling in four steps marked "ปีที่ N"; `years` = paying years, `paid` = the total paid, baht */
+  | { layout: "savejar"; title: [string, string]; note?: string; years?: number; paid?: number }
+  /** ส่งเท่าไร ได้คืนเท่าไร: two bars to one scale, `paid` and `got` (both required), the ages of each given in pairs */
+  | { layout: "paidgot"; title: [string, string]; note?: string; paid: number; got: number; payFrom?: number; payTo?: number; getFrom?: number; getTo?: number }
+  /** เงินเท่าเดิม ซื้อได้น้อยลง: two baskets, no figure; the default note stands when `note` is left out */
+  | { layout: "pricerise"; title: [string, string]; note?: string }
+  /** บำนาญขั้นบันได: one to five steps, each an age span and its baht a year, ascending by age */
+  | { layout: "pensionsteps"; title: [string, string]; note?: string; rows: { from: number; to: number; annual: number }[] };
 
 export const HEALTH_LAYOUTS = ["split", "limit", "room", "overflow", "waiting", "cashless", "groupgap", "agecost"] as const;
 export type HealthLayout = (typeof HEALTH_LAYOUTS)[number];
@@ -117,14 +131,40 @@ export const LIFE_LAYOUTS = ["lifeneed", "beneficiary", "cilump", "incomestop", 
 export type LifeLayout = (typeof LIFE_LAYOUTS)[number];
 export const META_LAYOUTS = ["umbrella", "housepillar", "lifering", "safetynet", "seedtree", "balance", "bridge", "shield"] as const;
 export type MetaLayout = (typeof META_LAYOUTS)[number];
-/** any system-drawn device: health (round 1), ชีวิต ภาษี มรดก (round 2) or อุปมา (round 3) */
-export type DeviceLayout = HealthLayout | LifeLayout | MetaLayout;
-export const DEVICE_LAYOUTS: readonly DeviceLayout[] = [...HEALTH_LAYOUTS, ...LIFE_LAYOUTS, ...META_LAYOUTS];
+export const SAVE_LAYOUTS = ["savejar", "paidgot", "pricerise", "pensionsteps"] as const;
+export type SaveLayout = (typeof SAVE_LAYOUTS)[number];
+/** any system-drawn device: health (round 1), ชีวิต ภาษี มรดก (round 2), อุปมา (round 3) or ออมเงิน (round 4) */
+export type DeviceLayout = HealthLayout | LifeLayout | MetaLayout | SaveLayout;
+export const DEVICE_LAYOUTS: readonly DeviceLayout[] = [...HEALTH_LAYOUTS, ...LIFE_LAYOUTS, ...META_LAYOUTS, ...SAVE_LAYOUTS];
 export type LifeShow<L extends LifeLayout = LifeLayout> = Extract<KnowShow, { layout: L }>;
 export type MetaShow<L extends MetaLayout = MetaLayout> = Extract<KnowShow, { layout: L }>;
+export type SaveShow<L extends SaveLayout = SaveLayout> = Extract<KnowShow, { layout: L }>;
 
 /** the longest each metaphor word may be, in characters (spec: refused, not cut) */
 export const META_LIMITS = { titleLine: 20, note: 34, word: 12, arrow: 14, arrows: 5 } as const;
+/**
+ * What a saving device may carry (spec, "Limits"): words refused over their length, never cut; whole numbers, baht
+ * up to `baht`, an age 1 to `age`, paying years 1 to `years`, one to `rows` steps
+ */
+export const SAVE_LIMITS = { titleLine: 20, note: 34, baht: 1_000_000_000, age: 99, years: 60, rows: 5 } as const;
+/** the note a device draws when its optional note is left out */
+export const SAVE_DEFAULTS = { pricerise: "ราคาของสูงขึ้นทุกปี", pensionsteps: "ค่าครองชีพก็สูงขึ้น วางแผนเผื่อไว้" } as const;
+/** the words the four saving devices draw themselves, and the marks their figures use (never a percent, a rate or a return word) */
+export const SAVE_WORDS = {
+  year: "ปีที่",
+  years: "ปี",
+  sent: "ส่งรวม",
+  each: "ส่งทีละปี",
+  got: "บำนาญรวม",
+  age: "อายุ",
+  foot: "ตามตารางผลประโยชน์ของแผน",
+  today: "วันนี้",
+  later: "อีกหลายปี",
+  fewer: "เงินก้อนเดิม ของในตะกร้าน้อยลง",
+  living: "ค่าครองชีพ",
+  perYear: "บาทต่อปี ตามช่วงอายุ",
+  marks: "0123456789,บาท–-",
+} as const;
 /** the words a metaphor draws when its optional field is left out */
 export const META_DEFAULTS = { label: "รายได้", from: "วันนี้", to: "วันข้างหน้า" } as const;
 
@@ -440,8 +480,10 @@ export const isHealth = (show: KnowShow): boolean => (HEALTH_LAYOUTS as readonly
 export const isLife = (show: KnowShow): boolean => (LIFE_LAYOUTS as readonly string[]).includes(show.layout);
 /** an อุปมา device (round 3): words only, no digit or "บาท" */
 export const isMeta = (show: KnowShow): boolean => (META_LAYOUTS as readonly string[]).includes(show.layout);
+/** an ออมเงิน device (round 4): figures in baht only, and words of its own (SAVE_WORDS) */
+export const isSave = (show: KnowShow): boolean => (SAVE_LAYOUTS as readonly string[]).includes(show.layout);
 /** any system-drawn device, any round */
-export const isDevice = (show: KnowShow): boolean => isHealth(show) || isLife(show) || isMeta(show);
+export const isDevice = (show: KnowShow): boolean => isHealth(show) || isLife(show) || isMeta(show) || isSave(show);
 
 /** the words one show puts on screen from its own fields (a device's own words and digits are showText's) */
 function showWords(show: KnowShow): string[] {
@@ -467,7 +509,16 @@ function showWords(show: KnowShow): string[] {
   if (show.layout === "moneysplit") words.push(...show.parts.map((p) => p.label));
   if (show.layout === "threegen") words.push(...show.rows, ...(show.note ? [show.note] : []));
   if (isMeta(show)) words.push(...metaWords(show as MetaShow));
+  if (isSave(show)) words.push(...saveWords(show as SaveShow));
   return words;
+}
+
+/** the note under a saving device's picture (its title is showWords'), the default for pricerise and pensionsteps when left out */
+export function saveWords(show: SaveShow): string[] {
+  if (show.note) return [show.note];
+  if (show.layout === "pricerise") return [SAVE_DEFAULTS.pricerise];
+  if (show.layout === "pensionsteps") return [SAVE_DEFAULTS.pensionsteps];
+  return [];
 }
 
 /** every word an อุปมา device puts on screen from its fields, its defaults included (the note is the line under the picture) */
@@ -487,10 +538,12 @@ export function metaWords(show: MetaShow): string[] {
 const HEALTH_TEXT = ["0123456789,บาท", ...Object.values(HEALTH_WORDS)];
 /** round-2 devices: their own words, and the tax table's rows (taxcap) */
 const LIFE_TEXT = [...Object.values(LIFE_WORDS), ...TAX_CAPS.flatMap((r) => [r.label, r.note ?? ""])];
+/** round-4 devices: their own words, and the digits and baht their figures use */
+const SAVE_TEXT = Object.values(SAVE_WORDS);
 
 /** every word one show puts on screen, for the handwriting face: a knowledge scene's, or a คลิปตามโจทย์ device scene's */
 export function showText(show: KnowShow): string {
-  return [...showWords(show), ...(isHealth(show) ? HEALTH_TEXT : []), ...(isLife(show) ? LIFE_TEXT : [])].join("");
+  return [...showWords(show), ...(isHealth(show) ? HEALTH_TEXT : []), ...(isLife(show) ? LIFE_TEXT : []), ...(isSave(show) ? SAVE_TEXT : [])].join("");
 }
 
 /** every word an episode puts on screen, for the handwriting face */
@@ -498,5 +551,6 @@ export function knowText(e: KnowEpisode): string {
   const words: string[] = [e.cta, ...e.scenes.flatMap(({ show }) => showWords(show))];
   if (e.scenes.some(({ show }) => isHealth(show))) words.push(...HEALTH_TEXT);
   if (e.scenes.some(({ show }) => isLife(show))) words.push(...LIFE_TEXT);
+  if (e.scenes.some(({ show }) => isSave(show))) words.push(...SAVE_TEXT);
   return words.join("");
 }

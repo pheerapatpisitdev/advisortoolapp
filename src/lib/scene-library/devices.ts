@@ -1,4 +1,4 @@
-import type { DeviceLayout, HealthLayout, LifeLayout, MetaLayout } from "@/lib/quote-video/story-knowledge";
+import type { DeviceLayout, HealthLayout, LifeLayout, MetaLayout, SaveLayout } from "@/lib/quote-video/story-knowledge";
 
 /** One system-drawn device (a story-scene layout). Browser-safe: names and fields only. */
 export interface DeviceInfo {
@@ -6,8 +6,8 @@ export interface DeviceInfo {
   name: string;
   /** when a script should pick it: one line the คลิปตามโจทย์ writer reads */
   when: string;
-  /** สุขภาพ: round 1's health devices; ชีวิต ภาษี มรดก: round 2's; อุปมา: round 3's metaphors */
-  family: "สุขภาพ" | "ชีวิต ภาษี มรดก" | "อุปมา";
+  /** สุขภาพ: round 1's health devices; ชีวิต ภาษี มรดก: round 2's; อุปมา: round 3's metaphors; ออมเงิน: round 4's saving devices */
+  family: "สุขภาพ" | "ชีวิต ภาษี มรดก" | "อุปมา" | "ออมเงิน";
   /** the catalogue's product ("all": a metaphor is for any product) */
   product: "health" | "life" | "saving" | "all";
   clips: ("story" | "prompt")[];
@@ -25,6 +25,10 @@ const dev2 = (key: LifeLayout, name: string, product: DeviceInfo["product"], whe
 /** a metaphor carries words only: no number field, never a figure (checkDevice refuses a digit in any word) */
 const dev3 = (key: MetaLayout, name: string, when: string, wordFields: string[]): DeviceInfo =>
   ({ key, name, when, family: "อุปมา", product: "all", clips: both, numberFields: [], wordFields });
+
+/** a saving device (round 4): figures in baht only, never a percent or a return word */
+const dev4 = (key: SaveLayout, name: string, when: string, numberFields: string[]): DeviceInfo =>
+  ({ key, name, when, family: "ออมเงิน", product: "saving", clips: both, numberFields, wordFields: ["title", "note"] });
 
 export const DEVICES: DeviceInfo[] = [
   dev("split", "เหมาจ่าย vs แยกจ่าย", "เทียบแผนแยกจ่ายที่มีเพดานแต่ละหมวด กับแผนเหมาจ่ายที่จ่ายตามจริงในวงเงินเดียว", [], ["title", "parts", "whole"]),
@@ -54,6 +58,11 @@ export const DEVICES: DeviceInfo[] = [
   dev3("balance", "ตาชั่ง", "เทียบสองสิ่งบนตาชั่ง เช่น ออมกับประกัน ว่าแต่ละอย่างทำหน้าที่ต่างกันและควรมีทั้งคู่", ["title", "note", "sides", "tilt"]),
   dev3("bridge", "สะพานข้ามช่วงยาก", "เปรียบสิ่งที่ช่วยให้ข้ามช่วงลำบากกับสะพาน ใช้กับตอนป่วยแล้วรายได้หายที่สวัสดิการอื่นรับไม่ครบ", ["title", "note"]),
   dev3("shield", "โล่กันลูกศร", "เปรียบเรื่องร้ายที่อาจมาถึงกับลูกศร และกรมธรรม์กับโล่ที่รับแทน ใส่เรื่องที่อยากพูดถึงได้หนึ่งถึงห้าเรื่อง", ["title", "note", "arrows"]),
+  // ออมเงินและเกษียณ (round 4, spec 2026-11-15-devices-saving-design.md); no `when` line says a FORBIDDEN or a return word
+  dev4("savejar", "กระปุกโตทุกปี", "เล่าว่าเงินที่ส่งเข้าแผนบำนาญสะสมทีละปี ใช้ตัวเลขจากโจทย์เท่านั้น", ["years", "paid"]),
+  dev4("paidgot", "ส่งเท่าไร ได้คืนเท่าไร", "เทียบเงินที่ส่งรวมกับบำนาญรวมที่ได้รับ ต้องมีทั้งสองยอดในโจทย์ ใช้ตัวเลขจากโจทย์เท่านั้น", ["paid", "got", "payFrom", "payTo", "getFrom", "getTo"]),
+  dev4("pricerise", "เงินเท่าเดิม ซื้อได้น้อยลง", "เล่าว่าของแพงขึ้นทุกปี เงินก้อนเดิมซื้อของได้น้อยลง ไม่มีตัวเลขบนภาพ", []),
+  dev4("pensionsteps", "บำนาญขั้นบันได", "เล่าว่าบำนาญที่ได้รับเป็นขั้น ตามช่วงอายุ ต้องมีช่วงอายุและบำนาญต่อปีจากโจทย์ ไม่เกินห้าช่วง", ["rows"]),
 ];
 
 export const deviceInfo = (key: string): DeviceInfo | undefined => DEVICES.find((d) => d.key === key);
@@ -63,3 +72,6 @@ export const isHealthDevice = (d: DeviceInfo): d is DeviceInfo & { key: HealthLa
 
 /** an อุปมา device (round 3); the registry lists all twenty-four since round 3 */
 export const isMetaDevice = (d: DeviceInfo): d is DeviceInfo & { key: MetaLayout } => d.family === "อุปมา";
+
+/** an ออมเงิน device (round 4); the registry lists all twenty-eight since round 4 */
+export const isSaveDevice = (d: DeviceInfo): d is DeviceInfo & { key: SaveLayout } => d.family === "ออมเงิน";

@@ -10,6 +10,7 @@ import { isDevice, knowEpisode, partnerFace, type Kin, type KnowEpisode, type Kn
 import type { PoseName } from "@/lib/story/figure";
 import { lifeBody, lifeSpec } from "./story-life-motion";
 import { metaBody, metaSpec } from "./story-meta-motion";
+import { saveSpec } from "./story-save-motion";
 import { Contact, contactSpec, fitHand, line, LineTitle, minimal, paper, paperInk, PaperTitle, Pic, whole, type StoryContext } from "./story-motion";
 import { LEAD, SIZES, TAIL, XFADE, type VideoSize } from "./timeline";
 
@@ -173,6 +174,8 @@ export function kspec(show: KnowShow): Record<string, Anim> {
       return lifeSpec(show);
     case "umbrella": case "housepillar": case "lifering": case "safetynet": case "seedtree": case "balance": case "bridge": case "shield":
       return metaSpec(show);
+    case "savejar": case "paidgot": case "pricerise": case "pensionsteps":
+      return saveSpec(show);
   }
 }
 
@@ -575,6 +578,9 @@ export function showBody(show: KnowShow, c: StoryContext, t: number) {
       return lifeBody(show, { c, t, s, g, w, ink });
     case "umbrella": case "housepillar": case "lifering": case "safetynet": case "seedtree": case "balance": case "bridge": case "shield":
       return metaBody(show, { c, t, s, g, w, ink });
+    case "savejar": case "paidgot": case "pricerise": case "pensionsteps":
+      // Task 2–4: the saving devices are drawn here; until then nothing is drawn (the title and the frame stand)
+      return null;
   }
 }
 

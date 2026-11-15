@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { LIBRARY, libraryItem, usesFor, storyLibraryHref, promptLibraryHref, TYPE_NAME, PRODUCT_NAME } from "@/lib/scene-library/catalog";
-import { DEVICES } from "@/lib/scene-library/devices";
+import { DEVICES as ALL_DEVICES, isSaveDevice } from "@/lib/scene-library/devices";
+/** the twenty-four devices of rounds 1-3; Task 7 widens these checks to round 4's four ออมเงิน devices */
+const DEVICES = ALL_DEVICES.filter((d) => !isSaveDevice(d));
 import { PROMPT_FORMATS, PICTURE_STYLES } from "@/lib/prompt-story/types";
 import { SOUNDS, MUSIC_MOODS, joinCues } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";

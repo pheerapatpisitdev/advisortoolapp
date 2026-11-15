@@ -52,8 +52,8 @@ const FIELDS: { show: KnowShow; patch: (v: string) => unknown; name: string; max
 describe("metaphor devices: registry", () => {
   it("lists the eight layouts after the round-1 and round-2 ones", () => {
     expect([...META_LAYOUTS]).toEqual(["umbrella", "housepillar", "lifering", "safetynet", "seedtree", "balance", "bridge", "shield"]);
-    expect(DEVICES.map((d) => d.key)).toEqual([...HEALTH_LAYOUTS, ...LIFE_LAYOUTS, ...META_LAYOUTS]);
-    expect(DEVICES).toHaveLength(24);
+    expect(DEVICES.map((d) => d.key).slice(0, 24)).toEqual([...HEALTH_LAYOUTS, ...LIFE_LAYOUTS, ...META_LAYOUTS]);
+    expect(DEVICES).toHaveLength(28);
   });
   it("gives each the family อุปมา, the product all, both clips, no number field and a when line", () => {
     for (const key of META_LAYOUTS) {

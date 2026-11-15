@@ -1,4 +1,4 @@
-import { DEVICES } from "./devices";
+import { DEVICES, isSaveDevice } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
@@ -65,6 +65,8 @@ const DEVICE_TOPIC: Record<DeviceLayout, StoryTopic> = {
   // อุปมา (round 3): the topic whose opening scene each metaphor now is (spec, "คลิปเล่าเรื่อง: eight opening scenes")
   housepillar: "pillar", umbrella: "mythjinx", safetynet: "selfemployed", seedtree: "pricey",
   balance: "bank", bridge: "welfare", lifering: "ciincome", shield: "fiverisks",
+  // ออมเงิน (round 4): Task 5 adds the topic retiresave, Task 7 points these at it; until then ใกล้เกษียณ, which takes the same pension figure
+  savejar: "preretire", paidgot: "preretire", pricerise: "preretire", pensionsteps: "preretire",
 };
 
 /** what a viewer reads under each device (the DEVICES `when` lines are for the script writer) */
@@ -95,11 +97,16 @@ const DEVICE_TELLS: Record<DeviceLayout, string> = {
   balance: "ตาชั่งสองข้าง เทียบสองสิ่งที่ทำหน้าที่ต่างกัน",
   bridge: "สะพานที่พาข้ามช่วงยากลำบาก",
   shield: "โล่ที่รับลูกศรของเรื่องร้ายแทนเรา",
+  // ออมเงิน (round 4)
+  savejar: "กระปุกที่โตขึ้นทุกปีตามเงินที่ส่งเข้าแผนบำนาญ",
+  paidgot: "เงินที่ส่งรวมเทียบกับบำนาญรวมที่ได้รับ ตามตารางผลประโยชน์ของแผน",
+  pricerise: "ของแพงขึ้นทุกปี เงินก้อนเดิมซื้อของในตะกร้าได้น้อยลง",
+  pensionsteps: "บำนาญแต่ละช่วงอายุเป็นขั้นบันได เทียบกับค่าครองชีพที่สูงขึ้น",
 };
 /** whether คลิปเล่าเรื่อง keeps this look on this topic: the info-route looks (INFO_ARTS) only on the shelves told in points */
 const lookFits = (topic: StoryTopic, look: string): boolean => !infoArt(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
-/** all twenty-four devices, health, ชีวิต ภาษี มรดก and อุปมา, each with a still in every look */
-const readyDevices: LibraryItem[] = DEVICES.map((d) => {
+/** the twenty-four devices of rounds 1-3, health, ชีวิต ภาษี มรดก and อุปมา, each with a still in every look; round 4's ออมเงิน four join in Task 7 */
+const readyDevices: LibraryItem[] = DEVICES.filter((d) => !isSaveDevice(d)).map((d) => {
   const topic = DEVICE_TOPIC[d.key];
   return {
     id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: d.product, ready: true,
