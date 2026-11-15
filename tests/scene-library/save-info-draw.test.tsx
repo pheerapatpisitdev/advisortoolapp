@@ -387,67 +387,86 @@ describe("through satori, as the stills and the clip frames draw them", () => {
   }, 900_000);
 });
 
-/* ── Review Focus 3: on the dark looks every word and figure can be read where it is drawn ───────────────────────── */
+/* ── Review Focus 3: on the dark looks every word and figure can be read where it is drawn, element by element ───── */
 
-/** the frame's tree with its components run; `hide` draws every word's ink transparent and its glow off */
-function expand(node: ReactNode, hide: boolean): ReactNode {
+/** which text element `expand` hides: its index in tree order (-1 hides none); `seen` collects every text element's words */
+interface Pass { n: number; hide: number; probe: boolean; seen: string[]; ink: (string | undefined)[] }
+/** the frame's tree with its components run; the one text element numbered `hide` has its ink drawn transparent and its glow off */
+function expand(node: ReactNode, pass: Pass): ReactNode {
   if (node === null || node === undefined || typeof node === "boolean" || typeof node === "string" || typeof node === "number") return node;
-  if (Array.isArray(node)) return node.map((x) => expand(x, hide));
+  if (Array.isArray(node)) return node.map((x) => expand(x, pass));
   if (!isValidElement(node)) return node;
   const el = node as ReactElement<{ children?: ReactNode; style?: React.CSSProperties }>;
-  if (typeof el.type === "function") return expand((el.type as (p: unknown) => ReactNode)(el.props), hide);
+  if (typeof el.type === "function") return expand((el.type as (p: unknown) => ReactNode)(el.props), pass);
   const kids = el.props.children;
-  if ((el.type as unknown) === Fragment) return createElement(Fragment, null, expand(kids, hide));
+  if ((el.type as unknown) === Fragment) return createElement(Fragment, null, expand(kids, pass));
   const list = Array.isArray(kids) ? kids.flat(Infinity) : [kids];
-  const text = list.some((k) => typeof k === "string" || typeof k === "number");
-  const style = hide && text ? { ...el.props.style, color: "transparent", textShadow: "none" } : el.props.style;
-  return cloneElement(el, { style }, expand(kids, hide));
+  const mine = list.filter((k) => typeof k === "string" || typeof k === "number").join("").trim();
+  let style = el.props.style;
+  if (mine) {
+    const i = pass.n++;
+    pass.seen[i] = mine;
+    pass.ink[i] = typeof style?.color === "string" ? style.color : undefined;
+    // the hidden element's ink goes transparent (the blank frame: what is under it); in a probe frame it is a flat marker colour, which gives its glyphs' own pixels
+    if (i === pass.hide) style = { ...style, color: pass.probe ? "#ff00ff" : "transparent", textShadow: "none" };
+  }
+  return cloneElement(el, { style }, expand(kids, pass));
 }
 const lum = (p: number[]) => {
   const f = (v: number) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
   return 0.2126 * f(p[0]) + 0.7152 * f(p[1]) + 0.0722 * f(p[2]);
 };
 const contrast = (a: number[], b: number[]) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 async function pixels(bytes: Buffer) {
   const { data, info } = await sharp(bytes).raw().toBuffer({ resolveWithObject: true });
   return (x: number, y: number) => { const i = (y * info.width + x) * info.channels; return [data[i], data[i + 1], data[i + 2]]; };
 }
 
-describe("Review Focus 3: นีออน and บลูพริ้นท์ keep every word and figure readable", () => {
+const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+describe("Review Focus 3: นีออน and บลูพริ้นท์ keep every word and figure readable, element by element", () => {
   /**
-   * A word's (or a figure's) own pixels are where the frame differs from the same frame with its words' ink
-   * transparent; of those, the glyphs' cores are in one of the look's inks (นีออน's glow is softer by design and not
-   * counted). Every core must stand 3:1 off what is under it there: a bar, a card, the ground.
+   * Each text element (a title line, a mark, a figure, an age, the ค่าครองชีพ label, the fixed foot line, a note line…)
+   * is drawn twice on its own: with its ink transparent (what is under it) and in a flat marker colour (its glyphs'
+   * own pixels: where the two frames differ). It must have glyph pixels at all, and its real ink (the colour it is
+   * given) must stand 3:1 or better off what is under those pixels, for nine in ten of them (the edges' antialiasing
+   * and a grid line crossing a glyph are not counted). Text drawn in the colour of its ground has the pixels and
+   * fails the contrast; text that is never drawn has none and fails the pixels.
    */
-  const hexes = (art: Look) => {
-    const K = kitFor({ art });
-    return [K.white, K.soft, K.gold, K.sub, K.sky, K.red, K.green, K.ground, K.dim, K.mute].filter((x) => x.startsWith("#")).map(rgb);
-  };
+  const CASES: SaveShow[] = [SHOWS[0], SHOWS[6], SHOWS[11], SHOWS[17]];
   for (const art of DARK) {
-    it(`every word's and figure's ink stands 3:1 off what is under it in ${art}, every device and size`, async () => {
-      for (const show of KEY) for (const size of SIZES) {
-        const inks = hexes(art);
+    it(`every text element stands 3:1 off what is under it, with real glyph pixels, in ${art}: four devices at the spec example, a 9-digit case, every size`, async () => {
+      const failures: string[] = [];
+      let checked = 0;
+      for (const show of CASES) for (const size of SIZES) {
         const t = end(show);
         const body = infoDrawn(show, ctx(size, art), t);
-        const shown = await pixels(await png(frame(show, size, art, t, expand(body, false)), size));
-        const blank = await pixels(await png(frame(show, size, art, t, expand(body, true)), size));
+        const count: Pass = { n: 0, hide: -1, probe: false, seen: [], ink: [] };
+        expand(body, count);
         const { w, h } = FRAME[size];
-        let drawn = 0;
-        let core = 0;
-        let read = 0;
-        for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) {
-          const [p, q] = [shown(x, y), blank(x, y)];
-          if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]) < 24) continue;
-          drawn++;
-          if (!inks.some((c) => c.every((v, i) => Math.abs(v - p[i]) <= 10))) continue;
-          core++;
-          if (contrast(p, q) >= 3) read++;
+        expect(count.n, `${show.layout} ${size}: text elements`).toBeGreaterThan(3);
+        for (let i = 0; i < count.n; i++) {
+          const blank = await pixels(await png(frame(show, size, art, t, expand(body, { n: 0, hide: i, probe: false, seen: [], ink: [] })), size));
+          const probe = await pixels(await png(frame(show, size, art, t, expand(body, { n: 0, hide: i, probe: true, seen: [], ink: [] })), size));
+          const label = `${art} ${show.layout} ${SHOWS.indexOf(show)} ${size} "${count.seen[i]}"`;
+          const color = count.ink[i];
+          checked++;
+          if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) { failures.push(`${label}: ink ${color} is not one of the look's hex inks`); continue; }
+          const ink = rgb(color);
+          let mask = 0;
+          let read = 0;
+          for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) {
+            const [p, q] = [probe(x, y), blank(x, y)];
+            if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]) < 60) continue;
+            mask++;
+            if (contrast(ink, q) >= 3) read++;
+          }
+          if (mask < 20) { failures.push(`${label}: no glyph pixels (${mask})`); continue; }
+          if (read / mask < 0.9) failures.push(`${label}: ${read}/${mask} pixels read 3:1`);
         }
-        const label = `${art} ${show.layout} ${SHOWS.indexOf(show)} ${size} (${read}/${core} of ${drawn})`;
-        expect(core, label).toBeGreaterThan(300);
-        expect(read / core, label).toBeGreaterThan(0.97);
       }
-    }, 900_000);
+      expect(checked, "elements checked").toBeGreaterThan(100);
+      expect(failures).toEqual([]);
+    }, 1_800_000);
   }
 });
