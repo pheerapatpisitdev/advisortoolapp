@@ -8,7 +8,10 @@ import type { ReactNode } from "react";
  * It sits over the table and lets every click and selection through, and it prints with the
  * page (a printed table is the one most likely to be handed over without its chat).
  */
-export function Watermark({ children }: { children: ReactNode }) {
+export function Watermark(
+  { children, lines = ["ข้อมูลเพื่อการศึกษาเท่านั้น", "ไม่ได้เป็นส่วนหนึ่งของกรมธรรม์"] }:
+    { children: ReactNode; /** the two lines in the page's language (PA, 2026-11-15); Thai without it */ lines?: [string, string] },
+) {
   return (
     <div className="relative [container-type:inline-size]">
       {children}
@@ -22,8 +25,8 @@ export function Watermark({ children }: { children: ReactNode }) {
           className="flex flex-col items-center text-center font-semibold leading-[1.25] text-[var(--bot-navy)] opacity-[0.11]"
           style={{ transform: "rotate(-24deg)", fontSize: "4.8cqw" }}
         >
-          <span>ข้อมูลเพื่อการศึกษาเท่านั้น</span>
-          <span>ไม่ได้เป็นส่วนหนึ่งของกรมธรรม์</span>
+          <span>{lines[0]}</span>
+          <span>{lines[1]}</span>
         </div>
       </div>
     </div>
