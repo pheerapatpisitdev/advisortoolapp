@@ -348,7 +348,7 @@ describe("pensionsteps", () => {
       expect(geo.bars.length).toBe(n);
       for (let i = 1; i < n; i++) {
         expect(s[`step${i}`].at, `${n} ${i}`).toBeGreaterThan(s[`step${i - 1}`].at);
-        expect(geo.bars[i].h, `${n} ${i}`).toBeGreaterThan(geo.bars[i - 1].h);
+        expect(geo.bars[i].h, `${n} ${i}`).toBeGreaterThanOrEqual(geo.bars[i - 1].h);
       }
       expect(s.living.at).toBeGreaterThan(s[`step${n - 1}`].at);
       expect(pensionAt(s, n, 0).steps.every((p) => p === 0)).toBe(true);
@@ -364,6 +364,23 @@ describe("pensionsteps", () => {
         expect(m.steps[n - 1]).toBe(0);
       }
     }
+  });
+
+  it("each step is as tall as its baht, from zero: heights in the ratio of the annuals (within 2%)", () => {
+    for (const size of SIZES) for (const show of [pensions[0], pensions[3], pensions[4], pensions[2]]) {
+      const geo = pensionGeo(size, show);
+      const max = Math.max(...show.rows.map((r) => r.annual));
+      const tall = Math.max(...geo.bars.map((b) => b.h));
+      geo.bars.forEach((b, i) => {
+        expect(b.h / tall, `${size} ${show.rows.length} ${i}`).toBeGreaterThan((show.rows[i].annual / max) * 0.98);
+        expect(b.h / tall, `${size} ${show.rows.length} ${i}`).toBeLessThan((show.rows[i].annual / max) * 1.02);
+        expect(b.y + b.h, `${size} ${i}`).toBe(geo.base);
+      });
+    }
+    // the spec example: 236,221 is about twice 118,110, drawn about twice as tall
+    const g = pensionGeo("portrait", pensions[0]);
+    expect(g.bars[3].h / g.bars[0].h).toBeGreaterThan(1.96);
+    expect(g.bars[3].h / g.bars[0].h).toBeLessThan(2.04);
   });
 
   it("every figure fits its place at every size, nine digits and five steps included; none is covered by a bar, a neighbour or the dashed line", () => {
@@ -393,6 +410,7 @@ describe("pensionsteps", () => {
         // the dashed line runs clear above the figure along its whole width (screen y grows downward)
         expect(lineY(b.fig.x), `${label} line over fig${i}`).toBeLessThanOrEqual(b.fig.y - 4);
         expect(lineY(b.fig.x + b.fig.w), `${label} line over fig${i} right`).toBeLessThanOrEqual(b.fig.y - 4);
+        expect(lineY(b.x), `${label} line over step${i}`).toBeLessThanOrEqual(b.y - 4);
       });
       expect(geo.line.y2, label).toBeLessThan(geo.line.y1);
       expect(geo.line.x2, label).toBeGreaterThan(geo.line.x1);
