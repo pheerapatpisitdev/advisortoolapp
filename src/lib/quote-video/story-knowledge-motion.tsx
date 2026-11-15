@@ -10,7 +10,7 @@ import { isDevice, knowEpisode, partnerFace, type Kin, type KnowEpisode, type Kn
 import type { PoseName } from "@/lib/story/figure";
 import { lifeBody, lifeSpec } from "./story-life-motion";
 import { metaBody, metaSpec } from "./story-meta-motion";
-import { saveSpec } from "./story-save-motion";
+import { saveBody, saveSpec } from "./story-save-motion";
 import { Contact, contactSpec, fitHand, line, LineTitle, minimal, paper, paperInk, PaperTitle, Pic, whole, type StoryContext } from "./story-motion";
 import { LEAD, SIZES, TAIL, XFADE, type VideoSize } from "./timeline";
 
@@ -579,8 +579,8 @@ export function showBody(show: KnowShow, c: StoryContext, t: number) {
     case "umbrella": case "housepillar": case "lifering": case "safetynet": case "seedtree": case "balance": case "bridge": case "shield":
       return metaBody(show, { c, t, s, g, w, ink });
     case "savejar": case "paidgot": case "pricerise": case "pensionsteps":
-      // Task 2–4: the saving devices are drawn here; until then nothing is drawn (the title and the frame stand)
-      return null;
+      // savejar and paidgot are drawn; pricerise and pensionsteps draw nothing until Task 3
+      return saveBody(show, { c, t, s, g, w, ink });
   }
 }
 
