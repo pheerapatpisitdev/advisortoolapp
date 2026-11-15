@@ -12,12 +12,19 @@ import { HTML_LANG, LANG_COOKIE, LANG_NAME, LANGS, type Lang } from "@/lib/iheal
  * the form — a refreshed route keeps its client state — while the words around it change.
  * No expiry on the cookie, so it lasts as long as the browser session and no longer.
  */
-export function LangSwitch({ lang, label }: { lang: Lang; label: string }) {
+export function LangSwitch(
+  { lang, label, cookie = LANG_COOKIE, path = "/ihealthy-ultra" }:
+    {
+      lang: Lang; label: string;
+      /** the cookie and the address it is scoped to; iHealthy's own unless a page has its own (PA) */
+      cookie?: string; path?: string;
+    },
+) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const choose = (next: Lang) => {
     if (next === lang) return;
-    document.cookie = `${LANG_COOKIE}=${next}; path=/ihealthy-ultra; SameSite=Lax`;
+    document.cookie = `${cookie}=${next}; path=${path}; SameSite=Lax`;
     start(() => router.refresh());
   };
   return (
