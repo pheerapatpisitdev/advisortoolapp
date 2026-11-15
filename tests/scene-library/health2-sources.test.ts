@@ -50,16 +50,6 @@ describe("the cross-field sources (final review 1 to 3)", () => {
       { code: "PLATINUM", label: "Platinum", room: 21_000, opd: "actual" },
     ]);
   });
-  it("lists each head-count band's own premiums: 18 a column, every one in the all-bands list, and 2,552 only in 10-25", () => {
-    const b = health2Sources().groupByBand;
-    for (const band of ["10-25", "26-50", "51-100"] as const) {
-      expect(b[band], band).toHaveLength(18);
-      for (const x of b[band]) expect(health2Sources().groupPerYear, `${band} ${x}`).toContain(x);
-    }
-    expect(b["10-25"]).toContain(2_552);
-    expect(b["26-50"]).not.toContain(2_552);
-    expect(b["51-100"]).not.toContain(2_552);
-  });
   it("lists the PA plans' medical and weekly sums in pairs: the five Platinum plans, never Classic or Max", () => {
     expect(health2Sources().pa.pairs).toEqual([[100_000, 1_000], [120_000, 2_000], [150_000, 3_000], [200_000, 5_000], [300_000, 10_000]]);
   });

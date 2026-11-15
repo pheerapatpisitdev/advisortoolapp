@@ -65,14 +65,15 @@ describe("writeStory with the eight สุขภาพเพิ่มเติ�
     });
     it(`keeps a ${key} with the brief's own optional figures`, async () => {
       const r = await write([sc({ picture: "", device: GOOD[key] }), sc(), sc(), sc(), sc()], BRIEF);
-      expect(r.scenes[0].device).toEqual(GOOD[key]);
+      // a prompt clip never keeps groupcost's head-count band (final re-review 2)
+      expect(r.scenes[0].device).toEqual(key === "groupcost" ? JSON.parse(JSON.stringify(without(GOOD.groupcost, "band"))) : GOOD[key]);
     });
   }
 
   it("a brief's number joins the fixed ones: a deductible the brief writes (45,000), ipdopd's OPD 'none' and 'actual'", async () => {
     const own = { ...GOOD.deductible, deductible: 45_000 };
-    const none = { ...GOOD.ipdopd, opd: "none" };
-    const actual = { ...GOOD.ipdopd, opd: "actual" };
+    const none = { ...GOOD.ipdopd, room: 3_000, opd: "none", planName: "Bronze" };
+    const actual = { ...GOOD.ipdopd, room: 21_000, opd: "actual", planName: "Platinum" };
     // at most two devices in five scenes
     const r = await write([sc({ device: own }), sc({ device: none }), sc(), sc(), sc()], BRIEF);
     expect(r.scenes.slice(0, 2).map((s) => s.device)).toEqual([own, none]);
@@ -127,7 +128,7 @@ describe("writeStory with the eight สุขภาพเพิ่มเติ�
     ["a paclaim weekly no plan has (weeks go with it)", { ...GOOD.paclaim, weekly: 1_234 }, without(GOOD.paclaim, "weekly", "weeks")],
     ["paclaim weeks without a weekly", { ...GOOD.paclaim, weekly: undefined }, without(GOOD.paclaim, "weekly", "weeks")],
     ["paclaim weeks other than the plans' own", { ...GOOD.paclaim, weeks: 30 }, without(GOOD.paclaim, "weeks")],
-    ["a groupcost band no number of the brief falls in (final review 2)", GOOD.groupcost as unknown as Record<string, unknown>, without(GOOD.groupcost, "band")],
+    ["a groupcost band, whatever the brief says (final re-review 2: a prompt clip never keeps one)", GOOD.groupcost as unknown as Record<string, unknown>, without(GOOD.groupcost, "band")],
     ["a paclaim weekly of another plan than its medical (final review 3)", { ...GOOD.paclaim, medical: 80_000, weekly: 10_000 }, { ...without(GOOD.paclaim, "weekly", "weeks"), medical: 80_000 }],
     ["an ipdopd plan name that is not the matched plan's (final review 1)", { ...GOOD.ipdopd, planName: "Silver" }, without(GOOD.ipdopd, "planName")],
     ["a groupcost band that is not one of the three", { ...GOOD.groupcost, band: "5-9" }, without(GOOD.groupcost, "band")],
@@ -173,7 +174,7 @@ describe("the system prompt for the eight สุขภาพเพิ่มเ�
     }
     expect(lines.find((l) => l.startsWith("- ipdopd"))).toContain('"none"');
     expect(lines.find((l) => l.startsWith("- ipdopd"))).toContain('"actual"');
-    expect(lines.find((l) => l.startsWith("- groupcost"))).toContain('"band"');
+    expect(lines.find((l) => l.startsWith("- groupcost"))).not.toContain('"band"');
     expect(lines.find((l) => l.startsWith("- hospitals"))).toContain('"province"');
     expect(lines.find((l) => l.startsWith("- paclaim"))).toContain('"weeks"');
     // the copay's percent is a number field, not a word with a percent sign
@@ -271,6 +272,33 @@ describe("the script editor with the eight สุขภาพเพิ่มเ�
       expect(sceneKind({ voice: "ก", screen: "ก", picture: "ก", device: bad }, allowed).kind).toBe("broken");
     }
   });
+
+  // final review / re-review: the cross-field rules read the same in the editor as in check.ts
+  it("the editor agrees on the one-plan rules: ipdopd mixes are broken, a paclaim mix and a groupcost band are kept as drawn without", () => {
+    const none = new Set<number>();
+    const brief9 = new Set([9_000]);
+    const kind = (d: unknown, allowed: Set<number>) => sceneKind({ voice: "ก", screen: "ก", picture: "ก", device: d as DeviceScene }, allowed).kind;
+    // ipdopd: two sheet figures of two plans; and a brief figure beside a sheet figure of another plan
+    for (const [d, allowed] of [
+      [{ ...GOOD.ipdopd, room: 1_500, opd: 60_000, planName: "Smart" }, none],
+      [{ ...GOOD.ipdopd, room: 21_000, opd: 6_000 }, none],
+      [{ ...GOOD.ipdopd, room: 9_000, opd: 60_000, planName: "Diamond" }, brief9],
+    ] as [DeviceScene, Set<number>][]) {
+      expect(typeof checkDevice(d, allowed)).toBe("string");
+      expect(kind(d, allowed)).toBe("broken");
+    }
+    // the legitimate one: the brief says the room, the sheet's OPD completes Gold's pair
+    const gold = { ...GOOD.ipdopd, room: 9_000, opd: 12_000, planName: "GOLD" };
+    expect(checkDevice(gold, brief9)).toMatchObject({ planName: "Gold" });
+    expect(kind(gold, brief9)).toBe("device");
+    // paclaim: Classic A's medical with Platinum 05's weekly: the device stays, its weekly is dropped (never refused)
+    const mix = { ...GOOD.paclaim, medical: 80_000, weekly: 10_000, weeks: 52 };
+    expect(checkDevice(mix, none)).toEqual({ ...without(GOOD.paclaim, "weekly", "weeks"), medical: 80_000 });
+    expect(kind(mix, none)).toBe("device");
+    // groupcost: a band is dropped in a prompt clip, the device stays
+    expect(checkDevice(GOOD.groupcost, deviceAllowed("พนักงาน 20 คน"))).toEqual(without(GOOD.groupcost, "band"));
+    expect(kind(GOOD.groupcost, deviceAllowed("พนักงาน 20 คน"))).toBe("device");
+  });
 });
 
 describe("checkedPromptStory and the price with the eight สุขภาพเพิ่มเติม devices", () => {
@@ -280,7 +308,7 @@ describe("checkedPromptStory and the price with the eight สุขภาพเ�
     const scenes = HEALTH2_LAYOUTS.map((k) => sc({ picture: "", device: GOOD[k] }));
     const form = checkedPromptStory({ ...base, scenes }, "F");
     if (typeof form === "string") throw new Error(form);
-    expect(form.scenes.map((s) => s.device)).toEqual(HEALTH2_LAYOUTS.map((k) => GOOD[k]));
+    expect(form.scenes.map((s) => s.device)).toEqual(HEALTH2_LAYOUTS.map((k) => (k === "groupcost" ? without(GOOD.groupcost, "band") : GOOD[k])));
     expect(pictureScenes(form)).toBe(0);
     expect(pictureCount(form.scenes, deviceAllowed(BRIEF))).toBe(0);
   });

@@ -494,7 +494,7 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
       { voice: "บิล 100,000 บาท ถ้าแผนมีร่วมจ่าย ส่วนหนึ่งเราจ่าย อีกส่วนประกันจ่ายค่ะ", screen: "", picture: "",
         device: { layout: "copay", title: ["ร่วมจ่าย", "ตามเงื่อนไข"], note: "แบ่งตามส่วน", percent: 20, bill: 100_000 } },
       { voice: "ประกันกลุ่มของบริษัท ต้นทุนต่อคนต่อปี 2,552 บาท หารเป็นเดือนได้เท่าไร ดูในภาพค่ะ", screen: "", picture: "",
-        device: { layout: "groupcost", title: ["ต้นทุนต่อหัว", "ประกันกลุ่ม"], note: "ตามตารางประกันกลุ่ม", perYear: 2_552, band: "10-25" } },
+        device: { layout: "groupcost", title: ["ต้นทุนต่อหัว", "ประกันกลุ่ม"], note: "ตามตารางประกันกลุ่ม", perYear: 2_552 } },
       { voice: "ประกันอุบัติเหตุ จ่ายค่ารักษาไม่เกิน 150,000 บาท และชดเชยสัปดาห์ละ 3,000 บาท ไม่เกิน 52 สัปดาห์ค่ะ", screen: "", picture: "",
         device: { layout: "paclaim", title: ["อุบัติเหตุ", "หนึ่งครั้ง"], note: "ตามแผนที่เลือก", medical: 150_000, weekly: 3_000, weeks: 52 } },
     ],

@@ -23,7 +23,7 @@ const FULL: KnowShow[] = [
   { layout: "copay", title: ["ร่วมจ่าย", "ตามเงื่อนไข"], note: "แบ่งตามส่วน", percent: 20, bill: 100_000 },
   { layout: "renew98", title: ["ต่ออายุ", "ได้ถึง"], note: "ตามเงื่อนไข", to: 98, age: 35 },
   { layout: "parentshealth", title: ["ให้พ่อแม่", "ลดหย่อนภาษี"], note: "ตามเกณฑ์", cap: 15_000 },
-  { layout: "groupcost", title: ["ประกันกลุ่ม", "ต่อหัว"], note: "ตามกลุ่มพนักงาน", perYear: 2_552, band: "10-25" },
+  { layout: "groupcost", title: ["ประกันกลุ่ม", "ต่อหัว"], note: "ตามกลุ่มพนักงาน", perYear: 2_552 },
   { layout: "hospitals", title: ["โรงพยาบาล", "ในเครือ"], note: "ดูรายชื่อเต็มที่เว็บ", total: 537, rows: H.ranked.slice(0, 5).map((r) => ({ province: r.province, count: r.count })) },
   { layout: "paclaim", title: ["อุบัติเหตุ", "หนึ่งครั้ง"], note: "ตามแผน PA", medical: 150_000, weekly: 3_000, weeks: 52 },
 ];
@@ -48,7 +48,7 @@ const wordFields = (v: (s: string) => string): { name: string; max: number; patc
   ...FULL.flatMap((d) => [0, 1].map((line) => ({ name: `${d.layout}.title${line}`, max: HEALTH2_LIMITS.titleLine, patch: (x: string) => ({ ...d, title: line ? ["ก", x] : [x, "ก"] }) }))),
   ...FULL.map((d) => ({ name: `${d.layout}.note`, max: HEALTH2_LIMITS.note, patch: (x: string) => ({ ...d, note: x }) })),
   // room from the brief: the name is then the brief's to give (from the sheet it would be the matched plan's label alone)
-  { name: "ipdopd.planName", max: HEALTH2_LIMITS.label, patch: (x: string) => ({ ...FULL[0], room: 80_000, planName: x }) },
+  { name: "ipdopd.planName", max: HEALTH2_LIMITS.label, patch: (x: string) => ({ ...FULL[0], room: 80_000, opd: 100_000, planName: x }) },
 ].map((f) => ({ ...f, patch: (x: string) => f.patch(v(x)) }));
 
 describe("health round-2 devices: registry", () => {
@@ -176,9 +176,9 @@ describe("checkDevice: round-5 health devices", () => {
   it("ipdopd: room and opd are the sheet's, the brief's or refused; opd takes none and actual", () => {
     // from the sheet, the two figures are one plan's pair: each of the six plans passes as its own pair
     for (const p of HEALTH2_FIXED.ipdopd.plans) expect(ok({ ...BARE[0], room: p.room, opd: p.opd }, NONE), p.code).toMatchObject({ room: p.room, opd: p.opd });
-    // alone, one from the sheet beside one the brief wrote is the brief's own pairing: kept
-    for (const room of [1_500, 3_000, 5_500, 9_000, 15_000, 21_000]) expect(ok({ ...BARE[0], room, opd: 7_000 }, new Set([7_000])), String(room)).toMatchObject({ room });
-    for (const opd of [6_000, 12_000, 60_000, "none", "actual"]) expect(ok({ ...BARE[0], room: 7_000, opd }, new Set([7_000])), String(opd)).toMatchObject({ opd });
+    // one from the sheet beside one the brief wrote must still be one plan's pair (final re-review 1): the brief's 7,000 pairs with none
+    for (const room of [1_500, 3_000, 5_500, 9_000, 15_000, 21_000]) expect(typeof ok({ ...BARE[0], room, opd: 7_000 }, new Set([7_000])), String(room)).toBe("string");
+    for (const opd of [6_000, 12_000, 60_000, "none", "actual"]) expect(typeof ok({ ...BARE[0], room: 7_000, opd }, new Set([7_000])), String(opd)).toBe("string");
     // a figure neither the sheet's nor the brief's refuses the device; the brief's own is taken
     expect(typeof ok({ ...BARE[0], room: 9_001 }, NONE)).toBe("string");
     expect(typeof ok({ ...BARE[0], opd: 7_000 }, NONE)).toBe("string");
@@ -201,18 +201,24 @@ describe("checkDevice: round-5 health devices", () => {
     expect(typeof ok({ ...BARE[0], room: 9_000, opd: 6_000 }, NONE)).toBe("string");
     // the reason names the opd field
     expect(ok({ ...BARE[0], room: 9_000, opd: 6_000 }, NONE) as string).toMatch(/^opd:/);
-    // a figure the brief wrote is the brief's own: it is not held to the sheet's pairs
-    expect(ok({ ...BARE[0], room: 9_000, opd: 6_000 }, new Set([6_000]))).toMatchObject({ room: 9_000, opd: 6_000 });
+    // the re-reviewer's two attacks: a figure the brief wrote does not free the other from the sheet's pairs
+    expect(typeof ok({ ...BARE[0], room: 1_500, opd: 60_000, planName: "Smart" }, new Set([1_500]))).toBe("string");
+    expect(typeof ok({ ...BARE[0], room: 9_000, opd: 60_000, planName: "Diamond" }, new Set([9_000]))).toBe("string");
+    // a legitimate one: the brief says the room, the sheet's OPD completes Gold's pair; the name is the plan's label, never the AI's casing
+    expect(ok({ ...BARE[0], room: 9_000, opd: 12_000, planName: "GOLD" }, new Set([9_000]))).toMatchObject({ room: 9_000, opd: 12_000, planName: "Gold" });
+    expect(ok({ ...BARE[0], room: 9_000, opd: 12_000, planName: "gold" }, new Set([12_000]))).toMatchObject({ planName: "Gold" });
+    // both figures the brief's own (no plan): kept as written, the name free
+    expect(ok({ ...BARE[0], room: 9_001, opd: 7_000, planName: "แผนของลูกค้า" }, new Set([9_001, 7_000]))).toMatchObject({ planName: "แผนของลูกค้า" });
   });
   it("ipdopd (final review 1): the plan's name is drawn only as the matched plan's own label, else dropped", () => {
     const gold = { ...BARE[0], room: 9_000, opd: 12_000 };
     expect(ok({ ...gold, planName: "Gold" }, NONE)).toMatchObject({ planName: "Gold" });
-    expect(ok({ ...gold, planName: " gold " }, NONE)).toMatchObject({ planName: "gold" });
+    expect(ok({ ...gold, planName: " gold " }, NONE)).toMatchObject({ planName: "Gold" });
     for (const other of ["Silver", "Platinum", "Smart", "ทอง", "แผนทองคำ"]) expect(ok({ ...gold, planName: other }, NONE), other).toEqual(gold);
     // the name still holds its word rules (a digit refuses), whichever plan it names
     expect(typeof ok({ ...gold, planName: "Gold5" }, NONE)).toBe("string");
-    // a figure from the brief: the name is the brief's to give
-    expect(ok({ ...gold, planName: "ซิลเวอร์" }, new Set([12_000]))).toMatchObject({ planName: "ซิลเวอร์" });
+    // a pair completed by a brief figure still names only its own plan
+    expect(ok({ ...gold, planName: "ซิลเวอร์" }, new Set([12_000]))).toEqual(gold);
     // an optional word: null or empty is none; over 14 letters or with a digit refuses (the length and digit rules hold for any figures)
     expect(ok({ ...BARE[0], planName: null }, NONE)).toEqual(BARE[0]);
     expect(ok({ ...BARE[0], planName: "" }, NONE)).toEqual(BARE[0]);
@@ -257,38 +263,15 @@ describe("checkDevice: round-5 health devices", () => {
     expect(typeof ok({ ...BARE[4], cap: 14_999 }, new Set([14_999]))).toBe("string");
     expect(typeof ok({ layout: "parentshealth", title: T }, NONE)).toBe("string");
   });
-  it("groupcost: a premium from the group table or the brief; the band is one of three keys the brief's head-count falls in", () => {
+  it("groupcost: a premium from the group table or the brief; a คลิปตามโจทย์ never keeps a head-count band (final re-review 2)", () => {
     for (const perYear of [2_499, 2_552, 12_047]) expect(ok({ ...BARE[5], perYear }, NONE)).toMatchObject({ perYear });
     expect(typeof ok({ ...BARE[5], perYear: 2_553 }, NONE)).toBe("string");
     expect(ok({ ...BARE[5], perYear: 2_553 }, new Set([2_553]))).toMatchObject({ perYear: 2_553 });
     expect(typeof ok({ layout: "groupcost", title: T }, NONE)).toBe("string");
-    // a band a brief number falls inside, with a premium of that band's column (or the brief's own)
-    for (const [band, n, perYear] of [["10-25", 18, 2_552], ["26-50", 40, 2_526], ["51-100", 60, 2_499]] as const) {
-      expect(ok({ ...BARE[5], band, perYear }, new Set([n])), band).toMatchObject({ band, perYear });
-    }
+    // any band, with any brief number inside it (an age of 35, a rate of 20, "40 คน"): dropped, the device and its premium stay
+    for (const band of GROUP_BANDS) for (const n of [18, 20, 35, 40, 60]) expect(ok({ ...BARE[5], perYear: 2_552, band }, new Set([n])), `${band} ${n}`).toEqual({ ...BARE[5], perYear: 2_552 });
     expect(ok({ ...BARE[5], band: null }, NONE)).toEqual(BARE[5]);
-    // an invalid band is dropped, the device stays
-    for (const band of ["10–25", "5-9", "พนักงาน 10-25 คน", "", 10, true]) expect(ok({ ...BARE[5], band }, new Set([18])), String(band)).toEqual(BARE[5]);
-  });
-  it("groupcost (final review 2): the band is kept only when a number of the brief falls inside it; a table premium must be of that band's column", () => {
-    // "พนักงาน 40 คน" yet band 10-25: dropped (the device and its premium stay)
-    expect(ok({ ...BARE[5], perYear: 2_552, band: "10-25" }, new Set([40]))).toEqual({ ...BARE[5], perYear: 2_552 });
-    // no number in the brief at all: dropped
-    for (const band of GROUP_BANDS) expect(ok({ ...BARE[5], band }, NONE), band).toEqual(BARE[5]);
-    // the bounds count: 25 is in 10-25, 26 is not
-    expect(ok({ ...BARE[5], perYear: 2_552, band: "10-25" }, new Set([25]))).toMatchObject({ band: "10-25" });
-    expect(ok({ ...BARE[5], perYear: 2_552, band: "10-25" }, new Set([26]))).toEqual({ ...BARE[5], perYear: 2_552 });
-    // 2552 is of 10-25's column: with band 51-100 (a brief number 60) it is refused, naming perYear
-    const got = ok({ ...BARE[5], perYear: 2_552, band: "51-100" }, new Set([60]));
-    expect(typeof got).toBe("string");
-    expect(got as string).toMatch(/^perYear:/);
-    // a premium the brief wrote is not held to the column
-    expect(ok({ ...BARE[5], perYear: 2_552, band: "51-100" }, new Set([60, 2_552]))).toMatchObject({ perYear: 2_552, band: "51-100" });
-    // in a คลิปตามโจทย์ the brief's own numbers are used (no plan figure such as an age counts as a head-count)
-    const tax = { rates: new Set<number>(), premiums: new Set([40]) };
-    expect(checkDevice({ ...BARE[5], perYear: 2_526, band: "26-50" }, new Set([40, 35]), tax)).toMatchObject({ band: "26-50" });
-    expect(checkDevice({ ...BARE[5], perYear: 2_552, band: "26-50" }, new Set([40, 35]), tax) as string).toMatch(/^perYear:/);
-    expect(checkDevice({ ...BARE[5], perYear: 2_552, band: "26-50" }, new Set([35]), { rates: new Set<number>(), premiums: new Set<number>() })).toEqual({ ...BARE[5], perYear: 2_552 });
+    expect(checkDevice({ ...BARE[5], perYear: 2_526, band: "26-50" }, new Set([40]), { rates: new Set<number>(), premiums: new Set([40]) })).toEqual({ ...BARE[5], perYear: 2_526 });
   });
   it("hospitals: the total and every count must equal the hospital list's (Review Focus 1)", () => {
     const row = (p: { province: string; count: number }) => ({ province: p.province, count: p.count });

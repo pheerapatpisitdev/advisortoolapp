@@ -1,6 +1,6 @@
 import { FORBIDDEN, numbersIn } from "@/lib/quote-video/brief";
 import type { StoryFigure } from "@/lib/quote-video/story";
-import { GROUP_BANDS, HEALTH2_LAYOUTS, HEALTH2_LIMITS, META_LAYOUTS, META_LIMITS, SAVE_LAYOUTS, SAVE_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
+import { HEALTH2_LAYOUTS, HEALTH2_LIMITS, META_LAYOUTS, META_LIMITS, SAVE_LAYOUTS, SAVE_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { deviceInfo } from "@/lib/scene-library/devices";
 import { HEALTH2_FIXED as FIXED } from "@/lib/scene-library/health2-fixed";
 import { isTaxRate, TAX_WORD_FIGURES } from "@/lib/scene-library/tax-th";
@@ -370,14 +370,16 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
       // room and opd are the sheet's (or the brief's); "none" (the plan has no OPD) and "actual" (as paid) are the sheet's two words
       const room = baht("room", o.room, true, sourced(FIXED.ipdopd.room));
       const opd = o.opd === "none" || o.opd === "actual" ? o.opd : (baht("opd", o.opd, true, sourced(FIXED.ipdopd.opd)) ?? 0);
-      // both from the sheet (neither the brief's): they are ONE plan's pair, else the card would show a plan that does not exist
-      const bothSheet = room !== undefined && !allowed.has(room) && (typeof opd !== "number" || !allowed.has(opd));
-      const plan = bothSheet ? FIXED.ipdopd.plans.find((p) => p.room === room && p.opd === opd) : undefined;
-      if (bothSheet && !plan && !fail.length) fail.push("opd: ค่าห้องกับวงเงินผู้ป่วยนอกต้องเป็นของแผนเดียวกันในตารางของบริษัท");
-      // the plan's name, when the figures are the sheet's: drawn only as that plan's own label, any other is dropped
-      const nameOk = !bothSheet || (typeof o.planName === "string" && o.planName.replace(/\s+/g, " ").trim().toLowerCase() === plan?.label.toLowerCase());
+      // either one from the sheet (not the brief's): the two are ONE plan's pair, else the card would show a plan that does not exist
+      const sheetRoom = room !== undefined && !allowed.has(room);
+      const sheetOpd = opd === "none" || opd === "actual" || (typeof opd === "number" && !allowed.has(opd));
+      const anySheet = sheetRoom || sheetOpd;
+      const plan = anySheet ? FIXED.ipdopd.plans.find((p) => p.room === room && p.opd === opd) : undefined;
+      if (anySheet && !plan && !fail.length) fail.push("opd: ค่าห้องกับวงเงินผู้ป่วยนอกต้องเป็นของแผนเดียวกันในตารางของบริษัท");
+      // the plan's name, when a plan is matched: that plan's own label (never the AI's casing), any other name is dropped
       const planName = metaOpt("planName", o.planName, HEALTH2_LIMITS.label);
-      out = { layout, title, ...note, room: room ?? 0, opd, ...(nameOk ? planName : {}) };
+      const nameOut = !anySheet ? planName : plan && planName.planName && String(planName.planName).toLowerCase() === plan.label.toLowerCase() ? { planName: plan.label } : {};
+      out = { layout, title, ...note, room: room ?? 0, opd, ...nameOut };
       break;
     }
     case "deductible": {
@@ -404,14 +406,9 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     }
     case "groupcost": {
       const perYear = baht("perYear", o.perYear, true, sourced(FIXED.groupPerYear));
-      // the head-count band is one of three keys; kept only when a number of the brief falls inside it (the plan's own figures
-      // do not count: a clip says "40 คน" or no band), else dropped. A premium from the table (not the brief's) with a kept band
-      // must be one of that band's column
-      const band = (GROUP_BANDS as readonly unknown[]).includes(o.band) ? (o.band as (typeof GROUP_BANDS)[number]) : undefined;
-      const [lo, hi] = band ? band.split("-").map(Number) : [0, 0];
-      const keepBand = band !== undefined && [...(tax?.premiums ?? allowed)].some((n) => n >= lo && n <= hi);
-      if (keepBand && perYear !== undefined && !allowed.has(perYear) && !FIXED.groupByBand[band].includes(perYear)) fail.push(`perYear: ตัวเลข ${perYear} ไม่อยู่ในตารางของกลุ่ม ${band} คน`);
-      out = { layout, title, ...note, perYear: perYear ?? 0, ...(keepBand ? { band } : {}) };
+      // the head-count band: a คลิปตามโจทย์ never keeps one (a brief's number from 10 to 100 may be an age or a rate, not a head-count);
+      // the story and library paths set `band` themselves and do not pass through here
+      out = { layout, title, ...note, perYear: perYear ?? 0 };
       break;
     }
     case "hospitals": {

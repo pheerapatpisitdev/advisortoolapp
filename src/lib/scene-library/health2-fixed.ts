@@ -24,8 +24,6 @@ export interface Health2Fixed {
   parentsCap: number;
   /** every healthIpdPremiums value, ascending, once each */
   groupPerYear: number[];
-  /** every premium of each head-count band's column (all three risk classes, all six plans), ascending, once each */
-  groupByBand: { "10-25": number[]; "26-50": number[]; "51-100": number[] };
   /** `pairs`: a plan's medical and weekly sums together: fixed-source figures of one clip are one plan's */
   pa: { medical: number[]; weekly: number[]; weeks: number; pairs: [number, number][] };
   hospitals: { total: number; fetchedAt: string; counts: Record<string, number> };
@@ -40,13 +38,6 @@ function paPairs(): [number, number][] {
   for (const p of plans) if (p.medical !== undefined && p.weekly !== undefined) seen.set(`${p.medical}/${p.weekly}`, [p.medical, p.weekly]);
   return [...seen.values()];
 }
-
-// premiums.json, per band column (snapshot; the drift test holds it to the file)
-const BAND_COLUMNS = {
-  "10-25": [2552, 2638, 3336, 3942, 4114, 5161, 5382, 5640, 6497, 6841, 7050, 7821, 8251, 8518, 9184, 9700, 10_258, 12_047],
-  "26-50": [2526, 2606, 3300, 3890, 4050, 5089, 5304, 5544, 6393, 6713, 6942, 7691, 8091, 8374, 9028, 9508, 10_078, 11_831],
-  "51-100": [2499, 2575, 3264, 3836, 3988, 5017, 5223, 5451, 6285, 6589, 6834, 7556, 7936, 8230, 8866, 9322, 9898, 11_615],
-};
 
 export const HEALTH2_FIXED: Health2Fixed = {
   // iHealthy Ultra sheet: row 1 (ค่าห้องต่อวัน) and rows 18 / 19 (OPD a year, one shared limit) of the six plans; "-" and "ตามที่จ่ายจริง" are words, not numbers
@@ -68,7 +59,6 @@ export const HEALTH2_FIXED: Health2Fixed = {
   renewalToAge: 98,
   parentsCap: HEALTH_PARENTS_CAP,
   groupPerYear: [2499, 2526, 2552, 2575, 2606, 2638, 3264, 3300, 3336, 3836, 3890, 3942, 3988, 4050, 4114, 5017, 5089, 5161, 5223, 5304, 5382, 5451, 5544, 5640, 6285, 6393, 6497, 6589, 6713, 6834, 6841, 6942, 7050, 7556, 7691, 7821, 7936, 8091, 8230, 8251, 8374, 8518, 8866, 9028, 9184, 9322, 9508, 9700, 9898, 10_078, 10_258, 11_615, 11_831, 12_047],
-  groupByBand: BAND_COLUMNS,
   pa: { medical: uniq(plans.map((p) => p.medical)), weekly: uniq(plans.map((p) => p.weekly)), weeks: PA_WEEKLY_MAX_WEEKS, pairs: paPairs() },
   // data/hospitals/ktaxa-network.json: the count of hospitals in each province, and the date the list was fetched
   hospitals: {
