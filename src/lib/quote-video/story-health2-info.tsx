@@ -1,5 +1,5 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
-import { abs, box, look, type Anim } from "./motion";
+import { abs, box, El, look, type Anim } from "./motion";
 import {
   ARROW_D, arcPoint, copayAt, copayGeo, deductibleAt, deductibleGeo, DOOR, DOOR_BED, DOOR_CROSS, DOOR_FRAME, doorLeaf,
   enter as enterAt, groupGeo, H2_INK, hospitalsGeo, ipdopdAt, ipdopdGeo, paclaimGeo, parentsGeo, payArrow, renewAt, renewGeo, type Blk, type H2Place,
@@ -66,12 +66,23 @@ function Blocks({ blocks, align = "center" }: { blocks: Blk[]; align?: "center" 
   );
 }
 
+/**
+ * Words and figures coming in: whole or not at all. The pen's write-in (a clip that sweeps across the piece) would show half a
+ * figure, "2,55" for "2,552", so in a look that writes, a piece with text fades in whole instead; นีออน's flicker and
+ * อินโฟกราฟิก's own entrance are whole already.
+ */
+function Say({ an, t, style, children }: { an?: Anim; t: number; style: CSSProperties; children?: ReactNode }) {
+  return kit().reveal === "write" ? <El an={an} t={t} style={style}>{children}</El> : <E an={an} t={t} style={style}>{children}</E>;
+}
+
 /** a card standing at `r`: the Kit's card ground and edge, its content centred */
 function InfoCard({ d, an, r, part, children }: { d: Dev; an?: Anim; r: { x: number; y: number; w: number; h: number }; part: string; children: ReactNode }) {
   const K = kit();
   return (
     <div data-part={part} style={abs({ left: r.x, top: r.y, width: r.w, height: r.h })}>
-      <E an={an} t={d.t} style={{ width: r.w, height: r.h, flexDirection: "column", alignItems: "center", justifyContent: "center", background: kit().dims ? K.page : K.tile, border: `${pen(3)}px solid ${K.tileLine}`, borderRadius: Math.round(place(d).text * 0.5), ...glowBox(K.tileLine) }}>{children}</E>
+      {/* the card's edge is written in; what is on it comes in whole */}
+      <E an={an} t={d.t} style={{ position: "absolute", left: 0, top: 0, width: r.w, height: r.h, background: K.dims ? K.page : K.tile, border: `${pen(3)}px solid ${K.tileLine}`, borderRadius: Math.round(place(d).text * 0.5), ...glowBox(K.tileLine) }} />
+      <Say an={an} t={d.t} style={{ position: "absolute", left: 0, top: 0, width: r.w, height: r.h, flexDirection: "column", alignItems: "center", justifyContent: "center" }}>{children}</Say>
     </div>
   );
 }
@@ -80,9 +91,9 @@ function InfoCard({ d, an, r, part, children }: { d: Dev; an?: Anim; r: { x: num
 function Words({ d, an, g, color }: { d: Dev; an?: Anim; g: { x: number; y: number; w: number; h: number; size: number; lines: string[] }; color?: string }) {
   const K = kit();
   return (
-    <E an={an} t={d.t} style={{ position: "absolute", left: g.x, top: g.y, width: g.w, height: g.h, flexDirection: "column", alignItems: "center" }}>
+    <Say an={an} t={d.t} style={{ position: "absolute", left: g.x, top: g.y, width: g.w, height: g.h, flexDirection: "column", alignItems: "center" }}>
       {g.lines.map((x, i) => <div key={i} style={box({ fontSize: g.size, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...plate(), ...ink(color ?? K.soft) })}>{x}</div>)}
-    </E>
+    </Say>
   );
 }
 
@@ -152,7 +163,7 @@ function ipdopd(d: Dev, show: Health2Show<"ipdopd">) {
     <>
       <H2Title d={d} show={show} />
       {geo.plan ? (
-        <E an={s.title} t={t} style={{ position: "absolute", left: geo.plan.x, top: geo.plan.y, width: geo.plan.w, height: geo.plan.h, justifyContent: "center", alignItems: "center", background: K.tile, border: `${pen(3)}px solid ${K.gold}`, borderRadius: 999, fontSize: geo.plan.size, fontWeight: K.bold, lineHeight: 1.3, ...ink(K.white), ...glowBox(K.gold) }}>{geo.plan.text}</E>
+        <Say an={s.title} t={t} style={{ position: "absolute", left: geo.plan.x, top: geo.plan.y, width: geo.plan.w, height: geo.plan.h, justifyContent: "center", alignItems: "center", background: K.tile, border: `${pen(3)}px solid ${K.gold}`, borderRadius: 999, fontSize: geo.plan.size, fontWeight: K.bold, lineHeight: 1.3, ...ink(K.white), ...glowBox(K.gold) }}>{geo.plan.text}</Say>
       ) : null}
       {geo.doors.map((dr, i) => (
         <Fragment key={i}>
@@ -250,11 +261,11 @@ function copay(d: Dev, show: Health2Show<"copay">) {
       {at.ours > 0 ? <div data-part="bracket-ours" style={abs({ left: geo.bracket.x, top: geo.ours.y + 2, width: geo.bracket.w, height: Math.max(4, geo.ours.h - 4), ...block(ours, 6), opacity: clamp01(at.ours * 2) })} /> : null}
       {at.theirs > 0 && geo.theirs.h > 0 ? <div data-part="bracket-theirs" style={abs({ left: geo.bracket.x, top: geo.theirs.y + 2, width: geo.bracket.w, height: Math.max(4, geo.theirs.h - 4), ...block(K.green, 6), opacity: clamp01(at.theirs * 2) })} /> : null}
       <div data-part="label-ours" style={abs({ left: geo.labels.ours.x, top: geo.labels.ours.y, width: geo.labels.ours.w, height: geo.labels.ours.h })}>
-        <E an={s.ours} t={t} style={{ width: geo.labels.ours.w, height: geo.labels.ours.h, flexDirection: "column", alignItems: "flex-start" }}><Blocks blocks={[geo.labels.ours.blk]} align="flex-start" /></E>
+        <Say an={s.ours} t={t} style={{ width: geo.labels.ours.w, height: geo.labels.ours.h, flexDirection: "column", alignItems: "flex-start" }}><Blocks blocks={[geo.labels.ours.blk]} align="flex-start" /></Say>
       </div>
       {geo.labels.theirs ? (
         <div data-part="label-theirs" style={abs({ left: geo.labels.theirs.x, top: geo.labels.theirs.y, width: geo.labels.theirs.w, height: geo.labels.theirs.h })}>
-          <E an={s.theirs} t={t} style={{ width: geo.labels.theirs.w, height: geo.labels.theirs.h, flexDirection: "column", alignItems: "flex-start" }}><Blocks blocks={[geo.labels.theirs.blk]} align="flex-start" /></E>
+          <Say an={s.theirs} t={t} style={{ width: geo.labels.theirs.w, height: geo.labels.theirs.h, flexDirection: "column", alignItems: "flex-start" }}><Blocks blocks={[geo.labels.theirs.blk]} align="flex-start" /></Say>
         </div>
       ) : null}
       {geo.card ? (
@@ -309,10 +320,10 @@ function renew98(d: Dev, show: Health2Show<"renew98">) {
       {dot("dot-today", geo.x1, geo.lineY, s.today, K.gold)}
       {dot("dot-to", geo.x2, geo.lineY, s.to, K.green)}
       <div data-part="label-today" style={abs({ left: geo.today.x, top: geo.today.y, width: geo.today.w, height: geo.labelsH })}>
-        <E an={s.today} t={t} style={{ width: geo.today.w, height: geo.labelsH, justifyContent: "center" }}><Blocks blocks={geo.today.blocks} /></E>
+        <Say an={s.today} t={t} style={{ width: geo.today.w, height: geo.labelsH, justifyContent: "center" }}><Blocks blocks={geo.today.blocks} /></Say>
       </div>
       <div data-part="label-to" style={abs({ left: geo.to.x, top: geo.to.y, width: geo.to.w, height: geo.labelsH })}>
-        <E an={s.to} t={t} style={{ width: geo.to.w, height: geo.labelsH, justifyContent: "center" }}><Blocks blocks={geo.to.blocks} /></E>
+        <Say an={s.to} t={t} style={{ width: geo.to.w, height: geo.labelsH, justifyContent: "center" }}><Blocks blocks={geo.to.blocks} /></Say>
       </div>
       <InfoCard d={d} an={s.card} r={geo.card} part="card"><Blocks blocks={geo.card.blocks} /></InfoCard>
       <NoteLines n={geo.note} d={d} />
@@ -326,7 +337,7 @@ function renew98(d: Dev, show: Health2Show<"renew98">) {
 function Caption({ d, an, cap, color }: { d: Dev; an?: Anim; cap: { text: string; size: number; x: number; y: number; w: number; h: number }; color: string }) {
   const K = kit();
   return (
-    <E an={an} t={d.t} style={{ position: "absolute", left: cap.x, top: cap.y, width: cap.w, height: cap.h, justifyContent: "center", fontSize: cap.size, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...plate(), ...ink(color) }}>{cap.text}</E>
+    <Say an={an} t={d.t} style={{ position: "absolute", left: cap.x, top: cap.y, width: cap.w, height: cap.h, justifyContent: "center", fontSize: cap.size, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...plate(), ...ink(color) }}>{cap.text}</Say>
   );
 }
 
@@ -389,13 +400,13 @@ function hospitals(d: Dev, show: Health2Show<"hospitals">) {
   return (
     <>
       <H2Title d={d} show={show} />
-      <E an={s.bar0} t={t} style={{ position: "absolute", left: geo.head.x, top: geo.head.y, width: geo.head.w, height: geo.head.h, justifyContent: "center" }}><Blocks blocks={[geo.head.blk]} /></E>
+      <Say an={s.bar0} t={t} style={{ position: "absolute", left: geo.head.x, top: geo.head.y, width: geo.head.w, height: geo.head.h, justifyContent: "center" }}><Blocks blocks={[geo.head.blk]} /></Say>
       {geo.bars.map((bar, i) => {
         const p = look(s[`bar${i}`], t).p;
         const now = Math.round(bar.w * p);
         return (
           <Fragment key={bar.full + i}>
-            <E an={s[`bar${i}`]} t={t} style={{ position: "absolute", left: bar.nameBox.x, top: bar.nameBox.y, width: bar.nameBox.w, height: bar.rowH, alignItems: "center", fontSize: geo.nameSize, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...plate(), ...ink(K.white) }}>{bar.name}</E>
+            <Say an={s[`bar${i}`]} t={t} style={{ position: "absolute", left: bar.nameBox.x, top: bar.nameBox.y, width: bar.nameBox.w, height: bar.rowH, alignItems: "center", fontSize: geo.nameSize, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...plate(), ...ink(K.white) }}>{bar.name}</Say>
             {now > 0 ? <div data-part={`bar${i}`} style={abs({ left: bar.x, top: bar.y + 4, width: Math.max(now, 4), height: bar.h, ...block(K.green, 10) })} /> : null}
             {p > 0 ? <div data-part={`count${i}`} style={abs({ left: bar.x + now + 10, top: bar.y, width: geo.countW, height: bar.rowH, alignItems: "center", fontSize: geo.countSize, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...plate(), ...ink(K.white) })}>{bar.countText}</div> : null}
           </Fragment>

@@ -586,10 +586,14 @@ function expand(node: ReactNode, pass: Pass): ReactNode {
   if (mine) {
     const i = pass.n++;
     if (pass.mode === "count") { pass.seen[i] = mine; pass.ink[i] = typeof style?.color === "string" ? style.color : undefined; }
-    // the blank frame hides the element (satori draws a "transparent" ink as black, so the ink is not made clear: the element is)
     else if (pass.mode === "probe") style = { ...style, color: hex(PROBES[i % PROBES.length]), textShadow: "none" };
-    // an element with a plate of its own is hidden by writing in the plate's colour; any other, by opacity
-    else style = typeof style?.background === "string" && /^#[0-9a-fA-F]{6}$/.test(style.background) ? { ...style, color: style.background, textShadow: "none" } : { ...style, opacity: 0, textShadow: "none" };
+    else {
+      // hidden: satori draws a "transparent" ink as black, so the ink is not made clear. An element with a plate of its own (any colour format) keeps its plate
+      // and hides only its words, in a clear box of their own; any other is hidden by its opacity
+      style = { ...style, textShadow: "none" };
+      if (style.background === undefined && style.backgroundColor === undefined) return cloneElement(el, { style: { ...style, opacity: 0 } }, expand(kids, pass));
+      return cloneElement(el, { style }, createElement("div", { style: { display: "flex", opacity: 0 } }, expand(kids, pass)));
+    }
   }
   return cloneElement(el, { style }, expand(kids, pass));
 }
@@ -600,61 +604,137 @@ const lum = (p: number[]) => {
 const contrast = (a: number[], b: number[]) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 
+/**
+ * Each text element (a title line, a card line, a figure, a label, a caption, the foot line, a note line…) is found in the
+ * frame's tree. The frame is drawn twice: once with every text element hidden (what is under them, plates included) and once
+ * with each text element in a colour of its own (its glyphs' own solid pixels, found by that colour). An element must have
+ * glyph pixels at all (unless `lenient`: a mid-beat frame, where a piece not yet in has none), and its real ink (the colour
+ * it is given) must stand 3:1 or better off what is under those pixels, for nine in ten of them.
+ */
+async function audit(body: ReactNode, size: VideoSize, wrap: (b: ReactNode) => ReactElement, label: string, lenient = false) {
+  const failures: string[] = [];
+  const count: Pass = { n: 0, mode: "count", seen: [], ink: [] };
+  expand(body, count);
+  const { w, h } = FRAME[size];
+  expect(count.n, `${label}: probes`).toBeLessThanOrEqual(PROBES.length);
+  const raw = async (mode: "blank" | "probe") => {
+    const { data, info } = await sharp(await png(wrap(expand(body, { n: 0, mode, seen: [], ink: [] })), size)).raw().toBuffer({ resolveWithObject: true });
+    return { data, ch: info.channels };
+  };
+  const [blank, probe] = [await raw("blank"), await raw("probe")];
+  const mask: number[] = new Array(count.n).fill(0);
+  const read: number[] = new Array(count.n).fill(0);
+  const inks = count.ink.map((c) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? rgb(c) : null));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * probe.ch;
+    const j = (y * w + x) * blank.ch;
+    if (Math.abs(probe.data[i] - blank.data[j]) + Math.abs(probe.data[i + 1] - blank.data[j + 1]) + Math.abs(probe.data[i + 2] - blank.data[j + 2]) < 60) continue;
+    // which element's own colour this solid glyph pixel is (an edge pixel, a blend, is nobody's)
+    let who = -1;
+    for (let k = 0; k < count.n; k++) {
+      const c = PROBES[k % PROBES.length];
+      if (Math.abs(probe.data[i] - c[0]) + Math.abs(probe.data[i + 1] - c[1]) + Math.abs(probe.data[i + 2] - c[2]) < 24) { who = k; break; }
+    }
+    if (who < 0) continue;
+    mask[who]++;
+    const ink = inks[who];
+    if (ink && contrast(ink, [blank.data[j], blank.data[j + 1], blank.data[j + 2]]) >= 3) read[who]++;
+  }
+  let seen = 0;
+  for (let k = 0; k < count.n; k++) {
+    const at = `${label} "${count.seen[k]}"`;
+    if (!inks[k]) failures.push(`${at}: ink ${count.ink[k]} is not one of the look's hex inks`);
+    else if (mask[k] < 20) { if (!lenient) failures.push(`${at}: no glyph pixels (${mask[k]})`); }
+    else { seen++; if (read[k] / mask[k] < 0.9) failures.push(`${at}: ${read[k]}/${mask[k]} pixels read 3:1`); }
+  }
+  return { failures, count: count.n, seen };
+}
+
 describe("Review Focus 3: นีออน and บลูพริ้นท์ keep every word and figure readable, element by element", () => {
-  /**
-   * Each text element (a title line, a card line, a figure, a label, a caption, the foot line, a note line…) is found in
-   * the frame's tree. The frame is drawn twice: once with every text element hidden (what is under them) and once with
-   * each text element in a colour of its own (its glyphs' own solid pixels, found by that colour). An element must have
-   * glyph pixels at all, and its real ink (the colour it is given) must stand 3:1 or better off what is under those pixels,
-   * for nine in ten of them. Text drawn in the colour of its ground has the pixels and fails the contrast; text that is
-   * never drawn has none and fails the pixels.
-   */
-  const CASES = KEY;
   for (const art of DARK) {
     it(`every text element stands 3:1 off what is under it, with real glyph pixels, in ${art}: the eight spec examples and a 9-digit case of each, every size`, async () => {
       const failures: string[] = [];
       let checked = 0;
-      for (const show of CASES) for (const size of SIZES) {
+      for (const show of KEY) for (const size of SIZES) {
         const t = end(show);
-        const body = infoDrawn(show, ctx(size, art), t);
-        const count: Pass = { n: 0, mode: "count", seen: [], ink: [] };
-        expand(body, count);
-        const { w, h } = FRAME[size];
-        expect(count.n, `${show.layout} ${size}: text elements`).toBeGreaterThan(3);
-        expect(count.n, `${show.layout} ${size}: probes`).toBeLessThanOrEqual(PROBES.length);
-        const raw = async (mode: "blank" | "probe") => {
-          const { data, info } = await sharp(await png(frame(show, size, art, t, expand(body, { n: 0, mode, seen: [], ink: [] })), size)).raw().toBuffer({ resolveWithObject: true });
-          return { data, ch: info.channels };
-        };
-        const [blank, probe] = [await raw("blank"), await raw("probe")];
-        const mask: number[] = new Array(count.n).fill(0);
-        const read: number[] = new Array(count.n).fill(0);
-        const inks = count.ink.map((c) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? rgb(c) : null));
-        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-          const i = (y * w + x) * probe.ch;
-          const j = (y * w + x) * blank.ch;
-          if (Math.abs(probe.data[i] - blank.data[j]) + Math.abs(probe.data[i + 1] - blank.data[j + 1]) + Math.abs(probe.data[i + 2] - blank.data[j + 2]) < 60) continue;
-          // which element's own colour this solid glyph pixel is (an edge pixel, a blend, is nobody's)
-          let who = -1;
-          for (let k = 0; k < count.n; k++) {
-            const c = PROBES[k % PROBES.length];
-            if (Math.abs(probe.data[i] - c[0]) + Math.abs(probe.data[i + 1] - c[1]) + Math.abs(probe.data[i + 2] - c[2]) < 24) { who = k; break; }
-          }
-          if (who < 0) continue;
-          mask[who]++;
-          const ink = inks[who];
-          if (ink && contrast(ink, [blank.data[j], blank.data[j + 1], blank.data[j + 2]]) >= 3) read[who]++;
-        }
-        for (let k = 0; k < count.n; k++) {
-          const label = `${art} ${show.layout} ${SHOWS.indexOf(show)} ${size} "${count.seen[k]}"`;
-          checked++;
-          if (!inks[k]) failures.push(`${label}: ink ${count.ink[k]} is not one of the look's hex inks`);
-          else if (mask[k] < 20) failures.push(`${label}: no glyph pixels (${mask[k]})`);
-          else if (read[k] / mask[k] < 0.9) failures.push(`${label}: ${read[k]}/${mask[k]} pixels read 3:1`);
-        }
+        const r = await audit(infoDrawn(show, ctx(size, art), t), size, (b) => frame(show, size, art, t, b), `${art} ${show.layout} ${SHOWS.indexOf(show)} ${size}`);
+        expect(r.count, `${show.layout} ${size}: text elements`).toBeGreaterThan(3);
+        checked += r.count;
+        failures.push(...r.failures);
       }
       expect(checked, "elements checked").toBeGreaterThan(200);
       expect(failures).toEqual([]);
     }, 1_800_000);
+
+    it(`mid-beat, the words and figures already in stand 3:1 off what is under them, in ${art}: the eight spec examples, portrait`, async () => {
+      const failures: string[] = [];
+      let seen = 0;
+      for (const show of SPEC) {
+        const t = mid(show);
+        const r = await audit(infoDrawn(show, ctx("portrait", art), t), "portrait", (b) => frame(show, "portrait", art, t, b), `${art} ${show.layout} mid`, true);
+        seen += r.seen;
+        failures.push(...r.failures);
+      }
+      expect(seen, "elements in at mid-beat").toBeGreaterThan(30);
+      expect(failures).toEqual([]);
+    }, 1_800_000);
   }
+
+  it("the audit judges plate-bearing text against its plate, in any colour format: ink equal to an rgba plate fails, a hex plate fails, a readable ink passes", async () => {
+    const wrap = (b: ReactNode) => <div style={{ display: "flex", width: FRAME.portrait.w, height: FRAME.portrait.h, background: "#ffffff", fontFamily: "Plex" }}>{b}</div>;
+    const mk = (color: string, background: string) => (
+      <div style={{ display: "flex", position: "absolute", left: 100, top: 100 }}>
+        <div style={{ display: "flex", fontSize: 120, color, background }}>ผู้ป่วยใน 9,000</div>
+      </div>
+    );
+    // the plate is drawn on white; the ink equals the plate: unreadable, though the page under the plate is white
+    expect((await audit(mk("#2850a0", "rgba(40,80,160,1)"), "portrait", wrap, "rgba plate")).failures.length, "rgba plate, same ink").toBeGreaterThan(0);
+    expect((await audit(mk("#2850a0", "#2850a0"), "portrait", wrap, "hex plate")).failures.length, "hex plate, same ink").toBeGreaterThan(0);
+    expect((await audit(mk("#ffffff", "rgba(40,80,160,1)"), "portrait", wrap, "readable")).failures, "white on the plate").toEqual([]);
+  });
+});
+
+/* ── a figure is never shown in part ─────────────────────────────────────────────────────────────────────────────── */
+
+describe("a figure is whole or not there at every frame, in every look and size", () => {
+  /** every text element holding a digit, with whether any ancestor clips (a write-in sweep or an inset) */
+  function figureClips(node: ReactNode, clipped: boolean, out: { text: string; clipped: boolean }[]): void {
+    if (node === null || node === undefined || typeof node === "boolean" || typeof node === "string" || typeof node === "number") return;
+    if (Array.isArray(node)) { for (const x of node) figureClips(x, clipped, out); return; }
+    if (!isValidElement(node)) return;
+    const el = node as ReactElement<{ children?: ReactNode; style?: React.CSSProperties }>;
+    if (typeof el.type === "function") return figureClips((el.type as (p: unknown) => ReactNode)(el.props), clipped, out);
+    const kids = el.props.children;
+    const style = el.props.style ?? {};
+    const here = clipped || (style.clipPath !== undefined && style.clipPath !== "none") || style.overflow === "hidden";
+    const list = Array.isArray(kids) ? kids.flat(Infinity) : [kids];
+    const mine = list.filter((k) => typeof k === "string" || typeof k === "number").join("").trim();
+    if (mine && /[0-9๐-๙]/.test(mine)) out.push({ text: mine, clipped: here });
+    figureClips(kids, here, out);
+  }
+
+  it("no text with a digit in it is ever drawn under a clip: not while it comes in, not at any beat", () => {
+    let seen = 0;
+    for (const show of SHOWS) for (const size of SIZES) for (const art of LOOKS) {
+      const e = end(show);
+      for (let i = 0; i <= 24; i++) {
+        const out: { text: string; clipped: boolean }[] = [];
+        figureClips(infoDrawn(show, ctx(size, art), (e * i) / 24), false, out);
+        seen += out.length;
+        for (const f of out) expect(f.clipped, `${show.layout} ${size} ${art} ${i}/24 "${f.text}"`).toBe(false);
+      }
+    }
+    expect(seen).toBeGreaterThan(1000);
+  });
+
+  it("at every sampled frame each figure is drawn whole in the markup: the full text, never cut digits", () => {
+    for (const show of SPEC) for (const size of SIZES) for (const art of LOOKS) {
+      const full = words(draw(show, size, art));
+      const figs = full.match(/\d[\d,]*\d|\d/g) ?? [];
+      for (let i = 1; i <= 12; i++) {
+        const out = words(draw(show, size, art, (end(show) * i) / 12));
+        for (const f of out.match(/\d[\d,]*\d|\d/g) ?? []) expect(figs, `${show.layout} ${size} ${art} ${i}/12 "${f}"`).toContain(f);
+      }
+    }
+  });
 });
