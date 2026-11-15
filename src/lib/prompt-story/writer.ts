@@ -1,8 +1,9 @@
 import { chat } from "@/lib/ai/client";
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
-import { META_LIMITS, SAVE_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
-import { DEVICES, isHealth2Device } from "@/lib/scene-library/devices";
+import { HEALTH2_LIMITS, META_LIMITS, SAVE_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
+import { DEVICES } from "@/lib/scene-library/devices";
+import { HEALTH2_FIXED as FIXED } from "@/lib/scene-library/health2-fixed";
 import { allowedFor, briefTax, checkDevice, checkScene, checkScript, deviceAllowed, forbiddenForPrompt, type TaxSources } from "./check";
 import { SCREEN_MAX, TITLE_MAX, type PromptFormat, type PromptScene, type SceneCount } from "./types";
 
@@ -77,8 +78,15 @@ const SHAPES: Record<DeviceLayout, string> = {
   bridge: `{"layout":"bridge","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)"}`,
   shield: `{"layout":"shield","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","arrows":["เรื่องร้ายที่อาจมาถึง"] 1–5 คำ}`,
   // ออมเงิน (round 4): words digit-free; every figure a whole number written in the brief (the drawers add nothing up)
-  // สุขภาพเพิ่มเติม (round 5): the key must exist for the type; Task 6 writes the real shapes and offers the devices to the writer
-  ipdopd: "", deductible: "", copay: "", renew98: "", parentshealth: "", groupcost: "", hospitals: "", paclaim: "",
+  // สุขภาพเพิ่มเติม (round 5): words digit-free; each figure a whole number from the brief or the device's fixed source (health2-fixed.ts), the drawers work out every split and monthly sum
+  ipdopd: `{"layout":"ipdopd","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","room":ตัวเลขค่าห้องต่อวัน,"opd":ตัวเลขวงเงินผู้ป่วยนอกต่อปี หรือ "none" เมื่อแผนไม่มีผู้ป่วยนอก หรือ "actual" เมื่อจ่ายตามจริง,"planName":"ชื่อแผน (ไม่มีให้ใส่ว่าง)"}`,
+  deductible: `{"layout":"deductible","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","deductible":ตัวเลขส่วนรับผิดชอบแรกต่อปี,"bill":ตัวเลขยอดบิลที่โจทย์บอก (ละได้)}`,
+  copay: `{"layout":"copay","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","percent":ตัวเลขร่วมจ่ายของแผน,"bill":ตัวเลขยอดบิลที่โจทย์บอก (ละได้)}`,
+  renew98: `{"layout":"renew98","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","to":ตัวเลขอายุที่ต่อได้ถึง,"age":ตัวเลขอายุวันนี้ของลูกค้าที่โจทย์บอก (ละได้)}`,
+  parentshealth: `{"layout":"parentshealth","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","cap":ตัวเลขเพดานลดหย่อน}`,
+  groupcost: `{"layout":"groupcost","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","perYear":ตัวเลขต้นทุนต่อคนต่อปี,"band":"10-25 หรือ 26-50 หรือ 51-100 ตามจำนวนพนักงานที่โจทย์บอก (ละได้)"}`,
+  hospitals: `{"layout":"hospitals","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","total":ตัวเลขจำนวนโรงพยาบาลทั้งหมด,"rows":[{"province":"ชื่อจังหวัดตามรายชื่อ","count":ตัวเลขจำนวนโรงพยาบาลของจังหวัด}] 1–${HEALTH2_LIMITS.rows} แถว}`,
+  paclaim: `{"layout":"paclaim","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","medical":ตัวเลขค่ารักษาต่ออุบัติเหตุหนึ่งครั้ง,"weekly":ตัวเลขเงินชดเชยต่อสัปดาห์ (ละได้),"weeks":${FIXED.pa.weeks} เมื่อมี weekly (ละได้)}`,
   savejar: `{"layout":"savejar","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","years":ตัวเลขจำนวนปีที่ส่ง (ละได้),"paid":ตัวเลขยอดส่งรวม (ละได้)}`,
   paidgot: `{"layout":"paidgot","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","paid":ตัวเลขยอดส่งรวม,"got":ตัวเลขบำนาญรวมที่ได้รับ,"payFrom":อายุเริ่มส่ง (ละได้),"payTo":อายุส่งถึง (ละได้),"getFrom":อายุเริ่มรับ (ละได้),"getTo":อายุรับถึง (ละได้)} ต้องมี paid และ got ทั้งคู่ และต้องเป็นยอดที่โจทย์ให้ไว้ paid และ got คือยอดรวมของทั้งสัญญาที่โจทย์ระบุ ไม่ใช่ยอดต่อปี`,
   pricerise: `{"layout":"pricerise","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)"}`,
@@ -107,6 +115,29 @@ export const promptDeviceName = (d: { key: DeviceLayout; name: string }) => PROM
 const FORBIDDEN_LINE = (() => {
   const { words, rules } = forbiddenForPrompt();
   return `- ทุกช่องข้อความ (voice, screen, title, caption และคำในอุปกรณ์) ห้ามมีคำเหล่านี้: ${words.join(", ")} และ${rules.join(" ")}`;
+})();
+
+const fmt = (n: number) => n.toLocaleString("en-US");
+
+/**
+ * The สุขภาพเพิ่มเติม devices' rules (round 5, spec 2026-11-15-devices-health2-design.md): the figures each may use besides the
+ * brief's, from health2-fixed.ts (the sheet, the plans, the tax table, the hospital list), what the drawers work out themselves,
+ * and the words. check.ts holds the model to every line.
+ */
+const HEALTH2_RULES: string[] = (() => {
+  const top = Object.entries(FIXED.hospitals.counts).slice(0, 8).map(([p, n]) => `${p} ${fmt(n)}`).join(", ");
+  return [
+    `- สุขภาพเพิ่มเติม (ipdopd, deductible, copay, renew98, parentshealth, groupcost, hospitals, paclaim): คำทุกช่อง (title, note, planName, province) ห้ามมีตัวเลขเลย ทั้งเลขอารบิกและเลขไทย ห้ามใส่ % ห้ามพูดถึงผลตอบแทน อัตรา หรือ IRR ถ้าไม่ทำตามระบบจะไม่วาดอุปกรณ์นี้ ความยาว: บรรทัดของ title ไม่เกิน ${HEALTH2_LIMITS.titleLine} ตัวอักษร note ไม่เกิน ${HEALTH2_LIMITS.note} ชื่อแผน (planName) ไม่เกิน ${HEALTH2_LIMITS.label} ตัวอักษร`,
+    "- สุขภาพเพิ่มเติม: ตัวเลขใช้ได้เฉพาะที่อยู่ในโจทย์ หรือค่าคงที่ของอุปกรณ์ที่ระบุข้างล่าง ห้ามคิดยอดเอง ห้ามหาร ห้ามคูณ ห้ามรวม ระบบคิดส่วนที่เราจ่าย ส่วนที่ประกันจ่าย และยอดต่อเดือนเองทุกอย่าง ตัวเลขที่ละได้ถ้าไม่มีในโจทย์ให้ละไว้",
+    `- ipdopd: room ใช้ค่าห้องต่อวันของแผนได้เฉพาะ ${FIXED.ipdopd.room.map(fmt).join(" / ")} หรือที่โจทย์บอก opd ใช้ ${FIXED.ipdopd.opd.map(fmt).join(" / ")} หรือที่โจทย์บอก ถ้าแผนไม่มีผู้ป่วยนอกใส่ "none" ถ้าจ่ายตามจริงใส่ "actual"`,
+    `- deductible: ส่วนรับผิดชอบแรกของแผน ${FIXED.deductible.map(fmt).join(" / ")} หรือที่โจทย์บอก bill ใส่ได้เฉพาะยอดบิลที่โจทย์บอก ถ้าไม่มีให้ละไว้`,
+    `- copay: ร่วมจ่ายตามตาราง ${FIXED.copayPercent} เท่านั้น (ใส่ใน percent เป็นตัวเลข ไม่ใส่ในคำ) bill ใส่ได้เฉพาะยอดบิลที่โจทย์บอก`,
+    `- renew98: ต่ออายุถึง ${FIXED.renewalToAge} เท่านั้น age ใส่ได้เฉพาะอายุวันนี้ของลูกค้าที่โจทย์บอก และต้องน้อยกว่า ${FIXED.renewalToAge}`,
+    `- parentshealth: เพดานลดหย่อนพ่อแม่ ${fmt(FIXED.parentsCap)} เท่านั้น`,
+    `- groupcost: perYear คือต้นทุนต่อคนต่อปี (ยอดรายปีต่อหนึ่งคน ไม่ใช่ยอดต่อเดือนหรือยอดรวมทั้งบริษัท) ใช้ยอดที่โจทย์บอก หรือยอดของแผนกลุ่มในระบบ: ${FIXED.groupPerYear.map(fmt).join(", ")} ระบบหารเป็นต่อเดือนเอง band ใส่ได้เฉพาะ 10-25, 26-50 หรือ 51-100 ตามที่โจทย์บอก`,
+    `- hospitals: ใช้เมื่อโจทย์ถามถึงโรงพยาบาลในเครือเท่านั้น total คือ ${fmt(FIXED.hospitals.total)} และจังหวัดต้องเป็นชื่อในรายชื่อโรงพยาบาลพร้อมจำนวนที่ตรงกัน เช่น ${top} ไม่ตรงระบบไม่วาด ใส่ได้ 1–${HEALTH2_LIMITS.rows} จังหวัด ไม่ซ้ำกัน`,
+    `- paclaim: medical คือค่ารักษาต่ออุบัติเหตุหนึ่งครั้งของแผน ${FIXED.pa.medical.map(fmt).join(" / ")} หรือที่โจทย์บอก weekly คือเงินชดเชยต่อสัปดาห์ ${FIXED.pa.weekly.map(fmt).join(" / ")} หรือที่โจทย์บอก weeks ใส่ ${FIXED.pa.weeks} ได้เมื่อมี weekly เท่านั้น เงินชดเชยนี้เป็นรายสัปดาห์ ห้ามเรียกว่ารายวัน ห้ามพูดว่าค่ารักษาเท่านี้เป็นค่ารักษาทั่วไป ห้ามสัญญาว่าเคลมได้`,
+  ];
 })();
 
 /** at most half the scenes are devices */
@@ -140,8 +171,7 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     "",
     "อุปกรณ์: ภาพที่ระบบวาดเองแทนรูป AI ใส่ใน device ของฉากได้ เมื่อฉากนั้นพูดเรื่องที่อุปกรณ์อธิบายได้ ฉากอื่นใส่ device เป็น null",
     `- ใช้อุปกรณ์ได้ไม่เกิน ${deviceMax(count)} ฉาก (ไม่เกินครึ่งหนึ่งของจำนวนฉาก) ฉากที่เหลือเป็นรูป AI`,
-    // Task 6: round 5's eight health devices join the list; until then the writer does not offer them (no drawer yet)
-    ...DEVICES.filter((d) => !isHealth2Device(d)).map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
+    ...DEVICES.map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
     "กฎของอุปกรณ์:",
     "- ตัวเลขในอุปกรณ์เป็นจำนวนเต็มมากกว่าศูนย์ ไม่ใส่จุลภาค และต้องเป็นตัวเลขที่อยู่ในโจทย์หรือตัวเลขแผนเท่านั้น ห้ามคิดตัวเลขเอง",
     nums.length ? `- ตัวเลขที่ใช้ในอุปกรณ์ได้: ${nums.join(", ")}` : "- โจทย์ไม่มีตัวเลข ใช้ได้เฉพาะอุปกรณ์ที่ไม่ต้องมีตัวเลข",
@@ -151,6 +181,7 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     `- อุปมา (umbrella, housepillar, lifering, safetynet, seedtree, balance, bridge, shield): ไม่มีช่องตัวเลข ห้ามมีตัวเลขในคำเลย ทั้งเลขอารบิกและเลขไทย ถ้ามีตัวเลขระบบจะไม่วาดอุปกรณ์นี้ ความยาว: บรรทัดของ title ไม่เกิน ${META_LIMITS.titleLine} ตัวอักษร note ไม่เกิน ${META_LIMITS.note} คำอื่นๆ (label, spare, from, to, sides) ไม่เกิน ${META_LIMITS.word} ลูกศรแต่ละคำ (arrows) ไม่เกิน ${META_LIMITS.arrow} และมีได้ 1–${META_LIMITS.arrows} คำ`,
     // round 4 (spec 2026-11-15-devices-saving): words only digit-free; figures only the brief's; nothing computed, no rate or return
     `- ออมเงิน (savejar, paidgot, pricerise, pensionsteps): คำทุกช่อง (title, note) ห้ามมีตัวเลขเลย ทั้งเลขอารบิกและเลขไทย ถ้ามีตัวเลขระบบจะไม่วาดอุปกรณ์นี้ ความยาว: บรรทัดของ title ไม่เกิน ${SAVE_LIMITS.titleLine} ตัวอักษร note ไม่เกิน ${SAVE_LIMITS.note} ตัวเลขใช้ได้เฉพาะที่อยู่ในโจทย์ ห้ามคิดหรือรวมยอดเอง ห้ามใส่ % อัตรา ผลตอบแทน หรือ IRR ยอดเงินไม่เกิน ${SAVE_LIMITS.baht.toLocaleString("en-US")} บาท อายุ 1–${SAVE_LIMITS.age} ปีที่ส่ง 1–${SAVE_LIMITS.years} paidgot ต้องมีทั้งยอดส่งรวมและบำนาญรวมจากโจทย์ ไม่งั้นอย่าใช้ paidgot ส่วน pensionsteps มีได้ 1–${SAVE_LIMITS.rows} ช่วง แต่ละช่วงเริ่มรับหลังช่วงก่อนหน้า และไม่รับถึงก่อนช่วงก่อนหน้า pricerise ไม่มีช่องตัวเลข`,
+    ...HEALTH2_RULES,
     "- agecost: ทุกช่องข้อความ (title และ source) ห้ามใช้คำว่า เบี้ย ให้ใช้ ค่าประกันสุขภาพ แทน",
     // round 2 (spec 2026-11-14-devices-life-tax): the inputs only; the tax table is the system's, never pasted here
     "- คำที่เขียนในอุปกรณ์ทุกตัวห้ามมีคำต้องห้ามข้างบน แม้ระบบจะวาดคำอย่าง เบี้ยปีละ หรือ % บนอุปกรณ์เอง ให้ใช้ ค่าประกัน แทน เบี้ย",

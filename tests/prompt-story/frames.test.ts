@@ -6,7 +6,7 @@ import { TRANSITIONS } from "@/lib/quote-video/job";
 import { freeFrame, freeHandText, freeWindows, type FreeContext } from "@/lib/prompt-story/frames";
 import type { DeviceScene, PromptScene, PromptStoryInput } from "@/lib/prompt-story/types";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
-import { HEALTH_WORDS, LIFE_WORDS, metaWords, saveWords, type MetaShow, type SaveShow } from "@/lib/quote-video/story-knowledge";
+import { HEALTH_WORDS, HEALTH2_WORDS, LIFE_WORDS, PROVINCE_SHORT, health2Words, metaWords, saveWords, type Health2Show, type MetaShow, type SaveShow } from "@/lib/quote-video/story-knowledge";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
 
 const SIZE_LIST: VideoSize[] = ["portrait", "square", "landscape"];
@@ -315,6 +315,50 @@ describe("freeFrame with an ออมเงิน device", () => {
     const i = input(SAVE.length, { scenes: SAVE.map((d) => deviceScene(d)) });
     const hand = freeHandText(i);
     for (const d of SAVE) for (const w of saveWords(d as SaveShow)) expect(hand).toContain(w);
+    expect(hand).not.toContain("คำบนจอซ่อนไว้");
+  });
+});
+
+/** the eight สุขภาพเพิ่มเติม devices (round 5, Task 6): each drawn in a prompt clip, through the real frames path */
+const HEALTH2: DeviceScene[] = [
+  { layout: "ipdopd", title: ["สองประตู", "คนละวงเงิน"], note: "นอนโรงพยาบาลกับไปหาหมอ", room: 9_000, opd: 12_000, planName: "แผนทอง" },
+  { layout: "deductible", title: ["ส่วนรับผิดชอบแรก", "จ่ายเองก่อน"], note: "ประกันจ่ายส่วนที่เหลือ", deductible: 50_000, bill: 100_000 },
+  { layout: "copay", title: ["ร่วมจ่าย", "ส่วนที่เราจ่าย"], percent: 20, bill: 100_000 },
+  { layout: "renew98", title: ["ต่ออายุได้ถึง", "อายุที่แผนกำหนด"], to: 98, age: 35 },
+  { layout: "parentshealth", title: ["ประกันให้พ่อแม่", "ลดหย่อนภาษีได้"], cap: 15_000 },
+  { layout: "groupcost", title: ["ต้นทุนต่อหัว", "ประกันกลุ่ม"], perYear: 2_552, band: "10-25" },
+  { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], total: 537, rows: [{ province: "กรุงเทพมหานคร", count: 135 }, { province: "ชลบุรี", count: 49 }] },
+  { layout: "paclaim", title: ["อุบัติเหตุหนึ่งครั้ง", "ประกันจ่ายเท่าไร"], note: "ดูแผนที่เลือกประกอบ", medical: 150_000, weekly: 3_000, weeks: 52 },
+];
+
+describe("freeFrame with a สุขภาพเพิ่มเติม device", () => {
+  it("draws each of the eight in paper and one info look, every size: its words, no picture, no screen words", () => {
+    for (const d of HEALTH2) for (const style of ["paper", "blueprint"] as const) for (const size of SIZE_LIST) {
+      const i = input(1, { style, scenes: [deviceScene(d)] });
+      const at = (t: number) => renderToStaticMarkup(freeFrame(i.scenes[0], false, ctx(i, size), t));
+      expect(at(0), `${d.layout} ${style} ${size}`).not.toContain("<img");
+      const out = shown(at(12));
+      // a long province is drawn in its short form on the bars (PROVINCE_SHORT)
+      for (const w of health2Words(d as Health2Show)) expect(out, `${d.layout} ${style} ${size}: ${w}`).toContain(PROVINCE_SHORT[w] ?? w);
+      expect(out, `${d.layout} ${style} ${size}`).not.toContain("คำบนจอซ่อนไว้");
+      expect(out).toContain("เสียงที่");
+    }
+  });
+
+  it("renders each in satori, paper and one dark look, every size", async () => {
+    for (const d of HEALTH2) for (const style of ["paper", "neon"] as const) for (const size of SIZE_LIST) {
+      const i = input(1, { style, scenes: [deviceScene(d)] });
+      const { w, h } = SIZES[size];
+      const png = await renderPng(freeFrame(i.scenes[0], false, ctx(i, size), 12), { width: w, height: h }, { hand: freeHandText(i) });
+      expect(png.length, `${d.layout} ${style} ${size}`).toBeGreaterThan(1000);
+    }
+  }, 240_000);
+
+  it("cuts the hand face to each device's own words and the words the drawers add", () => {
+    const i = input(HEALTH2.length, { scenes: HEALTH2.map((d) => deviceScene(d)) });
+    const hand = freeHandText(i);
+    for (const d of HEALTH2) for (const w of health2Words(d as Health2Show)) expect(hand).toContain(w);
+    for (const w of [HEALTH2_WORDS.inpatient, HEALTH2_WORDS.noOpd, HEALTH2_WORDS.weOwn, HEALTH2_WORDS.perAccident]) expect(hand).toContain(w);
     expect(hand).not.toContain("คำบนจอซ่อนไว้");
   });
 });

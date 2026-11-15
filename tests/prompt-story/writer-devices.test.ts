@@ -3,10 +3,9 @@ import { promptDeviceName, rewriteScene, writeStory } from "@/lib/prompt-story/w
 import { checkedPromptStory, REWRITES_DONE, REWRITES_PER_DRAFT } from "@/lib/prompt-story/checked";
 import { checkDevice, checkScript, deviceAllowed } from "@/lib/prompt-story/check";
 import { FORBIDDEN } from "@/lib/quote-video/brief";
-import { DEVICES as ALL_DEVICES, isHealth2Device, isMetaDevice } from "@/lib/scene-library/devices";
-/** the sixteen health and ชีวิต ภาษี มรดก devices and the four ออมเงิน devices (round 4); round 3's writer-meta.test.ts takes the eight อุปมา devices */
-/** round 5's eight health devices are not offered to the writer until Task 6 */
-const DEVICES = ALL_DEVICES.filter((d) => !isMetaDevice(d) && !isHealth2Device(d));
+import { DEVICES as ALL_DEVICES, isMetaDevice } from "@/lib/scene-library/devices";
+/** the sixteen health and ชีวิต ภาษี มรดก devices, the four ออมเงิน devices (round 4) and the eight สุขภาพเพิ่มเติม devices (round 5); round 3's writer-meta.test.ts takes the eight อุปมา devices */
+const DEVICES = ALL_DEVICES.filter((d) => !isMetaDevice(d));
 
 /** devices picked by the writer (the health eight and, since round 2, the ชีวิต ภาษี มรดก eight), its formats, and one scene written again (Task 9) */
 
@@ -79,9 +78,9 @@ describe("writeStory picks devices", () => {
       for (const f of [...d.numberFields, ...d.wordFields]) expect(system).toContain(`"${f}"`);
     }
     expect(system).toContain("ไม่เกิน 4 ฉาก");
-    // every device line the model reads, all twenty, is free of the words no script may say (agecost's own name has เบี้ย)
+    // every device line the model reads, all twenty-eight, is free of the words no script may say (agecost's own name has เบี้ย)
     const deviceLines = system.split("\n").filter((l) => DEVICES.some((d) => l.startsWith(`- ${d.key} (`)));
-    expect(DEVICES).toHaveLength(20);
+    expect(DEVICES).toHaveLength(28);
     expect(deviceLines).toHaveLength(DEVICES.length);
     for (const l of deviceLines) for (const x of FORBIDDEN) expect(x.re.test(l), `${x.why}: ${l}`).toBe(false);
     expect(system).toContain("ค่าประกันสุขภาพต่อปีสูงขึ้นตามช่วงอายุ");

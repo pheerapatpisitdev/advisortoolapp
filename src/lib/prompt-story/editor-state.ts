@@ -1,7 +1,7 @@
 import { checkDevice, type TaxSources } from "./check";
 import { deviceInfo } from "@/lib/scene-library/devices";
 import { isUploadId } from "@/lib/scene-library/upload-rules";
-import { META_LAYOUTS, SAVE_LAYOUTS } from "@/lib/quote-video/story-knowledge";
+import { BAND_WORDS, HEALTH2_LAYOUTS, HEALTH2_WORDS, META_LAYOUTS, SAVE_LAYOUTS, type GroupBand } from "@/lib/quote-video/story-knowledge";
 import type { DeviceScene, PromptScene } from "./types";
 
 /**
@@ -39,10 +39,22 @@ const SAVE_FIELD: Record<string, Record<string, string>> = {
   paidgot: { paid: "ยอดส่งรวม", got: "บำนาญรวม", payFrom: "อายุเริ่มส่ง", payTo: "อายุส่งถึง", getFrom: "อายุเริ่มรับ", getTo: "อายุรับถึง" },
   pensionsteps: { rows: "ช่วงอายุ", annual: "บำนาญต่อปี" },
 };
+/** the สุขภาพเพิ่มเติม devices' figures by what they are on that device (round 5): ค่าห้องต่อวัน, ส่วนรับผิดชอบแรก, ยอดบิล, ร่วมจ่าย, ต่ออายุถึงอายุ, อายุวันนี้, … */
+const HEALTH2_FIELD: Record<string, Record<string, string>> = {
+  ipdopd: { room: "ค่าห้องต่อวัน", opd: "ผู้ป่วยนอกต่อปี" },
+  deductible: { deductible: "ส่วนรับผิดชอบแรก", bill: "ยอดบิล" },
+  copay: { percent: "ร่วมจ่าย", bill: "ยอดบิล" },
+  renew98: { to: "ต่ออายุถึงอายุ", age: "อายุวันนี้" },
+  parentshealth: { cap: "เพดานลดหย่อน" },
+  groupcost: { perYear: "เบี้ยต่อคนต่อปี", band: "กลุ่มพนักงาน" },
+  hospitals: { total: "จำนวนโรงพยาบาล", province: "จังหวัด", count: "จำนวนโรงพยาบาล" },
+  paclaim: { medical: "ค่ารักษาต่ออุบัติเหตุ", weekly: "ชดเชยต่อสัปดาห์", weeks: "จำนวนสัปดาห์" },
+};
 export const fieldName = (f: string, layout?: string): string =>
-  SAVE_FIELD[layout ?? ""]?.[f] ?? (isMetaLayout(layout) || isSaveLayout(layout) ? META_FIELD[f] : undefined) ?? FIELD[f] ?? f;
+  HEALTH2_FIELD[layout ?? ""]?.[f] ?? SAVE_FIELD[layout ?? ""]?.[f] ?? (isMetaLayout(layout) || isSaveLayout(layout) || isHealth2Layout(layout) ? META_FIELD[f] : undefined) ?? FIELD[f] ?? f;
 const isMetaLayout = (layout?: string): boolean => (META_LAYOUTS as readonly string[]).includes(layout ?? "");
 const isSaveLayout = (layout?: string): boolean => (SAVE_LAYOUTS as readonly string[]).includes(layout ?? "");
+const isHealth2Layout = (layout?: string): boolean => (HEALTH2_LAYOUTS as readonly string[]).includes(layout ?? "");
 
 /** the balance's tilt as the owner reads and types it */
 const TILT_THAI: Record<string, string> = { left: "ซ้าย", right: "ขวา", even: "เท่ากัน" };
@@ -57,6 +69,13 @@ const itemName = (layout: DeviceScene["layout"], f: string): string => ITEM[layo
 /** a figure as the editor shows it: a share or a tax rate as a percentage, anything else 1,234,567 */
 const PERCENT = new Set(["share", "bracket"]);
 const shownAs = (f: string, n: unknown) => (typeof n === "number" ? (PERCENT.has(f) ? `${n}%` : n.toLocaleString("en-US")) : "");
+/** a figure of one device as shown: the co-payment's percent, ipdopd's two OPD words, groupcost's head-count band in its own words */
+function shownOn(layout: string, f: string, v: unknown): string {
+  if (layout === "copay" && f === "percent") return shownAs("share", v);
+  if (layout === "ipdopd" && f === "opd" && (v === "none" || v === "actual")) return v === "none" ? "ไม่มีผู้ป่วยนอก" : HEALTH2_WORDS.actual;
+  if (layout === "groupcost" && f === "band") return BAND_WORDS[v as GroupBand] ?? "";
+  return shownAs(f, v);
+}
 
 /** checkDevice's reason ("real: ตัวเลข 7000 …") with its field said in Thai and its figure as 7,000 */
 export function deviceReason(reason: string, layout?: string): string {
@@ -151,7 +170,7 @@ export function deviceFields(d: DeviceScene): { words: DeviceWord[]; numbers: De
         if (typeof item === "string") words.push({ path: [f, i], label: `${itemName(d.layout, f)} ${i + 1}`, value: item });
         else if (item && typeof item === "object") {
           for (const [k, x] of Object.entries(item as Record<string, unknown>)) {
-            if (typeof x === "string") words.push({ path: [f, i, k], label: `${itemName(d.layout, f)} ${i + 1} · ${fieldName(k)}`, value: x });
+            if (typeof x === "string") words.push({ path: [f, i, k], label: `${itemName(d.layout, f)} ${i + 1} · ${fieldName(k, d.layout)}`, value: x });
           }
         }
       });
@@ -159,7 +178,7 @@ export function deviceFields(d: DeviceScene): { words: DeviceWord[]; numbers: De
   }
   for (const f of info?.numberFields ?? []) {
     const v = o[f];
-    if (typeof v === "number") numbers.push({ label: fieldName(f, d.layout), value: shownAs(f, v) });
+    if (typeof v === "number" || (d.layout === "ipdopd" && (v === "none" || v === "actual"))) numbers.push({ label: fieldName(f, d.layout), value: shownOn(d.layout, f, v) });
     else if (Array.isArray(v)) {
       v.forEach((r, i) => {
         if (d.layout === "pensionsteps" && r && typeof r === "object") {
@@ -170,13 +189,15 @@ export function deviceFields(d: DeviceScene): { words: DeviceWord[]; numbers: De
         } else if (r && typeof r === "object") {
           const parts = Object.entries(r as Record<string, unknown>).filter(([, x]) => typeof x === "number");
           // one figure an item (a beneficiary's share, a moneysplit part's amount): ผู้รับ 1 · สัดส่วน 60%
-          if (parts.length === 1) numbers.push({ label: `${itemName(d.layout, f)} ${i + 1} · ${fieldName(parts[0][0])}`, value: shownAs(parts[0][0], parts[0][1]) });
+          if (parts.length === 1) numbers.push({ label: `${itemName(d.layout, f)} ${i + 1} · ${fieldName(parts[0][0], d.layout)}`, value: shownAs(parts[0][0], parts[0][1]) });
           // agecost's rows: อายุ 30 · ปีละ 12,000
           else if (parts.length) numbers.push({ label: `${fieldName(parts[0][0])} ${baht(parts[0][1])}`, value: parts.slice(1).map(([k, x]) => `${fieldName(k)} ${baht(x)}`).join(" · ") });
         }
       });
     }
   }
+  // groupcost's head-count band is a key, shown as the words the drawer puts to it
+  if (d.layout === "groupcost" && typeof o.band === "string") numbers.push({ label: fieldName("band", d.layout), value: shownOn(d.layout, "band", o.band) });
   return { words, numbers };
 }
 
