@@ -56,7 +56,7 @@ describe("ipdopd: five scenes, as the spec has them", () => {
     expect(s[3].show).toMatchObject({ layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"] });
     expect(s[4].show).toEqual({
       layout: "recap",
-      lines: [{ text: "ผู้ป่วยใน คนละวงเงินกับผู้ป่วยนอก", big: true }, { text: "เลือกแผนให้ตรงกับที่ใช้จริง", big: true, tone: "green" }, { text: "ตามเงื่อนไขของแผน" }],
+      lines: [{ text: "ผู้ป่วยใน ผู้ป่วยนอก", big: true }, { text: "คนละวงเงิน", big: true, tone: "green" }, { text: "เลือกแผนให้ตรง กับที่ใช้จริง" }],
     });
     expect(HEALTH_CLOSE.ipdopd).toBe("อยากรู้ว่าแผนไหนมีผู้ป่วยนอก ทักมาได้เลย");
   });

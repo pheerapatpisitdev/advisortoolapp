@@ -1084,14 +1084,14 @@ export function paclaimGeo(size: VideoSize, show: Health2Show<"paclaim">, place:
 /** a first-aid cross in a green disc, drawn */
 const CrossIcon = ({ size }: { size: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40">
-    <circle cx={20} cy={20} r={18} fill="#ffffff" stroke={C.ink} strokeWidth={3} />
+    <circle cx={20} cy={20} r={18} fill={C.white} stroke={C.ink} strokeWidth={3} />
     <path d="M17 9 H23 V17 H31 V23 H23 V31 H17 V23 H9 V17 H17 Z" fill={GREEN} stroke={C.ink} strokeWidth={2.5} strokeLinejoin="round" />
   </svg>
 );
 /** a week on a calendar page, drawn (a week, never a day: no day is picked out) */
 const WeekIcon = ({ size }: { size: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40">
-    <rect x={5} y={8} width={30} height={27} rx={4} fill="#ffffff" stroke={C.ink} strokeWidth={3} />
+    <rect x={5} y={8} width={30} height={27} rx={4} fill={C.white} stroke={C.ink} strokeWidth={3} />
     <rect x={5} y={8} width={30} height={8} rx={3} fill={GOLD} stroke={C.ink} strokeWidth={3} />
     <path d="M10 24 H30" stroke={C.ink} strokeWidth={3.5} strokeLinecap="round" />
     <path d="M10 30 H30" stroke={C.ink} strokeWidth={2} strokeLinecap="round" strokeDasharray="4 4" />
