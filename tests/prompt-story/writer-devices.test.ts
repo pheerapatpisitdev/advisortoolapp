@@ -3,9 +3,9 @@ import { promptDeviceName, rewriteScene, writeStory } from "@/lib/prompt-story/w
 import { checkedPromptStory, REWRITES_DONE, REWRITES_PER_DRAFT } from "@/lib/prompt-story/checked";
 import { checkDevice, checkScript, deviceAllowed } from "@/lib/prompt-story/check";
 import { FORBIDDEN } from "@/lib/quote-video/brief";
-import { DEVICES as ALL_DEVICES, isMetaDevice, isSaveDevice } from "@/lib/scene-library/devices";
-/** the sixteen health and ชีวิต ภาษี มรดก devices; round 3's writer-meta.test.ts takes the eight อุปมา devices; Task 6 of round 4 takes the four ออมเงิน devices */
-const DEVICES = ALL_DEVICES.filter((d) => !isMetaDevice(d) && !isSaveDevice(d));
+import { DEVICES as ALL_DEVICES, isMetaDevice } from "@/lib/scene-library/devices";
+/** the sixteen health and ชีวิต ภาษี มรดก devices and the four ออมเงิน devices (round 4); round 3's writer-meta.test.ts takes the eight อุปมา devices */
+const DEVICES = ALL_DEVICES.filter((d) => !isMetaDevice(d));
 
 /** devices picked by the writer (the health eight and, since round 2, the ชีวิต ภาษี มรดก eight), its formats, and one scene written again (Task 9) */
 
@@ -78,9 +78,9 @@ describe("writeStory picks devices", () => {
       for (const f of [...d.numberFields, ...d.wordFields]) expect(system).toContain(`"${f}"`);
     }
     expect(system).toContain("ไม่เกิน 4 ฉาก");
-    // every device line the model reads, all sixteen, is free of the words no script may say (agecost's own name has เบี้ย)
+    // every device line the model reads, all twenty, is free of the words no script may say (agecost's own name has เบี้ย)
     const deviceLines = system.split("\n").filter((l) => DEVICES.some((d) => l.startsWith(`- ${d.key} (`)));
-    expect(DEVICES).toHaveLength(16);
+    expect(DEVICES).toHaveLength(20);
     expect(deviceLines).toHaveLength(DEVICES.length);
     for (const l of deviceLines) for (const x of FORBIDDEN) expect(x.re.test(l), `${x.why}: ${l}`).toBe(false);
     expect(system).toContain("ค่าประกันสุขภาพต่อปีสูงขึ้นตามช่วงอายุ");

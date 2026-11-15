@@ -6,7 +6,7 @@ import { TRANSITIONS } from "@/lib/quote-video/job";
 import { freeFrame, freeHandText, freeWindows, type FreeContext } from "@/lib/prompt-story/frames";
 import type { DeviceScene, PromptScene, PromptStoryInput } from "@/lib/prompt-story/types";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
-import { HEALTH_WORDS, LIFE_WORDS, metaWords, type MetaShow } from "@/lib/quote-video/story-knowledge";
+import { HEALTH_WORDS, LIFE_WORDS, metaWords, saveWords, type MetaShow, type SaveShow } from "@/lib/quote-video/story-knowledge";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
 
 const SIZE_LIST: VideoSize[] = ["portrait", "square", "landscape"];
@@ -277,6 +277,44 @@ describe("freeFrame with an อุปมา device", () => {
     const i = input(META.length, { scenes: META.map((d) => deviceScene(d)) });
     const hand = freeHandText(i);
     for (const d of META) for (const w of metaWords(d as MetaShow)) expect(hand).toContain(w);
+    expect(hand).not.toContain("คำบนจอซ่อนไว้");
+  });
+});
+
+/** the ออมเงิน devices (round 4, Task 6): each drawn in a prompt clip, through the real frames path */
+const SAVE: DeviceScene[] = [
+  { layout: "savejar", title: ["ส่งทีละปี", "ก้อนโตขึ้นเรื่อยๆ"], note: "ส่งสม่ำเสมอทุกปี", years: 20, paid: 2_724_410 },
+  { layout: "paidgot", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], note: "ดูตารางประกอบ", paid: 2_724_410, got: 6_023_625, payFrom: 40, payTo: 59, getFrom: 60, getTo: 95 },
+  { layout: "pricerise", title: ["เงินเท่าเดิม", "ซื้อได้น้อยลง"], note: "ราคาของสูงขึ้นทุกปี" },
+  { layout: "pensionsteps", title: ["บำนาญขั้นบันได", ""], note: "ค่าครองชีพก็สูงขึ้น", rows: [{ from: 60, to: 75, annual: 118_110 }, { from: 76, to: 80, annual: 157_480 }, { from: 81, to: 95, annual: 196_851 }] },
+];
+
+describe("freeFrame with an ออมเงิน device", () => {
+  it("draws each of the four in paper and one info look, every size: its title and words, no picture, no screen words", () => {
+    for (const d of SAVE) for (const style of ["paper", "blueprint"] as const) for (const size of SIZE_LIST) {
+      const i = input(1, { style, scenes: [deviceScene(d)] });
+      const at = (t: number) => renderToStaticMarkup(freeFrame(i.scenes[0], false, ctx(i, size), t));
+      expect(at(0), `${d.layout} ${style} ${size}`).not.toContain("<img");
+      const out = shown(at(12));
+      for (const w of saveWords(d as SaveShow)) expect(out, `${d.layout} ${style} ${size}: ${w}`).toContain(w);
+      expect(out, `${d.layout} ${style} ${size}`).not.toContain("คำบนจอซ่อนไว้");
+      expect(out).toContain("เสียงที่");
+    }
+  });
+
+  it("renders each in satori, paper and one dark look, every size", async () => {
+    for (const d of SAVE) for (const style of ["paper", "neon"] as const) for (const size of SIZE_LIST) {
+      const i = input(1, { style, scenes: [deviceScene(d)] });
+      const { w, h } = SIZES[size];
+      const png = await renderPng(freeFrame(i.scenes[0], false, ctx(i, size), 12), { width: w, height: h }, { hand: freeHandText(i) });
+      expect(png.length, `${d.layout} ${style} ${size}`).toBeGreaterThan(1000);
+    }
+  }, 120_000);
+
+  it("cuts the hand face to each device's own words", () => {
+    const i = input(SAVE.length, { scenes: SAVE.map((d) => deviceScene(d)) });
+    const hand = freeHandText(i);
+    for (const d of SAVE) for (const w of saveWords(d as SaveShow)) expect(hand).toContain(w);
     expect(hand).not.toContain("คำบนจอซ่อนไว้");
   });
 });

@@ -1,8 +1,8 @@
 import { chat } from "@/lib/ai/client";
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
-import { META_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
-import { DEVICES, isSaveDevice } from "@/lib/scene-library/devices";
+import { META_LIMITS, SAVE_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
+import { DEVICES } from "@/lib/scene-library/devices";
 import { allowedFor, briefTax, checkDevice, checkScene, checkScript, deviceAllowed, forbiddenForPrompt, type TaxSources } from "./check";
 import { SCREEN_MAX, TITLE_MAX, type PromptFormat, type PromptScene, type SceneCount } from "./types";
 
@@ -76,8 +76,11 @@ const SHAPES: Record<DeviceLayout, string> = {
   balance: `{"layout":"balance","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","sides":["คำข้างซ้าย","คำข้างขวา"],"tilt":"left หรือ right หรือ even (ละได้)"}`,
   bridge: `{"layout":"bridge","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)"}`,
   shield: `{"layout":"shield","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","arrows":["เรื่องร้ายที่อาจมาถึง"] 1–5 คำ}`,
-  // ออมเงิน (round 4): the key must exist for the type; Task 6 writes the real shapes and offers the devices to the writer
-  savejar: "", paidgot: "", pricerise: "", pensionsteps: "",
+  // ออมเงิน (round 4): words digit-free; every figure a whole number written in the brief (the drawers add nothing up)
+  savejar: `{"layout":"savejar","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","years":ตัวเลขจำนวนปีที่ส่ง (ละได้),"paid":ตัวเลขยอดส่งรวม (ละได้)}`,
+  paidgot: `{"layout":"paidgot","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","paid":ตัวเลขยอดส่งรวม,"got":ตัวเลขบำนาญรวมที่ได้รับ,"payFrom":อายุเริ่มส่ง (ละได้),"payTo":อายุส่งถึง (ละได้),"getFrom":อายุเริ่มรับ (ละได้),"getTo":อายุรับถึง (ละได้)} ต้องมี paid และ got ทั้งคู่ และต้องเป็นยอดที่โจทย์ให้ไว้`,
+  pricerise: `{"layout":"pricerise","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)"}`,
+  pensionsteps: `{"layout":"pensionsteps","title":["บรรทัดแรก","บรรทัดสอง"],"note":"ข้อความใต้ภาพ (ละได้)","rows":[{"from":อายุเริ่มรับ,"to":อายุรับถึง,"annual":ตัวเลขบำนาญต่อปี}] 1–5 แถว เรียงตามอายุจากน้อยไปมาก}`,
 };
 
 /** the format's order of beats (owner, 2026-11-13, 2ก); ตามโจทย์ adds nothing */
@@ -135,8 +138,7 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     "",
     "อุปกรณ์: ภาพที่ระบบวาดเองแทนรูป AI ใส่ใน device ของฉากได้ เมื่อฉากนั้นพูดเรื่องที่อุปกรณ์อธิบายได้ ฉากอื่นใส่ device เป็น null",
     `- ใช้อุปกรณ์ได้ไม่เกิน ${deviceMax(count)} ฉาก (ไม่เกินครึ่งหนึ่งของจำนวนฉาก) ฉากที่เหลือเป็นรูป AI`,
-    // Task 6: the ออมเงิน devices join the list; until then the writer does not offer them (no drawer yet)
-    ...DEVICES.filter((d) => !isSaveDevice(d)).map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
+    ...DEVICES.map((d) => `- ${d.key} (${promptDeviceName(d)}): ใช้เมื่อ${d.when} รูปแบบ ${SHAPES[d.key]}`),
     "กฎของอุปกรณ์:",
     "- ตัวเลขในอุปกรณ์เป็นจำนวนเต็มมากกว่าศูนย์ ไม่ใส่จุลภาค และต้องเป็นตัวเลขที่อยู่ในโจทย์หรือตัวเลขแผนเท่านั้น ห้ามคิดตัวเลขเอง",
     nums.length ? `- ตัวเลขที่ใช้ในอุปกรณ์ได้: ${nums.join(", ")}` : "- โจทย์ไม่มีตัวเลข ใช้ได้เฉพาะอุปกรณ์ที่ไม่ต้องมีตัวเลข",
@@ -144,6 +146,8 @@ function rules(brief: string, count: number, figure?: StoryFigure, format?: Prom
     `- คำในอุปกรณ์ทุกช่อง (title, parts, whole, planName, rows, note, source, name, label) ช่องละไม่เกิน ${SCREEN_MAX} ตัวอักษร และทำตามกฎเดียวกับคำพูดข้างบนทุกข้อ`,
     // round 3 (spec 2026-11-15-devices-metaphor): words only, no digit anywhere; each word within its own length
     `- อุปมา (umbrella, housepillar, lifering, safetynet, seedtree, balance, bridge, shield): ไม่มีช่องตัวเลข ห้ามมีตัวเลขในคำเลย ทั้งเลขอารบิกและเลขไทย ถ้ามีตัวเลขระบบจะไม่วาดอุปกรณ์นี้ ความยาว: บรรทัดของ title ไม่เกิน ${META_LIMITS.titleLine} ตัวอักษร note ไม่เกิน ${META_LIMITS.note} คำอื่นๆ (label, spare, from, to, sides) ไม่เกิน ${META_LIMITS.word} ลูกศรแต่ละคำ (arrows) ไม่เกิน ${META_LIMITS.arrow} และมีได้ 1–${META_LIMITS.arrows} คำ`,
+    // round 4 (spec 2026-11-15-devices-saving): words only digit-free; figures only the brief's; nothing computed, no rate or return
+    `- ออมเงิน (savejar, paidgot, pricerise, pensionsteps): คำทุกช่อง (title, note) ห้ามมีตัวเลขเลย ทั้งเลขอารบิกและเลขไทย ถ้ามีตัวเลขระบบจะไม่วาดอุปกรณ์นี้ ความยาว: บรรทัดของ title ไม่เกิน ${SAVE_LIMITS.titleLine} ตัวอักษร note ไม่เกิน ${SAVE_LIMITS.note} ตัวเลขใช้ได้เฉพาะที่อยู่ในโจทย์ ห้ามคิดหรือรวมยอดเอง ห้ามใส่ % อัตรา ผลตอบแทน หรือ IRR ยอดเงินไม่เกิน ${SAVE_LIMITS.baht.toLocaleString("en-US")} บาท อายุ 1–${SAVE_LIMITS.age} ปีที่ส่ง 1–${SAVE_LIMITS.years} paidgot ต้องมีทั้งยอดส่งรวมและบำนาญรวมจากโจทย์ ไม่งั้นอย่าใช้ paidgot ส่วน pensionsteps มีได้ 1–${SAVE_LIMITS.rows} ช่วง แต่ละช่วงเริ่มรับหลังช่วงก่อนหน้า และไม่รับถึงก่อนช่วงก่อนหน้า pricerise ไม่มีช่องตัวเลข`,
     "- agecost: ทุกช่องข้อความ (title และ source) ห้ามใช้คำว่า เบี้ย ให้ใช้ ค่าประกันสุขภาพ แทน",
     // round 2 (spec 2026-11-14-devices-life-tax): the inputs only; the tax table is the system's, never pasted here
     "- คำที่เขียนในอุปกรณ์ทุกตัวห้ามมีคำต้องห้ามข้างบน แม้ระบบจะวาดคำอย่าง เบี้ยปีละ หรือ % บนอุปกรณ์เอง ให้ใช้ ค่าประกัน แทน เบี้ย",

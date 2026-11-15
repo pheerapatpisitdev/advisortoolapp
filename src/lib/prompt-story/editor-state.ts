@@ -1,7 +1,7 @@
 import { checkDevice, type TaxSources } from "./check";
 import { deviceInfo } from "@/lib/scene-library/devices";
 import { isUploadId } from "@/lib/scene-library/upload-rules";
-import { META_LAYOUTS } from "@/lib/quote-video/story-knowledge";
+import { META_LAYOUTS, SAVE_LAYOUTS } from "@/lib/quote-video/story-knowledge";
 import type { DeviceScene, PromptScene } from "./types";
 
 /**
@@ -33,8 +33,16 @@ const FIELD: Record<string, string> = {
 };
 /** a word the อุปมา devices name apart from the rest: the line under the picture, the word on housepillar's pillar */
 const META_FIELD: Record<string, string> = { note: "บรรทัดใต้ภาพ", label: "คำบนเสา" };
-export const fieldName = (f: string, layout?: string): string => (isMetaLayout(layout) ? META_FIELD[f] : undefined) ?? FIELD[f] ?? f;
+/** the ออมเงิน devices' figures by what they are on that device (round 4): ปีที่ส่ง, ยอดส่งรวม, บำนาญรวม, อายุเริ่มส่ง/ส่งถึง, อายุเริ่มรับ/รับถึง, ช่วงอายุ */
+const SAVE_FIELD: Record<string, Record<string, string>> = {
+  savejar: { years: "ปีที่ส่ง", paid: "ยอดส่งรวม" },
+  paidgot: { paid: "ยอดส่งรวม", got: "บำนาญรวม", payFrom: "อายุเริ่มส่ง", payTo: "อายุส่งถึง", getFrom: "อายุเริ่มรับ", getTo: "อายุรับถึง" },
+  pensionsteps: { rows: "ช่วงอายุ", from: "อายุเริ่มรับ", to: "อายุรับถึง", annual: "บำนาญต่อปี" },
+};
+export const fieldName = (f: string, layout?: string): string =>
+  SAVE_FIELD[layout ?? ""]?.[f] ?? (isMetaLayout(layout) || isSaveLayout(layout) ? META_FIELD[f] : undefined) ?? FIELD[f] ?? f;
 const isMetaLayout = (layout?: string): boolean => (META_LAYOUTS as readonly string[]).includes(layout ?? "");
+const isSaveLayout = (layout?: string): boolean => (SAVE_LAYOUTS as readonly string[]).includes(layout ?? "");
 
 /** the balance's tilt as the owner reads and types it */
 const TILT_THAI: Record<string, string> = { left: "ซ้าย", right: "ขวา", even: "เท่ากัน" };
@@ -151,10 +159,15 @@ export function deviceFields(d: DeviceScene): { words: DeviceWord[]; numbers: De
   }
   for (const f of info?.numberFields ?? []) {
     const v = o[f];
-    if (typeof v === "number") numbers.push({ label: fieldName(f), value: shownAs(f, v) });
+    if (typeof v === "number") numbers.push({ label: fieldName(f, d.layout), value: shownAs(f, v) });
     else if (Array.isArray(v)) {
       v.forEach((r, i) => {
-        if (r && typeof r === "object") {
+        if (d.layout === "pensionsteps" && r && typeof r === "object") {
+          // a step: ช่วงอายุ 1 · 60–75, then บำนาญต่อปี 1 · 118,110 (the editor never types them)
+          const x = r as Record<string, unknown>;
+          numbers.push({ label: `${fieldName("rows", d.layout)} ${i + 1}`, value: `${x.from}–${x.to}` });
+          numbers.push({ label: `${fieldName("annual", d.layout)} ${i + 1}`, value: baht(x.annual) });
+        } else if (r && typeof r === "object") {
           const parts = Object.entries(r as Record<string, unknown>).filter(([, x]) => typeof x === "number");
           // one figure an item (a beneficiary's share, a moneysplit part's amount): ผู้รับ 1 · สัดส่วน 60%
           if (parts.length === 1) numbers.push({ label: `${itemName(d.layout, f)} ${i + 1} · ${fieldName(parts[0][0])}`, value: shownAs(parts[0][0], parts[0][1]) });
