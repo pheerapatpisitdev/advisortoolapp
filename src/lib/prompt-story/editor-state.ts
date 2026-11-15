@@ -72,7 +72,7 @@ const shownAs = (f: string, n: unknown) => (typeof n === "number" ? (PERCENT.has
 /** a figure of one device as shown: the co-payment's percent, ipdopd's two OPD words, groupcost's head-count band in its own words */
 function shownOn(layout: string, f: string, v: unknown): string {
   if (layout === "copay" && f === "percent") return shownAs("share", v);
-  if (layout === "ipdopd" && f === "opd" && (v === "none" || v === "actual")) return v === "none" ? "ไม่มีผู้ป่วยนอก" : HEALTH2_WORDS.actual;
+  if (layout === "ipdopd" && f === "opd" && (v === "none" || v === "actual")) return v === "none" ? HEALTH2_WORDS.noOpd : HEALTH2_WORDS.actual;
   if (layout === "groupcost" && f === "band") return BAND_WORDS[v as GroupBand] ?? "";
   return shownAs(f, v);
 }

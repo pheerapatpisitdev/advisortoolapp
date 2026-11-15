@@ -125,18 +125,18 @@ const fmt = (n: number) => n.toLocaleString("en-US");
  * and the words. check.ts holds the model to every line.
  */
 const HEALTH2_RULES: string[] = (() => {
-  const top = Object.entries(FIXED.hospitals.counts).slice(0, 8).map(([p, n]) => `${p} ${fmt(n)}`).join(", ");
+  const top = Object.entries(FIXED.hospitals.counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "th")).slice(0, 8).map(([p, n]) => `${p} ${fmt(n)}`).join(", ");
   return [
     `- สุขภาพเพิ่มเติม (ipdopd, deductible, copay, renew98, parentshealth, groupcost, hospitals, paclaim): คำทุกช่อง (title, note, planName, province) ห้ามมีตัวเลขเลย ทั้งเลขอารบิกและเลขไทย ห้ามใส่ % ห้ามพูดถึงผลตอบแทน อัตรา หรือ IRR ถ้าไม่ทำตามระบบจะไม่วาดอุปกรณ์นี้ ความยาว: บรรทัดของ title ไม่เกิน ${HEALTH2_LIMITS.titleLine} ตัวอักษร note ไม่เกิน ${HEALTH2_LIMITS.note} ชื่อแผน (planName) ไม่เกิน ${HEALTH2_LIMITS.label} ตัวอักษร`,
     "- สุขภาพเพิ่มเติม: ตัวเลขใช้ได้เฉพาะที่อยู่ในโจทย์ หรือค่าคงที่ของอุปกรณ์ที่ระบุข้างล่าง ห้ามคิดยอดเอง ห้ามหาร ห้ามคูณ ห้ามรวม ระบบคิดส่วนที่เราจ่าย ส่วนที่ประกันจ่าย และยอดต่อเดือนเองทุกอย่าง ตัวเลขที่ละได้ถ้าไม่มีในโจทย์ให้ละไว้",
-    `- ipdopd: room ใช้ค่าห้องต่อวันของแผนได้เฉพาะ ${FIXED.ipdopd.room.map(fmt).join(" / ")} หรือที่โจทย์บอก opd ใช้ ${FIXED.ipdopd.opd.map(fmt).join(" / ")} หรือที่โจทย์บอก ถ้าแผนไม่มีผู้ป่วยนอกใส่ "none" ถ้าจ่ายตามจริงใส่ "actual"`,
+    `- ipdopd: room ใช้ค่าห้องต่อวันของแผนได้เฉพาะ ${FIXED.ipdopd.room.map(fmt).join(" / ")} หรือที่โจทย์บอก opd ใช้ ${FIXED.ipdopd.opd.map(fmt).join(" / ")} หรือที่โจทย์บอก ถ้าแผนไม่มีผู้ป่วยนอกใส่ "none" ถ้าจ่ายตามจริงใส่ "actual" ถ้าไม่ใช่ตัวเลขที่โจทย์บอก ค่าห้องและผู้ป่วยนอกต้องเป็นของแผนเดียวกัน: ${FIXED.ipdopd.plans.map((p) => `${p.label} ${fmt(p.room)} / ${typeof p.opd === "number" ? fmt(p.opd) : p.opd}`).join(", ")} และ planName ใส่ได้เฉพาะชื่อแผนนั้น`,
     `- deductible: ส่วนรับผิดชอบแรกของแผน ${FIXED.deductible.map(fmt).join(" / ")} หรือที่โจทย์บอก bill ใส่ได้เฉพาะยอดบิลที่โจทย์บอก ถ้าไม่มีให้ละไว้`,
     `- copay: ร่วมจ่ายตามตาราง ${FIXED.copayPercent} เท่านั้น (ใส่ใน percent เป็นตัวเลข ไม่ใส่ในคำ) bill ใส่ได้เฉพาะยอดบิลที่โจทย์บอก`,
     `- renew98: ต่ออายุถึง ${FIXED.renewalToAge} เท่านั้น age ใส่ได้เฉพาะอายุวันนี้ของลูกค้าที่โจทย์บอก และต้องน้อยกว่า ${FIXED.renewalToAge}`,
     `- parentshealth: เพดานลดหย่อนพ่อแม่ ${fmt(FIXED.parentsCap)} เท่านั้น`,
-    `- groupcost: perYear คือต้นทุนต่อคนต่อปี (ยอดรายปีต่อหนึ่งคน ไม่ใช่ยอดต่อเดือนหรือยอดรวมทั้งบริษัท) ใช้ยอดที่โจทย์บอก หรือยอดของแผนกลุ่มในระบบ: ${FIXED.groupPerYear.map(fmt).join(", ")} ระบบหารเป็นต่อเดือนเอง band ใส่ได้เฉพาะ 10-25, 26-50 หรือ 51-100 ตามที่โจทย์บอก`,
+    `- groupcost: perYear คือต้นทุนต่อคนต่อปี (ยอดรายปีต่อหนึ่งคน ไม่ใช่ยอดต่อเดือนหรือยอดรวมทั้งบริษัท) ใช้ยอดที่โจทย์บอก หรือยอดของแผนกลุ่มในระบบ: ${FIXED.groupPerYear.map(fmt).join(", ")} ระบบหารเป็นต่อเดือนเอง band ใส่ได้เฉพาะ 10-25, 26-50 หรือ 51-100 เมื่อโจทย์บอกจำนวนคนที่อยู่ในช่วงนั้น (ไม่บอกให้ละไว้) และถ้าใช้ยอดของระบบ ต้องเป็นยอดของช่วงนั้น`,
     `- hospitals: ใช้เมื่อโจทย์ถามถึงโรงพยาบาลในเครือเท่านั้น total คือ ${fmt(FIXED.hospitals.total)} และจังหวัดต้องเป็นชื่อในรายชื่อโรงพยาบาลพร้อมจำนวนที่ตรงกัน เช่น ${top} ไม่ตรงระบบไม่วาด ใส่ได้ 1–${HEALTH2_LIMITS.rows} จังหวัด ไม่ซ้ำกัน`,
-    `- paclaim: medical คือค่ารักษาต่ออุบัติเหตุหนึ่งครั้งของแผน ${FIXED.pa.medical.map(fmt).join(" / ")} หรือที่โจทย์บอก weekly คือเงินชดเชยต่อสัปดาห์ ${FIXED.pa.weekly.map(fmt).join(" / ")} หรือที่โจทย์บอก weeks ใส่ ${FIXED.pa.weeks} ได้เมื่อมี weekly เท่านั้น เงินชดเชยนี้เป็นรายสัปดาห์ ห้ามเรียกว่ารายวัน ห้ามพูดว่าค่ารักษาเท่านี้เป็นค่ารักษาทั่วไป ห้ามสัญญาว่าเคลมได้`,
+    `- paclaim: medical คือค่ารักษาต่ออุบัติเหตุหนึ่งครั้งของแผน ${FIXED.pa.medical.map(fmt).join(" / ")} หรือที่โจทย์บอก weekly คือเงินชดเชยต่อสัปดาห์ ${FIXED.pa.weekly.map(fmt).join(" / ")} หรือที่โจทย์บอก (ถ้าไม่ใช่ตัวเลขที่โจทย์บอก medical กับ weekly ต้องเป็นของแผนเดียวกัน: ${FIXED.pa.pairs.map(([m, w]) => `${fmt(m)} กับ ${fmt(w)}`).join(", ")}) weeks ใส่ ${FIXED.pa.weeks} ได้เมื่อมี weekly เท่านั้น เงินชดเชยนี้เป็นรายสัปดาห์ ห้ามเรียกว่ารายวัน ห้ามพูดว่าค่ารักษาเท่านี้เป็นค่ารักษาทั่วไป ห้ามสัญญาว่าเคลมได้`,
   ];
 })();
 

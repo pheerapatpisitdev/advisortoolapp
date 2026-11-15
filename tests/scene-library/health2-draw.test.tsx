@@ -316,6 +316,40 @@ describe("deductible", () => {
   });
 });
 
+describe("the qualifiers (final review 6): a figure is of the plan the client chooses", () => {
+  it("deductible says it is for the plan with a deductible and copay for the plan with a co-payment, with and without a bill", () => {
+    for (const show of deds) expect(squash(html(show)), "deductible").toContain(W.deductibleWhen.replace(/ /g, ""));
+    for (const show of cops) expect(squash(html(show)), "copay").toContain(W.copayWhen.replace(/ /g, ""));
+    // no other device carries them
+    expect(squash(html(pars[0]))).not.toContain(W.copayWhen.replace(/ /g, ""));
+    expect(squash(html(cops[0]))).not.toContain(W.deductibleWhen.replace(/ /g, ""));
+  });
+  it("the groupcost year card says the premium is of the in-patient insurance; the OPD 'none' card says no general outpatient limit", () => {
+    expect(W.perHeadYear).toBe("ประกันผู้ป่วยใน ต่อคนต่อปี");
+    expect(W.noOpd).toBe("แผนนี้ไม่มีวงเงินผู้ป่วยนอกทั่วไป");
+    expect(squash(html(ipds[1]))).toContain(W.noOpd.replace(/ /g, ""));
+    expect(squash(html(ipds[1]))).not.toContain("แผนนี้ไม่มีผู้ป่วยนอก");
+  });
+  it("the qualifier sits inside the room, clear of the card and the note, at every size", () => {
+    for (const size of SIZES) {
+      for (const show of deds) {
+        const geo = deductibleGeo(size, show);
+        const room = geoOf(size).dev;
+        expect(h2Inside({ x: geo.when.x, y: geo.when.y, w: geo.when.w, h: geo.when.h }, room), `${size} deductible`).toBe(true);
+        expect(geo.when.y, `${size} under the card`).toBeGreaterThanOrEqual(geo.card.y + geo.card.h);
+        if (geo.note) expect(geo.when.y + geo.when.h, `${size} above the note`).toBeLessThanOrEqual(geo.note.y);
+      }
+      for (const show of cops) {
+        const geo = copayGeo(size, show);
+        const room = geoOf(size).dev;
+        expect(h2Inside({ x: geo.when.x, y: geo.when.y, w: geo.when.w, h: geo.when.h }, room), `${size} copay`).toBe(true);
+        expect(geo.sheet.y + geo.sheet.h, `${size} sheet above`).toBeLessThanOrEqual(geo.when.y + 1);
+        if (geo.note) expect(geo.when.y + geo.when.h, `${size} above the note`).toBeLessThanOrEqual(geo.note.y);
+      }
+    }
+  });
+});
+
 describe("copay", () => {
   it("splits the bill at the percent: ours is the floor, the insurer's the rest, always adding to the bill; none without a bill", () => {
     expect(copaySplit(cops[0])).toEqual({ bill: 100_000, ours: 20_000, theirs: 80_000 });
@@ -529,7 +563,7 @@ describe("groupcost", () => {
     expect(groupMonth(2_552)).toBe(212);
     expect(groupMonth(12_047)).toBe(1_003);
     const g = squash(html(grps[0]));
-    for (const x of [W.perHeadYear, "2,552บาท", W.perHeadMonth, "212บาท", "พนักงาน10–25คน"]) expect(g, x).toContain(x);
+    for (const x of [W.perHeadYear.replace(/ /g, ""), "2,552บาท", W.perHeadMonth, "212บาท", "พนักงาน10–25คน"]) expect(g, x).toContain(x);
     expect((html(grps[0]).match(/data-face=/g) ?? []).length).toBe(6);
     expect(squash(html(grps[1]))).toContain("10,288,065บาท");
   });
@@ -611,11 +645,18 @@ describe("hospitals", () => {
       expect(geo.bars[0].w).toBe(geo.barRoom);
       for (const bar of geo.bars) expect(bar.x, "from the same zero").toBe(geo.barX);
       const lone = hospitalsGeo(size, hosps[2]);
-      expect(lone.bars[4].w, `${size} one hospital`).toBeGreaterThanOrEqual(8);
+      // a tiny count is as long as the scale makes it: a 2 px hairline at the least, never padded, never longer than the scale
+      expect(lone.bars[4].w, `${size} one hospital`).toBeGreaterThanOrEqual(2);
+      expect(Math.abs(lone.bars[4].w - lone.bars[4].count * (lone.bars[0].w / lone.bars[0].count)), `${size} one hospital to scale`).toBeLessThanOrEqual(2);
       expect(lone.bars[4].w).toBeLessThan(lone.bars[0].w);
+      for (const bar of lone.bars) expect(bar.w, `${size} ${bar.name}`).toBeLessThanOrEqual(lone.barRoom);
     }
     expect(barLength(0, 10, 500)).toBe(0);
     expect(barLength(5, 10, 500)).toBe(250);
+    // no 8 px floor: one in 537 of a 100 px room is 2 px, and a bar never passes its room
+    expect(barLength(1, 537, 100)).toBe(2);
+    expect(barLength(1, 537, 1)).toBe(1);
+    expect(barLength(600, 537, 100)).toBe(100);
   });
 
   it("each bar grows in its turn from zero, its count at its end; the foot and the line come after the bars", () => {

@@ -86,7 +86,7 @@ export function noteGeo(note: string | undefined, room: number, text: number, gr
   return { size, lines, h: Math.round(lines.length * size * 1.3) };
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const clamp01 = (x: number) => clamp(x, 0, 1);
 
 /* ---------- savejar: กระปุกโตทุกปี ---------- */

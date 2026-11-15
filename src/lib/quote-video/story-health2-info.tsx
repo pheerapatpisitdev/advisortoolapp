@@ -222,6 +222,7 @@ function deductible(d: Dev, show: Health2Show<"deductible">) {
       })}
       {geo.notYet ? <Words d={d} an={s.theirs} g={geo.notYet} /> : null}
       <InfoCard d={d} an={s.card} r={geo.card} part="card"><Blocks blocks={geo.card.blocks} /></InfoCard>
+      <Words d={d} an={s.title} g={geo.when} />
       <NoteLines n={geo.note} d={d} />
     </>
   );
@@ -281,6 +282,7 @@ function copay(d: Dev, show: Health2Show<"copay">) {
           </div>
         </InfoCard>
       ) : null}
+      <Words d={d} an={s.title} g={geo.when} />
       <NoteLines n={geo.note} d={d} />
     </>
   );
@@ -407,7 +409,7 @@ function hospitals(d: Dev, show: Health2Show<"hospitals">) {
         return (
           <Fragment key={bar.full + i}>
             <Say an={s[`bar${i}`]} t={t} style={{ position: "absolute", left: bar.nameBox.x, top: bar.nameBox.y, width: bar.nameBox.w, height: bar.rowH, alignItems: "center", fontSize: geo.nameSize, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...plate(), ...ink(K.white) }}>{bar.name}</Say>
-            {now > 0 ? <div data-part={`bar${i}`} style={abs({ left: bar.x, top: bar.y + 4, width: Math.max(now, 4), height: bar.h, ...block(K.green, 10) })} /> : null}
+            {now > 0 ? <div data-part={`bar${i}`} style={abs({ left: bar.x, top: bar.y + 4, width: now, height: bar.h, ...block(K.green, 10) })} /> : null}
             {p > 0 ? <div data-part={`count${i}`} style={abs({ left: bar.x + now + 10, top: bar.y, width: geo.countW, height: bar.rowH, alignItems: "center", fontSize: geo.countSize, fontWeight: K.bold, lineHeight: 1.3, whiteSpace: "nowrap", ...plate(), ...ink(K.white) })}>{bar.countText}</div> : null}
           </Fragment>
         );

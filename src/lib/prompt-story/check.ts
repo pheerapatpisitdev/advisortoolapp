@@ -14,6 +14,8 @@ export const OTHER_INSURERS = [
   "เมืองไทยประกันชีวิต", "ไทยประกันชีวิต", "เอไอเอ", "AIA", "พรูเด็นเชียล", "Prudential", "อลิอันซ์", "Allianz",
   "เจนเนอราลี", "Generali", "ฟีนิกซ์", "กรุงเทพประกันชีวิต", "FWD", "ธนชาต", "ทิพยประกันภัย",
 ];
+/** the PA weekly benefit is paid a week, never a day: no word of a paclaim scene says it is */
+const DAILY_WORD = /รายวัน|วันละ/;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
@@ -103,6 +105,10 @@ export function checkScene(scene: PromptScene, allowed: Set<number>, forDevice: 
     if (field === "picture" && /[\d๐-๙]/.test(t)) reasons.push("picture: มีตัวเลข");
     const stray = numbersIn(t).find((n, i, all) => !allowed.has(n) && !(i > 0 && all[i - 1] === n * 1_000_000));
     if (stray !== undefined) reasons.push(`${field}: ตัวเลข ${stray} ไม่อยู่ในโจทย์หรือแผน`);
+  }
+  // a scene that carries a paclaim device: its voice and screen words never call the weekly benefit a daily one either
+  if ((scene.device as { layout?: unknown } | undefined)?.layout === "paclaim") {
+    for (const field of ["voice", "screen"] as const) if (DAILY_WORD.test(scene[field] ?? "")) reasons.push(`${field}: เรียกค่าชดเชยรายสัปดาห์ว่ารายวัน`);
   }
   if (scene.device) {
     const d = checkDevice(scene.device, forDevice, tax);
@@ -202,7 +208,7 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     for (const f of [...FORBIDDEN, ...FREE_FORBIDDEN]) if (f.re.test(t)) fail.push(`${field}: ${f.why}`);
     // specs 2026-11-15-devices-saving and -health2: no IRR on a saving or a round-5 health device (FORBIDDEN has no IRR; other devices and scripts are unchanged)
     // spec: the PA weekly benefit is never called "รายวัน" (paclaim only)
-    if (layout === "paclaim" && /รายวัน/.test(t)) fail.push(`${field}: เรียกค่าชดเชยรายสัปดาห์ว่ารายวัน`);
+    if (layout === "paclaim" && DAILY_WORD.test(t)) fail.push(`${field}: เรียกค่าชดเชยรายสัปดาห์ว่ารายวัน`);
     if ((isSaveLayout || isHealth2Layout) && /\birr\b/i.test(t)) fail.push(`${field}: พูดถึงผลตอบแทน`);
     return t;
   };
@@ -364,7 +370,14 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
       // room and opd are the sheet's (or the brief's); "none" (the plan has no OPD) and "actual" (as paid) are the sheet's two words
       const room = baht("room", o.room, true, sourced(FIXED.ipdopd.room));
       const opd = o.opd === "none" || o.opd === "actual" ? o.opd : (baht("opd", o.opd, true, sourced(FIXED.ipdopd.opd)) ?? 0);
-      out = { layout, title, ...note, room: room ?? 0, opd, ...metaOpt("planName", o.planName, HEALTH2_LIMITS.label) };
+      // both from the sheet (neither the brief's): they are ONE plan's pair, else the card would show a plan that does not exist
+      const bothSheet = room !== undefined && !allowed.has(room) && (typeof opd !== "number" || !allowed.has(opd));
+      const plan = bothSheet ? FIXED.ipdopd.plans.find((p) => p.room === room && p.opd === opd) : undefined;
+      if (bothSheet && !plan && !fail.length) fail.push("opd: ค่าห้องกับวงเงินผู้ป่วยนอกต้องเป็นของแผนเดียวกันในตารางของบริษัท");
+      // the plan's name, when the figures are the sheet's: drawn only as that plan's own label, any other is dropped
+      const nameOk = !bothSheet || (typeof o.planName === "string" && o.planName.replace(/\s+/g, " ").trim().toLowerCase() === plan?.label.toLowerCase());
+      const planName = metaOpt("planName", o.planName, HEALTH2_LIMITS.label);
+      out = { layout, title, ...note, room: room ?? 0, opd, ...(nameOk ? planName : {}) };
       break;
     }
     case "deductible": {
@@ -391,8 +404,14 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     }
     case "groupcost": {
       const perYear = baht("perYear", o.perYear, true, sourced(FIXED.groupPerYear));
-      // the head-count band is one of three keys (the drawer writes the words); anything else is dropped, as any optional field
-      out = { layout, title, ...note, perYear: perYear ?? 0, ...((GROUP_BANDS as readonly unknown[]).includes(o.band) ? { band: o.band as (typeof GROUP_BANDS)[number] } : {}) };
+      // the head-count band is one of three keys; kept only when a number of the brief falls inside it (the plan's own figures
+      // do not count: a clip says "40 คน" or no band), else dropped. A premium from the table (not the brief's) with a kept band
+      // must be one of that band's column
+      const band = (GROUP_BANDS as readonly unknown[]).includes(o.band) ? (o.band as (typeof GROUP_BANDS)[number]) : undefined;
+      const [lo, hi] = band ? band.split("-").map(Number) : [0, 0];
+      const keepBand = band !== undefined && [...(tax?.premiums ?? allowed)].some((n) => n >= lo && n <= hi);
+      if (keepBand && perYear !== undefined && !allowed.has(perYear) && !FIXED.groupByBand[band].includes(perYear)) fail.push(`perYear: ตัวเลข ${perYear} ไม่อยู่ในตารางของกลุ่ม ${band} คน`);
+      out = { layout, title, ...note, perYear: perYear ?? 0, ...(keepBand ? { band } : {}) };
       break;
     }
     case "hospitals": {
@@ -417,7 +436,9 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     }
     case "paclaim": {
       const medical = baht("medical", o.medical, true, sourced(FIXED.pa.medical));
-      const weekly = baht("weekly", o.weekly, false, sourced(FIXED.pa.weekly));
+      let weekly = baht("weekly", o.weekly, false, sourced(FIXED.pa.weekly));
+      // both from the plans (neither the brief's): one plan's pair, else the weekly sum is dropped (it is another plan's)
+      if (medical !== undefined && weekly !== undefined && !allowed.has(medical) && !allowed.has(weekly) && !FIXED.pa.pairs.some(([m, w]) => m === medical && w === weekly)) weekly = undefined;
       // weeks only with a weekly sum, and only the plans' own limit; any other is left off
       const weeks = weekly !== undefined && o.weeks === FIXED.pa.weeks ? FIXED.pa.weeks : undefined;
       out = { layout, title, ...note, medical: medical ?? 0, ...given("weekly", weekly), ...given("weeks", weeks) };

@@ -1,8 +1,8 @@
-import { iHealthyFacts, isHeading } from "@/lib/ihealthy-facts";
+import { iHealthyFacts, isHeading, planLabel } from "@/lib/ihealthy-facts";
 import { PA_FAMILIES, PA_WEEKLY_MAX_WEEKS } from "@/lib/pa-plans";
 import premiums from "../../../data/group-insurance/premiums.json";
 import network from "../../../data/hospitals/ktaxa-network.json";
-import type { Health2Fixed } from "./health2-fixed";
+import type { Health2Fixed, OpdFigure } from "./health2-fixed";
 import { HEALTH_PARENTS_CAP } from "./tax-th";
 
 /**
@@ -13,8 +13,7 @@ import { HEALTH_PARENTS_CAP } from "./tax-th";
  * equal to what this module reads.
  */
 
-/** what the sheet says of OPD for one plan: baht a year, "none" where it prints "-", "actual" where it prints "ตามที่จ่ายจริง" */
-export type OpdFigure = number | "none" | "actual";
+export type { OpdFigure };
 
 const sheetRow = (no: number) => {
   const row = iHealthyFacts().rows.find((r) => !isHeading(r) && r.no === no);
@@ -65,6 +64,9 @@ export function groupPremium(biz: "biz1" | "biz2" | "biz3", band: "10-25" | "26-
 
 const uniq = (xs: (number | undefined)[]): number[] => [...new Set(xs.filter((x): x is number => x !== undefined))].sort((a, b) => a - b);
 
+/** every premium of one head-count band's column, ascending, once each */
+const bandColumn = (band: "10-25" | "26-50" | "51-100"): number[] => uniq(Object.values(premiums.healthIpdPremiums).map((b) => b[band]).flat());
+
 /** every fixed-source figure, read from the real files: the same shape as the browser snapshot (health2-fixed.ts) */
 export function health2Sources(): Health2Fixed {
   const facts = iHealthyFacts();
@@ -75,13 +77,20 @@ export function health2Sources(): Health2Fixed {
     ipdopd: {
       room: uniq(codes.map(roomOf)),
       opd: uniq(codes.map(opdOf).map((x) => (typeof x === "number" ? x : undefined))),
+      plans: codes.map((code) => ({ code, label: planLabel(code), room: roomOf(code), opd: opdOf(code) })),
     },
     deductible: uniq(facts.plans.map((p) => p.deductible)),
     copayPercent: facts.copayPercent,
     renewalToAge: facts.terms.renewalToAge,
     parentsCap: HEALTH_PARENTS_CAP,
     groupPerYear: uniq(Object.values(premiums.healthIpdPremiums).flatMap((bands) => Object.values(bands).flat())),
-    pa: { medical: uniq(plans.map((p) => p.medical)), weekly: uniq(plans.map((p) => p.weekly)), weeks: PA_WEEKLY_MAX_WEEKS },
+    groupByBand: {
+      "10-25": bandColumn("10-25"), "26-50": bandColumn("26-50"), "51-100": bandColumn("51-100"),
+    },
+    pa: {
+      medical: uniq(plans.map((p) => p.medical)), weekly: uniq(plans.map((p) => p.weekly)), weeks: PA_WEEKLY_MAX_WEEKS,
+      pairs: [...new Map(plans.filter((p) => p.medical !== undefined && p.weekly !== undefined).map((p) => [`${p.medical}/${p.weekly}`, [p.medical, p.weekly] as [number, number]])).values()],
+    },
     hospitals: { total: h.total, fetchedAt: h.fetchedAt, counts: h.counts },
   };
 }

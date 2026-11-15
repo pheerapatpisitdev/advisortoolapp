@@ -116,7 +116,7 @@ const ipdopd = (input: StoryVideoInput): KnowScene[] => {
   const allowed = new Set<number>([f.roomPerDay, ...(typeof f.opd === "number" ? [f.opd] : []), f.renewalToAge, h.age, list.total, ...rows.map((r) => r.count)]);
   // the OPD voice has three forms: a limit a year, no OPD at all ("none"), or as paid ("actual", with the plan's conditions)
   const door = `แผน ${plan} นอนโรงพยาบาล ค่าห้อง ${withBaht(f.roomPerDay)}ต่อวัน ส่วนไปหาหมอแล้วกลับบ้าน`;
-  const opdVoice = f.opd === "none" ? `${door} แผนนี้ไม่ได้รวมไว้ค่ะ`
+  const opdVoice = f.opd === "none" ? `${door}แบบทั่วไป แผนนี้ไม่ได้รวมไว้ค่ะ`
     : f.opd === "actual" ? `${door} จ่ายตามที่จ่ายจริง ตามเงื่อนไขของแผนค่ะ`
       : `${door} มีวงเงินรวม ${withBaht(f.opd)}ต่อปีค่ะ`;
   return [

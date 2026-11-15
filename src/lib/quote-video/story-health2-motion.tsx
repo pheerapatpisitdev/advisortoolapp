@@ -8,7 +8,7 @@ import { BAND_WORDS, HEALTH2_WORDS as W, n, provinceShort, thaiDate, type Health
 import { geoOf, Title, type Rect } from "./story-knowledge-motion";
 import { Card, handWidth } from "./story-life-motion";
 import { line, paper, Pic, type StoryContext } from "./story-motion";
-import { figWidth, fitFig, noteGeo, NoteLines } from "./story-save-motion";
+import { clamp, figWidth, fitFig, noteGeo, NoteLines } from "./story-save-motion";
 import type { VideoSize } from "./timeline";
 
 /**
@@ -99,7 +99,6 @@ export const H2_INK = { blue: BLUE, green: GREEN, gold: GOLD, red: RED, ink: C.i
 export interface H2Place { room: Rect; text: number }
 export const health2Place = (size: VideoSize): H2Place => ({ room: geoOf(size).dev, text: geoOf(size).text });
 
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const clamp01 = (x: number) => clamp(x, 0, 1);
 const ease = (p: number) => 1 - (1 - clamp01(p)) ** 3;
 const inside = (r: Rect, room: Rect) => r.x >= room.x && r.y >= room.y && r.x + r.w <= room.x + room.w && r.y + r.h <= room.y + room.h;
@@ -109,7 +108,7 @@ export { inside as h2Inside };
 
 /** where each long phrase may break (the drawing breaks Thai only where it is told to): its words, in order */
 const PHRASE: Record<string, string[]> = {
-  [W.noOpd]: ["แผนนี้", "ไม่มี", "ผู้ป่วยนอก"],
+  [W.noOpd]: ["แผนนี้", "ไม่มีวงเงิน", "ผู้ป่วยนอก", "ทั่วไป"],
   [W.opdIncludes]: ["ผู้ป่วยนอก", "รวม", "ค่าแพทย์ ", "ยา ", "และ", "กายภาพ"],
   [W.notBeyond]: ["ไม่เกิน", "ระยะเวลา", "ของ", "สัญญาหลัก"],
   [W.byAge]: ["เบี้ยปรับ", "ตาม", "ช่วงอายุ"],
@@ -118,8 +117,10 @@ const PHRASE: Record<string, string[]> = {
   [W.deductibleCard]: ["ส่วนรับผิดชอบ", "แรก", "ของแผน"],
   [W.taxCut]: ["ลูก", "นำ", "เบี้ย", "ไป", "ลดหย่อน", "ภาษี", "ได้"],
   [W.bothParents]: ["ต่อปี ", "รวม", "พ่อ", "และ", "แม่"],
-  [`${W.taxFoot} ${TAX_YEAR}`]: ["ตามเกณฑ์", "กรม", "สรรพากร ", "ปีภาษี ", TAX_YEAR.slice("ปีภาษี ".length)],
-  [W.perHeadYear]: ["ต่อคน", "ต่อปี"],
+  [`${W.taxFoot} ${TAX_YEAR}`]: ["ตามเกณฑ์", "กรม", "สรรพากร ", ...TAX_YEAR.split(/(?<= )/)],
+  [W.perHeadYear]: ["ประกันผู้ป่วยใน ", "ต่อคน", "ต่อปี"],
+  [W.deductibleWhen]: ["เมื่อเลือก", "แบบมี", "ส่วนรับผิดชอบ", "แรก"],
+  [W.copayWhen]: ["เมื่อเลือก", "แบบ", "ร่วมจ่าย"],
   [W.perHeadMonth]: ["เฉลี่ย", "ต่อคน", "ต่อเดือน"],
   [W.perAccident]: ["ค่ารักษา", "ต่อ", "อุบัติเหตุ ", "ไม่เกิน"],
   [W.offWork]: ["ทำงาน", "ไม่ได้", "ชั่วคราว ", "สัปดาห์", "ละ"],
@@ -362,8 +363,15 @@ export function deductibleAt(s: Record<string, Anim>, t: number) {
 
 /** where the bill bar stands: the bar to one scale (the split at the deductible), the amounts under each part, the card */
 export function deductibleGeo(size: VideoSize, show: Health2Show<"deductible">, place: H2Place = health2Place(size)) {
+  // the qualifier line under the card makes the group taller: in a short room the whole group is set a little smaller until it fits
+  let sc = 1;
+  let g = deductibleGeoAt(show, place, place.text);
+  while (g.over > 0 && sc > 0.5) { sc -= 0.04; g = deductibleGeoAt(show, place, Math.round(place.text * sc)); }
+  return g;
+}
+
+function deductibleGeoAt(show: Health2Show<"deductible">, place: H2Place, text: number) {
   const r = place.room;
-  const text = place.text;
   const parts = deductibleParts(show);
   const note = noteGeo(show.note, r.w - 40, text);
   const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
@@ -402,8 +410,11 @@ export function deductibleGeo(size: VideoSize, show: Health2Show<"deductible">, 
   const inner = cardW - pad * 2 - 8;
   const cardBlocks: Blk[] = [phrase(W.deductibleCard, inner, text * 1.05, C.ink, 600, 1), one(`${n(show.deductible)} ${W.perYear}`, inner, text * 1.6, C.ink, 700)];
   const cardH = cardBlocks.reduce((h, b) => h + blkH(b), 0) + pad * 2 + 8;
-  const groupH = billH + barH + tick + labelH + (notYet ? gap + notYet.h : 0) + gap * 1.5 + cardH;
+  // the qualifier: the figure is of the plan with a deductible, said small under the card
+  const when = lineGeo(W.deductibleWhen, r.x, 0, r.w, Math.round(text * 0.9));
+  const groupH = billH + barH + tick + labelH + (notYet ? gap + notYet.h : 0) + gap * 1.5 + cardH + gap + when.h;
   const area = r.h - noteBlock;
+  const over = Math.max(0, Math.ceil(groupH - area));
   const y0 = r.y + Math.max(0, Math.round((area - groupH) / 2));
   const barY = y0 + billH;
   const labelY = barY + barH + tick;
@@ -417,13 +428,14 @@ export function deductibleGeo(size: VideoSize, show: Health2Show<"deductible">, 
     return { x: lx, y: labelY, w: lw[i], h: labelH, name: names[i], amount: amounts[i] ? `${amounts[i]} ${W.baht}` : undefined, nameSize, amtSize, tickX: Math.round((lo + hi) / 2), color: i === 0 ? GOLD : GREEN, textColor: i === 0 ? C.ink : GREEN };
   };
   return {
-    parts, goldW, greenW,
+    over, parts, goldW, greenW,
     bar: { x: x0, y: barY, w: W0, h: barH },
     bill: parts.bill !== undefined ? { text: `${W.bill} ${n(parts.bill)} ${W.baht}`, size: billSize, x: x0, y: y0, w: W0, h: billH } : null,
     labels: [lab(0, gx), ...(hasGreen ? [lab(1, rx)] : [])],
     tick: { y: barY + barH, h: tick },
     notYet: notYet ? { ...notYet, y: notYetY } : null,
     card: { x: r.x + Math.round((r.w - cardW) / 2), y: cardY, w: cardW, h: cardH, pad, inner, blocks: cardBlocks },
+    when: { ...when, y: cardY + cardH + gap },
     note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
   };
 }
@@ -436,7 +448,7 @@ function Deductible({ d, show }: { d: Dev; show: Health2Show<"deductible"> }) {
   const b = geo.bar;
   const inner = { x: b.x + 4, y: b.y + 4, h: b.h - 8 };
   const goldNow = Math.round(Math.max(0, geo.goldW - 4) * at.ours);
-  const greenNow = Math.round((geo.greenW - (geo.goldW === b.w ? 0 : 0)) * at.theirs);
+  const greenNow = Math.round(geo.greenW * at.theirs);
   const bothDone = at.ours >= 1 && at.theirs >= 1 && geo.greenW > 0;
   return (
     <>
@@ -465,6 +477,7 @@ function Deductible({ d, show }: { d: Dev; show: Health2Show<"deductible"> }) {
       })}
       {geo.notYet ? <LineBlock an={s.theirs} t={t} g={geo.notYet} color={ink} /> : null}
       <CardAt an={s.card} t={t} r={geo.card} pad={geo.card.pad} tilt={-0.8} part="card"><Blocks blocks={geo.card.blocks} /></CardAt>
+      <LineBlock an={s.title} t={t} g={geo.when} color={ink} />
       <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
     </>
   );
@@ -494,7 +507,10 @@ export function copayGeo(size: VideoSize, show: Health2Show<"copay">, place: H2P
   const gap = Math.round(text * 0.55);
   const row = r.w / r.h > 2;
   const pad = Math.round(text * 0.4);
-  const area = { x: r.x, y: r.y, w: r.w, h: r.h - noteBlock };
+  // the qualifier: the percent is of the plan with a co-payment, said small above the note
+  const when = lineGeo(W.copayWhen, r.x, 0, r.w, Math.round(text * 0.9));
+  const whenBlock = when.h + gap;
+  const area = { x: r.x, y: r.y, w: r.w, h: r.h - noteBlock - whenBlock };
   // the card: three short lines, only with a bill
   const cardW = row ? Math.min(Math.round(area.w * 0.36), 600) : Math.min(area.w - 40, 760);
   const inner = cardW - pad * 2 - 8;
@@ -544,6 +560,7 @@ export function copayGeo(size: VideoSize, show: Health2Show<"copay">, place: H2P
     bracket: { x: sx + sw + 10, w: 10 },
     labels: { ours: { x: lx, y: oy, h: oh, blk: oursB, w: Math.ceil(bw) }, theirs: hasTheirs ? { x: lx, y: ty, h: th, blk: theirsB, w: Math.ceil(bw) } : null },
     card: cardRect ? { ...cardRect, pad, inner, blocks: cardBlocks } : null,
+    when: { ...when, y: r.y + r.h - noteBlock - when.h },
     note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
   };
 }
@@ -602,6 +619,7 @@ function Copay({ d, show }: { d: Dev; show: Health2Show<"copay"> }) {
           </div>
         </CardAt>
       ) : null}
+      <LineBlock an={s.title} t={t} g={geo.when} color={ink} />
       <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
     </>
   );
@@ -661,12 +679,10 @@ export function renewGeo(size: VideoSize, show: Health2Show<"renew98">, place: H
   const x2 = r.x + r.w - m;
   const rest = DOT * 2 + gap + h.labels + Math.round(gap * 1.5) + h.card;
   const peak = clamp(Math.min(Math.round((x2 - x1) * 0.2), area - rest), arcMin, Math.round(r.h * 0.3));
-  const total = peak * 2 + rest - peak; // the arc's visible height is its peak (a quadratic reaches half its control's lift)
   const y0 = r.y + Math.max(0, Math.round((area - (peak + rest)) / 2));
   const lineY = y0 + peak + DOT;
   const labelsY = lineY + DOT + gap;
   const cardY = labelsY + h.labels + Math.round(gap * 1.5);
-  void total;
   return {
     age, f, x1, x2, lineY, dot: DOT, peak,
     arc: { x1, x2, y: lineY - DOT, peak },
@@ -929,8 +945,8 @@ function Group({ d, show }: { d: Dev; show: Health2Show<"groupcost"> }) {
 /** the date the hospital list was fetched, as the foot writes it (Thai month, Buddhist year) */
 export const hospitalsFoot = () => `${W.asOf} ${thaiDate(HEALTH2_FIXED.hospitals.fetchedAt)}`;
 
-/** a bar's length at its full growth: to one scale from zero; a province with one hospital still shows a few pixels */
-export const barLength = (count: number, max: number, room: number) => (count <= 0 ? 0 : clamp(Math.round((room * count) / Math.max(max, 1)), 8, room));
+/** a bar's length at its full growth: to one scale from zero, never longer than its room; a tiny count is a 2 px hairline at least, never a padded bar */
+export const barLength = (count: number, max: number, room: number) => (count <= 0 ? 0 : Math.min(room, Math.max(2, Math.round((room * count) / Math.max(max, 1)))));
 
 /** where the provinces' bars, the total, the date and the line stand */
 export function hospitalsGeo(size: VideoSize, show: Health2Show<"hospitals">, place: H2Place = health2Place(size)) {
@@ -1007,7 +1023,8 @@ function Hospitals({ d, show }: { d: Dev; show: Health2Show<"hospitals"> }) {
         return (
           <Fragment key={bar.full + i}>
             <El an={s[`bar${i}`]} t={t} style={{ position: "absolute", left: bar.nameBox.x, top: bar.nameBox.y, width: bar.nameBox.w, height: bar.rowH, alignItems: "center", fontFamily: HAND, fontSize: geo.nameSize, fontWeight: 700, lineHeight: 1.3, color: ink, whiteSpace: "nowrap" }}>{bar.name}</El>
-            {now > 0 ? <div data-part={`bar${i}`} style={abs({ left: bar.x, top: bar.y + 4, width: Math.max(now, 4), height: bar.h, background: GREEN, border: `4px solid ${C.ink}`, borderRadius: 10 })} /> : null}
+            {now > 0 ? <div data-part={`bar${i}`} style={abs({ left: bar.x, top: bar.y + 4, width: now, height: bar.h, background: C.ink, borderRadius: 10 })} /> : null}
+            {now > 12 ? <div data-part={`barfill${i}`} style={abs({ left: bar.x + 4, top: bar.y + 8, width: now - 8, height: bar.h - 8, background: GREEN, borderRadius: 6 })} /> : null}
             {p > 0 ? <div data-part={`count${i}`} style={abs({ left: bar.x + now + 10, top: bar.y, width: geo.countW, height: bar.rowH, alignItems: "center", fontFamily: HAND, fontSize: geo.countSize, fontWeight: 700, lineHeight: 1.3, color: ink, whiteSpace: "nowrap" })}>{bar.countText}</div> : null}
           </Fragment>
         );

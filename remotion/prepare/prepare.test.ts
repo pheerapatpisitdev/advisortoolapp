@@ -511,7 +511,7 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
   const hSecs2 = hPcms.map((p) => pcmSeconds(p, 24000));
   const hPlans2 = planScenes(hScript2.map((x, i) => ({ key: x.key, voice: x.voice, voiceSec: hSecs2[i], windows: x.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS, ...(x.key === "storyContact" ? {} : freeTail(h2.scenes[i], hSecs2[i])) })));
   writeFileSync(join(PUB, "audio/st-free-health2.wav"), mixNarration(hPcms.map((pcm, i) => ({ pcm, at: hPlans2[i].voiceAt })), clipLength(hPlans2), 24000));
-  for (const style of ["paper", "neon"] as const) {
+  for (const style of ["paper"] as const) {
     writeFileSync(join(PUB, `props/st-free-health2-${style}.json`), JSON.stringify(storyClipProps({ ...h2, style } as never, "portrait", "", "F", CONTACT, hPlans2, hScript2, hSecs2, clipLength(hPlans2), "audio/st-free-health2.wav", [undefined, undefined, undefined, undefined])));
   }
 

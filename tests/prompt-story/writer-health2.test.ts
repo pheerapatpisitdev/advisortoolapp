@@ -5,7 +5,7 @@ import { checkDevice, deviceAllowed } from "@/lib/prompt-story/check";
 import { deviceFields, deviceReason, pictureCount, sceneKind, setDeviceWord } from "@/lib/prompt-story/editor-state";
 import { pictureScenes, type DeviceScene } from "@/lib/prompt-story/types";
 import { FORBIDDEN } from "@/lib/quote-video/brief";
-import { HEALTH2_LAYOUTS, HEALTH2_LIMITS, type Health2Layout } from "@/lib/quote-video/story-knowledge";
+import { HEALTH2_LAYOUTS, HEALTH2_LIMITS, HEALTH2_WORDS, type Health2Layout } from "@/lib/quote-video/story-knowledge";
 import { DEVICES } from "@/lib/scene-library/devices";
 
 /**
@@ -21,7 +21,7 @@ const BRIEF = "ลูกค้าอายุ 35 ปี แผนสุขภา
 const T: [string, string] = ["สองประตู", "คนละวงเงิน"];
 
 const GOOD: Record<Health2Layout, DeviceScene> = {
-  ipdopd: { layout: "ipdopd", title: T, note: "นอนโรงพยาบาลกับไปหาหมอ", room: 9_000, opd: 12_000, planName: "แผนทอง" },
+  ipdopd: { layout: "ipdopd", title: T, note: "นอนโรงพยาบาลกับไปหาหมอ", room: 9_000, opd: 12_000, planName: "Gold" },
   deductible: { layout: "deductible", title: ["ส่วนรับผิดชอบแรก", "จ่ายเองก่อน"], deductible: 50_000, bill: 100_000 },
   copay: { layout: "copay", title: ["ร่วมจ่าย", "ส่วนที่เราจ่าย"], percent: 20, bill: 100_000 },
   renew98: { layout: "renew98", title: ["ต่ออายุได้ถึง", "อายุที่แผนกำหนด"], to: 98, age: 35 },
@@ -52,7 +52,7 @@ describe("writeStory with the eight สุขภาพเพิ่มเติ�
     copay: without(GOOD.copay, "bill"),
     renew98: without(GOOD.renew98, "age"),
     parentshealth: GOOD.parentshealth as unknown as Record<string, unknown>,
-    groupcost: GOOD.groupcost as unknown as Record<string, unknown>,
+    groupcost: without(GOOD.groupcost, "band"),
     hospitals: GOOD.hospitals as unknown as Record<string, unknown>,
     paclaim: GOOD.paclaim as unknown as Record<string, unknown>,
   };
@@ -95,6 +95,7 @@ describe("writeStory with the eight สุขภาพเพิ่มเติ�
     ["a hospitals province twice", { ...GOOD.hospitals, rows: [{ province: "ชลบุรี", count: 49 }, { province: "ชลบุรี", count: 49 }] }],
     ["six hospitals rows", { ...GOOD.hospitals, rows: Array.from({ length: HEALTH2_LIMITS.rows + 1 }, () => ({ province: "ชลบุรี", count: 49 })) }],
     ["a paclaim medical no plan has", { ...GOOD.paclaim, medical: 123_456 }],
+    ["an ipdopd room and OPD of two different plans (final review 1)", { ...GOOD.ipdopd, room: 1_500, opd: 60_000, planName: "Smart" }],
     ["an ipdopd without its room", { layout: "ipdopd", title: T, opd: 12_000 }],
     ["a digit in ipdopd's title", { ...GOOD.ipdopd, title: ["แผน 9000", ""] }],
     ["a Thai digit in a note", { ...GOOD.deductible, note: "จ่ายเอง ๕ หมื่น" }],
@@ -126,6 +127,9 @@ describe("writeStory with the eight สุขภาพเพิ่มเติ�
     ["a paclaim weekly no plan has (weeks go with it)", { ...GOOD.paclaim, weekly: 1_234 }, without(GOOD.paclaim, "weekly", "weeks")],
     ["paclaim weeks without a weekly", { ...GOOD.paclaim, weekly: undefined }, without(GOOD.paclaim, "weekly", "weeks")],
     ["paclaim weeks other than the plans' own", { ...GOOD.paclaim, weeks: 30 }, without(GOOD.paclaim, "weeks")],
+    ["a groupcost band no number of the brief falls in (final review 2)", GOOD.groupcost as unknown as Record<string, unknown>, without(GOOD.groupcost, "band")],
+    ["a paclaim weekly of another plan than its medical (final review 3)", { ...GOOD.paclaim, medical: 80_000, weekly: 10_000 }, { ...without(GOOD.paclaim, "weekly", "weeks"), medical: 80_000 }],
+    ["an ipdopd plan name that is not the matched plan's (final review 1)", { ...GOOD.ipdopd, planName: "Silver" }, without(GOOD.ipdopd, "planName")],
     ["a groupcost band that is not one of the three", { ...GOOD.groupcost, band: "5-9" }, without(GOOD.groupcost, "band")],
   ];
   for (const [what, device, want] of KEPT) {
@@ -185,6 +189,14 @@ describe("the system prompt for the eight สุขภาพเพิ่มเ�
     expect(rule).toContain("รายวัน");
     expect(rule).toContain("ต่อสัปดาห์");
     expect(rule).toContain("ต่อคนต่อปี");
+    // the example provinces are the biggest by count, most first (not the file's key order): the five the spec's stills use
+    const hosp = rule.split("\n").find((l) => l.startsWith("- hospitals"))!;
+    const at = ["กรุงเทพมหานคร 135", "ชลบุรี 49", "ระยอง 38", "สมุทรปราการ 25", "นนทบุรี 22", "ปทุมธานี 22", "สุราษฎร์ธานี 16", "เชียงใหม่ 14"].map((x) => hosp.indexOf(x));
+    expect(at.every((i) => i > -1)).toBe(true);
+    expect([...at].sort((x, y) => x - y)).toEqual(at);
+    // the one-plan rules are told (final review 1 to 3)
+    expect(rule).toContain("ของแผนเดียวกัน");
+    expect(rule).toContain("Gold 9,000 / 12,000");
     expect(system).toContain(`ไม่เกิน ${HEALTH2_LIMITS.titleLine} ตัวอักษร note ไม่เกิน ${HEALTH2_LIMITS.note}`);
     expect(system).toContain(`ไม่เกิน ${HEALTH2_LIMITS.label} ตัวอักษร`);
   });
@@ -211,7 +223,9 @@ describe("the script editor with the eight สุขภาพเพิ่มเ�
   });
 
   it("shows ipdopd's two words for the OPD as words", () => {
-    expect(deviceFields({ ...GOOD.ipdopd, opd: "none" } as DeviceScene).numbers[1]).toEqual({ label: "ผู้ป่วยนอกต่อปี", value: "ไม่มีผู้ป่วยนอก" });
+    expect(deviceFields({ ...GOOD.ipdopd, opd: "none" } as DeviceScene).numbers[1]).toEqual({ label: "ผู้ป่วยนอกต่อปี", value: "แผนนี้ไม่มีวงเงินผู้ป่วยนอกทั่วไป" });
+    // the editor says the OPD as the card draws it
+    expect(deviceFields({ ...GOOD.ipdopd, opd: "none" } as DeviceScene).numbers[1].value).toBe(HEALTH2_WORDS.noOpd);
     expect(deviceFields({ ...GOOD.ipdopd, opd: "actual" } as DeviceScene).numbers[1]).toEqual({ label: "ผู้ป่วยนอกต่อปี", value: "ตามที่จ่ายจริง" });
   });
 

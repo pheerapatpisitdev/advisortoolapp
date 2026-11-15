@@ -164,6 +164,13 @@ describe("they tell the paper's story with its words and figures", () => {
     });
   });
 
+  it("deductible and copay say which plan the figure is of (final review 6), in every look", () => {
+    each((size, art, label) => {
+      for (const show of deds) expect(flat(draw(show, size, art)), `${label} deductible`).toContain(W.deductibleWhen.replace(/ /g, ""));
+      for (const show of cops) expect(flat(draw(show, size, art)), `${label} copay`).toContain(W.copayWhen.replace(/ /g, ""));
+    });
+  });
+
   it("ipdopd: both cards with the sheet's figures and the plan's name; \"none\" keeps the second door shut and drops the OPD line and figure", () => {
     each((size, art, label) => {
       const full = words(draw(ipds[0], size, art));
