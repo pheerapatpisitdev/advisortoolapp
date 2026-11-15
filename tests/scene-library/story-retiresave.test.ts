@@ -121,6 +121,11 @@ describe("retiresave: the figures are the engine's", () => {
     if (!r.ok) throw new Error(r.error);
     const s = scenes(six);
     expect(s[2].show).toMatchObject({ years: 6 });
+    // the voice does not say the payments run to retirement when they stop after six years
+    expect(s[2].voice).toBe("ทางหนึ่งคือแบ่งเงินส่งเข้าแผนบำนาญทุกปี ส่งแค่หกปี แล้วรอรับตอนเกษียณค่ะ");
+    expect(s[2].voice).not.toMatch(/\d|จนถึงวันเกษียณ/);
+    expect(s[3].voice).toBe(scenes()[3].voice);
+    expect(scenes()[2].voice).toBe("ทางหนึ่งคือแบ่งเงินส่งเข้าแผนบำนาญทุกปี ตั้งแต่วันนี้ จนถึงวันเกษียณค่ะ");
     expect(s[3].show).toMatchObject({ payFrom: 40, payTo: 45, got: r.quote.totalPension });
   });
 
