@@ -1,29 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  clipPath, clipProblem, clockOf, isClipPath, isReelPiece, reelDescription, spokenNotes, clipOutput, clipFiles, NO_FLAGS, type ClipVideo,
+  clipPath, clockOf, isClipPath, isReelPiece, reelDescription, spokenNotes, clipOutput, clipFiles, NO_FLAGS, type ClipVideo,
 } from "@/lib/content/clip";
 
-const ok = { sizeBytes: 20_000_000, durationSec: 45, width: 1080, height: 1920, mime: "video/mp4" };
 const video = (over: Partial<ClipVideo> = {}): ClipVideo => ({
   path: "p/x.mp4", durationSec: 45, width: 1080, height: 1920, sizeBytes: 1, mime: "video/mp4",
   uploadedAt: "2026-10-02T00:00:00Z", caption: "แคปชัน", flags: NO_FLAGS, transcript: [], ...over,
-});
-
-describe("clipProblem", () => {
-  it("passes a vertical mp4 or mov within 3–90 seconds and 300MB", () => {
-    expect(clipProblem(ok)).toBeNull();
-    expect(clipProblem({ ...ok, mime: "video/quicktime" })).toBeNull();
-    expect(clipProblem({ ...ok, durationSec: 90.3 })).toBeNull();
-  });
-  it("names what is wrong, in Thai, before anything is uploaded", () => {
-    expect(clipProblem({ ...ok, mime: "video/webm" })).toContain(".mp4");
-    expect(clipProblem({ ...ok, sizeBytes: 314572801 })).toContain("300MB");
-    expect(clipProblem({ ...ok, durationSec: 2 })).toContain("3 วินาที");
-    expect(clipProblem({ ...ok, durationSec: 91 })).toContain("90 วินาที");
-    expect(clipProblem({ ...ok, width: 1920, height: 1080 })).toContain("แนวตั้ง");
-    expect(clipProblem({ ...ok, durationSec: Number.NaN })).not.toBeNull();
-    expect(clipProblem({ ...ok, sizeBytes: 0 })).not.toBeNull();
-  });
 });
 
 describe("clip paths", () => {

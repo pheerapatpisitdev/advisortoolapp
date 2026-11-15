@@ -1,9 +1,8 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Card } from "../ui";
-import type { VideoSettings } from "@/lib/video/settings";
 import {
-  checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setProviderEnabled, saveSettings, resetSpend,
+  checkKeys, saveApiKey, saveRenderKey, setProviderEnabled, saveSettings, resetSpend,
   type KeyRow, type VideoKeyRow, type ProviderCheck, type Result, type Settings,
 } from "./actions";
 import { PROVIDER_LABEL } from "./labels";
@@ -59,12 +58,12 @@ function Status({ check }: { check?: ProviderCheck }) {
 
 
 /** asked before Google Cloud Run is switched off: its key drives far more than clips (owner chose ข, 2026-11-11) */
-const GCP_OFF_CONFIRM = "ปิด Google Cloud Run ใช่ไหม?\n\nงานเหล่านี้จะหยุดทั้งเว็บจนกว่าจะเปิดอีกครั้ง:\n• ทำวิดีโอทุกแบบ\n• ตัดต่อคลิปของเอเจนต์\n• เสียงพากย์ Gemini ทาง Cloud\n• การ์ดสรุป ตาราง และ PDF ใบเสนอ รวมถึงรูปที่บอทส่งให้ลูกค้า";
+const GCP_OFF_CONFIRM = "ปิด Google Cloud Run ใช่ไหม?\n\nงานเหล่านี้จะหยุดทั้งเว็บจนกว่าจะเปิดอีกครั้ง:\n• ทำวิดีโอทุกแบบ\n• เสียงพากย์ Gemini ทาง Cloud\n• การ์ดสรุป ตาราง และ PDF ใบเสนอ รวมถึงรูปที่บอทส่งให้ลูกค้า";
 
 export function AiClient({ keys, settings, providers, spentThisMonth, content, video, rates, lanesCard }: {
   keys: KeyRow[]; settings: Settings | null; providers: string[];
   spentThisMonth: number | null; content: { spent: number | null; cap: number; fallback: number };
-  video: { settings: VideoSettings; keys: VideoKeyRow[] };
+  video: { keys: VideoKeyRow[] };
   /** ภาพขยับ's keys, fal.ai and Runware (owner, 2026-10-16): their own card, since they have no chat model to test */
   /** the premium tables in force (src/calc/plans/tables-meta.ts): their own card since 2026-10-15 */
   rates: { version: string; expiresOn: string; daysLeft: number; expired: boolean };
@@ -115,7 +114,6 @@ export function AiClient({ keys, settings, providers, spentThisMonth, content, v
     });
   };
 
-  const [engine, setEngine] = useState<VideoSettings>(video.settings);
   // Google Cloud Run: the service account file is pasted whole; region and job are typed beside it
   const [gcp, setGcp] = useState({ region: "asia-southeast1", job: "clip-ffmpeg" });
   const gcpHeld = video.keys.find((k) => k.provider === "gcp");
@@ -236,25 +234,7 @@ export function AiClient({ keys, settings, providers, spentThisMonth, content, v
                 </button>
               </span>
             </span>
-            {/* saved as it is ticked: no button of its own */}
-            <label className="flex basis-full items-center gap-2 text-sm">
-              <input
-                type="checkbox" checked={engine.enabled} disabled={pending}
-                onChange={(e) => {
-                  const next = { enabled: e.target.checked };
-                  setEngine(next);
-                  run("engine", async () => {
-                    const res = await saveVideoEngine(next);
-                    if (!res.ok) setEngine({ enabled: !next.enabled });
-                    return res;
-                  }, `${next.enabled ? "เปิด" : "ปิด"}ให้เอเจนต์ตัดต่อคลิปแล้ว`);
-                }}
-              />
-              <span>เปิดให้เอเจนต์ตัดต่อคลิป</span>
-              <span className="text-xs text-[var(--bot-ink-mute)]">· ปิดอยู่ = เอเจนต์ไม่เห็นปุ่มตัดต่อ · คลิปที่กำลังทำอยู่ยังทำต่อจนเสร็จ</span>
-            </label>
             <Said note={note} where="render:gcp" className="basis-full" />
-            <Said note={note} where="engine" className="basis-full" />
           </div>
         </div>
         <p className="mt-3 text-xs text-[var(--bot-ink-mute)]">

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const ID = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
 const state = vi.hoisted(() => ({
   mine: [{ pageId: "pA", pageName: "A" }, { pageId: "pB", pageName: "B" }] as { pageId: string; pageName: string }[],
-  opened: null as null | { id: string; pageId: string | null },
+  opened: null as null | { id: string; pageId: string | null; planHref?: string; format?: string },
 }));
 const actions = vi.hoisted(() => ({
   contentWorkbench: vi.fn(async () => ({ items: [], counts: { draft: 0, used: 0, trashed: 0 } })),
@@ -23,8 +23,6 @@ vi.mock("@/app/studio/actions", () => actions);
 const viewer = vi.hoisted(() => ({ current: { agentId: "a1", staff: null } as unknown }));
 vi.mock("@/lib/auth/viewer", () => ({ getViewer: vi.fn(async () => viewer.current) }));
 vi.mock("@/lib/content/calendar", async (orig) => ({ ...(await orig<typeof import("@/lib/content/calendar")>()), todayKey: () => "2026-09-30" }));
-const clip = vi.hoisted(() => ({ enabled: true, failed: false }));
-vi.mock("@/lib/video/settings", () => ({ videoSettings: vi.fn(async () => { if (clip.failed) throw new Error("db down"); return { enabled: clip.enabled }; }) }));
 vi.mock("@/app/studio/ContentStudio", () => ({ ContentStudio: () => null }));
 
 const { StudioPage } = await import("@/app/studio/StudioPage");
@@ -36,8 +34,6 @@ beforeEach(() => {
   state.mine = [{ pageId: "pA", pageName: "A" }, { pageId: "pB", pageName: "B" }];
   state.opened = null;
   pages.failed = false;
-  clip.enabled = true;
-  clip.failed = false;
   viewer.current = { agentId: "a1", staff: null };
 });
 
@@ -101,15 +97,12 @@ describe("an agent who plans rather than posts (owner, 2026-09-30)", () => {
   });
 });
 
-describe("the clip editing switch", () => {
-  const flag = async () => ((await StudioPage({})) as { props: { clipEditing: boolean } }).props.clipEditing;
-  it("reaches the workbench as the owner set it", async () => {
-    expect(await flag()).toBe(true);
-    clip.enabled = false;
-    expect(await flag()).toBe(false);
-  });
-  it("is off when the setting cannot be read", async () => {
-    clip.failed = true;
-    expect(await flag()).toBe(false);
+describe("a Reel opened from the calendar (ตัดต่อคลิป removed, owner chose ก + 1, 2026-11-15)", () => {
+  it("opens in the workbench's Reel editor, in its own Page's project, with no editing switch", async () => {
+    state.opened = { id: ID, pageId: "pB", planHref: "clip", format: "clip" };
+    const props = ((await StudioPage({ open: ID })) as { props: Record<string, unknown> }).props;
+    expect((props.initialOpen as { id: string }).id).toBe(ID);
+    expect(props.project).toEqual({ pageId: "pB", pageName: "B" });
+    expect(props).not.toHaveProperty("clipEditing");
   });
 });

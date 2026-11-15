@@ -43,7 +43,7 @@ export function WalletAdmin({ settings, rows, frozen = [] }: {
             เปิดให้ตัวแทนเติมเงินและใช้ AI ต่อจากกระเป๋าเมื่อเครดิตหมด
           </label>
           <label className="block text-sm">
-            <span className="block text-xs text-[var(--bot-ink-mute)]">ตัวคูณราคา สำหรับเขียนโพสต์และตัดต่อคลิป (ต้นทุนจริงของ AI × ตัวคูณ, 1 ถึง 10) · รูปและวิดีโอใช้ราคาที่หน้าราคาและโปรโมชัน</span>
+            <span className="block text-xs text-[var(--bot-ink-mute)]">ตัวคูณราคา สำหรับเขียนโพสต์ (ต้นทุนจริงของ AI × ตัวคูณ, 1 ถึง 10) · รูปและวิดีโอใช้ราคาที่หน้าราคาและโปรโมชัน</span>
             <input inputMode="decimal" value={multiplier} onChange={(e) => setMultiplier(e.target.value)} className={`mt-1 w-32 ${input}`} />
           </label>
           <div className="flex flex-wrap items-center gap-3">

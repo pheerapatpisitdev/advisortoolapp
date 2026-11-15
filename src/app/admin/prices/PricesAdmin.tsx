@@ -81,7 +81,7 @@ function PriceCard({ prices }: { prices: Prices }) {
             </div>
           </div>
         ))}
-        <p className="text-xs text-[var(--bot-ink-mute)]">เขียนโพสต์ 8 แบบ และถอดเสียง/ตัดต่อคลิป ยังคิดต้นทุนจริง × ตัวคูณด้านบน</p>
+        <p className="text-xs text-[var(--bot-ink-mute)]">เขียนโพสต์ 8 แบบ ยังคิดต้นทุนจริง × ตัวคูณด้านบน</p>
         {(
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={save} disabled={pending} className={primary}>

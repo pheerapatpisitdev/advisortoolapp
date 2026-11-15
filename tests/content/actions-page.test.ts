@@ -542,12 +542,7 @@ describe("the workbench list", () => {
     expect(wb.counts.draft).toBe(57);
   });
 
-  it("lists the clips alone for ตัดต่อคลิป, and leaves them out of Organic even when asked by plan (owner chose ก, 2026-10-19)", async () => {
-    store.listContent.mockResolvedValueOnce([]);
-    store.countByStatus.mockResolvedValueOnce({ draft: 0, used: 0, trashed: 0 });
-    await contentWorkbench({ status: "used", clips: true });
-    expect(store.listContent).toHaveBeenCalledWith({ status: "used", planHref: "clip", notPlanHref: undefined, pageId: PAGE }, 40, 0);
-    expect(store.countByStatus).toHaveBeenCalledWith("clip", PAGE, undefined);
+  it("leaves the clips out of Organic even when asked by plan (ตัดต่อคลิป removed, owner chose ก + 1, 2026-11-15)", async () => {
     store.listContent.mockResolvedValueOnce([]);
     store.countByStatus.mockResolvedValueOnce({ draft: 0, used: 0, trashed: 0 });
     await contentWorkbench({ status: "draft", planHref: "clip" });

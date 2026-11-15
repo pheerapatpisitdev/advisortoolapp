@@ -96,6 +96,8 @@ const nextConfig: NextConfig = {
       { source: "/backoffice/:path*", destination: "/", permanent: false },
       // เสียงของฉัน, the agent's own cloned voice, until the owner took it out (2026-10-17)
       { source: "/studio/voice", destination: "/studio/quote-video", permanent: false },
+      // ตัดต่อคลิป removed (owner chose ก + 1, 2026-11-15): an old link, ?open= kept, opens the Reel in Organic Studio
+      { source: "/studio/clip-edit", destination: "/studio/write", permanent: false },
       { source: "/admin/voices", destination: "/admin", permanent: false },
     ];
   },

@@ -10,12 +10,10 @@ import { checkBudgets } from "./budget";
 import { usageByPerson, type PersonUse } from "./people";
 import { requireStaff } from "@/lib/auth/viewer";
 import { walletChargedThb } from "@/lib/wallet/store";
-import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/video/settings";
 import { gcpKeyFromUpload, parseGcpKey } from "@/lib/video/engines/cloudrun";
 import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
 
 const monthStartMs = () => monthStart().getTime();
-const DEFAULT_VIDEO: VideoSettings = { enabled: false };
 
 export type { ProviderCheck } from "@/lib/ai/client";
 export type { PersonUse } from "./people";
@@ -115,8 +113,8 @@ export async function loadAiPage(): Promise<{
    * that ceiling is when the box is left empty — the page says so beside the box.
    */
   content: { spent: number | null; cap: number; fallback: number };
-  /** the clip render services: how they are set, and the last four characters of each key held */
-  video: { settings: VideoSettings; keys: VideoKeyRow[] };
+  /** the render service (Google Cloud Run): the last four characters of its key, and its switch */
+  video: { keys: VideoKeyRow[] };
   /** who used AI this month and how much; null when it could not be read */
   people: PersonUse[] | null;
 }> {
@@ -149,15 +147,10 @@ export async function loadAiPage(): Promise<{
   const contentSpent = spend ? Math.max(0, contentBaht(spend.lines) - (await walletChargedThb(since))) : null;
   const disabled = new Set((prefs.data ?? []).filter((p) => !p.enabled).map((p) => p.model_id));
   const heldKeys = (keys.data ?? []) as { provider: string; tail: string; enabled: boolean | null }[];
-  // a settings row that cannot be read must not take the keys page down with it
-  const videoCfg = await videoSettings().catch((e) => {
-    console.error("อ่านการตั้งค่าตัดต่อไม่สำเร็จ:", e instanceof Error ? e.message : "unknown");
-    return DEFAULT_VIDEO;
-  });
   const videoKeys = await renderKeysShown(heldKeys);
   return {
     people,
-    video: { settings: videoCfg, keys: videoKeys },
+    video: { keys: videoKeys },
     keys: heldKeys
       .filter((k) => !(RENDER_PROVIDERS as readonly string[]).includes(k.provider))
       .map((k) => ({ provider: k.provider, tail: k.tail, enabled: k.enabled !== false })),
@@ -322,19 +315,6 @@ export async function saveRenderKey(provider: RenderProvider, key: string, gcp?:
     return storeKey(provider, stored);
   }
   return { ok: false, error: "บริการไม่ถูกต้อง" };
-}
-
-/** Whether agents may edit clips. */
-export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
-  await requireStaff("backoffice");
-  if (typeof s?.enabled !== "boolean") return { ok: false, error: "ค่าเปิดตัดต่อไม่ถูกต้อง" };
-  try {
-    await saveVideoSettings({ enabled: s.enabled });
-  } catch (e) {
-    return failed("บันทึกตัวตัดต่อไม่สำเร็จ", e);
-  }
-  revalidatePath("/admin/ai");
-  return { ok: true };
 }
 
 /**

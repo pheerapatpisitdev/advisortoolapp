@@ -8,7 +8,6 @@ export const TOOL_LOGOS = {
   sc: "Sc", // คลิปเล่าเรื่อง · Story clip
   pc: "Pc", // คลิปตามโจทย์ · Prompt clip
   og: "Og", // Organic Studio
-  ce: "Ce", // ตัดต่อคลิป · Clip edit
   th: "Th", // ภาพปกคลิป · Thumbnail
   dp: "Dp", // ถอดรูปเป็น prompt · Describe picture
   ad: "Ad", // Ads Studio

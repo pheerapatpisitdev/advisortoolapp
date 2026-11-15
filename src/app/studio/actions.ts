@@ -904,10 +904,10 @@ const WORKBENCH_PAGE = 40;
 /** `page`: the Page whose project is open; the server settles it (projectPage), so another Page's cannot be asked for */
 /** `before`: the oldest piece the board shows, to load the ones after it (a cursor, not a count: owner 2026-10-18) */
 /**
- * `clips`: the clip pieces alone, for ตัดต่อคลิป (/studio/clip-edit); without it, every piece
- * but those — the clips left Organic for their own page (owner chose ก, 2026-10-19).
+ * Every piece but the clips: a Reel piece (วิดีโอนำเสนอ's ลงปฏิทินเพจ) is reached from the Page
+ * calendar. Its list page, ตัดต่อคลิป, was removed (owner chose ก + 1, 2026-11-15).
  */
-export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number; before?: string; page?: string; clips?: boolean }): Promise<Workbench> {
+export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number; before?: string; page?: string }): Promise<Workbench> {
   await requireMember();
   try {
     const project = await projectPage(filter.page);
@@ -915,9 +915,8 @@ export async function contentWorkbench(filter: { status: ContentStatus; planHref
     if (!project.ok) return { items: [], counts: { draft: 0, used: 0, trashed: 0 }, failed: true };
     const pageId = project.pageId ?? undefined;
     const offset = Math.max(0, Math.floor(Number(filter.offset) || 0));
-    const clips = filter.clips === true;
-    const planHref = clips ? CLIP_HREF : filter.planHref === CLIP_HREF ? undefined : filter.planHref;
-    const notPlanHref = clips ? undefined : CLIP_HREF;
+    const planHref = filter.planHref === CLIP_HREF ? undefined : filter.planHref;
+    const notPlanHref = CLIP_HREF;
     const [items, counts] = await Promise.all([
       listContent({
         status: filter.status, planHref, notPlanHref, pageId,

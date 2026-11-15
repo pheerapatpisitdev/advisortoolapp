@@ -772,7 +772,6 @@ body:has(.theme-legacy) {
 .tool-logo-sc { background: #1f0040; color: #d291ff; } /* คลิปเล่าเรื่อง */
 .tool-logo-pc { background: #2b0a3d; color: #f08cff; } /* คลิปตามโจทย์ */
 .tool-logo-og { background: #001e36; color: #31a8ff; } /* Organic Studio */
-.tool-logo-ce { background: #1c2a00; color: #b5e61d; } /* ตัดต่อคลิป */
 .tool-logo-th { background: #330000; color: #ff9a00; } /* ภาพปกคลิป */
 .tool-logo-dp { background: #49021f; color: #ff3366; } /* ถอดรูปเป็น prompt */
 .tool-logo-ad { background: #2e001f; color: #ff61f6; } /* Ads Studio */

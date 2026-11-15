@@ -72,7 +72,7 @@ const quoted = (s: string) => {
   return bare ? `“${snippet(bare)}”` : "";
 };
 
-const FORMAT_WORD: Record<string, string> = { post: "เขียนโพสต์", script: "เขียนสคริปต์", ad: "เขียนแอด", clip: "ตัดต่อคลิป" };
+const FORMAT_WORD: Record<string, string> = { post: "เขียนโพสต์", script: "เขียนสคริปต์", ad: "เขียนแอด", clip: "คลิป Reel" };
 
 const PRODUCT_NAME: Record<string, string> = {
   LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life",

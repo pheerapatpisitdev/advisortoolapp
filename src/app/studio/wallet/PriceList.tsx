@@ -38,10 +38,6 @@ export function PriceList({ prices, multiplier }: { prices: Prices; multiplier: 
               <span className="min-w-0">เขียนโพสต์, หาทีม, ความรู้, เขียนเอง, ขอบคุณลูกค้า, โชว์ผลงาน, คำคม, รีวิวเคลม</span>
               <b className="shrink-0 tabular-nums">เฉลี่ยไม่ถึง ฿{perPostUnder(multiplier).toFixed(2)} / ชิ้น</b>
             </li>
-            <li className={row}>
-              <span className="min-w-0">ถอดเสียงและตัดต่อคลิปที่ถ่ายเอง</span>
-              <b className="shrink-0">ตามต้นทุนจริง ×{multiplier}</b>
-            </li>
           </ul>
         </div>
       </div>

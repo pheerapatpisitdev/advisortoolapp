@@ -4,42 +4,22 @@ import type { PieceFormat } from "./prompt";
 import type { ContentItem, Flags } from "./store";
 
 /**
- * A clip an agent filmed and uploads to post as a Reel (owner, 2026-10-02): the rules a file
- * must meet, where it is filed, and what goes to Facebook with it. No I/O here — the browser
- * checks a file with the same clipProblem the server checks it with again.
+ * A Reel piece (owner, 2026-10-02): where its clip is filed and what goes to Facebook with it.
+ * No I/O here. Agents' own filmed clips, their transcription and ตัดต่อคลิป were removed
+ * 2026-11-15 (owner chose ก + 1); a Reel piece now comes from วิดีโอนำเสนอ's ลงปฏิทินเพจ, and
+ * the edit and transcript shapes below stay only to read the pieces made before.
  */
 
 export const CLIP_BUCKET = "content-video";
 /** the plan_href of a clip uploaded on its own, and the name the workbench shows for it */
 export const CLIP_HREF = "clip";
 export const CLIP_NAME = "คลิป";
-/** 300MB: a 90-second phone clip at 1080p is 15–30MB; 4K runs to hundreds (owner chose 300, 2026-10-02) */
-export const CLIP_MAX_BYTES = 300 * 1024 * 1024;
-/** Reels take 3 to 90 seconds (Facebook's Reels publishing guide) */
-export const CLIP_MIN_SEC = 3;
-export const CLIP_MAX_SEC = 90;
-/** an edited Reel is at most a minute (owner, 2026-10-02); the clip filmed may run to CLIP_MAX_SEC */
-export const MAX_EDITED_SECONDS = 60;
-/** an edit that leaves more than a minute, with how much more to cut, in whole seconds */
-export const tooLong = (kept: number): string =>
-  `คลิปที่ตัดแล้วยาว ${Math.ceil(kept)} วินาที — Reel ที่ตัดต่อต้องไม่เกิน 1 นาที ตัดออกอีก ${Math.ceil(kept - MAX_EDITED_SECONDS)} วินาที`;
 /** a clip never scheduled keeps its file this long; then the sweep lets it go (owner, 2026-10-02) */
 export const CLIP_DRAFT_DAYS = 60;
-export const MAX_CLIP_BRIEF = 300;
 export const MAX_CAPTION = 2200;
 
 const EXT: Record<string, "mp4" | "mov"> = { "video/mp4": "mp4", "video/quicktime": "mov" };
-export const CLIP_MIMES = Object.keys(EXT);
 
-export interface ClipFile {
-  sizeBytes: number;
-  durationSec: number;
-  width: number;
-  height: number;
-  mime: string;
-}
-
-/** a stretch of speech, in seconds from the start of the clip */
 export interface Segment {
   start: number;
   end: number;
@@ -59,10 +39,7 @@ export interface SpokenFlag {
 
 /** the look of the words laid on a clip (owner, 2026-10-02: four ready styles, no free styling) */
 export type ClipStyle = "box" | "outline" | "yellow" | "page";
-export const CLIP_STYLES: readonly ClipStyle[] = ["box", "outline", "yellow", "page"];
 export interface Hook { top?: string; main: string }
-export const MAX_HOOK_MAIN = 28;
-export const MAX_HOOK_TOP = 24;
 /** the render service: our Cloud Run job (Rendi and AWS Lambda removed 2026-11-11, owner) */
 export type EngineName = "cloudrun";
 /** who pays for a render, kept on the job so the round is settled when the job ends */
@@ -141,14 +118,6 @@ export function renderRunning(edit: ClipEdit | undefined, now = Date.now()): boo
 export function submitting(edit: ClipEdit | undefined, now = Date.now()): boolean {
   return Boolean(edit?.submitting) && now - new Date(edit!.submitting!.at).getTime() <= SUBMIT_STALE_MS;
 }
-/**
- * The clip is being edited by a job — one on the edit, of either kind, or a submit about to make
- * one (a render under way counts by either). A new clip or a new transcript would pull the files
- * or the sentences out from under it (final review, 2026-10-02).
- */
-export function editBusy(edit: ClipEdit | undefined, now = Date.now()): boolean {
-  return Boolean(edit?.job) || renderRunning(edit, now) || submitting(edit, now);
-}
 /** a job that has not answered for this long has failed; the wallet hands a hold back at the same 15 minutes */
 export const EDIT_JOB_TIMEOUT_MS = 15 * 60_000;
 
@@ -200,33 +169,6 @@ export function forClient(item: ContentItem): ContentItem {
 /** every file a clip keeps in content-video: the clip, its preview, its edited take */
 export function clipFiles(v: ClipVideo): string[] {
   return [v.path, v.edit?.proxyPath, v.edit?.renderedPath].filter((p): p is string => Boolean(p));
-}
-
-/** "2:40 นาที" or "45 วินาที": a clip's length as the agent reads it */
-const spoken = (sec: number): string => {
-  const s = Math.round(sec);
-  return s < 60 ? `${s} วินาที` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} นาที`;
-};
-
-/** Why a length read from the file itself cannot be a Reel, with the length it found (owner chose 17ก, 2026-10-18); null when it can. */
-export function lengthProblem(sec: number): string | null {
-  if (sec < CLIP_MIN_SEC) return `คลิปยาว ${spoken(sec)} — Reel ต้องยาวอย่างน้อย ${CLIP_MIN_SEC} วินาที`;
-  if (sec > CLIP_MAX_SEC + 0.5) return `คลิปยาว ${spoken(sec)} ใช้ได้ไม่เกิน ${CLIP_MAX_SEC} วินาที — ตัดให้สั้นลงแล้วอัปโหลดใหม่`;
-  return null;
-}
-
-/** Why a file cannot be a Reel, in the agent's words; null when it can. */
-export function clipProblem(f: ClipFile): string | null {
-  if (!EXT[f.mime]) return "รับเฉพาะไฟล์ .mp4 หรือ .mov";
-  if (!(f.sizeBytes > 0)) return "ไฟล์ว่าง — เลือกไฟล์ใหม่นะครับ";
-  if (f.sizeBytes > CLIP_MAX_BYTES) return "ไฟล์ใหญ่เกิน 300MB — ตั้งกล้องถ่ายที่ 1080p แทน 4K แล้วลองใหม่";
-  if (!Number.isFinite(f.durationSec) || f.durationSec <= 0) return "อ่านความยาวคลิปไม่ได้ — ลองบันทึกคลิปใหม่จากแอปกล้อง";
-  if (f.durationSec < CLIP_MIN_SEC) return "คลิปสั้นเกินไป — Reel ต้องยาวอย่างน้อย 3 วินาที";
-  // a phone's 90-second clip reads 90.3 now and then; Facebook counts whole seconds
-  if (f.durationSec > CLIP_MAX_SEC + 0.5) return "คลิปยาวเกิน 90 วินาที — ตัดให้สั้นลงก่อนแล้วอัปโหลดใหม่";
-  if (!(f.width > 0 && f.height > 0)) return "อ่านขนาดภาพของคลิปไม่ได้ — ลองบันทึกคลิปใหม่จากแอปกล้อง";
-  if (f.height <= f.width) return "คลิปต้องเป็นแนวตั้ง (9:16) — Reel ไม่รับคลิปแนวนอน";
-  return null;
 }
 
 export function clipPath(pieceId: string, mime: string): string {

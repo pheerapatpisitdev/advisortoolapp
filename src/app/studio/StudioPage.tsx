@@ -8,12 +8,10 @@ import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/viewer";
 import { planTitle } from "@/lib/content/day-plan";
-import { redirect } from "next/navigation";
 import { CLIP_HREF, forClient } from "@/lib/content/clip";
 import { getContent, listContent, listHookTemplates, listPlanned } from "@/lib/content/store";
 import { contentSpend, contentWorkbench } from "./actions";
 import { ContentStudio } from "./ContentStudio";
-import { videoSettings } from "@/lib/video/settings";
 import { fillable, todayKey } from "@/lib/content/calendar";
 
 /**
@@ -28,8 +26,8 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
   const found = open && /^[0-9a-f-]{36}$/.test(open) ? await getContent(open).catch(() => null) : null;
   // a clip's render job keeps its round and webhook secret's hash on the row; the browser gets neither
   const opened = found ? forClient(found) : null;
-  // a clip opens on its own page now (owner chose ก, 2026-10-19): the calendar's แก้ไข, the history's links
-  if (opened?.planHref === CLIP_HREF) redirect(`/studio/clip-edit?open=${opened.id}`);
+  // a Reel (a clip piece from วิดีโอนำเสนอ's ลงปฏิทินเพจ) opens here again in the Reel editor:
+  // its own page, ตัดต่อคลิป, was removed (owner chose ก + 1, 2026-11-15)
   // the project (owner, 2026-09-30): one of the caller's Pages — the opened piece's, else the one
   // its card asked for, else the first — or none for an agent with no Pages, as projectPage settles it
   const [mine, connected] = await Promise.all([myPages().catch(() => null), pageConnections().catch(() => [])]);
@@ -44,7 +42,7 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
   // the workbench says what today's plan still holds
   const planner = !can(await getViewer().catch(() => null), "publish");
   const today = todayKey();
-  const [initial, used, hooks, spend, people, planned, clipEditing] = await Promise.all([
+  const [initial, used, hooks, spend, people, planned] = await Promise.all([
     contentWorkbench({ status: "draft", page: pageId }),
     // nothing for a project not known: every Page's pieces would show together
     mine || pageId ? listContent({ status: "used", pageId, notPlanHref: CLIP_HREF }, 20).catch(() => []) : Promise.resolve([]),
@@ -52,8 +50,6 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
     contentSpend(),
     listPeople().catch(() => []),
     planner ? listPlanned(today, today).then((l) => l.map(forClient)).catch(() => []) : Promise.resolve([]),
-    // a read that fails hides the button: the server refuses an edit while the switch is not known to be on
-    videoSettings().then((s) => s.enabled, () => false),
   ]);
   return (
     <ContentStudio
@@ -73,7 +69,6 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
       project={project ? { pageId: project.pageId, pageName: project.pageName } : null}
       pages={(mine ?? []).map((p) => ({ pageId: p.pageId, pageName: p.pageName }))}
       planner={planner}
-      clipEditing={clipEditing}
       todayPlan={planned.filter((i) => !i.plan?.doneAt).map((i) => ({ id: i.id, title: planTitle(i) }))}
     />
   );

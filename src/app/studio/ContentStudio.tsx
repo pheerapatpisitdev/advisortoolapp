@@ -42,7 +42,6 @@ import { ThanksTools } from "./thanks/ThanksTools";
 import { SayingTools } from "./saying/SayingTools";
 import { ShowcaseTools } from "./showcase/ShowcaseTools";
 import { CLIP_HREF, isReelPiece } from "@/lib/content/clip";
-import { ClipCard } from "./clip/ClipCard";
 import { ClipEditor } from "./clip/ClipEditor";
 import { MODE_PLANS, modeName } from "@/lib/content/modes";
 import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
@@ -91,13 +90,10 @@ interface Props {
   planner: boolean;
   /** today's planned pieces not yet marked posted, for the banner */
   todayPlan: { id: string; title: string }[];
-  /** the owner lets agents edit clips (admin/ai); off hides the ตัดต่อ button */
-  clipEditing: boolean;
 }
 
 
-/** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft, a thank-you, a saying — or a clip the agent filmed */
-// คลิป left for its own page, /studio/clip-edit (owner chose ก, 2026-10-19)
+/** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft, a thank-you, a saying */
 type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft" | "thanks" | "saying" | "showcase";
 const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft", "thanks", "saying", "showcase"];
 /** the tools in the "สร้างจาก" dropdown, in the order the owner reads them */
@@ -264,7 +260,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
   );
 }
 
-export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, project, pages: myPages, planner, todayPlan, clipEditing }: Props) {
+export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, project, pages: myPages, planner, todayPlan }: Props) {
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
@@ -877,25 +873,6 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   }
 
   /**
-   * A clip piece as it arrives and changes (clip/useClipUpload.ts): one already on screen is
-   * updated; a new one is counted in รอตรวจ, and goes on top of it when that list is showing.
-   * Read through `view`: the upload finishes long after the press.
-   */
-  const clipsCounted = useRef(new Set<string>());
-  function clipArrived(next: ContentItem) {
-    const now = view.current;
-    // a piece on screen — in a tab's list, or opened from the calendar (?open=) — is updated where it is
-    if ([...now.items, ...now.used].some((x) => x.id === next.id) || now.opened?.id === next.id) { saved(next); return; }
-    // one clip reports in up to three times (made, kept, listened to); it is new once
-    if (clipsCounted.current.has(next.id)) return;
-    clipsCounted.current.add(next.id);
-    // the tabs' numbers follow the plan filter: another plan's list does not count a clip
-    if (now.plan && now.plan !== CLIP_HREF) return;
-    setCounts((c) => ({ ...c, draft: c.draft + 1 }));
-    if (now.tab === "draft") setItems((list) => (list.some((x) => x.id === next.id) ? list : [next, ...list]));
-  }
-
-  /**
    * `withPicture`: the card's รูป + ข้อความ, which saves the poster in the same tap — the words
    * wait on the clipboard to be pasted under it in Facebook (owner chose ข, 2026-10-20).
    * writeText is reached before any await, so it still counts as the tap on an iPhone.
@@ -1366,11 +1343,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 onSaved={saved}
                 onPublished={published}
                 onStatus={(s) => changeStatus(editingItem, s)}
-                onItem={clipArrived}
                 onClose={closeEditor}
                 onDirtyChange={setEditorDirty}
                 suggestDay={forDay}
-                clipEditing={clipEditing}
               />
               ) : (
               <PieceEditor
@@ -1525,20 +1500,10 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 // the id is where leaving the editor scrolls back to; a grid of one so the card still fills its row
                 <div key={item.id} id={`piece-${item.id}`} className="grid scroll-mt-4">
                 {item.format !== "post" && item.format !== "ad" && picking && (
-                  // ScriptCard and ClipCard have no picking face of their own; a filmed script or a clip is pickable all the same
+                  // ScriptCard has no picking face of its own; a script is pickable all the same
                   <PickToggle index={i} why={whyNot(item)} on={picked.has(item.id)} toggle={() => setPicked((set) => { const next = new Set(set); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })} />
                 )}
-                {item.format === "clip" ? (
-                  <ClipCard
-                    item={item}
-                    index={i}
-                    busy={busy.has(item.id)}
-                    onEdit={() => openEditor(item.id)}
-                    onStatus={(s) => changeStatus(item, s)}
-                    onDelete={() => remove(item)}
-                    onItem={clipArrived}
-                  />
-                ) : item.format === "script" ? (
+                {item.format === "script" ? (
                   <ScriptCard
                     item={item}
                     index={i}
@@ -1547,7 +1512,6 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                     onStatus={(s) => changeStatus(item, s)}
                     onDelete={() => remove(item)}
                     onCopy={() => copy(item)}
-                    onItem={clipArrived}
                   />
                 ) : (
                   <PieceCard

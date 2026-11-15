@@ -47,7 +47,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 process.env.ADMIN_SESSION_SECRET = "test-passphrase";
-const { saveRenderKey, saveVideoEngine, setProviderEnabled } = await import("@/app/admin/ai/actions");
+const { saveRenderKey, setProviderEnabled } = await import("@/app/admin/ai/actions");
 
 beforeEach(() => {
   staffAllowed = true;
@@ -116,37 +116,6 @@ describe("saveRenderKey for Google Cloud Run", () => {
     staffAllowed = false;
     await expect(saveRenderKey("gcp", SA_FILE, { region: "asia-southeast1", job: "clip-ffmpeg" })).rejects.toThrow("forbidden");
     expect(rpc).not.toHaveBeenCalled();
-  });
-});
-
-describe("saveVideoEngine", () => {
-  it("stores the switch, and nothing of the old engine columns", async () => {
-    await expect(saveVideoEngine({ enabled: true })).resolves.toEqual({ ok: true });
-    expect(upsert).toHaveBeenCalledTimes(1);
-    expect(upsert.mock.calls[0][0]).toMatchObject({ id: true, video_edit_enabled: true });
-    expect(upsert.mock.calls[0][0]).not.toHaveProperty("video_engine");
-  });
-
-  it("refuses an enabled that is not a boolean instead of coercing it", async () => {
-    // @ts-expect-error — deliberately wrong type
-    const r = await saveVideoEngine({ enabled: "true" });
-    expect(r.ok).toBe(false);
-    expect(upsert).not.toHaveBeenCalled();
-  });
-
-  it("says in Thai when the database refuses", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    upsert.mockResolvedValue({ error: { message: "boom" } });
-    const r = await saveVideoEngine({ enabled: false });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/ไม่สำเร็จ/);
-    log.mockRestore();
-  });
-
-  it("is refused for a non-admin", async () => {
-    staffAllowed = false;
-    await expect(saveVideoEngine({ enabled: false })).rejects.toThrow("forbidden");
-    expect(upsert).not.toHaveBeenCalled();
   });
 });
 
