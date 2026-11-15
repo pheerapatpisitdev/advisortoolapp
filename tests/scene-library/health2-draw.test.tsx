@@ -5,17 +5,20 @@ import { describe, expect, it } from "vitest";
 import { drawPngHere } from "@/lib/draw/core";
 import type { DrawFont } from "@/lib/draw/fonts";
 import type { StoryVideoInput } from "@/lib/quote-video/story";
-import { HEALTH2_WORDS as W, showText, type Health2Show, type KnowShow } from "@/lib/quote-video/story-knowledge";
+import { BAND_WORDS, HEALTH2_WORDS as W, provinceShort, showText, thaiDate, type Health2Show, type KnowShow } from "@/lib/quote-video/story-knowledge";
+import { HEALTH2_FIXED } from "@/lib/scene-library/health2-fixed";
+import { TAX_YEAR } from "@/lib/scene-library/tax-th";
 import { geoOf, kspec, showBody } from "@/lib/quote-video/story-knowledge-motion";
 import { handWidth } from "@/lib/quote-video/story-life-motion";
 import type { StoryContext } from "@/lib/quote-video/story-motion";
 import {
-  arcPoint, copayAt, copayGeo, copaySplit, deductibleAt, deductibleGeo, deductibleParts, h2Inside, ipdopdAt, ipdopdGeo, renewAge, renewAt, renewGeo, blkH,
+  arcPoint, barLength, blkH, copayAt, copayGeo, copaySplit, deductibleAt, deductibleGeo, deductibleParts, groupGeo, groupMonth, h2Inside, hospitalsFoot, hospitalsGeo, ipdopdAt, ipdopdGeo,
+  paclaimGeo, parentsFoot, parentsGeo, renewAge, renewAt, renewGeo,
 } from "@/lib/quote-video/story-health2-motion";
 import { figWidth } from "@/lib/quote-video/story-save-motion";
 import { SIZES as FRAME, type VideoSize } from "@/lib/quote-video/timeline";
 
-/** device round 5, Task 2: ipdopd, deductible, copay and renew98 drawn in paper, warm and line. PNG stills are written only with HEALTH2_STILLS=1 */
+/** device round 5, Tasks 2-3: ipdopd, deductible, copay, renew98, parentshealth, groupcost, hospitals and paclaim drawn in paper, warm and line. PNG stills are written only with HEALTH2_STILLS=1 */
 const STILLS = process.env.HEALTH2_STILLS === "1";
 const SIZES: VideoSize[] = ["portrait", "square", "landscape"];
 const ARTS: Partial<StoryVideoInput>[] = [{ art: "paper" }, { art: "minimal", ground: "warm" }, { art: "line" }];
@@ -53,12 +56,29 @@ const SHOWS: KnowShow[] = [
   /* 18 */ { layout: "renew98", title: T, to: 98 },
   /* 19 */ { layout: "renew98", title: LONG_TITLE, note: LONG_NOTE, to: 98, age: 1 },
   /* 20 */ { layout: "renew98", title: T, to: 98, age: 98 },
+  /* 21 */ { layout: "parentshealth", title: ["ประกันสุขภาพ", "ให้พ่อแม่"], note: "ตามเงื่อนไขของแผน", cap: 15_000 },
+  /* 22 */ { layout: "parentshealth", title: LONG_TITLE, note: LONG_NOTE, cap: NINE },
+  /* 23 */ { layout: "groupcost", title: ["ต้นทุนต่อหัว", "ประกันกลุ่ม"], note: "ตามตารางเบี้ยกลุ่ม", perYear: 2_552, band: "10-25" },
+  /* 24 */ { layout: "groupcost", title: LONG_TITLE, note: LONG_NOTE, perYear: NINE },
+  /* 25 */ { layout: "groupcost", title: T, perYear: 12_047, band: "51-100" },
+  /* 26 */ { layout: "groupcost", title: T, perYear: 5_017, band: "26-50" },
+  /* 27 */ { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], note: "ดูรายชื่อเต็มที่เว็บ", total: 537, rows: [{ province: "กรุงเทพมหานคร", count: 135 }, { province: "ชลบุรี", count: 49 }, { province: "ระยอง", count: 38 }, { province: "สมุทรปราการ", count: 25 }, { province: "นนทบุรี", count: 22 }] },
+  /* 28 */ { layout: "hospitals", title: T, total: 537, rows: [{ province: "เชียงใหม่", count: 14 }] },
+  /* 29 */ { layout: "hospitals", title: LONG_TITLE, note: LONG_NOTE, total: NINE, rows: [{ province: "กรุงเทพมหานคร", count: NINE }, { province: "พระนครศรีอยุธยา", count: 5 }, { province: "ประจวบคีรีขันธ์", count: 2 }, { province: "นครศรีธรรมราช", count: 6 }, { province: "เลย", count: 1 }] },
+  /* 30 */ { layout: "paclaim", title: ["อุบัติเหตุ", "หนึ่งครั้ง"], note: "ตามแผนที่เลือก", medical: 150_000, weekly: 3_000, weeks: 52 },
+  /* 31 */ { layout: "paclaim", title: T, medical: 80_000 },
+  /* 32 */ { layout: "paclaim", title: LONG_TITLE, note: LONG_NOTE, medical: NINE, weekly: NINE, weeks: 52 },
+  /* 33 */ { layout: "paclaim", title: T, medical: 100_000, weekly: 1_000 },
 ];
 const of = <L extends Health2Show["layout"]>(layout: L) => SHOWS.filter((x): x is S<L> => x.layout === layout);
 const ipds = of("ipdopd");
 const deds = of("deductible");
 const cops = of("copay");
 const rens = of("renew98");
+const pars = of("parentshealth");
+const grps = of("groupcost");
+const hosps = of("hospitals");
+const pacs = of("paclaim");
 
 const end = (show: KnowShow) => Math.max(...Object.values(kspec(show)).map((x) => x.at + x.dur));
 const html = (show: KnowShow, t = end(show), size: VideoSize = "portrait", art?: Partial<StoryVideoInput>) => renderToStaticMarkup(showBody(show, ctx(size, art), t));
@@ -71,13 +91,13 @@ const each = (fn: (size: VideoSize, art: Partial<StoryVideoInput>, label: string
 /** the middle of the beat that makes the figure */
 const mid = (show: KnowShow) => {
   const s = kspec(show);
-  const x = show.layout === "ipdopd" ? s.door1 : show.layout === "deductible" ? s.ours : show.layout === "copay" ? s.cut : s.arc;
+  const x = show.layout === "ipdopd" ? s.door1 : show.layout === "deductible" ? s.ours : show.layout === "copay" ? s.cut : show.layout === "renew98" ? s.arc : show.layout === "parentshealth" ? s.child : show.layout === "groupcost" ? s.year : show.layout === "hospitals" ? s.bar2 ?? s.bar0 : s.weekly;
   return x.at + x.dur / 2;
 };
 const rect = (r: { x: number; y: number; w: number; h: number }) => r;
 const hit = (p: { x: number; y: number; w: number; h: number }, q: { x: number; y: number; w: number; h: number }) => p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h;
 
-describe("the four round-5 health devices draw", () => {
+describe("the eight round-5 health devices draw", () => {
   it("in every look and size, from the start through the middle of the beat to the end, with no NaN and no shared id", () => {
     for (const show of SHOWS) for (const size of SIZES) for (const art of ARTS) for (const t of [0, 0.7, mid(show), 2.2, end(show), end(show) + 3]) {
       let out = "";
@@ -442,6 +462,246 @@ describe("renew98", () => {
       if (geo.note) { expect(h2Inside(geo.note, g.dev), label).toBe(true); expect(geo.card.y + geo.card.h, label).toBeLessThanOrEqual(geo.note.y); }
       for (const b of geo.card.blocks) for (const x of b.lines) expect(handWidth(x, b.size), `${label} ${x}`).toBeLessThanOrEqual(geo.card.inner + 1);
       expect(geo.f, label).toBeGreaterThan(0.55);
+    }
+  });
+});
+
+
+const box = (r: { x: number; y: number; w: number; h: number }) => r;
+/** whether the part is on screen (it stands in the markup from the start, at opacity 0, until its beat) */
+const shown = (markup: string, part: string) => { const m = new RegExp(`data-part="${part}"[\\s\\S]*?opacity:([0-9.e-]+)`).exec(markup); return !!m && Number(m[1]) > 0; };
+
+describe("parentshealth", () => {
+  it("draws the parents (ผู้เอาประกัน), the child who pays (ลูกจ่ายเบี้ย), the card, the cap and the tax foot with the table's year", () => {
+    const g = squash(html(pars[0]));
+    for (const x of [W.insured, W.childPays, W.taxCut, "ไม่เกิน15,000บาท", W.bothParents.replace(/ /g, ""), parentsFoot().replace(/ /g, "")]) expect(g, x).toContain(x);
+    expect(parentsFoot()).toBe(`${W.taxFoot} ${TAX_YEAR}`);
+    expect(squash(html(pars[1]))).toContain("ไม่เกิน123,456,789บาท");
+  });
+
+  it("draws three people: two parents and the child, each in its own box", () => {
+    for (const size of SIZES) {
+      const geo = parentsGeo(size, pars[0]);
+      expect(geo.people).toHaveLength(3);
+      for (let i = 0; i < 3; i += 1) for (let j = i + 1; j < 3; j += 1) expect(hit(geo.people[i], geo.people[j]), `${size} ${i}/${j}`).toBe(false);
+    }
+    expect((html(pars[0]).match(/data-face=/g) ?? []).length).toBe(3);
+  });
+
+  it("the parents come in, then the child, then the card, then the foot", () => {
+    const s = kspec(pars[0]);
+    expect(s.child.at).toBeGreaterThan(s.parents.at);
+    expect(s.card.at).toBeGreaterThan(s.child.at);
+    expect(s.foot.at).toBeGreaterThan(s.card.at);
+    expect(shown(html(pars[0], s.parents.at + 0.05), "card")).toBe(false);
+    expect(shown(html(pars[0], s.card.at + 0.2), "card")).toBe(true);
+    expect(shown(html(pars[0], s.parents.at + 0.05), "child")).toBe(false);
+    expect(shown(html(pars[0], 0), "parent0")).toBe(false);
+  });
+
+  it("every part sits inside its room at every size, nine digits included; no picture over a card or a caption; the people stay big enough", () => {
+    for (const size of SIZES) for (const show of pars) {
+      const g = geoOf(size);
+      const geo = parentsGeo(size, show);
+      const label = `${size} ${show.cap}`;
+      for (const p of geo.people) { expect(h2Inside(p, g.dev), `${label} person`).toBe(true); expect(hit(p, geo.card), `${label} person on card`).toBe(false); expect(hit(p, geo.foot), `${label} person on foot`).toBe(false); }
+      for (const c of [geo.caps.parents, geo.caps.child]) {
+        expect(h2Inside(box(c), g.dev), `${label} cap`).toBe(true);
+        expect(hit(c, geo.card), `${label} cap on card`).toBe(false);
+        for (const p of geo.people) expect(hit(c, p), `${label} cap on person`).toBe(false);
+      }
+      expect(hit(geo.caps.parents, geo.caps.child), `${label} caps`).toBe(false);
+      expect(h2Inside(geo.card, g.dev), `${label} card`).toBe(true);
+      expect(h2Inside(geo.foot, g.dev), `${label} foot`).toBe(true);
+      expect(h2Inside(geo.arrow, g.dev), `${label} arrow`).toBe(true);
+      expect(hit(geo.card, geo.foot), `${label} card on foot`).toBe(false);
+      for (const b of geo.card.blocks) for (const l of b.lines) expect(figWidth(l, b.size), `${label} ${l}`).toBeLessThanOrEqual(geo.card.inner + 1);
+      for (const l of geo.foot.lines) expect(handWidth(l, geo.foot.size), `${label} foot ${l}`).toBeLessThanOrEqual(geo.foot.w);
+      if (geo.note) { expect(h2Inside(geo.note, g.dev), label).toBe(true); expect(hit(geo.note, geo.card), label).toBe(false); expect(geo.note.y, label).toBeGreaterThanOrEqual(geo.foot.y + geo.foot.h); }
+      expect(geo.fw, `${label} person`).toBeGreaterThanOrEqual(Math.round(g.text * 2.2));
+      expect(geo.card.blocks[1].size, `${label} cap figure`).toBeGreaterThanOrEqual(Math.round(g.text * 0.55));
+    }
+  });
+});
+
+describe("groupcost", () => {
+  it("draws six people, the year's card and the month's: the month is the year over twelve, to the baht below, computed", () => {
+    expect(groupMonth(2_552)).toBe(212);
+    expect(groupMonth(12_047)).toBe(1_003);
+    const g = squash(html(grps[0]));
+    for (const x of [W.perHeadYear, "2,552บาท", W.perHeadMonth, "212บาท", "พนักงาน10–25คน"]) expect(g, x).toContain(x);
+    expect((html(grps[0]).match(/data-face=/g) ?? []).length).toBe(6);
+    expect(squash(html(grps[1]))).toContain("10,288,065บาท");
+  });
+
+  it("the band is words from the code for each key; no band, no band line", () => {
+    expect(squash(html(grps[2]))).toContain(BAND_WORDS["51-100"].replace(/ /g, ""));
+    expect(squash(html(grps[3]))).toContain(BAND_WORDS["26-50"].replace(/ /g, ""));
+    const none = squash(html(grps[1]));
+    for (const w of Object.values(BAND_WORDS)) expect(none).not.toContain(w.replace(/ /g, ""));
+    expect(none).not.toContain("พนักงาน");
+    expect(groupGeo("portrait", grps[1]).band).toBeNull();
+    expect(groupGeo("portrait", grps[0]).band).not.toBeNull();
+  });
+
+  it("the people, then the year's card, then the month's", () => {
+    const s = kspec(grps[0]);
+    expect(s.year.at).toBeGreaterThan(s.people.at);
+    expect(s.month.at).toBeGreaterThan(s.year.at);
+    expect(shown(html(grps[0], s.people.at + 0.05), "card-year")).toBe(false);
+    expect(shown(html(grps[0], s.year.at + 0.2), "card-year")).toBe(true);
+    expect(shown(html(grps[0], s.year.at + 0.2), "card-month")).toBe(false);
+  });
+
+  it("every part sits inside its room at every size, nine digits included; the people stand apart over the cards, the band between", () => {
+    for (const size of SIZES) for (const show of grps) {
+      const g = geoOf(size);
+      const geo = groupGeo(size, show);
+      const label = `${size} ${show.perYear}/${show.band}`;
+      expect(geo.people).toHaveLength(6);
+      for (const [i, p] of geo.people.entries()) {
+        expect(h2Inside(p, g.dev), `${label} person ${i}`).toBe(true);
+        if (i) expect(geo.people[i - 1].x + geo.people[i - 1].w, `${label} apart`).toBeLessThanOrEqual(p.x);
+        expect(hit(p, geo.year), label).toBe(false);
+        expect(hit(p, geo.monthCard), label).toBe(false);
+      }
+      for (const c of [geo.year, geo.monthCard]) {
+        expect(h2Inside(c, g.dev), `${label} card`).toBe(true);
+        for (const b of c.blocks) for (const l of b.lines) expect(figWidth(l, b.size), `${label} ${l}`).toBeLessThanOrEqual(c.inner + 1);
+        expect(c.blocks[1].size, `${label} figure`).toBeGreaterThanOrEqual(Math.round(g.text * 0.55));
+      }
+      expect(hit(geo.year, geo.monthCard), label).toBe(false);
+      if (geo.band) {
+        expect(h2Inside(geo.band, g.dev), `${label} band`).toBe(true);
+        expect(hit(geo.band, geo.year), `${label} band on card`).toBe(false);
+        for (const p of geo.people) expect(hit(geo.band, p), `${label} band on person`).toBe(false);
+      }
+      if (geo.note) { expect(h2Inside(geo.note, g.dev), label).toBe(true); expect(hit(geo.note, geo.year), label).toBe(false); }
+    }
+  });
+});
+
+describe("hospitals", () => {
+  it("draws the total, each province with its count, the date as the sources give it in Thai with the Buddhist year, and the line", () => {
+    const g = squash(html(hosps[0]));
+    for (const x of ["537", W.nationwide, provinceShort("กรุงเทพมหานคร"), "135", "ชลบุรี", "49", "นนทบุรี", "22", W.fullList]) expect(g, x).toContain(x);
+    expect(thaiDate(HEALTH2_FIXED.hospitals.fetchedAt)).toBe("2 ตุลาคม 2569");
+    expect(hospitalsFoot()).toBe("ข้อมูล ณ 2 ตุลาคม 2569");
+    expect(g).toContain(hospitalsFoot().replace(/ /g, ""));
+    expect(squash(html(hosps[2]))).toContain("123,456,789");
+  });
+
+  it("long province names are drawn in their short forms; nothing else is changed", () => {
+    expect(provinceShort("กรุงเทพมหานคร")).toBe("กรุงเทพฯ");
+    expect(provinceShort("พระนครศรีอยุธยา")).toBe("อยุธยา");
+    expect(provinceShort("ชลบุรี")).toBe("ชลบุรี");
+    const g = squash(html(hosps[2]));
+    expect(g).toContain("กรุงเทพฯ");
+    expect(g).not.toContain("กรุงเทพมหานคร");
+    expect(g).toContain("อยุธยา");
+    expect(g).toContain("ประจวบฯ");
+  });
+
+  it("the bars are to one scale from zero: length over count is the same for every province (a few pixels at least for a tiny one)", () => {
+    for (const size of SIZES) {
+      const geo = hospitalsGeo(size, hosps[0]);
+      const k = geo.bars[0].w / 135;
+      for (const bar of geo.bars) expect(Math.abs(bar.w - bar.count * k), `${size} ${bar.name}`).toBeLessThanOrEqual(1.5);
+      expect(geo.bars[0].w).toBe(geo.barRoom);
+      for (const bar of geo.bars) expect(bar.x, "from the same zero").toBe(geo.barX);
+      const lone = hospitalsGeo(size, hosps[2]);
+      expect(lone.bars[4].w, `${size} one hospital`).toBeGreaterThanOrEqual(8);
+      expect(lone.bars[4].w).toBeLessThan(lone.bars[0].w);
+    }
+    expect(barLength(0, 10, 500)).toBe(0);
+    expect(barLength(5, 10, 500)).toBe(250);
+  });
+
+  it("each bar grows in its turn from zero, its count at its end; the foot and the line come after the bars", () => {
+    const s = kspec(hosps[0]);
+    for (let i = 1; i < 5; i += 1) expect(s[`bar${i}`].at).toBeGreaterThan(s[`bar${i - 1}`].at);
+    expect(s.foot.at).toBeGreaterThanOrEqual(s.bar4.at);
+    expect(s.line.at).toBeGreaterThan(s.foot.at);
+    expect(html(hosps[0], 0)).not.toContain('data-part="bar0"');
+    const early = html(hosps[0], s.bar0.at + 0.2);
+    expect(early).toContain('data-part="count0"');
+    expect(early).not.toContain('data-part="count1"');
+    const width = (markup: string, part: string) => Number(new RegExp(`data-part="${part}"[^>]*?width:([0-9.]+)px`).exec(markup)?.[1] ?? 0);
+    const w1 = width(html(hosps[0], s.bar0.at + 0.2), "bar0");
+    const w2 = width(html(hosps[0], s.bar0.at + s.bar0.dur + 0.01), "bar0");
+    expect(w1).toBeGreaterThan(0);
+    expect(w2).toBeGreaterThan(w1);
+  });
+
+  it("every part sits inside its room at every size: five rows, the longest names and nine digits; the names apart from the bars; the foot under the bars", () => {
+    for (const size of SIZES) for (const show of hosps) {
+      const g = geoOf(size);
+      const geo = hospitalsGeo(size, show);
+      const label = `${size} ${show.rows.length} rows`;
+      expect(h2Inside(geo.head, g.dev), `${label} head`).toBe(true);
+      expect(figWidth(`${show.total.toLocaleString("en-US")} ${W.nationwide}`, geo.head.blk.size), label).toBeLessThanOrEqual(geo.head.w);
+      for (const [i, bar] of geo.bars.entries()) {
+        expect(h2Inside(bar.nameBox, g.dev), `${label} name ${bar.name}`).toBe(true);
+        expect(handWidth(bar.name, geo.nameSize), `${label} ${bar.name}`).toBeLessThanOrEqual(bar.nameBox.w + 1);
+        expect(h2Inside({ x: bar.x, y: bar.y, w: bar.w, h: bar.h }, g.dev), `${label} bar ${i}`).toBe(true);
+        expect(bar.x, `${label} bar after its name`).toBeGreaterThanOrEqual(bar.nameBox.x + bar.nameBox.w + 8);
+        expect(bar.x + bar.w + 10 + figWidth(bar.countText, geo.countSize), `${label} count in the room`).toBeLessThanOrEqual(g.dev.x + g.dev.w);
+        if (i) expect(bar.y, `${label} rows`).toBeGreaterThanOrEqual(geo.bars[i - 1].y + geo.bars[i - 1].rowH);
+      }
+      const last = geo.bars[geo.bars.length - 1];
+      expect(geo.foot.y, label).toBeGreaterThanOrEqual(last.y + last.rowH);
+      expect(geo.line.y, label).toBeGreaterThanOrEqual(geo.foot.y + geo.foot.h);
+      expect(h2Inside(geo.foot, g.dev), `${label} foot`).toBe(true);
+      expect(h2Inside(geo.line, g.dev), `${label} line`).toBe(true);
+      for (const l of geo.line.lines) expect(handWidth(l, geo.line.size), label).toBeLessThanOrEqual(geo.line.w);
+      if (geo.note) { expect(h2Inside(geo.note, g.dev), label).toBe(true); expect(geo.note.y, label).toBeGreaterThanOrEqual(geo.line.y + geo.line.h); }
+      expect(geo.nameSize, `${label} names`).toBeGreaterThanOrEqual(Math.round(g.text * 0.6));
+      expect(geo.countSize, `${label} counts`).toBeGreaterThanOrEqual(Math.round(g.text * 0.6));
+    }
+  });
+});
+
+describe("paclaim", () => {
+  it("draws the treatment card; with a weekly sum also the weekly card and its weeks, never a daily word", () => {
+    const g = squash(html(pacs[0]));
+    for (const x of [W.perAccident, "150,000บาท", W.offWork, "3,000บาท", "สูงสุด52สัปดาห์"]) expect(g, x).toContain(x.replace(/ /g, ""));
+    const none = squash(html(pacs[1]));
+    expect(none).toContain("80,000บาท");
+    for (const x of [W.offWork, "สูงสุด", "สัปดาห์"]) expect(none, x).not.toContain(x.replace(/ /g, ""));
+    for (const show of pacs) expect(words(html(show))).not.toMatch(/รายวัน|ต่อวัน|วันละ/);
+    expect(squash(html(pacs[2]))).toContain("123,456,789บาท");
+  });
+
+  it("weekly without weeks draws no weeks card", () => {
+    expect(paclaimGeo("portrait", pacs[3]).weeks).toBeNull();
+    expect(paclaimGeo("portrait", pacs[3]).weekly).not.toBeNull();
+    expect(squash(html(pacs[3]))).not.toContain("สูงสุด");
+  });
+
+  it("the treatment comes in, then the weekly sum, then its weeks", () => {
+    const s = kspec(pacs[0]);
+    expect(s.weekly.at).toBeGreaterThan(s.medical.at);
+    expect(s.weeks.at).toBeGreaterThan(s.weekly.at);
+    expect(shown(html(pacs[0], s.medical.at + 0.2), "card-medical")).toBe(true);
+    expect(shown(html(pacs[0], s.medical.at + 0.2), "card-weekly")).toBe(false);
+    expect(shown(html(pacs[0], s.weekly.at + 0.2), "card-weekly")).toBe(true);
+    expect(shown(html(pacs[0], s.weekly.at + 0.2), "card-weeks")).toBe(false);
+  });
+
+  it("every part sits inside its room at every size, nine digits included; the cards stand apart and the figures stay readable", () => {
+    for (const size of SIZES) for (const show of pacs) {
+      const g = geoOf(size);
+      const geo = paclaimGeo(size, show);
+      const label = `${size} ${show.medical}/${show.weekly}`;
+      const cards = [geo.medical, geo.weekly, geo.weeks].filter((x): x is NonNullable<typeof x> => !!x);
+      for (const [i, c] of cards.entries()) {
+        expect(h2Inside(c, g.dev), `${label} card ${i}`).toBe(true);
+        for (const b of c.blocks) for (const l of b.lines) expect(figWidth(l, b.size), `${label} ${l}`).toBeLessThanOrEqual(c.inner + 1);
+        for (const [j, d] of cards.entries()) if (j > i) expect(hit(c, d), `${label} ${i} on ${j}`).toBe(false);
+      }
+      expect(geo.medical.blocks[1].size, `${label} figure`).toBeGreaterThanOrEqual(Math.round(g.text * 0.55));
+      if (geo.weekly) expect(geo.weekly.blocks[1].size, `${label} weekly`).toBeGreaterThanOrEqual(Math.round(g.text * 0.55));
+      if (geo.note) { expect(h2Inside(geo.note, g.dev), label).toBe(true); for (const c of cards) expect(hit(geo.note, c), label).toBe(false); }
     }
   });
 });

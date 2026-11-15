@@ -2,10 +2,12 @@ import { Fragment, type ReactNode } from "react";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { a, abs, box, El, look, type Anim } from "./motion";
 import type { Dev } from "./story-health-motion";
-import { HEALTH2_WORDS as W, n, type Health2Show } from "./story-knowledge";
+import { HEALTH2_FIXED } from "@/lib/scene-library/health2-fixed";
+import { TAX_YEAR } from "@/lib/scene-library/tax-th";
+import { BAND_WORDS, HEALTH2_WORDS as W, n, provinceShort, thaiDate, type Health2Show } from "./story-knowledge";
 import { geoOf, Title, type Rect } from "./story-knowledge-motion";
 import { Card, handWidth } from "./story-life-motion";
-import { line, paper } from "./story-motion";
+import { line, paper, Pic, type StoryContext } from "./story-motion";
 import { figWidth, fitFig, noteGeo, NoteLines } from "./story-save-motion";
 import type { VideoSize } from "./timeline";
 
@@ -112,6 +114,14 @@ const PHRASE: Record<string, string[]> = {
   [W.notYet]: ["ยังไม่ถึง", "ส่วนที่", "ประกันจ่าย"],
   [W.restPays]: ["ประกันจ่าย", "ส่วนที่เหลือ"],
   [W.deductibleCard]: ["ส่วนรับผิดชอบ", "แรก", "ของแผน"],
+  [W.taxCut]: ["ลูก", "นำ", "เบี้ย", "ไป", "ลดหย่อน", "ภาษี", "ได้"],
+  [W.bothParents]: ["ต่อปี ", "รวม", "พ่อ", "และ", "แม่"],
+  [`${W.taxFoot} ${TAX_YEAR}`]: ["ตามเกณฑ์", "กรม", "สรรพากร ", "ปีภาษี ", TAX_YEAR.slice("ปีภาษี ".length)],
+  [W.perHeadYear]: ["ต่อคน", "ต่อปี"],
+  [W.perHeadMonth]: ["เฉลี่ย", "ต่อคน", "ต่อเดือน"],
+  [W.perAccident]: ["ค่ารักษา", "ต่อ", "อุบัติเหตุ ", "ไม่เกิน"],
+  [W.offWork]: ["ทำงาน", "ไม่ได้", "ชั่วคราว ", "สัปดาห์", "ละ"],
+  [W.fullList]: ["ดูรายชื่อ", "เต็ม", "ได้ที่", "เว็บ", "บริษัท"],
 };
 const segsOf = (text: string) => PHRASE[text] ?? text.split(/(?<= )/);
 
@@ -684,13 +694,406 @@ function Renew({ d, show }: { d: Dev; show: Health2Show<"renew98"> }) {
   );
 }
 
-/** a round-5 health device's frame body at scene time t (showBody hands it the frame, the movements, where things stand, the ink); the four not drawn yet stand empty */
+/* ---------- the people (parentshealth, groupcost) ---------- */
+
+/** a person's box is this much taller than wide */
+const TALL = 1.3;
+/** the older generation the parents are drawn as, and the six colleagues of a group */
+const PARENT_FACES = ["e01", "e02"];
+const STAFF_FACES = ["m02", "w03", "m06", "w07", "m10", "w11"];
+/** person `i` of a row comes in a moment after the one before it */
+const enter = (an: Anim | undefined, i: number): Anim | undefined => (an ? { ...an, at: an.at + i * 0.1, dur: 0.4 } : undefined);
+
+/** someone standing in `r`, popping in on `an` */
+function Who({ c, id, r, t, an, part }: { c: StoryContext; id: string; r: Rect; t: number; an?: Anim; part: string }) {
+  const l = look(an, t);
+  return (
+    <div data-part={part} data-face={id} style={abs({ left: r.x, top: r.y, width: r.w, height: r.h, opacity: l.opacity, ...(l.transform ? { transform: l.transform } : {}) })}>
+      <Pic c={c} id={id} r={{ x: 0, y: 0, w: r.w, h: r.h }} pose="stand" t={t} />
+    </div>
+  );
+}
+
+/** a caption under a picture: the hand's words, centred on `cx`, kept in the room */
+function capRect(text: string, size: number, cx: number, y: number, room: Rect) {
+  const w = Math.ceil(handWidth(text, size)) + 8;
+  const x = clamp(Math.round(cx - w / 2), room.x, room.x + room.w - w);
+  return { text, size, x, y, w, h: Math.round(size * 1.3) };
+}
+type Cap = ReturnType<typeof capRect>;
+function Caption({ cap, an, t, color }: { cap: Cap; an?: Anim; t: number; color: string }) {
+  return (
+    <El an={an} t={t} style={{ position: "absolute", left: cap.x, top: cap.y, width: cap.w, height: cap.h, justifyContent: "center", fontFamily: HAND, fontSize: cap.size, fontWeight: 700, lineHeight: 1.3, color, whiteSpace: "nowrap" }}>{cap.text}</El>
+  );
+}
+
+/* ---------- parentshealth: ประกันสุขภาพให้พ่อแม่ ---------- */
+
+/** the tax foot: the words, then the table's year (a constant of the tax table, never a word field) */
+export const parentsFoot = () => `${W.taxFoot} ${TAX_YEAR}`;
+
+/** where the parents, the child who pays, the card and the tax foot stand (a wide room: the people left, the card right) */
+export function parentsGeo(size: VideoSize, show: Health2Show<"parentshealth">, place: H2Place = health2Place(size)) {
+  const r = place.room;
+  const text = place.text;
+  const note = noteGeo(show.note, r.w - 40, text);
+  const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
+  const gap = Math.round(text * 0.5);
+  const pad = Math.round(text * 0.4);
+  const row = r.w / r.h > 2;
+  const area = { x: r.x, y: r.y, w: r.w, h: r.h - noteBlock };
+  const cardW = row ? Math.min(Math.round(area.w * 0.46), 640) : Math.min(area.w - 40, 760);
+  const inner = cardW - pad * 2 - 8;
+  const capSize = Math.round(text * 0.95);
+  const capH = Math.round(capSize * 1.3);
+  const peopleW = row ? Math.round(area.w * 0.46) : area.w - 40;
+  // across: the two parents side by side, a gap for the arrow, the child
+  const SPAN = 4.35;
+  const build = (f: number) => {
+    const cardBlocks: Blk[] = [phrase(W.taxCut, inner, text * 1.1 * f, C.ink, 700), one(`${W.upTo} ${n(show.cap)} ${W.baht}`, inner, text * 1.6 * f, GREEN, 700), phrase(W.bothParents, inner, text * 1.0 * f, C.ink, 600)];
+    const foot = setPhrase(parentsFoot(), (row ? cardW + 40 : area.w) - 40, text * 0.9 * f, 2);
+    return { cardBlocks, foot, cardH: cardBlocks.reduce((h, b) => h + blkH(b), 0) + pad * 2 + 8, footH: Math.round(foot.lines.length * foot.size * 1.3) };
+  };
+  let f = 1;
+  let parts = build(1);
+  let fw = 0;
+  for (; f > 0.4; f -= 0.04) {
+    parts = build(f);
+    const left = row ? area.h : area.h - (parts.cardH + parts.footH + Math.round(gap * 2.5));
+    fw = Math.min(Math.round(peopleW / SPAN), 280, Math.floor((left - capH - 8) / TALL));
+    if (fw >= Math.round(text * 2.6)) break;
+  }
+  const figH = Math.round(fw * TALL);
+  const peopleH = figH + 8 + capH;
+  const x0 = area.x + 20 + Math.round((peopleW - SPAN * fw) / 2);
+  const colH = row ? 0 : peopleH + Math.round(gap * 1.5) + parts.cardH + gap + parts.footH;
+  const top = row ? area.y + Math.round((area.h - peopleH) / 2) : area.y + Math.max(0, Math.round((area.h - colH) / 2));
+  const mk = (i: number, x: number) => ({ x: Math.round(x), y: top, w: fw, h: figH, id: i });
+  const people = [mk(0, x0), mk(1, x0 + fw * 1.15), mk(2, x0 + fw * 3.35)];
+  const pairC = Math.round(x0 + fw * 1.075);
+  const childC = Math.round(x0 + fw * 3.85);
+  const capY = top + figH + 8;
+  const caps = { parents: capRect(W.insured, capSize, pairC, capY, area), child: capRect(W.childPays, capSize, childC, capY, area) };
+  const arrow = { x: Math.round(x0 + fw * 2.15) + 6, y: top + Math.round(figH * 0.3), w: Math.round(fw * 1.2) - 12, h: Math.round(figH * 0.45) };
+  const zoneX = row ? area.x + peopleW + 40 : area.x;
+  const zoneW = row ? area.x + area.w - 20 - zoneX : area.w;
+  const cardX = zoneX + Math.round((zoneW - cardW) / 2);
+  const cardY = row ? area.y + Math.round((area.h - (parts.cardH + gap + parts.footH)) / 2) : top + peopleH + Math.round(gap * 1.5);
+  const footY = cardY + parts.cardH + gap;
+  const footW = row ? zoneW : area.w;
+  return {
+    row, f, fw, people, caps, arrow,
+    card: { x: cardX, y: cardY, w: cardW, h: parts.cardH, pad, inner, blocks: parts.cardBlocks },
+    foot: { x: zoneX, y: footY, w: footW, h: parts.footH, size: parts.foot.size, lines: parts.foot.lines },
+    note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
+  };
+}
+
+/** the arrow the child's money takes to the parents' cover, a gold coin on it (drawn, no letter the hand font may lack) */
+function PayArrow({ w, h }: { w: number; h: number }) {
+  const coin = Math.min(Math.round(h * 0.7), Math.round(w * 0.5));
+  const y = h - 10;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      <path d={`M${w - 4} ${y} L14 ${y}`} stroke={C.ink} strokeWidth={6} strokeLinecap="round" fill="none" strokeDasharray="14 10" />
+      <path d={`M26 ${y - 12} L10 ${y} L26 ${y + 12}`} stroke={C.ink} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <circle cx={Math.round(w / 2)} cy={Math.round(coin / 2) + 2} r={Math.round(coin / 2)} fill={GOLD} stroke={C.ink} strokeWidth={4} />
+      <circle cx={Math.round(w / 2)} cy={Math.round(coin / 2) + 2} r={Math.round(coin / 4)} fill="none" stroke={C.ink} strokeWidth={3} />
+    </svg>
+  );
+}
+
+/** ประกันสุขภาพให้พ่อแม่: the parents (ผู้เอาประกัน), the child who pays (ลูกจ่ายเบี้ย), the tax card and its foot */
+function Parents({ d, show }: { d: Dev; show: Health2Show<"parentshealth"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const geo = parentsGeo(c.size, show);
+  const faces = [PARENT_FACES[0], PARENT_FACES[1], c.input.faces.hero];
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      {geo.people.map((p) => <Who key={p.id} c={c} id={faces[p.id]} r={p} t={t} an={p.id === 2 ? s.child : enter(s.parents, p.id)} part={p.id === 2 ? "child" : `parent${p.id}`} />)}
+      <Pop an={s.child} t={t} r={geo.arrow} part="arrow"><PayArrow w={geo.arrow.w} h={geo.arrow.h} /></Pop>
+      <Caption cap={geo.caps.parents} an={s.parents} t={t} color={ink} />
+      <Caption cap={geo.caps.child} an={s.child} t={t} color={GREEN} />
+      <CardAt an={s.card} t={t} r={geo.card} pad={geo.card.pad} tilt={-0.8} part="card"><Blocks blocks={geo.card.blocks} /></CardAt>
+      <LineBlock an={s.foot} t={t} g={geo.foot} color={ink} />
+      <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
+    </>
+  );
+}
+
+/* ---------- groupcost: ต้นทุนต่อหัว ประกันกลุ่ม ---------- */
+
+/** what one head costs a month: the year's figure over twelve, to the baht below (computed, never supplied) */
+export const groupMonth = (perYear: number) => Math.floor(perYear / 12);
+
+/** where the six people, the head-count band and the two cards stand */
+export function groupGeo(size: VideoSize, show: Health2Show<"groupcost">, place: H2Place = health2Place(size)) {
+  const r = place.room;
+  const text = place.text;
+  const note = noteGeo(show.note, r.w - 40, text);
+  const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
+  const gap = Math.round(text * 0.5);
+  const pad = Math.round(text * 0.4);
+  const area = { x: r.x, y: r.y, w: r.w, h: r.h - noteBlock };
+  const bandText = show.band ? BAND_WORDS[show.band] : undefined;
+  // a tall room stacks the two cards (the month's label then stays on one line); a wide one sets them side by side
+  const stacked = r.h >= r.w * 0.9;
+  const cw = stacked ? Math.min(area.w - 40, 640) : Math.min(Math.floor((area.w - 40 - gap) / 2), 560);
+  const inner = cw - pad * 2 - 8;
+  const month = groupMonth(show.perYear);
+  const capSize = Math.round(text * 1.0);
+  const capH = bandText ? Math.round(capSize * 1.3) : 0;
+  const build = (f: number) => {
+    const year: Blk[] = [phrase(W.perHeadYear, inner, text * 1.05 * f, C.ink, 600), one(`${n(show.perYear)} ${W.baht}`, inner, text * 1.6 * f, GREEN, 700)];
+    const mon: Blk[] = [phrase(W.perHeadMonth, inner, text * 1.05 * f, C.ink, 600), one(`${n(month)} ${W.baht}`, inner, text * 1.6 * f, C.ink, 700)];
+    const h = (bs: Blk[]) => bs.reduce((s, b) => s + blkH(b), 0) + pad * 2 + 8;
+    return { year, mon, cardH: Math.max(h(year), h(mon)) };
+  };
+  let f = 1;
+  let parts = build(1);
+  let fw = 0;
+  for (; f > 0.4; f -= 0.04) {
+    parts = build(f);
+    const cards = stacked ? parts.cardH * 2 + gap : parts.cardH;
+    fw = Math.min(Math.round((area.w - 40) / 6.6), 200, Math.floor((area.h - cards - Math.round(gap * 1.5) - (capH ? capH + 8 : 0) - 8) / TALL));
+    if (fw >= Math.round(text * 2.2)) break;
+  }
+  const figH = Math.round(fw * TALL);
+  const rowW = Math.round(fw * 6.6);
+  const groupH = figH + 8 + (capH ? capH + 8 : 0) + Math.round(gap * 1.5) + (stacked ? parts.cardH * 2 + gap : parts.cardH);
+  const top = area.y + Math.max(0, Math.round((area.h - groupH) / 2));
+  const x0 = area.x + Math.round((area.w - rowW) / 2);
+  const people = Array.from({ length: 6 }, (_, i) => ({ x: x0 + Math.round(fw * 1.12 * i), y: top, w: fw, h: figH, id: i }));
+  const band = bandText ? { ...capRect(bandText, capSize, area.x + Math.round(area.w / 2), top + figH + 8, area), w: Math.ceil(handWidth(bandText, capSize)) + 8 } : null;
+  const bracket = { x: x0, y: top + figH + 2, w: rowW - Math.round(fw * 0.2) };
+  const cardY = top + figH + 8 + (capH ? capH + 8 : 0) + Math.round(gap * 1.5);
+  const cx0 = area.x + Math.round((area.w - (stacked ? cw : cw * 2 + gap)) / 2);
+  return {
+    f, fw, month, people, band, bracket, stacked,
+    year: { x: cx0, y: cardY, w: cw, h: parts.cardH, pad, inner, blocks: parts.year },
+    monthCard: stacked ? { x: cx0, y: cardY + parts.cardH + gap, w: cw, h: parts.cardH, pad, inner, blocks: parts.mon } : { x: cx0 + cw + gap, y: cardY, w: cw, h: parts.cardH, pad, inner, blocks: parts.mon },
+    note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
+  };
+}
+
+/** ต้นทุนต่อหัว ประกันกลุ่ม: six people, the head-count band under them (words from the code), the year's cost and the month's */
+function Group({ d, show }: { d: Dev; show: Health2Show<"groupcost"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const geo = groupGeo(c.size, show);
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      {geo.people.map((p) => <Who key={p.id} c={c} id={STAFF_FACES[p.id]} r={p} t={t} an={enter(s.people, p.id)} part={`staff${p.id}`} />)}
+      {geo.band ? <Caption cap={geo.band} an={s.people} t={t} color={ink} /> : null}
+      <CardAt an={s.year} t={t} r={geo.year} pad={geo.year.pad} tilt={-0.8} part="card-year"><Blocks blocks={geo.year.blocks} /></CardAt>
+      <CardAt an={s.month} t={t} r={geo.monthCard} pad={geo.monthCard.pad} tilt={0.8} part="card-month"><Blocks blocks={geo.monthCard.blocks} /></CardAt>
+      <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
+    </>
+  );
+}
+
+/* ---------- hospitals: โรงพยาบาลในเครือ ---------- */
+
+/** the date the hospital list was fetched, as the foot writes it (Thai month, Buddhist year) */
+export const hospitalsFoot = () => `${W.asOf} ${thaiDate(HEALTH2_FIXED.hospitals.fetchedAt)}`;
+
+/** a bar's length at its full growth: to one scale from zero; a province with one hospital still shows a few pixels */
+export const barLength = (count: number, max: number, room: number) => (count <= 0 ? 0 : clamp(Math.round((room * count) / Math.max(max, 1)), 8, room));
+
+/** where the provinces' bars, the total, the date and the line stand */
+export function hospitalsGeo(size: VideoSize, show: Health2Show<"hospitals">, place: H2Place = health2Place(size)) {
+  const r = place.room;
+  const text = place.text;
+  const rows = show.rows.slice(0, 5);
+  const note = noteGeo(show.note, r.w - 40, text);
+  const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
+  const gap = Math.round(text * 0.45);
+  const area = { x: r.x, y: r.y, w: r.w, h: r.h - noteBlock };
+  const max = Math.max(1, ...rows.map((x) => x.count));
+  const names = rows.map((x) => provinceShort(x.province));
+  const head = one(`${n(show.total)} ${W.nationwide}`, r.w - 40, text * 1.6, GREEN, 700);
+  const headH = blkH(head);
+  const foot = setPhrase(hospitalsFoot(), r.w - 40, text * 0.9, 1);
+  const footH = Math.round(foot.lines.length * foot.size * 1.3);
+  const ln = lineGeo(W.fullList, r.x, 0, r.w, Math.round(text * 0.95));
+  const build = (f: number) => {
+    const cap = text * 1.15 * f;
+    let nameSize = Math.round(cap);
+    const labelMax = Math.round((area.w - 40) * 0.4);
+    while (nameSize > 10 && Math.max(...names.map((x) => handWidth(x, nameSize))) > labelMax) nameSize -= 1;
+    const labelW = Math.ceil(Math.max(...names.map((x) => handWidth(x, nameSize))));
+    const countSize = Math.max(10, Math.round(nameSize * 1.1));
+    const countW = Math.ceil(Math.max(...rows.map((x) => figWidth(n(x.count), countSize)))) + 14;
+    const rowH = Math.round(Math.max(nameSize, countSize) * 1.3) + 8;
+    return { nameSize, labelW, countSize, countW, rowH };
+  };
+  let f = 1;
+  let b = build(1);
+  const stack = (k: ReturnType<typeof build>) => headH + gap + rows.length * k.rowH + (rows.length - 1) * Math.round(gap * 0.4) + gap + footH + Math.round(gap * 0.3) + ln.h;
+  for (; f > 0.4; f -= 0.04) {
+    b = build(f);
+    if (stack(b) <= area.h) break;
+  }
+  const rowGap = Math.round(gap * 0.4);
+  const total = stack(b);
+  const y0 = area.y + Math.max(0, Math.round((area.h - total) / 2));
+  const headRect = { x: r.x + 20, y: y0, w: r.w - 40, h: headH, blk: head };
+  const barsY = y0 + headH + gap;
+  const x0 = r.x + 20;
+  const barX = x0 + b.labelW + 16;
+  const barRoom = Math.max(40, area.x + area.w - 20 - barX - b.countW);
+  const bars = rows.map((x, i) => {
+    const y = barsY + i * (b.rowH + rowGap);
+    const len = barLength(x.count, max, barRoom);
+    return { name: names[i], full: x.province, count: x.count, countText: n(x.count), x: barX, y, w: len, h: b.rowH - 8, rowY: y, rowH: b.rowH, nameBox: { x: x0, y, w: b.labelW, h: b.rowH } };
+  });
+  const footY = barsY + rows.length * b.rowH + (rows.length - 1) * rowGap + gap;
+  return {
+    f, max, barRoom, barX, ...b, head: headRect, bars,
+    foot: { x: r.x, y: footY, w: r.w, h: footH, size: foot.size, lines: foot.lines },
+    line: { ...ln, y: footY + footH + Math.round(gap * 0.3) },
+    note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
+  };
+}
+
+/** โรงพยาบาลในเครือ: one bar a province to one scale from zero, the count at its end, the total over them, the date and the line under */
+function Hospitals({ d, show }: { d: Dev; show: Health2Show<"hospitals"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const geo = hospitalsGeo(c.size, show);
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      <El an={s.bar0} t={t} style={{ position: "absolute", left: geo.head.x, top: geo.head.y, width: geo.head.w, height: geo.head.h, justifyContent: "center", fontFamily: HAND }}><Blocks blocks={[geo.head.blk]} /></El>
+      {geo.bars.map((bar, i) => {
+        const p = look(s[`bar${i}`], t).p;
+        const now = Math.round(bar.w * p);
+        return (
+          <Fragment key={bar.full + i}>
+            <El an={s[`bar${i}`]} t={t} style={{ position: "absolute", left: bar.nameBox.x, top: bar.nameBox.y, width: bar.nameBox.w, height: bar.rowH, alignItems: "center", fontFamily: HAND, fontSize: geo.nameSize, fontWeight: 700, lineHeight: 1.3, color: ink, whiteSpace: "nowrap" }}>{bar.name}</El>
+            {now > 0 ? <div data-part={`bar${i}`} style={abs({ left: bar.x, top: bar.y + 4, width: Math.max(now, 4), height: bar.h, background: GREEN, border: `4px solid ${C.ink}`, borderRadius: 10 })} /> : null}
+            {p > 0 ? <div data-part={`count${i}`} style={abs({ left: bar.x + now + 10, top: bar.y, width: geo.countW, height: bar.rowH, alignItems: "center", fontFamily: HAND, fontSize: geo.countSize, fontWeight: 700, lineHeight: 1.3, color: ink, whiteSpace: "nowrap" })}>{bar.countText}</div> : null}
+          </Fragment>
+        );
+      })}
+      <LineBlock an={s.foot} t={t} g={geo.foot} color={ink} />
+      <LineBlock an={s.line} t={t} g={geo.line} color={ink} />
+      <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
+    </>
+  );
+}
+
+/* ---------- paclaim: อุบัติเหตุหนึ่งครั้ง ---------- */
+
+/** where the treatment card, the weekly card and its weeks stand (a wide room: the treatment left, the weekly side right) */
+export function paclaimGeo(size: VideoSize, show: Health2Show<"paclaim">, place: H2Place = health2Place(size)) {
+  const r = place.room;
+  const text = place.text;
+  const note = noteGeo(show.note, r.w - 40, text);
+  const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
+  const gap = Math.round(text * 0.55);
+  const pad = Math.round(text * 0.4);
+  const area = { x: r.x, y: r.y, w: r.w, h: r.h - noteBlock };
+  const weekly = show.weekly !== undefined;
+  const weeks = weekly && show.weeks !== undefined;
+  const row = area.w / area.h > 2 && weekly;
+  const cardW = row ? Math.min(Math.round(area.w * 0.46), 640) : Math.min(area.w - 40, 760);
+  const ic = Math.round(text * 2.1);
+  const inner = cardW - pad * 3 - 8 - ic;
+  const build = (f: number) => {
+    const med: Blk[] = [phrase(W.perAccident, inner, text * 1.2 * f, C.ink, 600), one(`${n(show.medical)} ${W.baht}`, inner, text * 2.1 * f, GREEN, 700)];
+    const wk: Blk[] = weekly ? [phrase(W.offWork, inner, text * 1.2 * f, C.ink, 600), one(`${n(show.weekly!)} ${W.baht}`, inner, text * 2.1 * f, C.ink, 700)] : [];
+    const wkS = weeks ? one(`${W.atMost} ${show.weeks} ${W.weeks}`, cardW - pad * 2 - 8, text * 1.35 * f, C.ink, 700) : null;
+    const h = (bs: Blk[]) => Math.max(bs.reduce((s, b) => s + blkH(b), 0), ic) + pad * 2 + 8;
+    return { med, wk, wkS, medH: h(med), wkH: weekly ? h(wk) : 0, chipH: wkS ? blkH(wkS) + pad * 2 + 8 : 0 };
+  };
+  let f = 1;
+  let parts = build(1);
+  const col = (p: typeof parts) => p.medH + (weekly ? gap + p.wkH : 0) + (weeks ? Math.round(gap * 0.6) + p.chipH : 0);
+  for (; f > 0.4; f -= 0.04) {
+    parts = build(f);
+    if ((row ? Math.max(parts.medH, parts.wkH + (weeks ? Math.round(gap * 0.6) + parts.chipH : 0)) : col(parts)) <= area.h) break;
+  }
+  const rect = (x: number, y: number, h: number) => ({ x, y, w: cardW, h, pad, inner, ic });
+  let med; let wk = null; let chip = null;
+  if (row) {
+    const rightH = parts.wkH + (weeks ? Math.round(gap * 0.6) + parts.chipH : 0);
+    const total = cardW * 2 + gap * 2;
+    const lx = area.x + Math.round((area.w - total) / 2);
+    med = rect(lx, area.y + Math.round((area.h - parts.medH) / 2), parts.medH);
+    const ry = area.y + Math.round((area.h - rightH) / 2);
+    wk = rect(lx + cardW + gap * 2, ry, parts.wkH);
+    if (weeks) chip = { ...rect(lx + cardW + gap * 2, ry + parts.wkH + Math.round(gap * 0.6), parts.chipH) };
+  } else {
+    const total = col(parts);
+    const x = area.x + Math.round((area.w - cardW) / 2);
+    let y = area.y + Math.max(0, Math.round((area.h - total) / 2));
+    med = rect(x, y, parts.medH);
+    y += parts.medH + gap;
+    if (weekly) { wk = rect(x, y, parts.wkH); y += parts.wkH + Math.round(gap * 0.6); }
+    if (weeks) chip = rect(x, y, parts.chipH);
+  }
+  // the weeks chip is as wide as its words, centred under the weekly card
+  const chipW = parts.wkS ? Math.min(cardW, Math.ceil(Math.max(...parts.wkS.lines.map((x) => figWidth(x, parts.wkS!.size)))) + pad * 2 + 24) : 0;
+  const chipBox = chip && wk ? { ...chip, x: wk.x + Math.round((cardW - chipW) / 2), w: chipW, inner: chipW - pad * 2 - 8 } : null;
+  return {
+    row, f, ic,
+    medical: { ...med, blocks: parts.med },
+    weekly: wk ? { ...wk, blocks: parts.wk } : null,
+    weeks: chipBox && parts.wkS ? { ...chipBox, blocks: [parts.wkS] } : null,
+    note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
+  };
+}
+
+/** a first-aid cross in a green disc, drawn */
+const CrossIcon = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 40 40">
+    <circle cx={20} cy={20} r={18} fill="#ffffff" stroke={C.ink} strokeWidth={3} />
+    <path d="M17 9 H23 V17 H31 V23 H23 V31 H17 V23 H9 V17 H17 Z" fill={GREEN} stroke={C.ink} strokeWidth={2.5} strokeLinejoin="round" />
+  </svg>
+);
+/** a week on a calendar page, drawn (a week, never a day: no day is picked out) */
+const WeekIcon = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 40 40">
+    <rect x={5} y={8} width={30} height={27} rx={4} fill="#ffffff" stroke={C.ink} strokeWidth={3} />
+    <rect x={5} y={8} width={30} height={8} rx={3} fill={GOLD} stroke={C.ink} strokeWidth={3} />
+    <path d="M10 24 H30" stroke={C.ink} strokeWidth={3.5} strokeLinecap="round" />
+    <path d="M10 30 H30" stroke={C.ink} strokeWidth={2} strokeLinecap="round" strokeDasharray="4 4" />
+  </svg>
+);
+
+/** อุบัติเหตุหนึ่งครั้ง: what the treatment may cost at most; when the plan has it, the weekly sum for the weeks off work and their most */
+function PaClaim({ d, show }: { d: Dev; show: Health2Show<"paclaim"> }) {
+  const { c, t, s, g, w, ink } = d;
+  const geo = paclaimGeo(c.size, show);
+  const withIcon = (icon: ReactNode, blocks: Blk[]) => (
+    <div style={box({ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: geo.medical.pad })}>
+      <div style={box({ flexShrink: 0 })}>{icon}</div>
+      <Blocks blocks={blocks} />
+    </div>
+  );
+  return (
+    <>
+      <Title fit cut={paper(c.input)} pill={line(c.input)} ink={ink} g={g} w={w} an={s.title} t={t} text={show.title} />
+      <CardAt an={s.medical} t={t} r={geo.medical} pad={geo.medical.pad} tilt={-0.8} part="card-medical">{withIcon(<CrossIcon size={geo.ic} />, geo.medical.blocks)}</CardAt>
+      {geo.weekly ? <CardAt an={s.weekly} t={t} r={geo.weekly} pad={geo.weekly.pad} tilt={0.8} part="card-weekly">{withIcon(<WeekIcon size={geo.ic} />, geo.weekly.blocks)}</CardAt> : null}
+      {geo.weeks ? <CardAt an={s.weeks} t={t} r={geo.weeks} pad={geo.weeks.pad} tilt={-0.5} part="card-weeks"><Blocks blocks={geo.weeks.blocks} /></CardAt> : null}
+      <NoteLines n={geo.note} an={s.note} t={t} ink={ink} />
+    </>
+  );
+}
+
+/** a round-5 health device's frame body at scene time t (showBody hands it the frame, the movements, where things stand, the ink); the eight are drawn here (Task 4 draws them again in the info route) */
 export function health2Body(show: Health2Show, d: Dev) {
   switch (show.layout) {
     case "ipdopd": return <IpdOpd d={d} show={show} />;
     case "deductible": return <Deductible d={d} show={show} />;
     case "copay": return <Copay d={d} show={show} />;
     case "renew98": return <Renew d={d} show={show} />;
+    case "parentshealth": return <Parents d={d} show={show} />;
+    case "groupcost": return <Group d={d} show={show} />;
+    case "hospitals": return <Hospitals d={d} show={show} />;
+    case "paclaim": return <PaClaim d={d} show={show} />;
     default: return null;
   }
 }

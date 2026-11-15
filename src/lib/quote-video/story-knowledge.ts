@@ -241,6 +241,23 @@ export const HEALTH2_WORDS = {
   baht: "บาท",
   marks: "0123456789,%–-.",
 } as const;
+/** the words one head-count band is drawn with: from the code, never a word field (so no digit is ever written by the AI) */
+export const BAND_WORDS: Record<GroupBand, string> = { "10-25": HEALTH2_WORDS.band10, "26-50": HEALTH2_WORDS.band26, "51-100": HEALTH2_WORDS.band51 };
+/** the short forms of the long province names, used only in a drawing's bar labels (the data keeps the full name) */
+export const PROVINCE_SHORT: Record<string, string> = {
+  "กรุงเทพมหานคร": "กรุงเทพฯ",
+  "พระนครศรีอยุธยา": "อยุธยา",
+  "ประจวบคีรีขันธ์": "ประจวบฯ",
+  "นครศรีธรรมราช": "นครศรีฯ",
+};
+export const provinceShort = (province: string): string => PROVINCE_SHORT[province] ?? province;
+export const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"] as const;
+/** "2026-10-02" as "2 ตุลาคม 2569" (Thai month, Buddhist year); the text as it came when it is not a date */
+export function thaiDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m || +m[2] < 1 || +m[2] > 12) return iso;
+  return `${+m[3]} ${THAI_MONTHS[+m[2] - 1]} ${+m[1] + 543}`;
+}
 /** the words a metaphor draws when its optional field is left out */
 export const META_DEFAULTS = { label: "รายได้", from: "วันนี้", to: "วันข้างหน้า" } as const;
 
@@ -629,7 +646,7 @@ const LIFE_TEXT = [...Object.values(LIFE_WORDS), ...TAX_CAPS.flatMap((r) => [r.l
 /** round-4 devices: their own words, and the digits and baht their figures use */
 const SAVE_TEXT = Object.values(SAVE_WORDS);
 /** round-5 devices: their own words, the digits and baht their figures use, and the fetched date's marks */
-const HEALTH2_TEXT = [...Object.values(HEALTH2_WORDS), TAX_YEAR];
+const HEALTH2_TEXT = [...Object.values(HEALTH2_WORDS), TAX_YEAR, ...THAI_MONTHS, ...Object.values(PROVINCE_SHORT)];
 
 /** every word one show puts on screen, for the handwriting face: a knowledge scene's, or a คลิปตามโจทย์ device scene's */
 export function showText(show: KnowShow): string {
