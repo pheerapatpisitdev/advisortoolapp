@@ -43,7 +43,7 @@ scenes, voices and captions, words).
    pensionsteps without valid ascending rows are refused. (Tasks 1, 6.)
 2. Nine-digit figures with commas and long Thai words fit at all three sizes and seven looks. (Tasks 2–4 stills.)
 3. Dark looks (neon, blueprint) keep every word and figure readable. (Task 4 contrast test.)
-4. retiresave figures equal the engine's for the spec's example (paid 2,724,411; got 6,023,625; 20 years; ages
+4. retiresave figures equal the engine's for the spec's example (paid 2,724,410; got 6,023,625; 20 years; ages
    40–59 / 60–95); pension required; no "%" or return word anywhere in the topic. (Task 5.)
 5. pricerise draws no figure; pensionsteps' ค่าครองชีพ line carries no figure.
 

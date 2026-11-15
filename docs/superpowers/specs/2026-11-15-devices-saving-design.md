@@ -73,7 +73,7 @@ Four catalogue entries become ready, keyed by layout (savejar, paidgot, priceris
 seven-look switcher and stills `/library/<layout>-<look>.jpg` (4 × 7 = 28 new; the existing 175 byte-identical). The
 unbuilt `dev(...)` lines growing-jar, inflation-eats, pension-inflation and irr-per-year are removed (prod had no
 marks on them, checked 2026-11-15). fund-risk-1-8, portfolio-mix and past-returns-chart stay unbuilt. Library
-stills use the mockup's example: ชาย 40 ปี, บำนาญเดือนละ 10,000 from 60, pay until 60 → paid 2,724,411 over 20 years
+stills use the mockup's example: ชาย 40 ปี, บำนาญเดือนละ 10,000 from 60, pay until 60 → paid 2,724,410 over 20 years
 (ages 40–59), totalPension 6,023,625 (60–95), bands 118,110 / 157,480 / 196,851 / 236,221 (60–75, 76–80, 81–85, 86–95).
 
 ## Shipping
