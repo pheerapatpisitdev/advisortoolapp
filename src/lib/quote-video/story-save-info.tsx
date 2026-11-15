@@ -31,11 +31,11 @@ export function saveInfo(d: Dev, show: SaveShow) {
 }
 
 /** what was paid: the accent (the marker's blue, the tube's cyan); white where the accent is the same ink as the plan's green (บลูพริ้นท์) */
-const paidInk = () => { const K = kit(); return K.gold === K.green ? K.white : K.gold; };
+export const paidInk = () => { const K = kit(); return K.gold === K.green ? K.white : K.gold; };
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 /** a rounded rect as a path, for shape() */
-const rrectD = (x: number, y: number, w: number, h: number, r: number) =>
+export const rrectD = (x: number, y: number, w: number, h: number, r: number) =>
   `M${r1(x + r)} ${r1(y)} H${r1(x + w - r)} Q${r1(x + w)} ${r1(y)} ${r1(x + w)} ${r1(y + r)} V${r1(y + h - r)} Q${r1(x + w)} ${r1(y + h)} ${r1(x + w - r)} ${r1(y + h)} H${r1(x + r)} Q${r1(x)} ${r1(y + h)} ${r1(x)} ${r1(y + h - r)} V${r1(y + r)} Q${r1(x)} ${r1(y)} ${r1(x + r)} ${r1(y)} Z`;
 
 /** the scene's title, set to fit the frame's width as every info device's is */
@@ -44,7 +44,7 @@ function SaveTitle({ d, show }: { d: Dev; show: SaveShow }) {
 }
 
 /** the note under the picture, as plain lines of the look's hand, fading in last */
-function NoteLines({ n, d }: { n: { x: number; y: number; w: number; h: number; size: number; lines: string[] } | null; d: Dev }) {
+export function NoteLines({ n, d }: { n: { x: number; y: number; w: number; h: number; size: number; lines: string[] } | null; d: Dev }) {
   if (!n) return null;
   return (
     <div data-note="" style={abs({ left: n.x, top: n.y, width: n.w, height: n.h })}>

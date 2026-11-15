@@ -2,9 +2,10 @@ import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { StoryTopic } from "@/lib/story/topics";
 import type React from "react";
 import { abs, box, El, look, type Anim } from "./motion";
-import { HEALTH_WORDS as HW, isLife, n, type KnowEpisode, type KnowSceneKey, type KnowShow, type LifeShow, type MetaShow, type NoteLine, type SaveShow } from "./story-knowledge";
+import { HEALTH_WORDS as HW, isLife, n, type KnowEpisode, type KnowSceneKey, type Health2Show, type KnowShow, type LifeShow, type MetaShow, type NoteLine, type SaveShow } from "./story-knowledge";
 import { ageRows, baht, groupBars, limitFigs, overflowBar, PART_FILL, roomFigs, splitParts, wrapLines } from "./story-health-motion";
 import { kspec } from "./story-knowledge-motion";
+import { health2Info } from "./story-health2-info";
 import { lifeInfo } from "./story-life-info";
 import { metaInfo } from "./story-meta-info";
 import { saveInfo } from "./story-save-info";
@@ -438,6 +439,9 @@ export function infoShow(show: KnowShow, c: StoryContext, t: number, key?: KnowS
     case "savejar": case "paidgot": case "pricerise": case "pensionsteps":
       // device round 4: in story-save-info.tsx, the paper's geometry drawn with this file's Kit and pieces
       return saveInfo({ c, t, s, g, w, k, a: devArea(c.size), icon: icon ?? "doc" }, show as SaveShow);
+    case "ipdopd": case "deductible": case "copay": case "renew98": case "parentshealth": case "groupcost": case "hospitals": case "paclaim":
+      // device round 5: in story-health2-info.tsx, the paper's geometry drawn with this file's Kit and pieces
+      return health2Info({ c, t, s, g, w, k, a: devArea(c.size), icon: icon ?? "doc" }, show as Health2Show);
     default:
       // the shelves that tell a family's story (kin, timeline, pic) are not offered in this look
       return null;

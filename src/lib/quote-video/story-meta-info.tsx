@@ -162,13 +162,13 @@ function Plaque({ p, at, rot = 0, dx = 0, opacity = 1, spare }: { p: MetaTag; at
 /* ---------- the people ---------- */
 
 /** what a figure is doing: standing, arms up (glad), waving, hands to the head (worried), walking, arms out (the pole), holding on */
-type Act = "stand" | "up" | "wave" | "worried" | "walk" | "out" | "hold";
+export type Act = "stand" | "up" | "wave" | "worried" | "walk" | "out" | "hold";
 
 /**
  * a plain figure in a 100 × 130 box (a doll's): a round head, a body, arms and legs, as faceless as the Kit's icons —
  * its outline in `color` in a drawn look, filled flat in อินโฟกราฟิก
  */
-function figure(act: Act, color: string, t: number) {
+export function figure(act: Act, color: string, t: number) {
   const K = kit();
   const bow = act === "worried" ? 4 : 0;
   const swing = act === "walk" ? 9 * Math.sin(t * 9) : 0;

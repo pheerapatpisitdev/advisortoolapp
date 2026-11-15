@@ -89,6 +89,8 @@ const BLUE = C.plotPen;
 const GREEN = C.green;
 const GOLD = C.coin;
 const RED = C.red;
+/** the round's four inks, for the info route to map onto its Kit (story-health2-info.tsx): blue = ผู้ป่วยใน, green = the insurer's / ผู้ป่วยนอก, gold = what we pay, red = the cut */
+export const H2_INK = { blue: BLUE, green: GREEN, gold: GOLD, red: RED, ink: C.ink } as const;
 
 /**
  * Where a round-5 health device stands in the frame: the device's room and the frame's text size (the story looks'), or the
@@ -259,37 +261,57 @@ export function ipdopdGeo(size: VideoSize, show: Health2Show<"ipdopd">, place: H
   return { plan, doors, line: lineAt, side, note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null };
 }
 
-/** the door on its sheet: its frame, what is inside (a bed, a cross), and the leaf swung `open` (0 to 1) toward the hinge */
-function DoorSvg({ color, tint, open, kind }: { color: string; tint: string; open: number; kind: 0 | 1 }) {
+/** a door's frame on its sheet, what is inside it (a bed, a cross) and the leaf's hinge: shared with the info route, which draws the same door in the Kit */
+export const DOOR_FRAME = { x: 14, y: 10, w: 172, h: 250, r: 8 };
+export const DOOR_BED = {
+  post: { x: 46, y: 106, w: 10, h: 64, r: 3 }, mattress: { x: 56, y: 132, w: 96, h: 24, r: 6 }, blanket: { x: 88, y: 132, w: 64, h: 24, r: 6 },
+  pillow: { cx: 74, cy: 126, rx: 15, ry: 8 }, rail: { x: 56, y: 156, w: 96, h: 8 }, foot: { x: 146, y: 156, w: 8, h: 16 },
+};
+export const DOOR_CROSS = "M100 100 V176 M62 138 H138";
+/** how far the leaf is swung at `open` (0 to 1): its free edge, the lift of its corners, its outline, its knob and its window */
+export function doorLeaf(open: number) {
   const e = ease(open);
   const rx = 14 + 172 * (1 - 0.8 * e);
   const dy = 18 * e;
+  return {
+    e, rx, dy,
+    points: `14,10 ${rx.toFixed(1)},${(10 + dy).toFixed(1)} ${rx.toFixed(1)},${(260 - dy).toFixed(1)} 14,260`,
+    window: { x: 14 + (rx - 14) * 0.2, y: 42 + dy * 0.3, w: (rx - 14) * 0.6, h: 62 - dy * 0.6 },
+    knob: { cx: rx - 14, cy: 150, r: 7 },
+  };
+}
+
+/** the door on its sheet: its frame, what is inside (a bed, a cross), and the leaf swung `open` (0 to 1) toward the hinge */
+function DoorSvg({ color, tint, open, kind }: { color: string; tint: string; open: number; kind: 0 | 1 }) {
+  const { e, points, window: win, knob } = doorLeaf(open);
+  const F = DOOR_FRAME;
+  const B = DOOR_BED;
   return (
     <svg width="100%" height="100%" viewBox={`0 0 ${DOOR.w} ${DOOR.h}`}>
-      <rect x={14} y={10} width={172} height={250} rx={8} fill={tint} />
+      <rect x={F.x} y={F.y} width={F.w} height={F.h} rx={F.r} fill={tint} />
       {e > 0.15 ? (
         <g opacity={clamp01((e - 0.15) * 1.6)}>
           {kind === 0 ? (
             <>
-              <rect x={46} y={106} width={10} height={64} rx={3} fill={C.ink} />
-              <rect x={56} y={132} width={96} height={24} rx={6} fill={C.white} stroke={C.ink} strokeWidth={3} />
-              <rect x={88} y={132} width={64} height={24} rx={6} fill={BLUE} stroke={C.ink} strokeWidth={3} />
-              <ellipse cx={74} cy={126} rx={15} ry={8} fill={C.white} stroke={C.ink} strokeWidth={3} />
-              <rect x={56} y={156} width={96} height={8} fill={C.ink} />
-              <rect x={146} y={156} width={8} height={16} fill={C.ink} />
+              <rect x={B.post.x} y={B.post.y} width={B.post.w} height={B.post.h} rx={B.post.r} fill={C.ink} />
+              <rect x={B.mattress.x} y={B.mattress.y} width={B.mattress.w} height={B.mattress.h} rx={B.mattress.r} fill={C.white} stroke={C.ink} strokeWidth={3} />
+              <rect x={B.blanket.x} y={B.blanket.y} width={B.blanket.w} height={B.blanket.h} rx={B.blanket.r} fill={BLUE} stroke={C.ink} strokeWidth={3} />
+              <ellipse cx={B.pillow.cx} cy={B.pillow.cy} rx={B.pillow.rx} ry={B.pillow.ry} fill={C.white} stroke={C.ink} strokeWidth={3} />
+              <rect x={B.rail.x} y={B.rail.y} width={B.rail.w} height={B.rail.h} fill={C.ink} />
+              <rect x={B.foot.x} y={B.foot.y} width={B.foot.w} height={B.foot.h} fill={C.ink} />
             </>
           ) : (
             <>
-              <path d="M100 100 V176 M62 138 H138" stroke={C.ink} strokeWidth={30} strokeLinecap="round" fill="none" />
-              <path d="M100 100 V176 M62 138 H138" stroke={C.white} strokeWidth={20} strokeLinecap="round" fill="none" />
+              <path d={DOOR_CROSS} stroke={C.ink} strokeWidth={30} strokeLinecap="round" fill="none" />
+              <path d={DOOR_CROSS} stroke={C.white} strokeWidth={20} strokeLinecap="round" fill="none" />
             </>
           )}
         </g>
       ) : null}
-      <polygon points={`14,10 ${rx.toFixed(1)},${(10 + dy).toFixed(1)} ${rx.toFixed(1)},${(260 - dy).toFixed(1)} 14,260`} fill={color} stroke={C.ink} strokeWidth={4} strokeLinejoin="round" />
-      <rect x={14 + (rx - 14) * 0.2} y={42 + dy * 0.3} width={(rx - 14) * 0.6} height={62 - dy * 0.6} rx={6} fill={C.white} opacity={0.55} />
-      <circle cx={rx - 14} cy={150} r={7} fill={C.coin} stroke={C.ink} strokeWidth={3} />
-      <rect x={14} y={10} width={172} height={250} rx={8} fill="none" stroke={C.ink} strokeWidth={5} />
+      <polygon points={points} fill={color} stroke={C.ink} strokeWidth={4} strokeLinejoin="round" />
+      <rect x={win.x} y={win.y} width={win.w} height={win.h} rx={6} fill={C.white} opacity={0.55} />
+      <circle cx={knob.cx} cy={knob.cy} r={knob.r} fill={C.coin} stroke={C.ink} strokeWidth={3} />
+      <rect x={F.x} y={F.y} width={F.w} height={F.h} rx={F.r} fill="none" stroke={C.ink} strokeWidth={5} />
       <path d="M2 264 H198" stroke={C.ink} strokeWidth={5} strokeLinecap="round" />
     </svg>
   );
@@ -526,9 +548,10 @@ export function copayGeo(size: VideoSize, show: Health2Show<"copay">, place: H2P
   };
 }
 
-/** an arrow from the bill to our part, in the card (drawn, not a letter the hand font may lack) */
+/** an arrow from the bill to our part, in the card (drawn, not a letter the hand font may lack): its path on a 36 × 28 sheet */
+export const ARROW_D = "M3 14 H29 M19 5 L30 14 L19 23";
 const Arrow = ({ size, color }: { size: number; color: string }) => (
-  <svg width={Math.round(size * 0.9)} height={Math.round(size * 0.7)} viewBox="0 0 36 28"><path d="M3 14 H29 M19 5 L30 14 L19 23" stroke={color} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+  <svg width={Math.round(size * 0.9)} height={Math.round(size * 0.7)} viewBox="0 0 36 28"><path d={ARROW_D} stroke={color} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
 );
 
 /** ร่วมจ่าย: a bill sheet cut by a dashed red line at the percent (to scale); what we pay at the top, the insurer's share below it */
@@ -702,7 +725,7 @@ const TALL = 1.7;
 const PARENT_FACES = ["e01", "e02"];
 const STAFF_FACES = ["m02", "w03", "m06", "w07", "m10", "w11"];
 /** person `i` of a row comes in a moment after the one before it */
-const enter = (an: Anim | undefined, i: number): Anim | undefined => (an ? { ...an, at: an.at + i * 0.1, dur: 0.4 } : undefined);
+export const enter = (an: Anim | undefined, i: number): Anim | undefined => (an ? { ...an, at: an.at + i * 0.1, dur: 0.4 } : undefined);
 
 /** someone standing in `r`, popping in on `an` */
 function Who({ c, id, r, t, an, part }: { c: StoryContext; id: string; r: Rect; t: number; an?: Anim; part: string }) {
@@ -789,16 +812,24 @@ export function parentsGeo(size: VideoSize, show: Health2Show<"parentshealth">, 
   };
 }
 
-/** the arrow the child's money takes to the parents' cover, a gold coin on it (drawn, no letter the hand font may lack) */
-function PayArrow({ w, h }: { w: number; h: number }) {
+/** the arrow the child's money takes to the parents' cover and the gold coin on it, in the arrow's own `w` × `h` box (shared with the info route) */
+export function payArrow(w: number, h: number) {
   const coin = Math.min(Math.round(h * 0.7), Math.round(w * 0.5));
   const y = h - 10;
+  const cx = Math.round(w / 2);
+  const cy = Math.round(coin / 2) + 2;
+  return { line: `M${w - 4} ${y} L14 ${y}`, head: `M26 ${y - 12} L10 ${y} L26 ${y + 12}`, coin: { cx, cy, r: Math.round(coin / 2), inner: Math.round(coin / 4) } };
+}
+
+/** the arrow the child's money takes to the parents' cover, a gold coin on it (drawn, no letter the hand font may lack) */
+function PayArrow({ w, h }: { w: number; h: number }) {
+  const g = payArrow(w, h);
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-      <path d={`M${w - 4} ${y} L14 ${y}`} stroke={C.ink} strokeWidth={6} strokeLinecap="round" fill="none" strokeDasharray="14 10" />
-      <path d={`M26 ${y - 12} L10 ${y} L26 ${y + 12}`} stroke={C.ink} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <circle cx={Math.round(w / 2)} cy={Math.round(coin / 2) + 2} r={Math.round(coin / 2)} fill={GOLD} stroke={C.ink} strokeWidth={4} />
-      <circle cx={Math.round(w / 2)} cy={Math.round(coin / 2) + 2} r={Math.round(coin / 4)} fill="none" stroke={C.ink} strokeWidth={3} />
+      <path d={g.line} stroke={C.ink} strokeWidth={6} strokeLinecap="round" fill="none" strokeDasharray="14 10" />
+      <path d={g.head} stroke={C.ink} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <circle cx={g.coin.cx} cy={g.coin.cy} r={g.coin.r} fill={GOLD} stroke={C.ink} strokeWidth={4} />
+      <circle cx={g.coin.cx} cy={g.coin.cy} r={g.coin.inner} fill="none" stroke={C.ink} strokeWidth={3} />
     </svg>
   );
 }
