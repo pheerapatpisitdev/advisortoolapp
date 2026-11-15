@@ -3,6 +3,7 @@ import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
 import { iHealthyFacts, isHeading, planLabel } from "@/lib/ihealthy-facts";
 import { iHealthyPricing, plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
+import { opdOf, type OpdFigure } from "./health2-sources";
 
 /**
  * The figures the health scenes draw, every one read from the iHealthy sheet or its rate table:
@@ -19,6 +20,10 @@ export interface HealthFigures {
   waitingDays: number;
   specialWaitingDays: number;
   copayPercent: number;
+  /** the plan's yearly OPD limit (sheet rows 18 and 19, one limit): baht, "none" where the sheet prints "-", "actual" where it says as paid */
+  opd: OpdFigure;
+  /** the age the rider renews to (the sheet's terms.renewalToAge) */
+  renewalToAge: number;
   ages: { age: number; annual: number }[];
 }
 
@@ -56,6 +61,8 @@ export function healthFigures(v: { plan: string; sex: Sex; age: number }): Healt
     waitingDays: facts.terms.waitingDays,
     specialWaitingDays: facts.terms.specialWaitingDays,
     copayPercent: facts.copayPercent,
+    opd: opdOf(v.plan),
+    renewalToAge: facts.terms.renewalToAge,
     ages,
   };
 }

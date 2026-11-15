@@ -1,5 +1,7 @@
 import type { StoryVideoInput } from "./story";
+import { hospitalCounts } from "@/lib/scene-library/health2-sources";
 import { big, small, withBaht, type KnowScene, type KnowShow } from "./story-knowledge";
+import { sourced } from "./story-money";
 
 /**
  * ประกันสุขภาพ (scene library phase 1, owner's spec docs/superpowers/specs/2026-11-13-health-devices-design.md):
@@ -9,13 +11,14 @@ import { big, small, withBaht, type KnowScene, type KnowShow } from "./story-kno
  * no number to show says the same thing in words. Nothing here promises what a claim will pay.
  */
 
-export type HealthTopic = "lumpsum" | "roomcost" | "waiting" | "agecost";
+export type HealthTopic = "lumpsum" | "roomcost" | "waiting" | "agecost" | "ipdopd";
 
 export const HEALTH_CLOSE: Record<HealthTopic, string> = {
   lumpsum: "อยากให้ช่วยเลือกวงเงินที่พอ ทักมาได้เลย",
   roomcost: "อยากรู้ว่าห้องแบบไหนแผนไหนพอ ทักมาได้เลย",
   waiting: "อยากรู้ว่าสมัครแล้วเริ่มคุ้มครองเมื่อไหร่ ทักมาได้เลย",
   agecost: "อยากรู้ว่าอายุคุณจ่ายเท่าไร ทักมาได้เลย",
+  ipdopd: "อยากรู้ว่าแผนไหนมีผู้ป่วยนอก ทักมาได้เลย",
 };
 
 const scene = (key: KnowScene["key"], show: KnowShow, voice: string): KnowScene => ({ key, show, voice });
@@ -100,8 +103,36 @@ const agecost = (input: StoryVideoInput): KnowScene[] => {
   ];
 };
 
+/**
+ * ผู้ป่วยใน ผู้ป่วยนอก ต่างกันยังไง (round 5, spec 2026-11-15-devices-health2-design.md): the plan's room and OPD limit are the
+ * sheet's (rows 1, 18, 19), the renewal age the sheet's terms, today's age the form's, the provinces the hospital list's own
+ * five largest. No figure is typed here: each device goes through checkDevice with these as its only sources, so one the
+ * rules refuse is drawn in words, and our own words failing the rules throws.
+ */
+const ipdopd = (input: StoryVideoInput): KnowScene[] => {
+  const h = input.health!, f = h.figures, plan = `iHealthy ${f.planName}`;
+  const list = hospitalCounts();
+  const rows = list.ranked.slice(0, 5);
+  const allowed = new Set<number>([f.roomPerDay, ...(typeof f.opd === "number" ? [f.opd] : []), f.renewalToAge, h.age, list.total, ...rows.map((r) => r.count)]);
+  // the OPD voice has three forms: a limit a year, no OPD at all ("none"), or as paid ("actual", with the plan's conditions)
+  const door = `แผน ${plan} นอนโรงพยาบาล ค่าห้อง ${withBaht(f.roomPerDay)}ต่อวัน ส่วนไปหาหมอแล้วกลับบ้าน`;
+  const opdVoice = f.opd === "none" ? `${door} แผนนี้ไม่ได้รวมไว้ค่ะ`
+    : f.opd === "actual" ? `${door} จ่ายตามที่จ่ายจริง ตามเงื่อนไขของแผนค่ะ`
+      : `${door} มีวงเงินรวม ${withBaht(f.opd)}ต่อปีค่ะ`;
+  return [
+    scene("knowAsk", { layout: "ask", title: ["ผู้ป่วยใน", "ผู้ป่วยนอก ต่างกันยังไง?"] }, "ไปหาหมอแล้วกลับบ้าน กับต้องนอนโรงพยาบาล ประกันสุขภาพดูแลต่างกันนะคะ"),
+    scene("knowOne", sourced({ layout: "ipdopd", title: ["สองประตู", "คนละวงเงิน"], room: f.roomPerDay, opd: f.opd, planName: f.planName }, allowed) as KnowShow, opdVoice),
+    scene("knowTwo", sourced({ layout: "renew98", title: ["ต่ออายุได้ถึง", "อายุเก้าสิบแปด"], to: f.renewalToAge, age: h.age }, allowed) as KnowShow,
+      "แผนนี้ต่ออายุได้ถึงอายุเก้าสิบแปด ไม่เกินระยะเวลาของสัญญาหลัก และเบี้ยปรับตามช่วงอายุค่ะ"),
+    scene("knowThree", sourced({ layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], total: list.total, rows }, allowed) as KnowShow,
+      "มีโรงพยาบาลในเครือทั่วประเทศ ดูรายชื่อเต็มได้ที่เว็บบริษัทค่ะ"),
+    scene("knowRecap", { layout: "recap", lines: [big("ผู้ป่วยใน คนละวงเงินกับผู้ป่วยนอก"), big("เลือกแผนให้ตรงกับที่ใช้จริง", "green"), small("ตามเงื่อนไขของแผน")] },
+      "จำง่าย ๆ ค่ะ นอนโรงพยาบาลกับไปหาหมอแล้วกลับบ้าน มีวงเงินคนละส่วน เลือกแผนให้ตรงกับที่เราใช้จริง"),
+  ];
+};
+
 /** an episode of ประกันสุขภาพ: its five scenes; the plan's figures come from input.health */
 export function healthScenes(topic: HealthTopic, input: StoryVideoInput, _name: string): KnowScene[] {
   if (!input.health) throw new Error("เรื่องประกันสุขภาพต้องมีแผน iHealthy");
-  return { lumpsum, roomcost, waiting, agecost }[topic](input);
+  return { lumpsum, roomcost, waiting, agecost, ipdopd }[topic](input);
 }

@@ -33,7 +33,7 @@ export type StoryTopic =
   | "deliver" | "claimish" | "remind" | "birthday" | "festival"
   | "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey" | "orphan"
   | "firstjob" | "wedding" | "mortgage" | "selfemployed" | "preretire"
-  | "lumpsum" | "roomcost" | "waiting" | "agecost"
+  | "lumpsum" | "roomcost" | "waiting" | "agecost" | "ipdopd"
   | "lifeneed" | "ciincome" | "taxback" | "retiresave";
 export type StoryShelf = "story" | "knowledge" | "objection" | "family" | "life" | "after" | "health" | "money";
 
@@ -86,6 +86,7 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "roomcost", name: "ค่าห้องเกิน ใครจ่าย", shelf: "health", blurb: "ห้องแพงกว่าที่แผนจ่าย ส่วนต่างเป็นของเรา", figure: "health" },
   { key: "waiting", name: "สมัครวันนี้ คุ้มครองเมื่อไหร่", shelf: "health", blurb: "ช่วงรอคอยของการป่วยทั่วไป และบางโรค", figure: "health" },
   { key: "agecost", name: "ทำตอนอายุน้อย เบี้ยถูกกว่า", shelf: "health", blurb: "เบี้ยสุขภาพขึ้นตามอายุ ยิ่งเริ่มเร็วยิ่งเริ่มต้นต่ำ", figure: "health" },
+  { key: "ipdopd", name: "ผู้ป่วยใน ผู้ป่วยนอก ต่างกันยังไง", shelf: "health", blurb: "นอนโรงพยาบาลกับไปหาหมอแล้วกลับบ้าน วงเงินคนละส่วน", figure: "health" },
   { key: "lifeneed", name: "ทุนชีวิตเท่าไหร่ถึงพอ", shelf: "money", blurb: "หนี้ ค่าใช้จ่ายครอบครัว ค่าเรียนลูก รวมเป็นทุนที่ควรมี", figure: null },
   { key: "ciincome", name: "ป่วยหนัก รายได้หายไปไหน", shelf: "money", blurb: "รายได้หยุดระหว่างรักษา เงินก้อนตอนวินิจฉัยช่วยได้", figure: null },
   { key: "taxback", name: "เบี้ยประกันลดหย่อนได้เท่าไหร่", shelf: "money", blurb: "เพดานลดหย่อน และภาษีที่ได้คืนตามฐานภาษี", figure: null },

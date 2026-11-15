@@ -547,6 +547,7 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
     roomcost: health,
     waiting: health,
     agecost: health,
+    ipdopd: health,
     lifeneed: money,
     ciincome: money,
     taxback: money,

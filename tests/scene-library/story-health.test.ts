@@ -11,6 +11,7 @@ const ORDER: Record<HealthTopic, string[]> = {
   roomcost: ["ask", "room", "overflow", "list", "recap"],
   waiting: ["ask", "waiting", "note", "cashless", "recap"],
   agecost: ["ask", "agecost", "note", "list", "recap"],
+  ipdopd: ["ask", "ipdopd", "renew98", "hospitals", "recap"],
 };
 const PLAN = { plan: "SILVER", sex: "M", age: 35 };
 
@@ -57,9 +58,9 @@ describe("storyHealth", () => {
 });
 
 describe("the ประกันสุขภาพ shelf", () => {
-  it("lists four topics that take an iHealthy figure and offers the plot look", () => {
+  it("lists five topics that take an iHealthy figure (ipdopd is tested in story-ipdopd.test.ts) and offers the plot look", () => {
     const health = STORY_TOPICS.filter((t) => t.shelf === "health");
-    expect(health.map((t) => t.key)).toEqual(TOPICS);
+    expect(health.map((t) => t.key)).toEqual([...TOPICS, "ipdopd"]);
     for (const t of health) expect(t.figure).toBe("health");
     expect(INFO_SHELVES).toContain("health");
     expect(checkedStory({ topic: "lumpsum", art: "plot", health: PLAN } as never, "F")).toMatchObject({ art: "plot" });
