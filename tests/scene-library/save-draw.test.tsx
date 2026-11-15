@@ -383,6 +383,21 @@ describe("pensionsteps", () => {
     expect(g.bars[3].h / g.bars[0].h).toBeLessThan(2.04);
   });
 
+  it("each figure is centred over its own step, a fixed gap above its top, in the spec example at all three sizes (and in every show that is not staggered)", () => {
+    for (const size of SIZES) for (const show of pensions) {
+      const geo = pensionGeo(size, show);
+      const raised = geo.bars.filter((b) => b.leader);
+      if (show === pensions[0] || show === pensions[1] || show === pensions[3]) expect(raised.length, `${size} ${show.rows.length}`).toBe(0);
+      geo.bars.forEach((b, i) => {
+        expect(Math.abs(b.fig.x + b.fig.w / 2 - (b.x + b.w / 2)), `${size} ${show.rows.length} fig${i} centre`).toBeLessThanOrEqual(2);
+        if (!b.leader) expect(b.y - (b.fig.y + b.fig.h), `${size} ${show.rows.length} fig${i} gap`).toBe(geo.bars[0].y - (geo.bars[0].fig.y + geo.bars[0].fig.h));
+        else { expect(b.leader.y).toBe(b.fig.y + b.fig.h); expect(b.leader.y + b.leader.h).toBe(b.y); }
+      });
+      // staggering strictly alternates: only the 2nd, 4th... are raised
+      geo.bars.forEach((b, i) => expect(Boolean(b.leader) && i % 2 === 0, `${size} ${i}`).toBe(false));
+    }
+  });
+
   it("every figure fits its place at every size, nine digits and five steps included; none is covered by a bar, a neighbour or the dashed line", () => {
     for (const size of SIZES) for (const show of pensions) {
       const g = geoOf(size);

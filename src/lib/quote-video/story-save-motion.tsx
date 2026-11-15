@@ -430,8 +430,9 @@ export function pensionAt(s: Record<string, Anim>, n: number, t: number) {
 /**
  * Where the steps stand. Each step is as tall as its baht (from zero, a few px at least), each with its figure above its
  * top and its ages under; the dashed line runs from the left to the right above every figure (its left edge is the
- * lowest it has to clear), with its label above its high end, so nothing of it ever lies on a figure. A figure wider than
- * its step sits at the nearest place and the lowest level (up to two figure heights higher) where it hits no step and no other figure.
+ * lowest it has to clear), with its label above its high end, so nothing of it ever lies on a figure. Every figure is centred over its
+ * own step a fixed gap above its top; only when even the smallest allowed size is wider than a step do they alternate
+ * (every second one a figure higher, with a leader line down to its step).
  */
 export function pensionGeo(size: VideoSize, show: SaveShow<"pensionsteps">, place: SavePlace = paperPlace(size)) {
   const r = place.room;
@@ -458,10 +459,15 @@ export function pensionGeo(size: VideoSize, show: SaveShow<"pensionsteps">, plac
   const G = 10;
 
   type Box = { x: number; y: number; w: number; h: number };
-  type Plan = { figSize: number; Hs: number; ageSize: number; colW: number; x0: number; hs: number[]; boxes: Box[]; a: number; s: number };
+  type Plan = { figSize: number; Hs: number; ageSize: number; colW: number; x0: number; hs: number[]; boxes: Box[]; raised: boolean[]; a: number; s: number };
   const maxAnnual = Math.max(...rows.map((x) => x.annual), 1);
   const hit = (p: Box, q: Box, m = 0) => p.x < q.x + q.w + m && q.x < p.x + p.w + m && p.y < q.y + q.h + m && q.y < p.y + p.h + m;
-  const plan = (figSize: number, Hs: number): Plan | null => {
+  /**
+   * Every figure sits centred over its own step a fixed gap above its top ("flat"). Only when even the smallest figure
+   * size allowed is wider than its step do the figures alternate ("stagger"): the 1st, 3rd, 5th low as before, the 2nd
+   * and 4th one figure higher, each raised one tied to its step by a leader line.
+   */
+  const plan = (figSize: number, Hs: number, stagger: boolean): Plan | null => {
     const figH = Math.round(figSize * 1.3);
     const colW = Math.min(300, Math.floor((r.w - 16) / n));
     const ageSize = ageFit(colW);
@@ -472,20 +478,17 @@ export function pensionGeo(size: VideoSize, show: SaveShow<"pensionsteps">, plac
     // each step's height is to its baht (from zero), a few px at least
     const hs = rows.map((x) => Math.max(6, Math.round((Hs * x.annual) / maxAnnual)));
     const bars: Box[] = hs.map((h, i) => ({ x: colL(i), y: base - h, w: colW, h }));
-    // each figure over its own step, at the lowest level (0 to 2 figure heights up) and nearest place where it hits no step and no other figure
+    const raised = rows.map((_, i) => stagger && i % 2 === 1);
     const boxes: Box[] = [];
     for (let i = 0; i < n; i++) {
       const fw = figWidth(figs[i], figSize);
-      const xs = [colL(i) + Math.round((colW - fw) / 2), colL(i) + colW - fw - 2, colL(i) + 2].map((x) => Math.min(Math.max(x, r.x + 4), r.x + r.w - 4 - fw));
-      let put: Box | null = null;
-      for (let lv = 0; lv < 3 && !put; lv++) {
-        for (const x of xs) {
-          const box = { x, w: fw, h: figH, y: base - hs[i] - G - figH - lv * (figH + 4) };
-          if (!bars.some((q) => hit(box, q)) && !boxes.some((q) => hit(box, q, 2))) { put = box; break; }
-        }
-      }
-      if (!put) return null;
-      boxes.push(put);
+      if (!stagger && fw > colW - 2) return null;
+      const cx = colL(i) + colW / 2;
+      const x = Math.round(cx - fw / 2);
+      if (x < r.x + 4 || x + fw > r.x + r.w - 4) return null;
+      const box = { x, w: fw, h: figH, y: base - hs[i] - G - figH - (raised[i] ? figH + 4 : 0) };
+      if (bars.some((q) => hit(box, q)) || boxes.some((q) => hit(box, q, 2))) return null;
+      boxes.push(box);
     }
     // the line is above every figure and every step at the left edge of each
     const sl = Hs * 0.35;
@@ -494,16 +497,20 @@ export function pensionGeo(size: VideoSize, show: SaveShow<"pensionsteps">, plac
       const left = Math.min(boxes[i].x, colL(i));
       a = Math.max(a, base - boxes[i].y + G - (sl * (left - x0)) / chartW);
     }
-    return a + sl + 6 + labelH <= chartH ? { figSize, Hs, ageSize, colW, x0, hs, boxes, a, s: sl } : null;
+    return a + sl + 6 + labelH <= chartH ? { figSize, Hs, ageSize, colW, x0, hs, boxes, raised, a, s: sl } : null;
   };
   let best: Plan | null = null;
   const minHs = Math.max(90, Math.round(chartH * 0.35));
-  for (let figSize = Math.round(text * 1.3); figSize >= 10 && !best; figSize -= 1) {
-    for (let Hs = chartH; Hs >= minHs && !best; Hs -= 4) best = plan(figSize, Hs);
+  const floorSize = Math.round(text * 0.45);
+  for (const stagger of [false, true]) {
+    for (let figSize = Math.round(text * 1.3); figSize >= (stagger ? 10 : floorSize) && !best; figSize -= 1) {
+      for (let Hs = chartH; Hs >= minHs && !best; Hs -= 4) best = plan(figSize, Hs, stagger);
+    }
+    if (best) break;
   }
   const fallback = (): Plan => {
     const colW = Math.min(300, Math.floor((r.w - 16) / n));
-    return { figSize: 10, Hs: minHs, ageSize: 14, colW, x0: r.x + 8, hs: rows.map(() => 20), boxes: rows.map((_, i) => ({ x: r.x + 8 + i * colW, y: base - 40, w: colW, h: 13 })), a: minHs, s: minHs * 0.35 };
+    return { figSize: 10, Hs: minHs, ageSize: 14, colW, x0: r.x + 8, hs: rows.map(() => 20), boxes: rows.map((_, i) => ({ x: r.x + 8 + i * colW, y: base - 40, w: colW, h: 13 })), raised: rows.map(() => false), a: minHs, s: minHs * 0.35 };
   };
   const p = best ?? fallback();
   const { colW, x0 } = p;
@@ -512,9 +519,12 @@ export function pensionGeo(size: VideoSize, show: SaveShow<"pensionsteps">, plac
   const barGap = Math.min(10, Math.round(colW * 0.06));
   const bars = rows.map((row, i) => {
     const h = p.hs[i];
+    const fig = { text: figs[i], ...p.boxes[i] };
     return {
       x: colL(i) + Math.round(barGap / 2), w: colW - barGap, h, y: base - h,
-      fig: { text: figs[i], ...p.boxes[i] },
+      fig,
+      // a raised figure is tied to its step by a thin line from its foot down to the step's top
+      leader: p.raised[i] ? { x: Math.round(colL(i) + colW / 2), y: fig.y + fig.h, h: base - h - (fig.y + fig.h) } : null,
       age: { text: ageTexts[i], x: colL(i), w: colW, y: base + gapBelow, h: ageH },
       row,
     };
@@ -549,6 +559,7 @@ function PensionSteps({ d, show }: { d: Dev; show: SaveShow<"pensionsteps"> }) {
           <Fragment key={i}>
             <div data-part="step" style={abs({ left: b.x, top: geo.base - h, width: b.w, height: h, background: GREEN, border: `4px solid ${C.ink}`, borderBottom: "none", borderRadius: "10px 10px 0 0", opacity: p > 0 ? 1 : 0 })} />
             <div data-part="fig" style={abs({ left: b.fig.x, top: b.fig.y + (b.h - h), width: b.fig.w, height: b.fig.h, justifyContent: "center", alignItems: "center", fontFamily: HAND, fontSize: geo.figSize, fontWeight: 700, lineHeight: 1.2, whiteSpace: "nowrap", color: GREEN, opacity: p > 0 ? 1 : 0 })}>{b.fig.text}</div>
+            {b.leader ? <div data-part="leader" style={abs({ left: b.leader.x - 1, top: b.leader.y + (b.h - h), width: 2, height: b.leader.h, background: GREEN, opacity: p > 0 ? 0.8 : 0 })} /> : null}
             <div data-part="age" style={abs({ left: b.age.x, top: b.age.y, width: b.age.w, height: b.age.h, justifyContent: "center", fontFamily: HAND, fontSize: geo.ageSize, fontWeight: 600, lineHeight: 1.3, whiteSpace: "nowrap", color: ink, opacity: p > 0 ? 1 : 0 })}>{b.age.text}</div>
           </Fragment>
         );
