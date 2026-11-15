@@ -518,7 +518,7 @@ describe("parentshealth", () => {
       for (const b of geo.card.blocks) for (const l of b.lines) expect(figWidth(l, b.size), `${label} ${l}`).toBeLessThanOrEqual(geo.card.inner + 1);
       for (const l of geo.foot.lines) expect(handWidth(l, geo.foot.size), `${label} foot ${l}`).toBeLessThanOrEqual(geo.foot.w);
       if (geo.note) { expect(h2Inside(geo.note, g.dev), label).toBe(true); expect(hit(geo.note, geo.card), label).toBe(false); expect(geo.note.y, label).toBeGreaterThanOrEqual(geo.foot.y + geo.foot.h); }
-      expect(geo.fw, `${label} person`).toBeGreaterThanOrEqual(Math.round(g.text * 2.2));
+      expect(geo.fw, `${label} person`).toBeGreaterThanOrEqual(Math.round(g.text * 3.2));
       expect(geo.card.blocks[1].size, `${label} cap figure`).toBeGreaterThanOrEqual(Math.round(g.text * 0.55));
     }
   });
@@ -559,6 +559,7 @@ describe("groupcost", () => {
       const geo = groupGeo(size, show);
       const label = `${size} ${show.perYear}/${show.band}`;
       expect(geo.people).toHaveLength(6);
+      expect(geo.fw, `${label} people`).toBeGreaterThanOrEqual(Math.round(g.text * 2.8));
       for (const [i, p] of geo.people.entries()) {
         expect(h2Inside(p, g.dev), `${label} person ${i}`).toBe(true);
         if (i) expect(geo.people[i - 1].x + geo.people[i - 1].w, `${label} apart`).toBeLessThanOrEqual(p.x);
@@ -650,14 +651,21 @@ describe("hospitals", () => {
       }
       const last = geo.bars[geo.bars.length - 1];
       expect(geo.foot.y, label).toBeGreaterThanOrEqual(last.y + last.rowH);
-      expect(geo.line.y, label).toBeGreaterThanOrEqual(geo.foot.y + geo.foot.h);
+      if (geo.line.x === g.dev.x) expect(geo.line.y, label).toBeGreaterThanOrEqual(geo.foot.y + geo.foot.h);
       expect(h2Inside(geo.foot, g.dev), `${label} foot`).toBe(true);
       expect(h2Inside(geo.line, g.dev), `${label} line`).toBe(true);
       for (const l of geo.line.lines) expect(handWidth(l, geo.line.size), label).toBeLessThanOrEqual(geo.line.w);
       if (geo.note) { expect(h2Inside(geo.note, g.dev), label).toBe(true); expect(geo.note.y, label).toBeGreaterThanOrEqual(geo.line.y + geo.line.h); }
-      expect(geo.nameSize, `${label} names`).toBeGreaterThanOrEqual(Math.round(g.text * 0.6));
-      expect(geo.countSize, `${label} counts`).toBeGreaterThanOrEqual(Math.round(g.text * 0.6));
+      expect(geo.nameSize, `${label} names`).toBeGreaterThanOrEqual(Math.round(g.text * 0.8));
+      expect(geo.countSize, `${label} counts`).toBeGreaterThanOrEqual(Math.round(g.text * 0.8));
+      if (geo.line.x > g.dev.x) expect(geo.foot.x + geo.foot.w, `${label} foot beside line`).toBeLessThanOrEqual(geo.line.x);
     }
+  });
+});
+
+describe("hospitals guards", () => {
+  it("refuses an empty list of provinces rather than drawing NaN", () => {
+    expect(() => hospitalsGeo("portrait", { ...hosps[0], rows: [] })).toThrow();
   });
 });
 

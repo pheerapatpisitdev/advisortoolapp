@@ -696,8 +696,8 @@ function Renew({ d, show }: { d: Dev; show: Health2Show<"renew98"> }) {
 
 /* ---------- the people (parentshealth, groupcost) ---------- */
 
-/** a person's box is this much taller than wide */
-const TALL = 1.3;
+/** a person's box is this much taller than wide (a doll is about half as wide as it is tall, so the box fits it) */
+const TALL = 1.7;
 /** the older generation the parents are drawn as, and the six colleagues of a group */
 const PARENT_FACES = ["e01", "e02"];
 const STAFF_FACES = ["m02", "w03", "m06", "w07", "m10", "w11"];
@@ -742,13 +742,13 @@ export function parentsGeo(size: VideoSize, show: Health2Show<"parentshealth">, 
   const pad = Math.round(text * 0.4);
   const row = r.w / r.h > 2;
   const area = { x: r.x, y: r.y, w: r.w, h: r.h - noteBlock };
-  const cardW = row ? Math.min(Math.round(area.w * 0.46), 640) : Math.min(area.w - 40, 760);
+  const cardW = row ? Math.min(Math.round(area.w * 0.4), 600) : Math.min(area.w - 40, 760);
   const inner = cardW - pad * 2 - 8;
   const capSize = Math.round(text * 0.95);
   const capH = Math.round(capSize * 1.3);
-  const peopleW = row ? Math.round(area.w * 0.46) : area.w - 40;
+  const peopleW = row ? Math.round(area.w * 0.54) : area.w - 40;
   // across: the two parents side by side, a gap for the arrow, the child
-  const SPAN = 4.35;
+  const SPAN = 4.08;
   const build = (f: number) => {
     const cardBlocks: Blk[] = [phrase(W.taxCut, inner, text * 1.1 * f, C.ink, 700), one(`${W.upTo} ${n(show.cap)} ${W.baht}`, inner, text * 1.6 * f, GREEN, 700), phrase(W.bothParents, inner, text * 1.0 * f, C.ink, 600)];
     const foot = setPhrase(parentsFoot(), (row ? cardW + 40 : area.w) - 40, text * 0.9 * f, 2);
@@ -760,8 +760,8 @@ export function parentsGeo(size: VideoSize, show: Health2Show<"parentshealth">, 
   for (; f > 0.4; f -= 0.04) {
     parts = build(f);
     const left = row ? area.h : area.h - (parts.cardH + parts.footH + Math.round(gap * 2.5));
-    fw = Math.min(Math.round(peopleW / SPAN), 280, Math.floor((left - capH - 8) / TALL));
-    if (fw >= Math.round(text * 2.6)) break;
+    fw = Math.min(Math.round(peopleW / SPAN), 340, Math.floor((left - capH - 8) / TALL));
+    if (fw >= Math.round(text * 4)) break;
   }
   const figH = Math.round(fw * TALL);
   const peopleH = figH + 8 + capH;
@@ -769,12 +769,12 @@ export function parentsGeo(size: VideoSize, show: Health2Show<"parentshealth">, 
   const colH = row ? 0 : peopleH + Math.round(gap * 1.5) + parts.cardH + gap + parts.footH;
   const top = row ? area.y + Math.round((area.h - peopleH) / 2) : area.y + Math.max(0, Math.round((area.h - colH) / 2));
   const mk = (i: number, x: number) => ({ x: Math.round(x), y: top, w: fw, h: figH, id: i });
-  const people = [mk(0, x0), mk(1, x0 + fw * 1.15), mk(2, x0 + fw * 3.35)];
-  const pairC = Math.round(x0 + fw * 1.075);
-  const childC = Math.round(x0 + fw * 3.85);
+  const people = [mk(0, x0), mk(1, x0 + fw * 1.08), mk(2, x0 + fw * 3.08)];
+  const pairC = Math.round(x0 + fw * 1.04);
+  const childC = Math.round(x0 + fw * 3.58);
   const capY = top + figH + 8;
   const caps = { parents: capRect(W.insured, capSize, pairC, capY, area), child: capRect(W.childPays, capSize, childC, capY, area) };
-  const arrow = { x: Math.round(x0 + fw * 2.15) + 6, y: top + Math.round(figH * 0.3), w: Math.round(fw * 1.2) - 12, h: Math.round(figH * 0.45) };
+  const arrow = { x: Math.round(x0 + fw * 2.08) + 6, y: top + Math.round(figH * 0.3), w: Math.round(fw * 1.0) - 12, h: Math.round(figH * 0.45) };
   const zoneX = row ? area.x + peopleW + 40 : area.x;
   const zoneW = row ? area.x + area.w - 20 - zoneX : area.w;
   const cardX = zoneX + Math.round((zoneW - cardW) / 2);
@@ -856,15 +856,15 @@ export function groupGeo(size: VideoSize, show: Health2Show<"groupcost">, place:
   for (; f > 0.4; f -= 0.04) {
     parts = build(f);
     const cards = stacked ? parts.cardH * 2 + gap : parts.cardH;
-    fw = Math.min(Math.round((area.w - 40) / 6.6), 200, Math.floor((area.h - cards - Math.round(gap * 1.5) - (capH ? capH + 8 : 0) - 8) / TALL));
-    if (fw >= Math.round(text * 2.2)) break;
+    fw = Math.min(Math.round((area.w - 40) / 6.3), 260, Math.floor((area.h - cards - Math.round(gap * 1.5) - (capH ? capH + 8 : 0) - 8) / TALL));
+    if (fw >= Math.round(text * 2.8)) break;
   }
   const figH = Math.round(fw * TALL);
-  const rowW = Math.round(fw * 6.6);
+  const rowW = Math.round(fw * 6.3);
   const groupH = figH + 8 + (capH ? capH + 8 : 0) + Math.round(gap * 1.5) + (stacked ? parts.cardH * 2 + gap : parts.cardH);
   const top = area.y + Math.max(0, Math.round((area.h - groupH) / 2));
   const x0 = area.x + Math.round((area.w - rowW) / 2);
-  const people = Array.from({ length: 6 }, (_, i) => ({ x: x0 + Math.round(fw * 1.12 * i), y: top, w: fw, h: figH, id: i }));
+  const people = Array.from({ length: 6 }, (_, i) => ({ x: x0 + Math.round(fw * 1.06 * i), y: top, w: fw, h: figH, id: i }));
   const band = bandText ? { ...capRect(bandText, capSize, area.x + Math.round(area.w / 2), top + figH + 8, area), w: Math.ceil(handWidth(bandText, capSize)) + 8 } : null;
   const bracket = { x: x0, y: top + figH + 2, w: rowW - Math.round(fw * 0.2) };
   const cardY = top + figH + 8 + (capH ? capH + 8 : 0) + Math.round(gap * 1.5);
@@ -906,6 +906,8 @@ export function hospitalsGeo(size: VideoSize, show: Health2Show<"hospitals">, pl
   const r = place.room;
   const text = place.text;
   const rows = show.rows.slice(0, 5);
+  if (rows.length === 0) throw new Error("hospitals needs one to five provinces");
+  const wide = r.w / r.h > 2;
   const note = noteGeo(show.note, r.w - 40, text);
   const noteBlock = note ? note.h + Math.round(text * 0.6) : 0;
   const gap = Math.round(text * 0.45);
@@ -914,11 +916,14 @@ export function hospitalsGeo(size: VideoSize, show: Health2Show<"hospitals">, pl
   const names = rows.map((x) => provinceShort(x.province));
   const head = one(`${n(show.total)} ${W.nationwide}`, r.w - 40, text * 1.6, GREEN, 700);
   const headH = blkH(head);
-  const foot = setPhrase(hospitalsFoot(), r.w - 40, text * 0.9, 1);
+  // a wide, short room sets the date and the line side by side, so the names keep their size
+  const half = Math.round(r.w / 2);
+  const foot = setPhrase(hospitalsFoot(), (wide ? half : r.w) - 40, text * 0.9, 1);
   const footH = Math.round(foot.lines.length * foot.size * 1.3);
-  const ln = lineGeo(W.fullList, r.x, 0, r.w, Math.round(text * 0.95));
+  const ln = lineGeo(W.fullList, wide ? r.x + half : r.x, 0, wide ? half : r.w, Math.round(text * 0.95));
+  const tail = wide ? Math.max(footH, ln.h) : footH + Math.round(gap * 0.3) + ln.h;
   const build = (f: number) => {
-    const cap = text * 1.15 * f;
+    const cap = text * (wide ? 1.3 : 1.15) * f;
     let nameSize = Math.round(cap);
     const labelMax = Math.round((area.w - 40) * 0.4);
     while (nameSize > 10 && Math.max(...names.map((x) => handWidth(x, nameSize))) > labelMax) nameSize -= 1;
@@ -930,12 +935,12 @@ export function hospitalsGeo(size: VideoSize, show: Health2Show<"hospitals">, pl
   };
   let f = 1;
   let b = build(1);
-  const stack = (k: ReturnType<typeof build>) => headH + gap + rows.length * k.rowH + (rows.length - 1) * Math.round(gap * 0.4) + gap + footH + Math.round(gap * 0.3) + ln.h;
-  for (; f > 0.4; f -= 0.04) {
+  const stack = (k: ReturnType<typeof build>) => headH + gap + rows.length * k.rowH + (rows.length - 1) * Math.round(gap * (wide ? 0.2 : 0.4)) + gap + tail;
+  for (; f > 0.7; f -= 0.04) {
     b = build(f);
     if (stack(b) <= area.h) break;
   }
-  const rowGap = Math.round(gap * 0.4);
+  const rowGap = Math.round(gap * (wide ? 0.2 : 0.4));
   const total = stack(b);
   const y0 = area.y + Math.max(0, Math.round((area.h - total) / 2));
   const headRect = { x: r.x + 20, y: y0, w: r.w - 40, h: headH, blk: head };
@@ -951,8 +956,8 @@ export function hospitalsGeo(size: VideoSize, show: Health2Show<"hospitals">, pl
   const footY = barsY + rows.length * b.rowH + (rows.length - 1) * rowGap + gap;
   return {
     f, max, barRoom, barX, ...b, head: headRect, bars,
-    foot: { x: r.x, y: footY, w: r.w, h: footH, size: foot.size, lines: foot.lines },
-    line: { ...ln, y: footY + footH + Math.round(gap * 0.3) },
+    foot: { x: r.x, y: footY, w: wide ? half : r.w, h: footH, size: foot.size, lines: foot.lines },
+    line: { ...ln, y: wide ? footY : footY + footH + Math.round(gap * 0.3) },
     note: note ? { x: r.x, y: r.y + r.h - note.h, w: r.w, ...note } : null,
   };
 }
