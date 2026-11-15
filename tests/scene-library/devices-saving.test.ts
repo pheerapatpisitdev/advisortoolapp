@@ -50,8 +50,8 @@ const FIELDS: { name: string; max: number; patch: (v: string) => unknown }[] = [
 describe("saving devices: registry", () => {
   it("lists the four layouts after the earlier rounds", () => {
     expect([...SAVE_LAYOUTS]).toEqual(["savejar", "paidgot", "pricerise", "pensionsteps"]);
-    expect(DEVICES.map((d) => d.key)).toEqual([...HEALTH_LAYOUTS, ...LIFE_LAYOUTS, ...META_LAYOUTS, ...SAVE_LAYOUTS]);
-    expect(DEVICES).toHaveLength(28);
+    expect(DEVICES.map((d) => d.key).slice(0, 28)).toEqual([...HEALTH_LAYOUTS, ...LIFE_LAYOUTS, ...META_LAYOUTS, ...SAVE_LAYOUTS]);
+    expect(DEVICES).toHaveLength(36);
   });
   it("gives each the family ออมเงิน, the product saving, both clips, its fields and a when line", () => {
     for (const key of SAVE_LAYOUTS) {

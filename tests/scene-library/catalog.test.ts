@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { LIBRARY, libraryItem, usesFor, storyLibraryHref, promptLibraryHref, TYPE_NAME, PRODUCT_NAME } from "@/lib/scene-library/catalog";
-import { DEVICES } from "@/lib/scene-library/devices";
+import { DEVICES as ALL_DEVICES, isHealth2Device } from "@/lib/scene-library/devices";
+/** the twenty-eight devices of rounds 1-4; Task 7 widens these checks to round 5's eight health devices (not in the library until then) */
+const DEVICES = ALL_DEVICES.filter((d) => !isHealth2Device(d));
 import { PROMPT_FORMATS, PICTURE_STYLES } from "@/lib/prompt-story/types";
 import { SOUNDS, MUSIC_MOODS, joinCues } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
@@ -194,6 +196,7 @@ describe("catalogue", () => {
       ["cilump", "health", "ciincome"], ["incomestop", "health", "ciincome"], ["taxback", "saving", "taxback"], ["taxcap", "saving", "taxback"],
     ] as const;
     expect(DEVICES.filter((d) => d.family !== "ออมเงิน")).toHaveLength(24);
+    expect(ALL_DEVICES).toHaveLength(36);
     for (const [key, product, topic] of EIGHT) {
       const item = libraryItem(key)!;
       expect([item.type, item.ready, item.product], key).toEqual(["device", true, product]);

@@ -123,7 +123,30 @@ export type KnowShow =
   /** เงินเท่าเดิม ซื้อได้น้อยลง: two baskets, no figure; the default note stands when `note` is left out */
   | { layout: "pricerise"; title: [string, string]; note?: string }
   /** บำนาญขั้นบันได: one to five steps, each an age span and its baht a year, ascending by age */
-  | { layout: "pensionsteps"; title: [string, string]; note?: string; rows: { from: number; to: number; annual: number }[] };
+  | { layout: "pensionsteps"; title: [string, string]; note?: string; rows: { from: number; to: number; annual: number }[] }
+  /*
+   * สุขภาพเพิ่มเติม devices (round 5, spec 2026-11-15-devices-health2-design.md): every figure comes from a code source (the
+   * iHealthy Ultra sheet, the group premium table, the PA plans, the hospital list, the tax table) or the agent's own input
+   * (a bill, an age); derived figures (a bill split, per month) are computed by the drawer and never supplied. Every word
+   * field is digit-free and within HEALTH2_LIMITS. A figure that cannot be sourced is left off, and a device that cannot be
+   * drawn without it is refused by checkDevice.
+   */
+  /** สองประตู ผู้ป่วยใน ผู้ป่วยนอก: `room` baht a day (sheet row 1), `opd` the yearly OPD limit (rows 18 and 19 share it) as baht, "none" (the plan has no OPD) or "actual" (as actually paid) */
+  | { layout: "ipdopd"; title: [string, string]; note?: string; room: number; opd: number | "none" | "actual"; planName?: string }
+  /** ส่วนรับผิดชอบแรก: the first part of a bill the person pays (`deductible`, a plan's baht a year), then the insurer; amounts are drawn only when `bill` is given */
+  | { layout: "deductible"; title: [string, string]; note?: string; deductible: number; bill?: number }
+  /** ร่วมจ่าย: a bill sheet split; `percent` is the sheet's copayPercent; with `bill` the drawer computes both parts */
+  | { layout: "copay"; title: [string, string]; note?: string; percent: number; bill?: number }
+  /** ต่ออายุได้ถึง: a timeline from today (`age` when given) to `to`, the sheet's renewalToAge */
+  | { layout: "renew98"; title: [string, string]; note?: string; to: number; age?: number }
+  /** ประกันสุขภาพให้พ่อแม่: `cap` is the tax table's cap for a parent's health premium (HEALTH_PARENTS_CAP) */
+  | { layout: "parentshealth"; title: [string, string]; note?: string; cap: number }
+  /** ต้นทุนต่อหัว ประกันกลุ่ม: `perYear` baht a head a year (a group IPD premium); `band` picks the head-count words, drawn by code */
+  | { layout: "groupcost"; title: [string, string]; note?: string; perYear: number; band?: "10-25" | "26-50" | "51-100" }
+  /** โรงพยาบาลในเครือ: `total` the network's hospitals, one to five provinces with their counts, bars to one scale from zero */
+  | { layout: "hospitals"; title: [string, string]; note?: string; total: number; rows: { province: string; count: number }[] }
+  /** อุบัติเหตุหนึ่งครั้ง: `medical` baht an accident at most; `weekly` baht a week while unable to work, for `weeks` weeks at most (never daily) */
+  | { layout: "paclaim"; title: [string, string]; note?: string; medical: number; weekly?: number; weeks?: number };
 
 export const HEALTH_LAYOUTS = ["split", "limit", "room", "overflow", "waiting", "cashless", "groupgap", "agecost"] as const;
 export type HealthLayout = (typeof HEALTH_LAYOUTS)[number];
@@ -133,12 +156,15 @@ export const META_LAYOUTS = ["umbrella", "housepillar", "lifering", "safetynet",
 export type MetaLayout = (typeof META_LAYOUTS)[number];
 export const SAVE_LAYOUTS = ["savejar", "paidgot", "pricerise", "pensionsteps"] as const;
 export type SaveLayout = (typeof SAVE_LAYOUTS)[number];
-/** any system-drawn device: health (round 1), ชีวิต ภาษี มรดก (round 2), อุปมา (round 3) or ออมเงิน (round 4) */
-export type DeviceLayout = HealthLayout | LifeLayout | MetaLayout | SaveLayout;
-export const DEVICE_LAYOUTS: readonly DeviceLayout[] = [...HEALTH_LAYOUTS, ...LIFE_LAYOUTS, ...META_LAYOUTS, ...SAVE_LAYOUTS];
+export const HEALTH2_LAYOUTS = ["ipdopd", "deductible", "copay", "renew98", "parentshealth", "groupcost", "hospitals", "paclaim"] as const;
+export type Health2Layout = (typeof HEALTH2_LAYOUTS)[number];
+/** any system-drawn device: health (round 1), ชีวิต ภาษี มรดก (round 2), อุปมา (round 3), ออมเงิน (round 4) or สุขภาพเพิ่มเติม (round 5) */
+export type DeviceLayout = HealthLayout | LifeLayout | MetaLayout | SaveLayout | Health2Layout;
+export const DEVICE_LAYOUTS: readonly DeviceLayout[] = [...HEALTH_LAYOUTS, ...LIFE_LAYOUTS, ...META_LAYOUTS, ...SAVE_LAYOUTS, ...HEALTH2_LAYOUTS];
 export type LifeShow<L extends LifeLayout = LifeLayout> = Extract<KnowShow, { layout: L }>;
 export type MetaShow<L extends MetaLayout = MetaLayout> = Extract<KnowShow, { layout: L }>;
 export type SaveShow<L extends SaveLayout = SaveLayout> = Extract<KnowShow, { layout: L }>;
+export type Health2Show<L extends Health2Layout = Health2Layout> = Extract<KnowShow, { layout: L }>;
 
 /** the longest each metaphor word may be, in characters (spec: refused, not cut) */
 export const META_LIMITS = { titleLine: 20, note: 34, word: 12, arrow: 14, arrows: 5 } as const;
@@ -164,6 +190,56 @@ export const SAVE_WORDS = {
   living: "ค่าครองชีพ",
   perYear: "บาทต่อปี ตามช่วงอายุ",
   marks: "0123456789,บาท–-",
+} as const;
+/**
+ * What a round-5 health device may carry (spec, "The eight devices"): words refused over their length, never cut
+ * (`label` is a plan name or a province); whole baht up to `baht`, an age 1 to `age`, one to `rows` provinces.
+ */
+export const HEALTH2_LIMITS = { titleLine: 20, note: 34, label: 14, baht: 1_000_000_000, age: 99, rows: 5 } as const;
+/** the head-count bands a group quote may name, and the words the drawer puts to each (no digit is ever a word the writer supplies) */
+export const GROUP_BANDS = ["10-25", "26-50", "51-100"] as const;
+export type GroupBand = (typeof GROUP_BANDS)[number];
+/** the words the eight round-5 devices draw themselves (never a percent but the co-payment's drawn figure, never a return word) */
+export const HEALTH2_WORDS = {
+  inpatient: "ผู้ป่วยใน",
+  outpatient: "ผู้ป่วยนอก",
+  room: "ค่าห้อง",
+  perDay: "บาท/วัน",
+  opdLimit: "วงเงินรวม/ปี",
+  noOpd: "แผนนี้ไม่มีผู้ป่วยนอก",
+  actual: "ตามที่จ่ายจริง",
+  opdIncludes: "ผู้ป่วยนอกรวมค่าแพทย์ ยา และกายภาพ",
+  weOwn: "เราจ่าย",
+  insurerPays: "ประกันจ่าย",
+  notYet: "ยังไม่ถึงส่วนที่ประกันจ่าย",
+  deductibleCard: "ส่วนรับผิดชอบแรกของแผน",
+  perYear: "บาทต่อปี",
+  bill: "บิล",
+  restPays: "ประกันจ่ายส่วนที่เหลือ",
+  today: "วันนี้",
+  renewTo: "ต่อได้ถึง อายุ",
+  notBeyond: "ไม่เกินระยะเวลาของสัญญาหลัก",
+  byAge: "เบี้ยปรับตามช่วงอายุ",
+  insured: "ผู้เอาประกัน",
+  childPays: "ลูกจ่ายเบี้ย",
+  taxCut: "ลูกนำเบี้ยไปลดหย่อนภาษีได้",
+  upTo: "ไม่เกิน",
+  bothParents: "ต่อปี รวมพ่อและแม่",
+  taxFoot: "ตามเกณฑ์กรมสรรพากร",
+  perHeadYear: "ต่อคนต่อปี",
+  perHeadMonth: "เฉลี่ยต่อคนต่อเดือน",
+  band10: "พนักงาน 10–25 คน",
+  band26: "พนักงาน 26–50 คน",
+  band51: "พนักงาน 51–100 คน",
+  nationwide: "แห่งทั่วประเทศ",
+  asOf: "ข้อมูล ณ",
+  fullList: "ดูรายชื่อเต็มได้ที่เว็บบริษัท",
+  perAccident: "ค่ารักษาต่ออุบัติเหตุ ไม่เกิน",
+  offWork: "ทำงานไม่ได้ชั่วคราว สัปดาห์ละ",
+  atMost: "สูงสุด",
+  weeks: "สัปดาห์",
+  baht: "บาท",
+  marks: "0123456789,%–-.",
 } as const;
 /** the words a metaphor draws when its optional field is left out */
 export const META_DEFAULTS = { label: "รายได้", from: "วันนี้", to: "วันข้างหน้า" } as const;
@@ -483,8 +559,10 @@ export const isLife = (show: KnowShow): boolean => (LIFE_LAYOUTS as readonly str
 export const isMeta = (show: KnowShow): boolean => (META_LAYOUTS as readonly string[]).includes(show.layout);
 /** an ออมเงิน device (round 4): figures in baht only, and words of its own (SAVE_WORDS) */
 export const isSave = (show: KnowShow): boolean => (SAVE_LAYOUTS as readonly string[]).includes(show.layout);
+/** a สุขภาพเพิ่มเติม device (round 5): digits and "บาท" (the co-payment's drawn percent too), and words of its own (HEALTH2_WORDS) */
+export const isHealth2 = (show: KnowShow): boolean => (HEALTH2_LAYOUTS as readonly string[]).includes(show.layout);
 /** any system-drawn device, any round */
-export const isDevice = (show: KnowShow): boolean => isHealth(show) || isLife(show) || isMeta(show) || isSave(show);
+export const isDevice = (show: KnowShow): boolean => isHealth(show) || isLife(show) || isMeta(show) || isSave(show) || isHealth2(show);
 
 /** the words one show puts on screen from its own fields (a device's own words and digits are showText's) */
 function showWords(show: KnowShow): string[] {
@@ -511,6 +589,7 @@ function showWords(show: KnowShow): string[] {
   if (show.layout === "threegen") words.push(...show.rows, ...(show.note ? [show.note] : []));
   if (isMeta(show)) words.push(...metaWords(show as MetaShow));
   if (isSave(show)) words.push(...saveWords(show as SaveShow));
+  if (isHealth2(show)) words.push(...health2Words(show as Health2Show));
   return words;
 }
 
@@ -520,6 +599,14 @@ export function saveWords(show: SaveShow): string[] {
   if (show.layout === "pricerise") return [SAVE_DEFAULTS.pricerise];
   if (show.layout === "pensionsteps") return [SAVE_DEFAULTS.pensionsteps];
   return [];
+}
+
+/** the words a round-5 device puts on screen from its fields: the note, a plan's name, the provinces (its title is showWords') */
+export function health2Words(show: Health2Show): string[] {
+  const out: string[] = show.note ? [show.note] : [];
+  if (show.layout === "ipdopd" && show.planName) out.push(show.planName);
+  if (show.layout === "hospitals") out.push(...show.rows.map((r) => r.province));
+  return out;
 }
 
 /** every word an อุปมา device puts on screen from its fields, its defaults included (the note is the line under the picture) */
@@ -541,10 +628,12 @@ const HEALTH_TEXT = ["0123456789,บาท", ...Object.values(HEALTH_WORDS)];
 const LIFE_TEXT = [...Object.values(LIFE_WORDS), ...TAX_CAPS.flatMap((r) => [r.label, r.note ?? ""])];
 /** round-4 devices: their own words, and the digits and baht their figures use */
 const SAVE_TEXT = Object.values(SAVE_WORDS);
+/** round-5 devices: their own words, the digits and baht their figures use, and the fetched date's marks */
+const HEALTH2_TEXT = [...Object.values(HEALTH2_WORDS), TAX_YEAR];
 
 /** every word one show puts on screen, for the handwriting face: a knowledge scene's, or a คลิปตามโจทย์ device scene's */
 export function showText(show: KnowShow): string {
-  return [...showWords(show), ...(isHealth(show) ? HEALTH_TEXT : []), ...(isLife(show) ? LIFE_TEXT : []), ...(isSave(show) ? SAVE_TEXT : [])].join("");
+  return [...showWords(show), ...(isHealth(show) ? HEALTH_TEXT : []), ...(isLife(show) ? LIFE_TEXT : []), ...(isSave(show) ? SAVE_TEXT : []), ...(isHealth2(show) ? HEALTH2_TEXT : [])].join("");
 }
 
 /** every word an episode puts on screen, for the handwriting face */
@@ -553,5 +642,6 @@ export function knowText(e: KnowEpisode): string {
   if (e.scenes.some(({ show }) => isHealth(show))) words.push(...HEALTH_TEXT);
   if (e.scenes.some(({ show }) => isLife(show))) words.push(...LIFE_TEXT);
   if (e.scenes.some(({ show }) => isSave(show))) words.push(...SAVE_TEXT);
+  if (e.scenes.some(({ show }) => isHealth2(show))) words.push(...HEALTH2_TEXT);
   return words.join("");
 }

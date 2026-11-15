@@ -1,7 +1,8 @@
 import { FORBIDDEN, numbersIn } from "@/lib/quote-video/brief";
 import type { StoryFigure } from "@/lib/quote-video/story";
-import { META_LAYOUTS, META_LIMITS, SAVE_LAYOUTS, SAVE_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
+import { GROUP_BANDS, HEALTH2_LAYOUTS, HEALTH2_LIMITS, META_LAYOUTS, META_LIMITS, SAVE_LAYOUTS, SAVE_LIMITS, type DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { deviceInfo } from "@/lib/scene-library/devices";
+import { HEALTH2_FIXED as FIXED } from "@/lib/scene-library/health2-fixed";
 import { isTaxRate, TAX_WORD_FIGURES } from "@/lib/scene-library/tax-th";
 import { SCREEN_MAX, type DeviceScene, type PromptScene } from "./types";
 
@@ -199,8 +200,8 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     // a digit of any script: Arabic, Thai, full-width ０-９, Arabic-Indic, … (Unicode's decimal digits)
     if (/\p{Nd}/u.test(t)) fail.push(`${field}: มีตัวเลข`);
     for (const f of [...FORBIDDEN, ...FREE_FORBIDDEN]) if (f.re.test(t)) fail.push(`${field}: ${f.why}`);
-    // spec 2026-11-15-devices-saving: no IRR on a saving device (FORBIDDEN has no IRR; other devices and scripts are unchanged)
-    if (isSaveLayout && /\birr\b/i.test(t)) fail.push(`${field}: พูดถึงผลตอบแทน`);
+    // specs 2026-11-15-devices-saving and -health2: no IRR on a saving or a round-5 health device (FORBIDDEN has no IRR; other devices and scripts are unchanged)
+    if ((isSaveLayout || isHealth2Layout) && /\birr\b/i.test(t)) fail.push(`${field}: พูดถึงผลตอบแทน`);
     return t;
   };
   const metaOpt = (field: string, x: unknown, max: number) => {
@@ -209,24 +210,33 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
   };
   const isMetaLayout = (META_LAYOUTS as readonly string[]).includes(layout);
   const isSaveLayout = (SAVE_LAYOUTS as readonly string[]).includes(layout);
-  // an ออมเงิน device's words are digit-free as a metaphor's, within SAVE_LIMITS (its figures are the fields below)
-  const words = isMetaLayout || isSaveLayout;
-  const limits = isSaveLayout ? SAVE_LIMITS : META_LIMITS;
+  const isHealth2Layout = (HEALTH2_LAYOUTS as readonly string[]).includes(layout);
+  // an ออมเงิน or a round-5 health device's words are digit-free as a metaphor's, within SAVE_LIMITS / HEALTH2_LIMITS (its figures are the fields below)
+  const words = isMetaLayout || isSaveLayout || isHealth2Layout;
+  const limits = isHealth2Layout ? HEALTH2_LIMITS : isSaveLayout ? SAVE_LIMITS : META_LIMITS;
   // a figure of a saving device: a whole number from `lo` to `hi`, from the brief (the allowed set). `need`: a figure the
   // device cannot be drawn without refuses it (spec: paidgot's two amounts, pensionsteps' rows); an optional figure that
   // is not a whole number, out of range or not in the brief is left off, never a reason (spec 2026-11-15: a number that
   // cannot be sourced is left off)
-  const ranged = (field: string, x: unknown, need: boolean, lo: number, hi: number): number | undefined => {
-    if (!need) return typeof x === "number" && Number.isInteger(x) && x >= lo && x <= hi && allowed.has(x) ? x : undefined;
-    const n = num(field, x, true);
+  // `from`: where the figure may come from, the brief's (allowed) unless a device names more (round 5: its fixed sources too)
+  const ranged = (field: string, x: unknown, need: boolean, lo: number, hi: number, from: ReadonlySet<number> = allowed): number | undefined => {
+    if (!need) return typeof x === "number" && Number.isInteger(x) && x >= lo && x <= hi && from.has(x) ? x : undefined;
+    const n = num(field, x, true, from);
     if (n !== undefined && (n < lo || n > hi)) {
       fail.push(`${field}: ต้องอยู่ระหว่าง ${lo.toLocaleString("en-US")} ถึง ${hi.toLocaleString("en-US")}`);
       return undefined;
     }
     return n;
   };
-  const baht = (field: string, x: unknown, need: boolean) => ranged(field, x, need, 1, SAVE_LIMITS.baht);
-  const age = (field: string, x: unknown, need: boolean) => ranged(field, x, need, 1, SAVE_LIMITS.age);
+  const baht = (field: string, x: unknown, need: boolean, from?: ReadonlySet<number>) => ranged(field, x, need, 1, SAVE_LIMITS.baht, from);
+  const age = (field: string, x: unknown, need: boolean, from?: ReadonlySet<number>) => ranged(field, x, need, 1, SAVE_LIMITS.age, from);
+  // a round-5 figure: the brief's numbers and that device's fixed-source values (health2-fixed.ts), whole baht to HEALTH2_LIMITS.baht
+  const sourced = (...fixed: number[][]): ReadonlySet<number> => new Set([...allowed, ...fixed.flat()]);
+  /** a figure that must be exactly the source's (the sheet's co-payment, the renewal age, the tax cap, the hospital total) */
+  const exact = (field: string, n: number | undefined, source: number, what: string) => {
+    if (n !== undefined && n !== source) fail.push(`${field}: ต้องเท่ากับ${what}`);
+    return n;
+  };
   const given = <K extends string>(field: K, n: number | undefined): { [P in K]?: number } => (n === undefined ? {} : ({ [field]: n } as { [P in K]?: number }));
   /** an age pair of paidgot: both ages given and from at most to, else neither is drawn */
   const agePair = (a: string, b: string, from: unknown, to: unknown): { [k: string]: number } => {
@@ -348,6 +358,70 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     case "pricerise":
       out = { layout, title, ...note };
       break;
+    case "ipdopd": {
+      // room and opd are the sheet's (or the brief's); "none" (the plan has no OPD) and "actual" (as paid) are the sheet's two words
+      const room = baht("room", o.room, true, sourced(FIXED.ipdopd.room));
+      const opd = o.opd === "none" || o.opd === "actual" ? o.opd : (baht("opd", o.opd, true, sourced(FIXED.ipdopd.opd)) ?? 0);
+      out = { layout, title, ...note, room: room ?? 0, opd, ...metaOpt("planName", o.planName, HEALTH2_LIMITS.label) };
+      break;
+    }
+    case "deductible": {
+      const deductible = baht("deductible", o.deductible, true, sourced(FIXED.deductible));
+      out = { layout, title, ...note, deductible: deductible ?? 0, ...given("bill", baht("bill", o.bill, false)) };
+      break;
+    }
+    case "copay": {
+      const percent = exact("percent", ranged("percent", o.percent, true, 1, 100, sourced([FIXED.copayPercent])), FIXED.copayPercent, "ร่วมจ่ายของแผน");
+      out = { layout, title, ...note, percent: percent ?? 0, ...given("bill", baht("bill", o.bill, false)) };
+      break;
+    }
+    case "renew98": {
+      const to = exact("to", age("to", o.to, true, sourced([FIXED.renewalToAge])), FIXED.renewalToAge, "อายุที่แผนต่ออายุได้ถึง");
+      // today's age: the brief's, 1 to 99, and below the renewal age (a person at or past it has no timeline to show)
+      const today = age("age", o.age, false);
+      out = { layout, title, ...note, to: to ?? 0, ...given("age", today !== undefined && today < FIXED.renewalToAge ? today : undefined) };
+      break;
+    }
+    case "parentshealth": {
+      const cap = exact("cap", baht("cap", o.cap, true, sourced([FIXED.parentsCap])), FIXED.parentsCap, "เพดานลดหย่อนของกรมสรรพากร");
+      out = { layout, title, ...note, cap: cap ?? 0 };
+      break;
+    }
+    case "groupcost": {
+      const perYear = baht("perYear", o.perYear, true, sourced(FIXED.groupPerYear));
+      // the head-count band is one of three keys (the drawer writes the words); anything else is no band
+      if (o.band !== undefined && o.band !== null && !(GROUP_BANDS as readonly unknown[]).includes(o.band)) fail.push("band: ต้องเป็น 10-25, 26-50 หรือ 51-100");
+      out = { layout, title, ...note, perYear: perYear ?? 0, ...((GROUP_BANDS as readonly unknown[]).includes(o.band) ? { band: o.band as (typeof GROUP_BANDS)[number] } : {}) };
+      break;
+    }
+    case "hospitals": {
+      const counts = FIXED.hospitals.counts;
+      const total = exact("total", baht("total", o.total, true, sourced([FIXED.hospitals.total])), FIXED.hospitals.total, "จำนวนโรงพยาบาลในรายชื่อของบริษัท");
+      const seen = new Set<string>();
+      const rows = list("rows", o.rows, 1, HEALTH2_LIMITS.rows).map((r) => {
+        // a province is a name in the hospital list (its spelling): that membership is its check, so its length is the list's own
+        const raw = typeof r.province === "string" ? r.province.replace(/\s+/g, " ").trim() : "";
+        const province = meta("rows", r.province, Object.hasOwn(counts, raw) ? 99 : HEALTH2_LIMITS.label, true);
+        const count = baht("rows", r.count, true, sourced(Object.values(counts)));
+        if (province) {
+          if (!Object.hasOwn(counts, province)) fail.push("rows: จังหวัดนี้ไม่มีในรายชื่อโรงพยาบาล");
+          else if (count !== undefined && count !== counts[province]) fail.push("rows: จำนวนโรงพยาบาลไม่ตรงกับรายชื่อของบริษัท");
+          if (seen.has(province)) fail.push("rows: จังหวัดซ้ำ");
+          seen.add(province);
+        }
+        return { province, count: count ?? 0 };
+      });
+      out = { layout, title, ...note, total: total ?? 0, rows };
+      break;
+    }
+    case "paclaim": {
+      const medical = baht("medical", o.medical, true, sourced(FIXED.pa.medical));
+      const weekly = baht("weekly", o.weekly, false, sourced(FIXED.pa.weekly));
+      // weeks only with a weekly sum, and only the plans' own limit; any other is left off
+      const weeks = weekly !== undefined && o.weeks === FIXED.pa.weeks ? FIXED.pa.weeks : undefined;
+      out = { layout, title, ...note, medical: medical ?? 0, ...given("weekly", weekly), ...given("weeks", weeks) };
+      break;
+    }
     case "pensionsteps": {
       // one to five steps; each from at most to, all three numbers; ascending: a step starts after the one before it began and does not end before it
       const rows = list("rows", o.rows, 1, SAVE_LIMITS.rows).map((r) => ({

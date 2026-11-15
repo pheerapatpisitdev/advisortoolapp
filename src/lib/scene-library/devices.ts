@@ -1,4 +1,4 @@
-import type { DeviceLayout, HealthLayout, LifeLayout, MetaLayout, SaveLayout } from "@/lib/quote-video/story-knowledge";
+import { HEALTH_LAYOUTS, HEALTH2_LAYOUTS, type DeviceLayout, type Health2Layout, type HealthLayout, type LifeLayout, type MetaLayout, type SaveLayout } from "@/lib/quote-video/story-knowledge";
 
 /** One system-drawn device (a story-scene layout). Browser-safe: names and fields only. */
 export interface DeviceInfo {
@@ -6,7 +6,7 @@ export interface DeviceInfo {
   name: string;
   /** when a script should pick it: one line the คลิปตามโจทย์ writer reads */
   when: string;
-  /** สุขภาพ: round 1's health devices; ชีวิต ภาษี มรดก: round 2's; อุปมา: round 3's metaphors; ออมเงิน: round 4's saving devices */
+  /** สุขภาพ: round 1's health devices and round 5's eight more; ชีวิต ภาษี มรดก: round 2's; อุปมา: round 3's metaphors; ออมเงิน: round 4's saving devices */
   family: "สุขภาพ" | "ชีวิต ภาษี มรดก" | "อุปมา" | "ออมเงิน";
   /** the catalogue's product ("all": a metaphor is for any product) */
   product: "health" | "life" | "saving" | "all";
@@ -29,6 +29,10 @@ const dev3 = (key: MetaLayout, name: string, when: string, wordFields: string[])
 /** a saving device (round 4): figures in baht only, never a percent or a return word */
 const dev4 = (key: SaveLayout, name: string, when: string, numberFields: string[]): DeviceInfo =>
   ({ key, name, when, family: "ออมเงิน", product: "saving", clips: both, numberFields, wordFields: ["title", "note"] });
+
+/** a round-5 health device (family สุขภาพ, product health): figures from the sheet, the tables or the agent's own input; words digit-free */
+const dev5 = (key: Health2Layout, name: string, when: string, numberFields: string[], wordFields: string[]): DeviceInfo =>
+  ({ key, name, when, family: "สุขภาพ", product: "health", clips: both, numberFields, wordFields });
 
 export const DEVICES: DeviceInfo[] = [
   dev("split", "เหมาจ่าย vs แยกจ่าย", "เทียบแผนแยกจ่ายที่มีเพดานแต่ละหมวด กับแผนเหมาจ่ายที่จ่ายตามจริงในวงเงินเดียว", [], ["title", "parts", "whole"]),
@@ -63,12 +67,24 @@ export const DEVICES: DeviceInfo[] = [
   dev4("paidgot", "ส่งเท่าไร ได้คืนเท่าไร", "เทียบเงินที่ส่งรวมกับบำนาญรวมที่ได้รับ ต้องมีทั้งสองยอดในโจทย์ ใช้ตัวเลขจากโจทย์เท่านั้น", ["paid", "got", "payFrom", "payTo", "getFrom", "getTo"]),
   dev4("pricerise", "เงินเท่าเดิม ซื้อได้น้อยลง", "เล่าว่าของแพงขึ้นทุกปี เงินก้อนเดิมซื้อของได้น้อยลง ไม่มีตัวเลขบนภาพ", []),
   dev4("pensionsteps", "บำนาญขั้นบันได", "เล่าว่าบำนาญที่ได้รับเป็นขั้น ตามช่วงอายุ ต้องมีช่วงอายุและบำนาญต่อปีจากโจทย์ ไม่เกินห้าช่วง", ["rows"]),
+  // สุขภาพเพิ่มเติม (round 5, spec 2026-11-15-devices-health2-design.md); no `when` line says a FORBIDDEN word, a digit or a percent
+  dev5("ipdopd", "สองประตู ผู้ป่วยใน ผู้ป่วยนอก", "อธิบายว่าผู้ป่วยในกับผู้ป่วยนอกต่างกัน นอนโรงพยาบาลมีค่าห้องต่อวัน ไปหาหมอแล้วกลับบ้านมีวงเงินรวมต่อปี ใช้ตัวเลขของแผน iHealthy ที่ระบบมีให้", ["room", "opd"], ["title", "note", "planName"]),
+  dev5("deductible", "ส่วนรับผิดชอบแรก", "อธิบายส่วนรับผิดชอบแรกของแผนสุขภาพ ที่ผู้เอาประกันจ่ายเองก่อนแล้วประกันจ่ายส่วนที่เหลือ ใส่ยอดบิลได้เมื่อโจทย์บอกมา", ["deductible", "bill"], ["title", "note"]),
+  dev5("copay", "ร่วมจ่าย", "อธิบายการร่วมจ่าย ผู้เอาประกันจ่ายส่วนหนึ่งของบิล ประกันจ่ายส่วนที่เหลือ ใส่ยอดบิลได้เมื่อโจทย์บอกมา", ["percent", "bill"], ["title", "note"]),
+  dev5("renew98", "ต่ออายุได้ถึง", "เล่าว่าแผนสุขภาพต่ออายุได้ถึงอายุที่แผนกำหนด ไม่เกินระยะเวลาของสัญญาหลัก ใส่อายุวันนี้ได้เมื่อโจทย์บอกมา", ["to", "age"], ["title", "note"]),
+  dev5("parentshealth", "ประกันสุขภาพให้พ่อแม่", "เล่าว่าลูกซื้อประกันสุขภาพให้พ่อแม่ แล้วนำค่าประกันไปลดหย่อนภาษีได้ตามเพดานของกรมสรรพากร", ["cap"], ["title", "note"]),
+  dev5("groupcost", "ต้นทุนต่อหัว ประกันกลุ่ม", "เล่าว่าประกันสุขภาพกลุ่มของบริษัทมีต้นทุนต่อคนต่อปีเท่าไร และเฉลี่ยต่อเดือนเท่าไร ใส่กลุ่มจำนวนพนักงานได้สามกลุ่ม", ["perYear"], ["title", "note"]),
+  dev5("hospitals", "โรงพยาบาลในเครือ", "เล่าว่ามีโรงพยาบาลในเครือกี่แห่ง และจังหวัดไหนมีมากที่สุด ใส่ได้หนึ่งถึงห้าจังหวัด ใช้ตัวเลขจากรายชื่อโรงพยาบาลของบริษัทเท่านั้น", ["total", "rows"], ["title", "note", "rows"]),
+  dev5("paclaim", "อุบัติเหตุหนึ่งครั้ง", "เล่าว่าประกันอุบัติเหตุจ่ายค่ารักษาต่ออุบัติเหตุหนึ่งครั้งไม่เกินเท่าไร และชดเชยรายสัปดาห์ถ้าแผนมี", ["medical", "weekly", "weeks"], ["title", "note"]),
 ];
 
 export const deviceInfo = (key: string): DeviceInfo | undefined => DEVICES.find((d) => d.key === key);
 
-/** a round-1 health device (family สุขภาพ); every consumer lists all sixteen since round 2 */
-export const isHealthDevice = (d: DeviceInfo): d is DeviceInfo & { key: HealthLayout } => d.family === "สุขภาพ";
+/** a round-1 health device (HEALTH_LAYOUTS; round 5's eight share the family สุขภาพ but are isHealth2Device) */
+export const isHealthDevice = (d: DeviceInfo): d is DeviceInfo & { key: HealthLayout } => (HEALTH_LAYOUTS as readonly string[]).includes(d.key);
+
+/** a round-5 health device (HEALTH2_LAYOUTS), family สุขภาพ like round 1's */
+export const isHealth2Device = (d: DeviceInfo): d is DeviceInfo & { key: Health2Layout } => (HEALTH2_LAYOUTS as readonly string[]).includes(d.key);
 
 /** an อุปมา device (round 3); the registry lists all twenty-four since round 3 */
 export const isMetaDevice = (d: DeviceInfo): d is DeviceInfo & { key: MetaLayout } => d.family === "อุปมา";

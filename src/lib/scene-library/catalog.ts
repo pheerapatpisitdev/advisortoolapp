@@ -1,4 +1,4 @@
-import { DEVICES } from "./devices";
+import { DEVICES, isHealth2Device } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
@@ -67,6 +67,8 @@ const DEVICE_TOPIC: Record<DeviceLayout, StoryTopic | undefined> = {
   balance: "bank", bridge: "welfare", lifering: "ciincome", shield: "fiverisks",
   // ออมเงิน (round 4): the topic เก็บเงินไว้ใช้ตอนเกษียณ opens with pricerise, savejar and paidgot; pensionsteps is in no episode (คลิปตามโจทย์ only)
   savejar: "retiresave", paidgot: "retiresave", pricerise: "retiresave", pensionsteps: undefined,
+  // สุขภาพเพิ่มเติม (round 5): Task 5 adds the topic ipdopd (ipdopd, renew98, hospitals), Task 7 points these at it; until then คลิปตามโจทย์ only
+  ipdopd: undefined, deductible: undefined, copay: undefined, renew98: undefined, parentshealth: undefined, groupcost: undefined, hospitals: undefined, paclaim: undefined,
 };
 
 /** what a viewer reads under each device (the DEVICES `when` lines are for the script writer) */
@@ -102,11 +104,21 @@ const DEVICE_TELLS: Record<DeviceLayout, string> = {
   paidgot: "เงินที่ส่งรวมเทียบกับบำนาญรวมที่ได้รับ ตามตารางผลประโยชน์ของแผน",
   pricerise: "ของแพงขึ้นทุกปี เงินก้อนเดิมซื้อของในตะกร้าได้น้อยลง",
   pensionsteps: "บำนาญแต่ละช่วงอายุเป็นขั้นบันได เทียบกับค่าครองชีพที่สูงขึ้น",
+  // สุขภาพเพิ่มเติม (round 5)
+  ipdopd: "สองประตู ผู้ป่วยใน กับผู้ป่วยนอก แต่ละประตูมีวงเงินของตัวเอง ตามตารางของแผน iHealthy",
+  deductible: "ส่วนแรกของบิลที่เราจ่ายเอง ส่วนที่เหลือประกันจ่าย ตามเงื่อนไขของแผน",
+  copay: "บิลที่แบ่งสองส่วน ส่วนที่เราร่วมจ่ายกับส่วนที่ประกันจ่าย ตามเงื่อนไขของแผน",
+  renew98: "เส้นเวลาจากวันนี้ถึงอายุที่แผนต่ออายุได้ ไม่เกินระยะเวลาของสัญญาหลัก",
+  parentshealth: "ลูกซื้อประกันสุขภาพให้พ่อแม่ แล้วนำค่าประกันไปลดหย่อนภาษีได้ตามเพดาน",
+  groupcost: "ประกันกลุ่มของบริษัท ต้นทุนต่อคนต่อปีและเฉลี่ยต่อเดือน",
+  hospitals: "แท่งเทียบจำนวนโรงพยาบาลในเครือแต่ละจังหวัด จากรายชื่อของบริษัท",
+  paclaim: "ค่ารักษาต่ออุบัติเหตุหนึ่งครั้ง และค่าชดเชยรายสัปดาห์ตามแผน PA",
 };
 /** whether คลิปเล่าเรื่อง keeps this look on this topic: the info-route looks (INFO_ARTS) only on the shelves told in points */
 const lookFits = (topic: StoryTopic, look: string): boolean => !infoArt(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
 /** all twenty-eight devices, health, ชีวิต ภาษี มรดก, อุปมา and ออมเงิน, each with a still in every look */
-const readyDevices: LibraryItem[] = DEVICES.map((d) => {
+// round 5's eight health devices join in Task 7 (their stills and the topic ipdopd come first)
+const readyDevices: LibraryItem[] = DEVICES.filter((d) => !isHealth2Device(d)).map((d) => {
   const topic = DEVICE_TOPIC[d.key];
   return {
     id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: d.product, ready: true,
