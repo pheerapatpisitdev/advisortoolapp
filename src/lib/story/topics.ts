@@ -34,7 +34,7 @@ export type StoryTopic =
   | "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey" | "orphan"
   | "firstjob" | "wedding" | "mortgage" | "selfemployed" | "preretire"
   | "lumpsum" | "roomcost" | "waiting" | "agecost"
-  | "lifeneed" | "ciincome" | "taxback";
+  | "lifeneed" | "ciincome" | "taxback" | "retiresave";
 export type StoryShelf = "story" | "knowledge" | "objection" | "family" | "life" | "after" | "health" | "money";
 
 export interface StoryTopicInfo {
@@ -50,6 +50,8 @@ export interface StoryTopicInfo {
   heroSex?: "F";
   /** the clip cannot be told without the plan's figure (the policy handed over) */
   figureRequired?: boolean;
+  /** the clip cannot be told without บำนาญ 95's figure (เก็บเงินไว้ใช้ตอนเกษียณ): the form shows it with no switch */
+  pensionRequired?: boolean;
   ask?: "due" | "festival";
   short?: boolean;
   /** the scene a figure shows in, where it is not the shelf's usual (4, or 5 for เรื่องครอบครัว) */
@@ -87,6 +89,7 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "lifeneed", name: "ทุนชีวิตเท่าไหร่ถึงพอ", shelf: "money", blurb: "หนี้ ค่าใช้จ่ายครอบครัว ค่าเรียนลูก รวมเป็นทุนที่ควรมี", figure: null },
   { key: "ciincome", name: "ป่วยหนัก รายได้หายไปไหน", shelf: "money", blurb: "รายได้หยุดระหว่างรักษา เงินก้อนตอนวินิจฉัยช่วยได้", figure: null },
   { key: "taxback", name: "เบี้ยประกันลดหย่อนได้เท่าไหร่", shelf: "money", blurb: "เพดานลดหย่อน และภาษีที่ได้คืนตามฐานภาษี", figure: null },
+  { key: "retiresave", name: "เก็บเงินไว้ใช้ตอนเกษียณ", shelf: "money", blurb: "เงินเท่าเดิมซื้อได้น้อยลง ส่งทีละปี ได้คืนเป็นบำนาญ", figure: "pension", pensionRequired: true },
   { key: "deliver", name: "ส่งมอบกรมธรรม์", shelf: "after", blurb: "ขอบคุณ สรุปสิ่งที่ได้ เบี้ย เริ่มคุ้มครองเมื่อไร", figure: "plan", figureRequired: true },
   { key: "claimish", name: "วิธีเคลม · โรคร้ายแรง", shelf: "after", blurb: "iShield: จ่ายตามระยะของโรค ยื่นเคลมยังไง", figure: "plan", plans: ["ISHIELD"] },
   { key: "remind", name: "เตือนชำระเบี้ย", shelf: "after", blurb: "วันครบกำหนด และยอด", figure: null, ask: "due", short: true },
@@ -147,7 +150,7 @@ export const topicOf = (key: string): StoryTopicInfo | undefined => STORY_TOPICS
  * be told without one (ส่งมอบกรมธรรม์ hides the switch, so it is never on there).
  */
 export const figureShown = (topic: StoryTopicInfo, switchedOn: boolean): boolean =>
-  (switchedOn || Boolean(topic.figureRequired)) && topic.figure !== null;
+  (switchedOn || Boolean(topic.figureRequired) || Boolean(topic.pensionRequired)) && topic.figure !== null;
 
 /** the ages the ladder of ยังหนุ่ม ไม่ต้องมี compares, on Life Protect paid to 99, a sum of 1 million */
 export const LADDER_AGES = [25, 35, 45];

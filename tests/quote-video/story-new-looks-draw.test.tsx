@@ -27,7 +27,7 @@ const LOOKS = ["plot", ...NEW] as const;
 const HEALTH = { plan: "SILVER", sex: "M", age: 35 };
 
 const inputOf = (art: string, topic = "mythclaim", size: VideoSize = "portrait"): StoryVideoInput => {
-  const s = checkedStory({ topic, faces: { narrator: "w26", hero: "m09" }, art, size, health: HEALTH } as never, "F");
+  const s = checkedStory({ topic, faces: { narrator: "w26", hero: "m09" }, art, size, health: HEALTH, pension: { sex: "M", age: 40, annuityAge: 60, pay: "untilAnnuity", monthly: 10_000 } } as never, "F");
   if (typeof s === "string") throw new Error(`${topic}: ${s}`);
   return { ...s, art } as StoryVideoInput;
 };

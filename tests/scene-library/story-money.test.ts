@@ -65,11 +65,12 @@ function derived(inp: StoryVideoInput): number[] {
 }
 
 describe("the ทุนชีวิต ภาษี มรดก shelf", () => {
-  it("lists three topics, offers the info-route looks, and takes no plan", () => {
+  it("lists the three typed topics and retiresave, offers the info-route looks, and takes no plan", () => {
     const money = STORY_TOPICS.filter((t) => t.shelf === "money");
-    expect(money.map((t) => t.key)).toEqual(TOPICS);
-    expect(money.map((t) => t.name)).toEqual(["ทุนชีวิตเท่าไหร่ถึงพอ", "ป่วยหนัก รายได้หายไปไหน", "เบี้ยประกันลดหย่อนได้เท่าไหร่"]);
-    for (const t of money) expect(t.figure).toBeNull();
+    // retiresave (device round 4, tests/scene-library/story-retiresave.test.ts) takes the pension figure, not typed money
+    expect(money.map((t) => t.key)).toEqual([...TOPICS, "retiresave"]);
+    expect(money.map((t) => t.name)).toEqual(["ทุนชีวิตเท่าไหร่ถึงพอ", "ป่วยหนัก รายได้หายไปไหน", "เบี้ยประกันลดหย่อนได้เท่าไหร่", "เก็บเงินไว้ใช้ตอนเกษียณ"]);
+    for (const t of money.filter((x) => x.key !== "retiresave")) expect(t.figure).toBeNull();
     expect(INFO_SHELVES).toContain("money");
     for (const art of ["plot", "board", "neon", "blueprint"]) expect(input("taxback", undefined, { art })).toMatchObject({ art });
   });

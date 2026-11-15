@@ -7,9 +7,11 @@ import { INFO_GROUND, paperInk, storyBackground, type StoryContext } from "@/lib
 import { INFO_SHELVES, STORY_TOPICS } from "@/lib/story/topics";
 
 const HEALTH = { plan: "SILVER", sex: "M", age: 35 };
+// เก็บเงินไว้ใช้ตอนเกษียณ is told from a pension: given to every clip here (other topics ignore it)
+const PENSION = { sex: "M", age: 40, annuityAge: 60, pay: "untilAnnuity", monthly: 10_000 };
 const LIFE30 = { plan: "LIFEPROTECT", variant: "WLF99H", sex: "M", age: 30, sumAssured: 1_000_000 };
 const info = (over: Record<string, unknown> = {}): StoryVideoInput => {
-  const s = checkedStory({ topic: "fiverisks", faces: { narrator: "w26", hero: "m09" }, art: "info", ...over } as never, "F");
+  const s = checkedStory({ topic: "fiverisks", faces: { narrator: "w26", hero: "m09" }, art: "info", pension: PENSION, ...over } as never, "F");
   if (typeof s === "string") throw new Error(s);
   return s;
 };

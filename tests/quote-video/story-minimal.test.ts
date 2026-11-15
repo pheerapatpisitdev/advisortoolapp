@@ -10,7 +10,7 @@ import { STORY_TOPICS } from "@/lib/story/topics";
 const MAN = DEFAULT_CAST.hero.M;
 const AGENT = DEFAULT_CAST.narrator;
 const minimal = (over: Record<string, unknown> = {}): StoryVideoInput => {
-  const s = checkedStory({ topic: "pool48", faces: { narrator: "w26", hero: "m09" }, art: "minimal", cast: { hero: MAN, narrator: AGENT }, ...over } as never, "F");
+  const s = checkedStory({ topic: "pool48", faces: { narrator: "w26", hero: "m09" }, art: "minimal", cast: { hero: MAN, narrator: AGENT }, pension: { sex: "M", age: 40, annuityAge: 60, pay: "untilAnnuity", monthly: 10_000 }, ...over } as never, "F");
   if (typeof s === "string") throw new Error(s);
   return s;
 };

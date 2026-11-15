@@ -308,6 +308,8 @@ export function checkedStory(
   }
   if (topic.figureRequired && !figure) return "ใส่แบบที่ลูกค้าซื้อ";
   let pension: StoryPension | undefined;
+  // เก็บเงินไว้ใช้ตอนเกษียณ is told from บำนาญ 95's figures: without a pension to price there is no clip
+  if (topic.pensionRequired && !v.pension) return "ใส่บำนาญที่ลูกค้าต้องการ";
   if (v.pension && topic.figure === "pension") {
     const p = storyPension(v.pension);
     if (typeof p === "string") return p;
@@ -455,11 +457,14 @@ const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
   agecost: ["ทำประกันสุขภาพตอนอายุน้อย เบี้ยถูกกว่าจริงไหม?", "สมัครตอนสุขภาพดี ยังไม่มีโรคเดิมให้ยกเว้น เบี้ยสุขภาพปรับตามอายุทุกปีที่ต่อสัญญา ช่วงอายุน้อยจึงจ่ายในอัตราที่ต่ำกว่า"],
   lifeneed: ["ทุนประกันชีวิต ควรมีเท่าไหร่ถึงพอ?", "รวมหนี้ที่ยังค้าง ค่าใช้จ่ายครอบครัว และค่าเรียนลูก ได้เท่าไหร่ คือทุนชีวิตที่ควรมี และระบุผู้รับประโยชน์ให้ชัด"],
   ciincome: ["ป่วยหนัก รายได้หายไปไหน?", "ระหว่างรักษา รายได้อาจหยุด แต่ค่าใช้จ่ายของบ้านไม่หยุดตาม ประกันโรคร้ายแรงจ่ายเป็นเงินก้อนเมื่อแพทย์วินิจฉัยตามเงื่อนไขกรมธรรม์"],
+  retiresave: ["เก็บเงินไว้ใช้ตอนเกษียณ", "เงินเท่าเดิมซื้อได้น้อยลง ส่งทีละปี ได้คืนเป็นบำนาญ"],
   taxback: ["เบี้ยประกันชีวิต ลดหย่อนภาษีได้เท่าไหร่?", "กรมธรรม์ที่มีระยะเวลาคุ้มครอง 10 ปีขึ้นไป นำเบี้ยไปหักลดหย่อนในแบบ ภ.ง.ด. ได้ตามเพดาน ยิ่งฐานภาษีสูง ยิ่งได้คืนมาก"],
 };
 
 /** ทุนชีวิต ภาษี มรดก's footnotes (spec): the figures are the agent's own examples; the tax topic's are the law's, to be checked */
 const MONEY_FOOT = "*ตัวเลขในคลิปเป็นตัวอย่างจากที่ตัวแทนกรอก";
+/** เก็บเงินไว้ใช้ตอนเกษียณ: its figures are the pension table's, not typed (spec 2026-11-15-devices-saving-design.md) */
+const RETIRESAVE_FOOT = `ตัวเลขจากตารางผลประโยชน์ ${PENSION_NAME} ตรวจสอบเงื่อนไขก่อนตัดสินใจ`;
 const TAX_CAPTION_FOOT = `*ตามเกณฑ์กรมสรรพากร ${TAX_YEAR} ตรวจสอบเงื่อนไขก่อนใช้สิทธิ`;
 
 const PREMIUM_REAL = "เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท";
@@ -484,7 +489,8 @@ export function storyCaption(input: StoryVideoInput): string {
       // "แบ่งจ่ายรายเดือนได้" goes where the agent hid the monthly instalment
       ...(input.topic === "pricey" && noMonthly(input) ? ["เบี้ยแพง ไม่มีงบ?", "เริ่มเท่าที่จ่ายไหว เริ่มเล็กดีกว่าไม่เริ่ม"] : EPISODE_CAPTION[input.topic]),
       "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
-      ...(topicOf(input.topic)?.shelf === "money" ? ["", MONEY_FOOT, ...(input.topic === "taxback" ? [TAX_CAPTION_FOOT] : [])]
+      ...(input.topic === "retiresave" ? ["", RETIRESAVE_FOOT]
+        : topicOf(input.topic)?.shelf === "money" ? ["", MONEY_FOOT, ...(input.topic === "taxback" ? [TAX_CAPTION_FOOT] : [])]
         : input.health ? ["", healthFootnote(input.topic, input.health.figures.planName)]
         : input.figure || input.ladder || input.pension ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : input.pension ? PENSION_NAME : planName(input.figure!.plan)} ${PREMIUM_REAL}`] : []),
       "",

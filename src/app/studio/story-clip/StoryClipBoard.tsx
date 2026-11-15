@@ -528,14 +528,14 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     if (ok.length && !ok.includes(annuityAge)) setAnnuityAge(ok.includes(String(RETIRE_AGE)) ? String(RETIRE_AGE) : ok[0]);
   }, [agesKey, annuityAge]);
   useEffect(() => {
-    if (!withFigure || info.figure !== "pension") return;
+    if (!showsFigure || info.figure !== "pension") return;
     setPension(null);
     const t = setTimeout(() => {
       previewStoryPension({ sex: heroSex, age: Number(age), annuityAge: Number(annuityAge), pay, monthly: pensionBaht })
         .then(setPension).catch(() => setPension({ error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
     }, 300);
     return () => clearTimeout(t);
-  }, [withFigure, info.figure, heroSex, age, annuityAge, pay, pensionBaht]);
+  }, [showsFigure, info.figure, heroSex, age, annuityAge, pay, pensionBaht]);
 
   // ยังหนุ่ม ไม่ต้องมี: Life Protect at each age, for the hero's sex
   useEffect(() => {
@@ -566,7 +566,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
 
   const figureOk = showsFigure && info.figure === "plan" && figure && !("error" in figure) ? figure : null;
   const ladderOk = withFigure && info.figure === "ladder" && ladder && !("error" in ladder) ? ladder : null;
-  const pensionOk = withFigure && info.figure === "pension" && pension && !("error" in pension) ? pension : null;
+  const pensionOk = showsFigure && info.figure === "pension" && pension && !("error" in pension) ? pension : null;
   const figureAt = info.figureAt ?? (family ? 5 : 4);
   const elevenIsOff = useElevenOff(eleven.length > 0);
   const notice = look.voice && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && !look.voice ? voiceNotice(quota, true) : null;
@@ -676,7 +676,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
               <span className="block text-[11px] font-semibold text-[var(--ct-accent)]">{SHELF_NAME[info.shelf]}</span>
               <b className="block text-sm">{info.name}</b>
               <span className="block text-xs text-[var(--ct-mute)]">{info.blurb}</span>
-              <span className="mt-1 block text-[11px] text-[var(--ct-mute)]">{info.short ? `คลิปสั้น 15–20 วินาที · ฿${priceBaht(prices.videoStoryShort)}` : `${info.figureRequired ? "ใช้แบบที่ลูกค้าซื้อ · " : info.figure || info.home || moneyTopic ? "ใส่ตัวเลขจริงได้ · " : ""}6 ฉาก ประมาณ ${info.shelf === "story" ? "45" : "50"} วินาที`}</span>
+              <span className="mt-1 block text-[11px] text-[var(--ct-mute)]">{info.short ? `คลิปสั้น 15–20 วินาที · ฿${priceBaht(prices.videoStoryShort)}` : `${info.figureRequired ? "ใช้แบบที่ลูกค้าซื้อ · " : info.pensionRequired ? "ใส่บำนาญที่ลูกค้าต้องการ · " : info.figure || info.home || moneyTopic ? "ใส่ตัวเลขจริงได้ · " : ""}6 ฉาก ประมาณ ${info.shelf === "story" ? "45" : "50"} วินาที`}</span>
             </div>
             <details>
               <summary className="min-h-9 cursor-pointer text-xs font-medium text-[var(--ct-mute)]">เรื่องต่อไป · เร็ว ๆ นี้ ({COMING.length})</summary>
@@ -721,7 +721,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             <p className="text-xs text-[var(--ct-mute)]">{afterSale ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในคลิปและบนการ์ดตัวแทน · ไม่ถามเลขกรมธรรม์ วันเกิด หรือเบอร์ลูกค้า" : asks ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในประโยคปิดท้ายและบนปุ่มของการ์ดตัวแทน" : life ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน · คู่ชีวิตและลูกในเรื่อง ระบบเลือกหน้าให้" : family ? "ลูก และพ่อแม่ของตัวเอก ระบบเลือกจากหน้าชุดเด็กและผู้สูงอายุให้ · ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน" : "อีก 47 คนในโหล ระบบเลือกจากคลัง ชายหญิงครึ่งต่อครึ่ง"}</p>
           </Step>
 
-          <Step n={3} title={info.figureRequired ? "แบบที่ลูกค้าซื้อ" : info.ask === "due" ? "วันครบกำหนดชำระเบี้ย" : info.ask === "festival" ? "เทศกาล" : info.home ? "ตัวเลขของบ้าน และเบี้ยจริง" : moneyTopic ? "ตัวเลขของลูกค้า" : "ข้อมูลจากแบบประกัน"} summary={[showsHome ? "ตัวเลขของบ้าน" : "", Object.keys(moneyOut).length ? `ใส่ไว้ ${Object.keys(moneyOut).length} ช่อง` : "", !showsFigure ? "" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : info.figure === "pension" ? "ตัวเลขจริง · บำนาญ 95" : info.figure === "health" ? "ตัวเลขจริง · iHealthy" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`].filter(Boolean).join(" · ") || "ไม่ใช้"}>
+          <Step n={3} title={info.figureRequired ? "แบบที่ลูกค้าซื้อ" : info.pensionRequired ? "บำนาญที่ลูกค้าต้องการ" : info.ask === "due" ? "วันครบกำหนดชำระเบี้ย" : info.ask === "festival" ? "เทศกาล" : info.home ? "ตัวเลขของบ้าน และเบี้ยจริง" : moneyTopic ? "ตัวเลขของลูกค้า" : "ข้อมูลจากแบบประกัน"} summary={[showsHome ? "ตัวเลขของบ้าน" : "", Object.keys(moneyOut).length ? `ใส่ไว้ ${Object.keys(moneyOut).length} ช่อง` : "", !showsFigure ? "" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : info.figure === "pension" ? "ตัวเลขจริง · บำนาญ 95" : info.figure === "health" ? "ตัวเลขจริง · iHealthy" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`].filter(Boolean).join(" · ") || "ไม่ใช้"}>
             {info.home && (
               <div className="space-y-2 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
                 <span className={label}>ตัวเลขของบ้าน (ไม่ใส่ก็ได้)</span>
@@ -847,7 +847,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
               info.ask ? null : <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">{afterSale ? "ตัวเลขในคลิปมาจากสัญญาและเกณฑ์การเคลมในระบบ ไม่ต้องใส่อะไรเพิ่ม" : "ตอนนี้ไม่มีตัวเลขเบี้ย ใช้ได้กับลูกค้าทุกคนและลงเพจได้ทันที"}</p>
             ) : (
             <>
-            {!info.figureRequired && !healthTopic && <div className="grid gap-2 @sm:grid-cols-3">
+            {!info.figureRequired && !info.pensionRequired && !healthTopic && <div className="grid gap-2 @sm:grid-cols-3">
               <button type="button" onClick={() => setWithFigure(false)} className={`rounded-xl border p-3 text-left ${!withFigure ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-hair)]"}`}>
                 <b className="block text-sm">ไม่ใช้</b><span className="text-xs text-[var(--ct-mute)]">เรื่องทั่วไป ไม่มีตัวเลขเบี้ย ลงเพจหรือทำแอดได้</span>
               </button>
@@ -898,7 +898,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 </div>
                 <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
                   {pensionOk
-                    ? <p><b className="text-base">ออมปีละ {pensionOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">รับเดือนละ {pensionOk.monthlyPension.toLocaleString("en-US")} บาท ตั้งแต่อายุ {pensionOk.annuityAge} · ขึ้นในฉากที่ {figureAt}</span></p>
+                    ? <p><b className="text-base">ออมปีละ {pensionOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">รับเดือนละ {pensionOk.monthlyPension.toLocaleString("en-US")} บาท ตั้งแต่อายุ {pensionOk.annuityAge} · {info.pensionRequired ? "ตัวเลขขึ้นในฉากที่ 3 และ 4" : `ขึ้นในฉากที่ ${figureAt}`}</span></p>
                     : <p className="text-[var(--ct-mute)]">{!pensionAges.length ? `อายุ ${age} เลือกรับบำนาญแบบนี้ไม่ได้ ลองเปลี่ยนอายุหรือวิธีชำระเบี้ย` : pension && "error" in pension ? pension.error : "กำลังคิดเบี้ย…"}</p>}
                 </div>
               </div>

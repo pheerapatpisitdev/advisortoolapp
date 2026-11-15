@@ -1,3 +1,4 @@
+import { quotePension } from "@/calc/pension/engine";
 import { checkDevice } from "@/lib/prompt-story/check";
 import { isTaxRate, LIFE_CAP } from "@/lib/scene-library/tax-th";
 import { isMoneyTopic, MONEY_INPUTS, type MoneyField, type MoneyTopic } from "@/lib/story/topics";
@@ -39,10 +40,14 @@ export function storyMoney(topic: string, v: unknown): StoryMoney | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
-export const MONEY_CLOSE: Record<MoneyTopic, string> = {
+/** the money shelf's topics: the three with typed numbers, and เก็บเงินไว้ใช้ตอนเกษียณ with บำนาญ 95's figures */
+export type MoneyShelfTopic = MoneyTopic | "retiresave";
+
+export const MONEY_CLOSE: Record<MoneyShelfTopic, string> = {
   lifeneed: "อยากรู้ว่าทุนชีวิตของคุณพอไหม ทักมาได้เลย",
   ciincome: "อยากรู้ว่าเงินก้อนเท่าไหร่ถึงพอ ทักมาได้เลย",
   taxback: "อยากรู้ว่าลดหย่อนได้เท่าไหร่ ทักมาได้เลย",
+  retiresave: "อยากรู้ว่าต้องเตรียมเท่าไร ทักมาได้เลย",
 };
 
 type Device = Extract<KnowShow, { layout: DeviceLayout }>;
@@ -185,8 +190,46 @@ function taxback(m: StoryMoney): KnowScene[] {
   ];
 }
 
-/** an episode of ทุนชีวิต ภาษี มรดก: its five scenes, from the numbers the agent typed (checked again here) or none */
-export function moneyScenes(topic: MoneyTopic, input: StoryVideoInput): KnowScene[] {
+/* ---------- เก็บเงินไว้ใช้ตอนเกษียณ: ask → pricerise → savejar → paidgot → recap ---------- */
+
+/**
+ * what the plan costs and pays for the pension asked, the engine's own and typed nowhere (device round 4): the paying
+ * years, the premiums summed over its illustration and floored to the baht (the page's เบี้ยสะสม floors too), the
+ * ages paid and received, and the total pension to 95. Undefined where the engine prices nothing.
+ */
+export function retireFigures(p: NonNullable<StoryVideoInput["pension"]>) {
+  const r = quotePension({ age: p.age, sex: p.sex, annuityAge: p.annuityAge, pay: p.pay, mode: "annual", basis: "sumAssured", amount: p.sumAssured });
+  if (!r.ok) return undefined;
+  const q = r.quote;
+  const paying = q.illustration.filter((y) => y.premium > 0);
+  if (!paying.length) return undefined;
+  return {
+    years: paying.length, paid: Math.floor(paying.reduce((s, y) => s + y.premium, 0)), got: Math.floor(q.totalPension),
+    payFrom: paying[0].age, payTo: paying[paying.length - 1].age, getFrom: q.plan.annuityStartAge, getTo: q.illustration[q.illustration.length - 1].age,
+  };
+}
+
+function retiresave(input: StoryVideoInput): KnowScene[] {
+  const f = input.pension ? retireFigures(input.pension) : undefined;
+  const allowed = new Set<number>(f ? Object.values(f) : []);
+  const jar = sourced({ layout: "savejar", title: ["ส่งทีละปี", "ก้อนโตขึ้นเรื่อยๆ"], ...(f ? { years: f.years, paid: f.paid } : {}) }, allowed);
+  // paidgot needs both amounts: with no pension to price the scene is a note in words
+  const paidGot: KnowShow = f
+    ? sourced({ layout: "paidgot", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], paid: f.paid, got: f.got, payFrom: f.payFrom, payTo: f.payTo, getFrom: f.getFrom, getTo: f.getTo }, allowed)
+    : { layout: "note", title: ["ส่งเท่าไร", "ได้คืนเท่าไร"], note: [small("ตัวเลขอยู่ในตาราง"), big("ผลประโยชน์ของแผน", "green")] };
+  return [
+    scene("knowAsk", { layout: "ask", title: ["เกษียณแล้ว", "เงินเก็บพอไหม?"] }, "เกษียณแล้ว เงินเดือนหยุด แต่ค่าใช้จ่ายยังเดินต่อทุกเดือน เงินที่เก็บไว้จะพอใช้ไปอีกกี่ปีคะ"),
+    scene("knowOne", sourced({ layout: "pricerise", title: ["เงินเท่าเดิม", "ซื้อได้น้อยลง"] }, allowed), "ของที่วันนี้ซื้อได้เต็มตะกร้า อีกหลายปีข้างหน้า เงินก้อนเดิม ซื้อได้น้อยลง เพราะราคาของขยับขึ้นทุกปีค่ะ"),
+    scene("knowTwo", jar, "ทางหนึ่งคือแบ่งเงินส่งเข้าแผนบำนาญทุกปี ตั้งแต่วันนี้ จนถึงวันเกษียณค่ะ"),
+    scene("knowThree", paidGot, "พอถึงวันเกษียณ แผนจ่ายบำนาญกลับมาทุกปี ไปจนอายุเก้าสิบห้า ทุกตัวเลขอยู่ในตารางผลประโยชน์ของแผนค่ะ"),
+    scene("knowRecap", { layout: "recap", lines: [big("ราคาของขึ้นทุกปี"), big("เตรียมบำนาญไว้ก่อน", "green"), small("ตรวจสอบเงื่อนไขก่อนตัดสินใจ")] },
+      "จำง่าย ๆ ค่ะ ราคาของขึ้นทุกปี เตรียมบำนาญไว้ก่อน แล้วตรวจสอบเงื่อนไขก่อนตัดสินใจนะคะ"),
+  ];
+}
+
+/** an episode of ทุนชีวิต ภาษี มรดก (or เก็บเงินไว้ใช้ตอนเกษียณ): its five scenes, from the numbers the agent typed (checked again here), the pension's, or none */
+export function moneyScenes(topic: MoneyShelfTopic, input: StoryVideoInput): KnowScene[] {
+  if (topic === "retiresave") return retiresave(input);
   const m = storyMoney(topic, input.money) ?? {};
   return { lifeneed, ciincome, taxback }[topic](m);
 }
