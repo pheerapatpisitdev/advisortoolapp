@@ -1,4 +1,4 @@
-import { DEVICES, isSaveDevice } from "./devices";
+import { DEVICES } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
@@ -57,7 +57,7 @@ const PLOT_TOPIC: StoryTopic = "sumvspremium";
 const DEVICE_LOOK_ORDER = ["paper", "minimal", "line", "plot", "board", "neon", "blueprint"] as const;
 
 /** the story topic that shows each device (threegen is in no episode: the spec links it to ทุนชีวิตเท่าไหร่ถึงพอ) */
-const DEVICE_TOPIC: Record<DeviceLayout, StoryTopic> = {
+const DEVICE_TOPIC: Record<DeviceLayout, StoryTopic | undefined> = {
   split: "lumpsum", limit: "lumpsum", room: "roomcost", overflow: "roomcost",
   waiting: "waiting", cashless: "waiting", groupgap: "groupins", agecost: "agecost",
   lifeneed: "lifeneed", beneficiary: "lifeneed", moneysplit: "lifeneed", threegen: "lifeneed",
@@ -65,8 +65,8 @@ const DEVICE_TOPIC: Record<DeviceLayout, StoryTopic> = {
   // อุปมา (round 3): the topic whose opening scene each metaphor now is (spec, "คลิปเล่าเรื่อง: eight opening scenes")
   housepillar: "pillar", umbrella: "mythjinx", safetynet: "selfemployed", seedtree: "pricey",
   balance: "bank", bridge: "welfare", lifering: "ciincome", shield: "fiverisks",
-  // ออมเงิน (round 4): Task 5 adds the topic retiresave, Task 7 points these at it; until then ใกล้เกษียณ, which takes the same pension figure
-  savejar: "preretire", paidgot: "preretire", pricerise: "preretire", pensionsteps: "preretire",
+  // ออมเงิน (round 4): the topic เก็บเงินไว้ใช้ตอนเกษียณ opens with pricerise, savejar and paidgot; pensionsteps is in no episode (คลิปตามโจทย์ only)
+  savejar: "retiresave", paidgot: "retiresave", pricerise: "retiresave", pensionsteps: undefined,
 };
 
 /** what a viewer reads under each device (the DEVICES `when` lines are for the script writer) */
@@ -105,19 +105,19 @@ const DEVICE_TELLS: Record<DeviceLayout, string> = {
 };
 /** whether คลิปเล่าเรื่อง keeps this look on this topic: the info-route looks (INFO_ARTS) only on the shelves told in points */
 const lookFits = (topic: StoryTopic, look: string): boolean => !infoArt(look) || INFO_SHELVES.includes(topicOf(topic)!.shelf);
-/** the twenty-four devices of rounds 1-3, health, ชีวิต ภาษี มรดก and อุปมา, each with a still in every look; round 4's ออมเงิน four join in Task 7 */
-const readyDevices: LibraryItem[] = DEVICES.filter((d) => !isSaveDevice(d)).map((d) => {
+/** all twenty-eight devices, health, ชีวิต ภาษี มรดก, อุปมา and ออมเงิน, each with a still in every look */
+const readyDevices: LibraryItem[] = DEVICES.map((d) => {
   const topic = DEVICE_TOPIC[d.key];
   return {
     id: d.key, type: "device", name: d.name, tells: DEVICE_TELLS[d.key], product: d.product, ready: true,
-    uses: [storyUse("ทำคลิปเล่าเรื่อง", { topic }), promptUse("ทำคลิปตามโจทย์")],
+    uses: [...(topic ? [storyUse("ทำคลิปเล่าเรื่อง", { topic })] : []), promptUse("ทำคลิปตามโจทย์")],
     preview: `/library/${d.key}-paper.jpg`,
     // the look shown in the detail goes with its links; a look the topic cannot keep is left out of the link, not sent to be dropped
     looks: DEVICE_LOOK_ORDER.map((id): LibraryLook => {
       const look = STORY_LOOKS.find((l) => l.art === id)!;
       return {
         id, name: look.name, preview: `/library/${d.key}-${id}.jpg`,
-        uses: [storyUse("ทำคลิปเล่าเรื่อง", { topic, ...(lookFits(topic, id) ? { look: id } : {}) }), promptUse("ทำคลิปตามโจทย์", { style: look.style })],
+        uses: [...(topic ? [storyUse("ทำคลิปเล่าเรื่อง", { topic, ...(lookFits(topic, id) ? { look: id } : {}) })] : []), promptUse("ทำคลิปตามโจทย์", { style: look.style })],
       };
     }),
   };
@@ -191,8 +191,6 @@ const unbuilt: LibraryItem[] = [
   dev("all", "rewind", "ย้อนเวลากลับไป", "ภาพย้อนกลับไปก่อนเกิดเหตุ"),
   dev("all", "big-number-count", "ตัวเลขใหญ่นับขึ้น", "ตัวเลขสำคัญนับขึ้นกลางจอ"),
   dev("all", "long-receipt", "ใบเสร็จค่ารักษายาว", "ใบเสร็จยาวไหลลงให้เห็นว่าค่ารักษาบวม"),
-  dev("all", "growing-jar", "กระปุกโตทุกปี", "กระปุกเงินที่ใหญ่ขึ้นทุกปี"),
-  dev("all", "inflation-eats", "เงินเฟ้อกินเงินเก็บ", "เงินก้อนเดิมซื้อของได้น้อยลง"),
   dev("all", "cross-tick-sides", "✗/✓ สองฝั่ง", "สองฝั่ง ฝั่งที่ไม่ผ่านกากบาท ฝั่งที่ผ่านติ๊กถูก"),
   dev("all", "fork-paths", "ทางแยกสองเส้นทาง", "ทางแยกสองทาง ผลลัพธ์ต่างกัน"),
   dev("all", "checklist-ticks", "เช็กลิสต์ติ๊กตามเสียง", "รายการติ๊กถูกทีละข้อตามที่พูด"),
@@ -230,8 +228,6 @@ const unbuilt: LibraryItem[] = [
   dev("health", "pa-cost-per-visit", "ค่ารักษาอุบัติเหตุต่อครั้ง", "ค่ารักษาอุบัติเหตุแต่ละครั้งที่ PA จ่าย"),
   dev("health", "pa-daily-benefit", "ชดเชยรายวัน", "เงินชดเชยรายวันระหว่างนอนโรงพยาบาล"),
   // devices: saving
-  dev("saving", "pension-inflation", "เงินเฟ้อกับเงินบำนาญ", "บำนาญเท่าเดิมซื้อของได้น้อยลง"),
-  dev("saving", "irr-per-year", "ผลตอบแทนเฉลี่ยต่อปี (IRR)", "ผลตอบแทนเฉลี่ยต่อปีของแผน เทียบกับฝากธนาคาร"),
   dev("saving", "past-returns-chart", "กราฟผลตอบแทนย้อนหลัง", "เส้นกราฟผลตอบแทนของกองทุนในอดีต"),
   dev("saving", "fund-risk-1-8", "ระดับความเสี่ยงกองทุน 1–8", "สเกลความเสี่ยงกองทุนตั้งแต่ 1 ถึง 8"),
   dev("saving", "portfolio-mix", "สัดส่วนการลงทุน", "วงกลมสัดส่วนการลงทุนในแต่ละกอง"),

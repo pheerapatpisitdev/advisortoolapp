@@ -413,6 +413,57 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
     writeFileSync(join(PUB, `props/st-free-meta-${style}.json`), JSON.stringify(storyClipProps({ ...meta, style } as never, "portrait", "", "F", CONTACT, ePlans, eScript, eSecs, clipLength(ePlans), "audio/st-free-meta.wav", [undefined, undefined, undefined])));
   }
 
+  // ออมเงิน (device round 4, 2026-11-15, spec 2026-11-15-devices-saving-design): เก็บเงินไว้ใช้ตอนเกษียณ in paper and one info look
+  // (นีออน), told on the spec's example the form takes (ชาย 40 ปี, บำนาญ 10,000 a month from 60, paid until 60), checked as the form
+  // checks it so the look and the pension are kept; the scenes must be the saving devices, whose figures are the engine's.
+  // props/st-save-retiresave.json is a ship.sh smoke render. The voice is the Mac's Narisa
+  const PENSION = { sex: "M", age: 40, annuityAge: 60, pay: "untilAnnuity", monthly: 10_000 };
+  for (const [name, art] of [["st-save-retiresave", "paper"], ["st-save-retiresave-neon", "neon"]] as const) {
+    const m = checkedStory({ topic: "retiresave", faces: { narrator: "w26", hero: "w15" }, art, pension: PENSION } as never, "F");
+    if (typeof m === "string") throw new Error(`${name}: ${m}`);
+    if (m.art !== art) throw new Error(`${name}: drawn in ${m.art}, not ${art}`);
+    const layouts = knowEpisode(m).scenes.map((x) => x.show.layout).join(" ");
+    if (layouts !== "ask pricerise savejar paidgot recap") throw new Error(`${name}: scenes ${layouts}`);
+    const sScript = storyScript(m, "", "F");
+    const pcms = narisa(join(OUT, "voice-save-retiresave"), sScript);
+    const sSecs = pcms.map((p) => pcmSeconds(p, 24000));
+    const sPlans = planScenes(sScript.map((x, i) => ({ key: x.key, voice: x.voice, voiceSec: sSecs[i], windows: clipWindows(x.key, m, "portrait"), fps: MOTION_FPS, ...clipTail(x.key, m, sSecs[i]) })));
+    writeFileSync(join(PUB, `audio/${name}.wav`), mixNarration(pcms.map((pcm, i) => ({ pcm, at: sPlans[i].voiceAt })), clipLength(sPlans), 24000));
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps(m, "portrait", "", "F", CONTACT, sPlans, sScript, sSecs, clipLength(sPlans), `audio/${name}.wav`, [])));
+  }
+
+  // the same in คลิปตามโจทย์ (device round 4): pricerise, savejar and pensionsteps in place of the painter's pictures, every figure
+  // one the brief writes (the example's own, which the retiresave scenes above also draw), held to it by the app's own check
+  const saveBrief = "ลูกค้าชาย อายุ 40 ปี อยากมีบำนาญใช้ตอนเกษียณ ส่งเบี้ยทุกปีรวม 20 ปี ส่งไปทั้งหมด 2,724,410 บาท เริ่มรับบำนาญตอนอายุ 60 "
+    + "ช่วงอายุ 60 ถึง 75 รับปีละ 118,110 บาท ช่วงอายุ 76 ถึง 80 รับปีละ 157,480 บาท ช่วงอายุ 81 ถึง 85 รับปีละ 196,851 บาท ช่วงอายุ 86 ถึง 95 รับปีละ 236,221 บาท";
+  const save = {
+    ...free, brief: saveBrief, title: "เก็บไว้ใช้ตอนเกษียณ", narrator: "F", faces: { narrator: "w26" }, pictures: [null, null, null],
+    scenes: [
+      { voice: "ของที่วันนี้ซื้อได้เต็มตะกร้า ในอนาคตเงินก้อนเดิมซื้อได้น้อยลงค่ะ", screen: "", picture: "",
+        device: { layout: "pricerise", title: ["เงินเท่าเดิม", "ซื้อได้น้อยลง"], note: "ราคาของสูงขึ้นทุกปี" } },
+      { voice: "ทางหนึ่งคือแบ่งเงินส่งเข้าแผนบำนาญทุกปี จนถึงวันเกษียณค่ะ", screen: "", picture: "",
+        device: { layout: "savejar", title: ["ส่งทีละปี", "ก้อนโตขึ้นเรื่อยๆ"], note: "ส่งเงินเข้าแผนบำนาญ", years: 20, paid: 2_724_410 } },
+      { voice: "พอเกษียณ บำนาญที่ได้รับแต่ละช่วงอายุ ขยับขึ้นเป็นขั้นบันไดค่ะ", screen: "", picture: "",
+        device: { layout: "pensionsteps", title: ["บำนาญ", "ขั้นบันได"], note: "ค่าครองชีพก็สูงขึ้น วางแผนเผื่อไว้",
+          rows: [{ from: 60, to: 75, annual: 118_110 }, { from: 76, to: 80, annual: 157_480 }, { from: 81, to: 85, annual: 196_851 }, { from: 86, to: 95, annual: 236_221 }] } },
+    ],
+  } as const;
+  const saveBad = checkScript(save.scenes as never, saveBrief);
+  if (saveBad.length) throw new Error(`st-free-save: ${JSON.stringify(saveBad)}`);
+  const saveAllowed = deviceAllowed(saveBrief);
+  for (const sc of save.scenes) {
+    const d = checkDevice(sc.device, saveAllowed);
+    if (typeof d === "string" || JSON.stringify(d) !== JSON.stringify(sc.device)) throw new Error(`st-free-save ${sc.device.layout}: ${typeof d === "string" ? d : `changed to ${JSON.stringify(d)}`}`);
+  }
+  const vScript = [...save.scenes.map((sc) => ({ key: "freeScene" as const, voice: sc.voice })), { key: "storyContact" as const, voice: "สนใจรายละเอียดเพิ่มเติม ทักมาได้เลยนะคะ" }];
+  const vPcms = narisa(join(OUT, "voice-save-free"), vScript);
+  const vSecs = vPcms.map((p) => pcmSeconds(p, 24000));
+  const vPlans = planScenes(vScript.map((x, i) => ({ key: x.key, voice: x.voice, voiceSec: vSecs[i], windows: x.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS, ...(x.key === "storyContact" ? {} : freeTail(save.scenes[i], vSecs[i])) })));
+  writeFileSync(join(PUB, "audio/st-free-save.wav"), mixNarration(vPcms.map((pcm, i) => ({ pcm, at: vPlans[i].voiceAt })), clipLength(vPlans), 24000));
+  for (const style of ["paper", "neon"] as const) {
+    writeFileSync(join(PUB, `props/st-free-save-${style}.json`), JSON.stringify(storyClipProps({ ...save, style } as never, "portrait", "", "F", CONTACT, vPlans, vScript, vSecs, clipLength(vPlans), "audio/st-free-save.wav", [undefined, undefined, undefined])));
+  }
+
   // health devices in place of the painter's pictures (scene library, 2026-11-13): a clip of two device scenes in
   // each look, drawn by the system on the look's ground, no picture filed for them
   const devices = {

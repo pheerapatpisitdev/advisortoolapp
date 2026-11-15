@@ -24,6 +24,10 @@ import { it } from "vitest";
  * photographed there in every look the topic keeps. เสาหลักหายไป and ฟรีแลนซ์ are on shelves told with people, which keep
  * no info-route look (ปากกาพล็อตเตอร์ ไวต์บอร์ด นีออน บลูพริ้นท์), so in those four looks เสาหลักของบ้าน and ตาข่ายนิรภัย are
  * photographed in คลิปตามโจทย์, on the opener's own words.
+ * The ออมเงิน devices (device round 4, 2026-11-15) are told on the spec's example, ชาย 40 ปี, บำนาญ 10,000 a month from 60, paid
+ * until 60: pricerise, savejar (20 years, 2,724,410) and paidgot (2,724,410 over 40-59 against 6,023,625 over 60-95) are the
+ * scenes of เก็บเงินไว้ใช้ตอนเกษียณ that open them; pensionsteps is in no episode, so it is a คลิปตามโจทย์ scene on the four
+ * bands 118,110 / 157,480 / 196,851 / 236,221 (60-75, 76-80, 81-85, 86-95).
  * The voice is silence; no database, no paid call.
  */
 
@@ -50,6 +54,8 @@ const EPISODES = [
   { topic: "welfare", devices: ["bridge"] },
   { topic: "pillar", devices: ["housepillar"], people: true },
   { topic: "selfemployed", devices: ["safetynet"], people: true },
+  // ออมเงิน (round 4): the scenes of เก็บเงินไว้ใช้ตอนเกษียณ, told on the pension the spec's example types
+  { topic: "retiresave", pension: { sex: "M", age: 40, annuityAge: 60, pay: "untilAnnuity", monthly: 10_000 }, devices: ["pricerise", "savejar", "paidgot"] },
 ] as const;
 /** the devices in no episode, as a คลิปตามโจทย์ writer may give them: one device scene, then the agent's card */
 const FREE = [
@@ -62,6 +68,10 @@ const FREE = [
     device: { layout: "housepillar", title: ["บ้านนี้มีเสาหลัก", ""], note: "รายได้หลักของบ้าน", label: "รายได้" } },
   { file: "safetynet", title: "ตาข่ายนิรภัย", voice: "ทำงานของตัวเอง ไม่มีเจ้านาย แล้วสวัสดิการล่ะคะ", info: true,
     device: { layout: "safetynet", title: ["ไม่มีเจ้านาย", "สวัสดิการล่ะ?"], note: "ตาข่ายนี้ เราขึงเองได้" } },
+  // ออมเงิน (round 4): in no episode, so as a คลิปตามโจทย์ scene on the example's four bands, in every look
+  { file: "pensionsteps", title: "บำนาญขั้นบันได", voice: "บำนาญที่ได้รับ ขยับขึ้นเป็นขั้น ตามช่วงอายุค่ะ",
+    device: { layout: "pensionsteps", title: ["บำนาญ", "ขั้นบันได"], note: "ค่าครองชีพก็สูงขึ้น วางแผนเผื่อไว้",
+      rows: [{ from: 60, to: 75, annual: 118_110 }, { from: 76, to: 80, annual: 157_480 }, { from: 81, to: 85, annual: 196_851 }, { from: 86, to: 95, annual: 236_221 }] } },
 ] as const;
 /** ปากกาพล็อตเตอร์ ไวต์บอร์ด นีออน บลูพริ้นท์: kept only on the shelves told in points (story/topics.ts INFO_ARTS) */
 const INFO_LOOKS: readonly string[] = ["plot", "board", "neon", "blueprint"];
@@ -114,7 +124,7 @@ it.runIf(Boolean(process.env.LIBRARY))("prepares the library's preview props", a
     for (const e of EPISODES) {
       if ("people" in e && INFO_LOOKS.includes(look)) continue;
       const name = `lib-${e.topic}${"tag" in e ? `-${e.tag}` : ""}-${look}`;
-      const { input, plans, moment } = clip(name, { topic: e.topic, ...("health" in e ? { health: e.health } : {}), ...("home" in e ? { home: e.home } : {}), ...("money" in e ? { money: e.money } : {}) }, look);
+      const { input, plans, moment } = clip(name, { topic: e.topic, ...("health" in e ? { health: e.health } : {}), ...("home" in e ? { home: e.home } : {}), ...("money" in e ? { money: e.money } : {}), ...("pension" in e ? { pension: e.pension } : {}) }, look);
       const scenes = knowEpisode(input).scenes;
       plans.forEach((p, i) => {
         const show = scenes.find((s) => s.key === p.key)?.show;
@@ -145,7 +155,7 @@ it.runIf(Boolean(process.env.LIBRARY))("prepares the library's preview props", a
     const { plans, moment } = clip(name, { topic: LOOK_SCENE.topic }, look);
     shots.push({ file: `look-${look}.jpg`, props: name, at: moment(plans.findIndex((p) => p.key === LOOK_SCENE.key)) });
   }
-  // 7 looks × (24 devices + the look picture): the 63 of round 1 and the new looks, round 2's 8 × 7 = 56 and round 3's 8 × 7 = 56
-  if (new Set(shots.map((s) => s.file)).size !== 175 || shots.length !== 175) throw new Error(`175 pictures expected: ${shots.map((s) => s.file).join(" ")}`);
+  // 7 looks × (28 devices + the look picture): the 63 of round 1 and the new looks, round 2's 8 × 7 = 56, round 3's 8 × 7 = 56 and round 4's 4 × 7 = 28
+  if (new Set(shots.map((s) => s.file)).size !== 203 || shots.length !== 203) throw new Error(`203 pictures expected: ${shots.map((s) => s.file).join(" ")}`);
   writeFileSync(join(PUB, "props/library.json"), JSON.stringify(shots, null, 1));
 });

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LIBRARY, libraryItem, usesFor, storyLibraryHref, promptLibraryHref, TYPE_NAME, PRODUCT_NAME } from "@/lib/scene-library/catalog";
-import { DEVICES as ALL_DEVICES, isSaveDevice } from "@/lib/scene-library/devices";
-/** the twenty-four devices of rounds 1-3; Task 7 widens these checks to round 4's four ออมเงิน devices */
-const DEVICES = ALL_DEVICES.filter((d) => !isSaveDevice(d));
+import { DEVICES } from "@/lib/scene-library/devices";
 import { PROMPT_FORMATS, PICTURE_STYLES } from "@/lib/prompt-story/types";
 import { SOUNDS, MUSIC_MOODS, joinCues } from "@/lib/quote-video/fx";
 import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
@@ -61,7 +59,17 @@ describe("catalogue", () => {
     const STYLE: Record<string, string> = { paper: "paper", minimal: "warm", line: "line", plot: "plot", board: "board", neon: "neon", blueprint: "blueprint" };
     for (const d of DEVICES) {
       const item = libraryItem(d.key)!;
-      const topic = q(item.uses.find((u) => u.tool === "story-clip")!.href).get("topic");
+      const storyHref = item.uses.find((u) => u.tool === "story-clip")?.href;
+      // pensionsteps is in no episode: its links open คลิปตามโจทย์ only
+      if (!storyHref) {
+        expect(d.key).toBe("pensionsteps");
+        for (const l of item.looks!) {
+          expect(l.uses.map((u) => u.tool), `${d.key} ${l.id}`).toEqual(["prompt-story"]);
+          expect(q(l.uses[0].href).get("style"), `${d.key} ${l.id}`).toBe(STYLE[l.id]);
+        }
+        continue;
+      }
+      const topic = q(storyHref).get("topic");
       for (const l of item.looks!) {
         expect(l.uses.map((u) => u.tool), `${d.key} ${l.id}`).toEqual(["story-clip", "prompt-story"]);
         const story = q(l.uses[0].href);
@@ -159,11 +167,13 @@ describe("catalogue", () => {
     for (const d of DEVICES) {
       const looks = libraryItem(d.key)!.looks!;
       expect(looks, d.key).toHaveLength(7);
-      const topic = q(libraryItem(d.key)!.uses[0].href).get("topic")!;
+      const topic = q(libraryItem(d.key)!.uses[0].href).get("topic");
       for (const id of ["board", "neon", "blueprint"]) {
         const l = looks.find((x) => x.id === id)!;
         expect(l.preview, `${d.key} ${id}`).toBe(`/library/${d.key}-${id}.jpg`);
-        expect(q(l.uses[0].href).get("look"), `${d.key} ${id}`).toBe(keeps(topic, id) ? id : null);
+        // a device in no episode (pensionsteps) has คลิปตามโจทย์ only, in that look
+        if (!topic) expect(l.uses.map((u) => u.href), `${d.key} ${id}`).toEqual([`/studio/prompt-story?style=${id}`]);
+        else expect(q(l.uses[0].href).get("look"), `${d.key} ${id}`).toBe(keeps(topic, id) ? id : null);
       }
     }
   });
@@ -183,7 +193,7 @@ describe("catalogue", () => {
       ["lifeneed", "life", "lifeneed"], ["beneficiary", "life", "lifeneed"], ["moneysplit", "life", "lifeneed"], ["threegen", "life", "lifeneed"],
       ["cilump", "health", "ciincome"], ["incomestop", "health", "ciincome"], ["taxback", "saving", "taxback"], ["taxcap", "saving", "taxback"],
     ] as const;
-    expect(DEVICES).toHaveLength(24);
+    expect(DEVICES.filter((d) => d.family !== "ออมเงิน")).toHaveLength(24);
     for (const [key, product, topic] of EIGHT) {
       const item = libraryItem(key)!;
       expect([item.type, item.ready, item.product], key).toEqual(["device", true, product]);
@@ -223,7 +233,27 @@ describe("catalogue", () => {
     }
     // the general devices that are not metaphors stay planned
     expect(libraryItem("device-fork-paths")?.ready).toBe(false);
-    expect(LIBRARY.filter((i) => i.type === "device" && i.ready)).toHaveLength(24);
+  });
+  it("the ออมเงิน devices are ready on the saving product, savejar, paidgot and pricerise on the topic that opens with them, pensionsteps on คลิปตามโจทย์ only", () => {
+    // spec 2026-11-15-devices-saving-design "The library"
+    const LOOKS = ["paper", "minimal", "line", "plot", "board", "neon", "blueprint"];
+    expect(DEVICES).toHaveLength(28);
+    for (const key of ["savejar", "paidgot", "pricerise", "pensionsteps"]) {
+      const item = libraryItem(key)!;
+      expect([item.type, item.ready, item.product], key).toEqual(["device", true, "saving"]);
+      expect(item.preview, key).toBe(`/library/${key}-paper.jpg`);
+      expect(item.looks!.map((l) => l.preview), key).toEqual(LOOKS.map((l) => `/library/${key}-${l}.jpg`));
+      expect(item.tells, key).not.toMatch(/[0-9๐-๙]/);
+    }
+    for (const key of ["savejar", "paidgot", "pricerise"]) {
+      expect(libraryItem(key)!.uses.map((u) => u.href), key).toEqual(["/studio/story-clip?topic=retiresave", "/studio/prompt-story"]);
+    }
+    expect(libraryItem("pensionsteps")!.uses.map((u) => u.href)).toEqual(["/studio/prompt-story"]);
+    expect(libraryItem("savejar")!.looks!.find((l) => l.id === "neon")!.uses[0].href).toBe("/studio/story-clip?topic=retiresave&look=neon");
+    // the planned lines for these four are gone; the three fund devices stay planned
+    for (const id of ["growing-jar", "inflation-eats", "pension-inflation", "irr-per-year"]) expect(libraryItem(`device-${id}`), id).toBeUndefined();
+    for (const id of ["fund-risk-1-8", "portfolio-mix", "past-returns-chart"]) expect(libraryItem(`device-${id}`)?.ready, id).toBe(false);
+    expect(LIBRARY.filter((i) => i.type === "device" && i.ready)).toHaveLength(28);
   });
   it("cashless says the plan's conditions apply", () => {
     expect(libraryItem("cashless")?.tells).toContain("ตามเงื่อนไขของแผน");
