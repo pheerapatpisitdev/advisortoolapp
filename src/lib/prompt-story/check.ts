@@ -199,6 +199,8 @@ export function checkDevice(d: unknown, allowed: Set<number>, tax?: TaxSources):
     // a digit of any script: Arabic, Thai, full-width ０-９, Arabic-Indic, … (Unicode's decimal digits)
     if (/\p{Nd}/u.test(t)) fail.push(`${field}: มีตัวเลข`);
     for (const f of [...FORBIDDEN, ...FREE_FORBIDDEN]) if (f.re.test(t)) fail.push(`${field}: ${f.why}`);
+    // spec 2026-11-15-devices-saving: no IRR on a saving device (FORBIDDEN has no IRR; other devices and scripts are unchanged)
+    if (isSaveLayout && /irr/i.test(t)) fail.push(`${field}: พูดถึงผลตอบแทน`);
     return t;
   };
   const metaOpt = (field: string, x: unknown, max: number) => {

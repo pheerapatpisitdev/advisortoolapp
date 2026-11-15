@@ -252,6 +252,19 @@ describe("checkDevice: saving devices", () => {
     expect(checkDevice({ layout: "pricerise", title: ["ก"], note: null }, NONE)).toEqual({ layout: "pricerise", title: ["ก", ""] });
     expect(typeof checkDevice({ ...FULL[2], note: 7 }, NONE)).toBe("string");
   });
+  it("refuses every return word, %, IRR and irr in every word field of every saving device", () => {
+    const fields = [
+      ...FULL.flatMap((d, i) => [0, 1].map((line) => ({ i, name: "title", patch: (v: string) => ({ ...d, title: line ? ["ก", v] : [v, "ก"] }) }))),
+      ...FULL.map((d, i) => ({ i, name: "note", patch: (v: string) => ({ ...d, note: v }) })),
+    ];
+    for (const f of fields) {
+      for (const w of ["ผลตอบแทน", "ดอกเบี้ย", "กำไร", "ปันผล", "%", "IRR", "irr"]) {
+        const got = checkDevice(f.patch(`ก${w}ข`), ALL);
+        expect(typeof got, `${FULL[f.i].layout} ${f.name} ${w}`).toBe("string");
+        expect(got as string, `${FULL[f.i].layout} ${f.name} ${w}`).toContain(f.name);
+      }
+    }
+  });
   it("holds a word to the script's forbidden words, and refuses a return word on the device", () => {
     expect(typeof checkDevice({ ...FULL[0], note: "ไม่ต้องตรวจสุขภาพ" }, ALL)).toBe("string");
     expect(typeof checkDevice({ ...FULL[2], note: "เอไอเอ" }, ALL)).toBe("string");
