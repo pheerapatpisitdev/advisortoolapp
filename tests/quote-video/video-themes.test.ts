@@ -1,7 +1,7 @@
 import { createElement as h, isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { myColorPalette, POSTER_THEMES, QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS } from "@/lib/card-theme";
-import { readTheme, STANDING_THEMES, THEME_KEYS } from "@/lib/quote-video/theme-keys";
+import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_KEYS } from "@/lib/quote-video/theme-keys";
 import { themed } from "@/lib/quote-video/themes";
 import { a, El, motionFrame, type MotionContext } from "@/lib/quote-video/motion";
 import { quoteVideoFacts, quoteVideoScript, type VideoInput } from "@/lib/quote-video/script";
@@ -12,17 +12,14 @@ type El = ReactElement<{ style?: Record<string, unknown>; children?: ReactNode }
 const kids = (e: El) => [e.props.children].flat().filter(isValidElement) as El[];
 
 describe("วิดีโอนำเสนอ themes (owner, 2026-10-17)", () => {
-  it("keeps the two the owner kept on 2026-10-20 with ไวท์บอร์ด and ตัวหนังสือเด้ง, กระจกใส and โน้ตแปะ after the old ones (2026-10-23), ธีมเทศกาล in its days, and reads anything else as น้ำเงินทอง", () => {
-    expect(STANDING_THEMES).toEqual(["navy", "glass", "sticky", "paper", "board", "kinetic", "mine"]);
-    expect(THEME_KEYS).toEqual(["navy", "paper", "board", "kinetic", "mine", "festival", "glass", "sticky"]);
-    // นิตยสาร was sampled and not kept (owner, 2026-10-23)
-    expect(readTheme("editorial")).toBe("navy");
-    expect(readTheme("paper")).toBe("paper");
-    // a clip asked for in a look since taken away
-    expect(readTheme("collage")).toBe("navy");
-    expect(readTheme("clean")).toBe("navy");
-    expect(readTheme("gold")).toBe("navy");
-    expect(readTheme(undefined)).toBe("navy");
+  it("offers ไวท์บอร์ด first, then โน้ตแปะ and ตัวหนังสือเด้ง, ธีมเทศกาล in its days, and reads any other look as ไวท์บอร์ด (owner chose ก, 2026-11-17)", () => {
+    expect(STANDING_THEMES).toEqual(["board", "sticky", "kinetic"]);
+    expect(THEME_KEYS).toEqual(["board", "kinetic", "festival", "sticky"]);
+    expect(DEFAULT_THEME).toBe("board");
+    // the four taken away 2026-11-17, and every look taken away before
+    for (const gone of ["navy", "paper", "glass", "mine", "editorial", "collage", "clean", "gold", undefined]) expect(readTheme(gone)).toBe("board");
+    expect(readTheme("sticky")).toBe("sticky");
+    expect(readTheme("festival")).toBe("festival");
   });
 
   it("leaves a navy frame as it was", () => {

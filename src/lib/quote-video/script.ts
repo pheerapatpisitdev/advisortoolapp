@@ -81,7 +81,7 @@ export type VideoInput = (
   gemini?: string;
   /** แบบปกติ (photo, card, table) or Motion Graphic, the Premium one (owner, 2026-10-11) */
   style?: VideoStyle;
-  /** a Motion Graphic clip's look (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง. Read with readTheme: a row from before 2026-10-20 may name one taken away */
+  /** a Motion Graphic clip's look (owner, 2026-10-17; theme-keys.ts); absent = DEFAULT_THEME (ไวท์บอร์ด since 2026-11-17). Read with readTheme: a row from before 2026-10-20 may name one taken away */
   theme?: ThemeKey;
   /** ธีมเทศกาล's festival, kept from the day the clip was asked for (festival.ts); with theme "festival" only */
   festival?: FestivalKey;

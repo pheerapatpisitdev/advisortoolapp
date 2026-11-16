@@ -208,12 +208,12 @@ function checked(v: VideoInput, hide: PayMode[] = [], pen = true): VideoInput | 
 }
 
 /**
- * A clip's look as it is kept: none for น้ำเงินทอง; ธีมเทศกาล with the festival on today (festival.ts),
- * or น้ำเงินทอง when the festival's days ended while the form stood open.
+ * A clip's look as it is kept: none for ไวท์บอร์ด, the default (theme-keys.ts); ธีมเทศกาล with the festival on today
+ * (festival.ts), or the default when the festival's days ended while the form stood open.
  */
 function lookOf(asked: unknown, color?: unknown): { theme?: ThemeKey; festival?: FestivalKey; myColor?: MyColor } {
   const theme = readTheme(asked);
-  // สีของฉัน (owner, 2026-10-20): a colour from the list, or น้ำเงินทอง
+  // สีของฉัน left the form (owner, 2026-11-17): readTheme reads it as the default, so this stays for nothing older
   if (theme === "mine") return MY_COLORS.includes(color as MyColor) ? { theme, myColor: color as MyColor } : {};
   if (theme === "festival") {
     const on = festivalOn();
@@ -222,7 +222,7 @@ function lookOf(asked: unknown, color?: unknown): { theme?: ThemeKey; festival?:
   return theme !== DEFAULT_THEME ? { theme } : {};
 }
 
-/** the look a clip's title names: ธีมเทศกาล by its festival; none for น้ำเงินทอง or a look taken away */
+/** the look a clip's title names: ธีมเทศกาล by its festival; none for the default or a look taken away */
 function lookName(input: { theme?: unknown; festival?: unknown }): string | null {
   const theme = readTheme(input.theme);
   if (theme === "festival") {

@@ -351,7 +351,9 @@ describe("clips without a recipe", () => {
       });
       random.mockReturnValue(0.1);
       parts.push(quotePartsFor(rows[1], contact, [3, 3, 3]));
-      expect(createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 16)).toBe("090aac182673a133");
+      // ไวท์บอร์ด became the default look (owner chose ก, 2026-11-17): the clips differ from 090aac182673a133 by "theme" alone
+      expect(createHash("sha256").update(JSON.stringify(parts).replaceAll('"theme":"board"', '"theme":"navy"')).digest("hex").slice(0, 16)).toBe("090aac182673a133");
+      expect(createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 16)).toBe("ff5cc3d73bd66cc1");
     } finally {
       random.mockRestore();
       vi.useRealTimers();

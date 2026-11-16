@@ -120,7 +120,7 @@ const { createVideo, finishVideo, produce } = await import("@/lib/quote-video/ma
 
 const agent = { kind: "unitos", agentId: "a1", name: "ตัวแทน", staff: null } as unknown as Viewer;
 const owner = { ...agent, staff: { owner: true, publish: true, connect: true, admin: true } } as unknown as Viewer;
-const lp = (over: Partial<VideoInput> = {}): VideoInput => ({ product: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000, style: "motion", theme: "paper", ...over } as VideoInput);
+const lp = (over: Partial<VideoInput> = {}): VideoInput => ({ product: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000, style: "motion", theme: "sticky", ...over } as VideoInput);
 const ih = (over: Partial<VideoInput> = {}): VideoInput => ({
   product: "IHEALTHY", age: 40, sex: "F", plan: "BRONZE", compare: ["SILVER", "GOLD"],
   setup: "base=WLF99H&sa=150000&area=&cover=&r=MEB%3A1000&r=DCI%3A%3A200000", style: "motion", theme: "navy", ...over,
@@ -302,7 +302,7 @@ describe("produce, drawn by Remotion", () => {
     const payload = JSON.parse(db.files.get(`${id}/job.json`)!.toString());
     const props = payload.remotion.props as ClipProps;
     expect(props.scenes.map((s) => s.key)).toEqual(["lead", "price", "cover", "value", "contact"]);
-    expect(props.theme).toBe("paper");
+    expect(props.theme).toBe("sticky");
     expect(props.drawing).toBe(REMOTION_DRAWING);
     expect(props.facts.lead.amount).toBe("2,000,000");
     expect(props.audio).toBe(`https://x/${id}/voice.wav`);

@@ -165,7 +165,6 @@ const readyLooks: LibraryItem[] = [
     id: `ai-style-${s.id}`, type: "look", name: s.name, tells: AI_TELLS[s.id] ?? "", product: "all", ready: true,
     uses: [promptUse("ทำคลิปตามโจทย์", { style: s.id })], preview: `/library/ai-${s.id}.jpg`,
   })),
-  { id: "look-glass", type: "look", name: THEME_LABELS.glass.name, tells: "การ์ดโปร่งแสงซ้อนกัน หน้าตาทันสมัย", product: "all", ready: true, uses: [quoteUse()] },
   { id: "look-sticky", type: "look", name: THEME_LABELS.sticky.name, tells: "ข้อความเป็นโน้ตกระดาษแปะบนโต๊ะ", product: "all", ready: true, uses: [quoteUse()] },
 ];
 

@@ -68,7 +68,7 @@ export interface FhcVideoInput {
   /** portrait, square or landscape (owner, 2026-10-12: the FHC summary comes in every size) */
   size?: VideoSize;
   fhc: FhcVideoFacts;
-  /** the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง. Read with readTheme */
+  /** the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17; theme-keys.ts); absent = DEFAULT_THEME (ไวท์บอร์ด since 2026-11-17). Read with readTheme */
   theme?: ThemeKey;
   /** ธีมเทศกาล's festival, kept from the day the clip was asked for (festival.ts); with theme "festival" only */
   festival?: FestivalKey;

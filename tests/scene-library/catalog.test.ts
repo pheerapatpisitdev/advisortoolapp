@@ -114,7 +114,8 @@ describe("catalogue", () => {
       const style = new URL(item.uses.find((u) => u.tool === "prompt-story")!.href, "http://x").searchParams.get("style");
       expect(PICTURE_STYLES.map((s) => s.id)).toContain(style);
     }
-    expect(libraryItem("look-glass")?.name).toBe(THEME_LABELS.glass.name);
+    // กระจกใส left วิดีโอนำเสนอ (owner, 2026-11-17), and the library with it
+    expect(libraryItem("look-glass")).toBeUndefined();
     expect(libraryItem("look-sticky")?.name).toBe(THEME_LABELS.sticky.name);
     for (const m of MUSIC_MOODS) expect(libraryItem(`fx-music-${m}`)?.ready).toBe(true);
     // เสียงเอฟเฟกต์ตรงจังหวะสำคัญ = the clip's own sounds: a whoosh at each join, a ding as a figure lands

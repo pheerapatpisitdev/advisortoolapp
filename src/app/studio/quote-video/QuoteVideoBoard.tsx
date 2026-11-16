@@ -9,9 +9,8 @@ import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-v
 import type { PlbVariant } from "@/lib/quote-video/plb";
 import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
 import { festivalOn } from "@/lib/quote-video/festival";
-import { MY_COLORS, POSTER_THEMES, QUOTE_VIDEO_COLORS, RECIPE_COLORS, VIDEO_FESTIVAL_COLORS, type MyColor } from "@/lib/card-theme";
+import { QUOTE_VIDEO_COLORS, RECIPE_COLORS, VIDEO_FESTIVAL_COLORS } from "@/lib/card-theme";
 import { nextRecipe, readRecipe, RECIPE_NAMES, type RecipeKey } from "@/lib/quote-video/recipe-keys";
-import { THEME_LABEL } from "@/lib/content/poster";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
@@ -105,7 +104,6 @@ const THEME_KEY = "quote-video-theme";
 /** the festival the agent turned ธีมเทศกาล off for, by its first day, so it is not picked again until the next one */
 const FESTIVAL_OFF_KEY = "quote-video-festival-off";
 /** สีของฉัน's colour, kept in this browser (owner, 2026-10-20) */
-const MY_COLOR_KEY = "quote-video-my-color";
 /** น้องโล่ and the carried figures, kept in this browser (owner, 2026-10-20); on unless turned off here */
 const MASCOT_KEY = "quote-video-mascot";
 /** ลูกเล่นคลิปใหม่'s music, on unless turned off here (owner, 2026-10-20; src/lib/quote-video/fx.ts) */
@@ -333,7 +331,6 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // ธีมเทศกาล (owner, 2026-10-20): offered in a festival's seven days, and picked by itself unless turned off for it
   const [festival, setFestival] = useState<ReturnType<typeof festivalOn>>(null);
   // สีของฉัน (owner, 2026-10-20): the agent's colour, chosen once and kept
-  const [myColor, setMyColor] = useState<MyColor>("emerald");
   // น้องโล่ and ตัวเลขลอยต่อ (owner, 2026-10-20): on for every Motion clip unless turned off
   const [mascot, setMascot] = useState(true);
   const [carry, setCarry] = useState(true);
@@ -379,8 +376,6 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       if (localStorage.getItem(MASCOT_KEY) === "off") setMascot(false);
       if (localStorage.getItem(CARRY_KEY) === "off") setCarry(false);
       if (localStorage.getItem(MUSIC_KEY) === "off") setMusic(false);
-      const color = localStorage.getItem(MY_COLOR_KEY);
-      if (MY_COLORS.includes(color as MyColor)) setMyColor(color as MyColor);
       const on = festivalOn();
       setFestival(on);
       const kept = readTheme(localStorage.getItem(THEME_KEY));
@@ -409,10 +404,6 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   function pickCarry(on: boolean) {
     setCarry(on);
     try { localStorage.setItem(CARRY_KEY, on ? "on" : "off"); } catch { /* not remembered, still used */ }
-  }
-  function pickMyColor(v: MyColor) {
-    setMyColor(v);
-    try { localStorage.setItem(MY_COLOR_KEY, v); } catch { /* not remembered, still used */ }
   }
   function pickTheme(v: ThemeKey) {
     setTheme(v);
@@ -464,7 +455,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
    */
   const lookOf = (asRecipe: boolean) => {
     const themed = style === "motion" && !asRecipe
-      ? { ...(theme !== DEFAULT_THEME ? { theme, ...(theme === "mine" ? { myColor } : {}) } : {}), ...(mascot ? { mascot: true } : {}), ...(carry ? { carry: true } : {}) }
+      ? { ...(theme !== DEFAULT_THEME ? { theme } : {}), ...(mascot ? { mascot: true } : {}), ...(carry ? { carry: true } : {}) }
       : {};
     return foreign
       ? { ...quiet, narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
@@ -565,7 +556,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     const recipe = chosen ?? (recipeOn ? nextRecipe(fitting, () => localStorage.getItem(LAST_RECIPE_KEY), Math.random()) : undefined);
     try {
       const r = kind === "fhc"
-        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(theme === "mine" ? { myColor } : {}), ...(mascot ? { mascot: true } : {}), ...(fx && !music ? { noMusic: true } : {}) })
+        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(mascot ? { mascot: true } : {}), ...(fx && !music ? { noMusic: true } : {}) })
         : await makeVideo(recipe ? { ...input(true), recipe } : input(), customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
@@ -640,20 +631,6 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ))}
       </div>
       <p className="mt-1 text-xs text-[var(--ct-mute)]">{theme === "festival" && festival ? `สีและของประดับ${festival.name} คำอวยพร “${festival.greeting}” ด้านบน · กดธีมอื่นเพื่อปิด` : THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
-      {theme === "mine" && (
-        <div className="mt-2">
-          <span className={label}>สีประจำตัว</span>
-          <div className="flex flex-wrap gap-2">
-            {MY_COLORS.map((k) => (
-              <button key={k} type="button" className={chip(myColor === k)} onClick={() => pickMyColor(k)}>
-                <span aria-hidden className="inline-block h-3.5 w-5 shrink-0 rounded-[3px] border border-black/15" style={{ background: `linear-gradient(135deg, ${POSTER_THEMES[k].from}, ${POSTER_THEMES[k].to})` }} />
-                {THEME_LABEL[k]}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1 text-xs text-[var(--ct-mute)]">เลือกครั้งเดียว ครั้งหน้าเปิดมาเป็นสีเดิม</p>
-        </div>
-      )}
       <div className="mt-2">
         <span className={label}>น้องโล่</span>
         <div className="flex flex-wrap gap-2">
