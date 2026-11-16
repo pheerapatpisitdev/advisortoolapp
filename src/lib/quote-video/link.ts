@@ -38,6 +38,8 @@ export interface VideoStart {
   riders?: CardRiders;
   /** Global Savings: the yearly premium, whole baht (owner, 2026-10-20) */
   premium?: number;
+  /** Global Savings: "25/5" from the 25/5 page (owner, 2026-11-16); absent = 15/8 */
+  gsPlan?: "25/5";
   /** iHealthy: วิดีโอเทียบ 4 แผน from the iHealthy Ultra Package page, in its instalment (owner chose ข, 2026-11-11) */
   allPlans?: PayMode;
 }
@@ -54,6 +56,7 @@ export function videoStartHref(s: VideoStart): string {
   if (s.pay) q.set("pay", s.pay);
   if (s.tier !== undefined) q.set("tier", String(s.tier));
   if (s.premium !== undefined) q.set("premium", String(s.premium));
+  if (s.product === "GSAVING" && s.gsPlan) q.set("gs", "25-5");
   if (s.allPlans) q.set("all", s.allPlans);
   if (s.lang && s.lang !== "th") q.set("lang", s.lang);
   if (s.product === "LIFEPROTECT") writeRiders(q, s.riders);
@@ -101,6 +104,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...(pay === "6" || pay === "untilAnnuity" ? { pay } : {}),
     ...(Number.isInteger(tier) && tier >= 1 && tier <= 10 ? { tier } : {}),
     ...(product === "GSAVING" && Number.isInteger(premium) && premium > 0 && premium <= 20_000_000 ? { premium } : {}),
+    ...(product === "GSAVING" && one(params.gs) === "25-5" ? { gsPlan: "25/5" as const } : {}),
     ...(setup ? { setup } : {}),
     ...(lang !== "th" ? { lang } : {}),
     ...(riders ? { riders } : {}),

@@ -7,7 +7,7 @@ import { PEN_FACE } from "./table-pen";
 import { LEAD, wordTimes, type TablePlan } from "./timeline";
 
 /**
- * Global Savings 15/8's yearly table in the classic clip's third scene (owner, 2026-10-20, mockup
+ * Global Savings' yearly table (15/8's fifteen years or 25/5's twenty-five) in the classic clip's third scene (owner, 2026-10-20, mockup
  * https://claude.ai/artifact/FkimdNb2v5u2mUJhdiQB2R, ก ก): where the other plans' แบบปกติ clips have
  * their value table, this one has the page's table with the index bonus at −1%, +3% and +5% side by
  * side, and on its last line everything received at each. The pen notes are the page's
@@ -54,7 +54,9 @@ function gsNotes(f: QuoteVideoFacts): { red: string[]; blue: string[]; labels: L
   // blue: the yearly payback, to the year before maturity
   const pbTop = row(0) + 8, pbEnd = row(last) - 8;
   blue.push(brace(X[COL.payback] + 18, pbTop, pbEnd));
-  const blueAt = row(5) + 6;
+  // beside the brace's middle: the sixth row on 15/8's fifteen, further down on 25/5's twenty-five, where an
+  // arrow from the sixth would run across four years of figures (both rows are clear of a bonus year)
+  const blueAt = row(g.rows.length > 15 ? Math.round(last / 2) - 1 : 5) + 6;
   labels.push({ lines: ["คืนทุกปี", `ปีละ ${gsMoney(g.payback)} (การันตี)`], left: X[COL.bonus] + 26, top: blueAt, ink: "blue" });
   blue.push(arrow(X[COL.bonus] + 20, blueAt + 30, X[COL.payback] + 8, (pbTop + pbEnd) / 2 + 4, -8));
   // red: the bonus, three examples, none guaranteed
@@ -65,7 +67,7 @@ function gsNotes(f: QuoteVideoFacts): { red: string[]; blue: string[]; labels: L
   const mBox = { x: X[COL.payback + 1] - CELL_PAD - mw, y: row(last) + 8, w: mw, h: ROW_H - 16 };
   blue.push(ring(mBox, jit, 12, 6));
   const matAt = row(last - 3) + 4;
-  labels.push({ lines: ["ครบสัญญา", "801% การันตี"], left: X[COL.premium] + 4, top: matAt, ink: "blue", size: 26 });
+  labels.push({ lines: ["ครบสัญญา", `${g.maturityPct}% การันตี`], left: X[COL.premium] + 4, top: matAt, ink: "blue", size: 26 });
   blue.push(arrow(X[COL.premium] + 100, matAt + 74, mBox.x - 8, mBox.y + mBox.h / 2, -6));
   // red: the two bonus years underlined twice, from the first figure (the −1% column pays nothing)
   g.rows.forEach((r, n) => {

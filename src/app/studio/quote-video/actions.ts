@@ -42,7 +42,7 @@ import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
 import { checkedPension } from "@/lib/quote-video/pension";
 import { checkedLegacy } from "@/lib/quote-video/legacy";
 import { checkedPlb } from "@/lib/quote-video/plb";
-import { checkedGsaving, rateLabel } from "@/lib/quote-video/gsaving";
+import { checkedGsaving, gsPlanName, gsPlanOf, rateLabel } from "@/lib/quote-video/gsaving";
 import { GAP_WORD } from "@/lib/fhc/gaps";
 import { cleanBrief, storiesFor, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
 import { readVideoLang } from "@/lib/quote-video/video-words";
@@ -715,6 +715,8 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
     }
     const input = v.input;
     const product = productOf(input);
+    // Global Savings is two plans told by one clip: the row is named for the one it is of
+    const clipName = input.product === "GSAVING" ? gsPlanName(gsPlanOf(input)) : NAMES[product];
     const what = input.product === "IHEALTHY"
       ? `${input.allPlans ? `เทียบ 4 แผน · ${IH_WORDS.th.mode[input.allPlans]}` : planWord(input.plan)}${input.lang && input.lang !== "th" ? ` · ${LANG_NAME[readVideoLang(input.lang)]}` : ""}`
       : input.product === "PENSION"
@@ -732,9 +734,9 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
     const facts = input.style === "motion" && readRecipe(input.recipe) ? quoteVideoFacts(input) : undefined;
     const recipe = facts ? recipeOf(input, facts) : undefined;
     const who = recipe
-      ? `${NAMES[product]} (Motion · ${RECIPE_NAMES[recipe]})${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`
-      : `${NAMES[product]}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
-    const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
+      ? `${clipName} (Motion · ${RECIPE_NAMES[recipe]})${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`
+      : `${clipName}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const file = `${clipName.replace(/[\s/]+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,
       named: Boolean(v.customer_name),

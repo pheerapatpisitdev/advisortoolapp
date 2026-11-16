@@ -4,6 +4,7 @@ import { useFreshLinks } from "./fresh-links";
 import { useEffect, useRef, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
+import { GS_PLANS, gsPlanName, gsPlanPage, gsPlanTerms, type GsPlan } from "@/lib/quote-video/gsaving";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { PlbVariant } from "@/lib/quote-video/plb";
 import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
@@ -70,7 +71,8 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   { code: "PENSION", name: "บำนาญ 95", page: "/bumnan95" },
   { code: "LEGACY", name: "มรดก", page: "/legacy" },
   { code: "PLB", name: "Protection Life", page: "/plb" },
-  { code: "GSAVING", name: "Global Savings 15/8", page: "/global-saving" },
+  // one entry for both plans: the form's แบบ picks 15/8 or 25/5 (owner, 2026-11-16)
+  { code: "GSAVING", name: "Global Savings", page: "/global-saving" },
 ];
 /** Global Savings' index returns the agent picks the clip's example at (owner, 2026-10-20): −1% to +5% */
 const GS_RATE_CHOICES = [-1, 0, 1, 2, 3, 4, 5];
@@ -292,6 +294,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // Global Savings (owner, 2026-10-20): the yearly premium, and the index return the clip's example is worked at
   const [gsPremium, setGsPremium] = useState((start?.premium ?? 50_000).toLocaleString("en-US"));
   const [gsRate, setGsRate] = useState(3);
+  // which Global Savings plan the clip is of: 15/8, or 25/5 when its page sent the agent here (owner, 2026-11-16)
+  const [gsPlan, setGsPlan] = useState<GsPlan>(start?.product === "GSAVING" && start.gsPlan ? start.gsPlan : "15/8");
   // มรดก (owner, 2026-10-14): how many millions the family receives
   const [tier, setTier] = useState(start?.tier ?? 1);
   // บำนาญ 95 (owner, 2026-10-13): when the pension starts, how it is paid for, and how much a month
@@ -489,7 +493,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           ? { product, variant: variant as PlbVariant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
         : product === "GSAVING"
           // a budget works the premium out itself
-          ? { product, sex, age: Number(age), premium: Number(gsPremium.replace(/[^\d]/g, "")), rate: gsRate, ...look }
+          ? { product, sex, age: Number(age), premium: Number(gsPremium.replace(/[^\d]/g, "")), rate: gsRate, ...(gsPlan === "25/5" ? { plan: gsPlan } : {}), ...look }
           : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...(lpRiders ? { riders: lpRiders } : {}), ...look };
   };
 
@@ -701,7 +705,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   );
   const summary = {
     brief: [HOOK_WORD[brief.hook], brief.loop ? "วนลูป" : ""].filter(Boolean).join(" · "),
-    what: kind === "fhc" ? "สรุป FHC" : `${PRODUCTS.find((p) => p.code === product)?.name ?? ""}${foreign ? ` · ${LANG_NAME[lang]}` : ""}`,
+    what: kind === "fhc" ? "สรุป FHC" : `${product === "GSAVING" ? gsPlanName(gsPlan) : PRODUCTS.find((p) => p.code === product)?.name ?? ""}${foreign ? ` · ${LANG_NAME[lang]}` : ""}`,
     who: kind === "fhc"
       ? fhcPick?.name ?? ""
       : `${sex === "M" ? "ชาย" : "หญิง"} ${age}${customer.trim() && length !== "short" ? ` · ${foreign ? "" : "คุณ"}${customer.trim()}` : ""}`,
@@ -979,7 +983,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                     <div>
                       <label htmlFor="qv-gs-premium" className={label}>เบี้ยต่อปี (บาท)</label>
                       <input id="qv-gs-premium" inputMode="numeric" className={field} value={gsPremium} onChange={(e) => setGsPremium(money(e))} />
-                      <p className="mt-1 text-xs text-[var(--ct-mute)]">ขั้นต่ำ 20,000 · จ่าย 8 ปี ครบสัญญา 15 ปี · รับอายุ 0–75 ปี</p>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">ขั้นต่ำ 20,000 · {gsPlanTerms(gsPlan)}</p>
                     </div>
                   ) : product === "PLB" ? (
                     <div>
@@ -1004,6 +1008,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+              {product === "GSAVING" && (
+                <div>
+                  <span className={label}>แบบ</span>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="แบบ Global Savings">
+                    {GS_PLANS.map((p) => <button key={p} type="button" aria-pressed={gsPlan === p} className={chip(gsPlan === p)} onClick={() => setGsPlan(p)}>{gsPlanName(p)}</button>)}
+                  </div>
                 </div>
               )}
               {product === "GSAVING" && (
@@ -1072,7 +1084,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                         <button type="button" className="underline" onClick={keepResolved}>ใช้ค่านี้แล้วแก้เอง</button>
                       </p>
                     )}
-                    <p className="text-xs text-[var(--ct-mute)]">{ok.mark} · ตัวเลขชุดเดียวกับหน้า {allOn ? "/ihealthy-ultra/compare" : PRODUCTS.find((p) => p.code === product)?.page}</p>
+                    <p className="text-xs text-[var(--ct-mute)]">{ok.mark} · ตัวเลขชุดเดียวกับหน้า {allOn ? "/ihealthy-ultra/compare" : product === "GSAVING" ? gsPlanPage(gsPlan) : PRODUCTS.find((p) => p.code === product)?.page}</p>
                   </div>
                 ) : (
                   <p className="text-[var(--ct-mute)]">{preview && "error" in preview ? preview.error : "กำลังคิดราคา…"}</p>

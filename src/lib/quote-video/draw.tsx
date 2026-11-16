@@ -588,7 +588,7 @@ function IndexScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
       </On>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 640 }}>{classicIndexBars(f, W - SIDE * 2, 520)}</On>
       <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1220 }}>
-        <Swept p={s.sweep[1] ?? 1} size={46}>{up ? `โบนัส ${gsMoney(g.bonus10 + g.bonus15)} บาท ไม่การันตี` : `ยังได้การันตี ${gsMoney(g.guaranteed)} บาทเต็ม`}</Swept>
+        <Swept p={s.sweep[1] ?? 1} size={46}>{up ? `โบนัส ${gsMoney(g.bonusAll)} บาท ไม่การันตี` : `ยังได้การันตี ${gsMoney(g.guaranteed)} บาทเต็ม`}</Swept>
       </On>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, justifyContent: "flex-end", top: 1320, fontSize: 48, color: up ? P.pen : BLUE_PEN, transform: "rotate(-2deg)" }}>{up ? "ตัวอย่างเท่านั้น" : "ได้แน่นอน ✓"}</On>
     </>

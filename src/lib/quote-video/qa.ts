@@ -22,8 +22,11 @@ import type { Product } from "./script";
 
 export interface SpokenQa { key: string; q: string; a: string }
 
+/** Global Savings' own figures for its answers (gsaving.ts GsVideoFacts); absent = 15/8's */
+export type GsQaFacts = { payYears: number; term: number; maturityPct: number; bonusYears: number[] };
+
 /** `variant`: Protection Life's term, which decides whether tax relief is answered at all */
-export function productQas(product: Product, variant?: string): SpokenQa[] {
+export function productQas(product: Product, variant?: string, gs?: GsQaFacts): SpokenQa[] {
   switch (product) {
     case "LIFEPROTECT":
       return [
@@ -79,10 +82,10 @@ export function productQas(product: Product, variant?: string): SpokenQa[] {
     // Global Savings 15/8 (owner, 2026-10-20): the page's own facts (src/calc/global-saving/engine.ts)
     case "GSAVING":
       return [
-        { key: "sure", q: "ส่วนไหนได้แน่นอน", a: "เงินคืน 1% ของทุนทุกปี กับเงินครบสัญญา 801% ของทุน ได้แน่นอนค่ะ ส่วนโบนัสตามดัชนีไม่แน่นอน" },
-        { key: "bonus", q: "โบนัสดัชนีจ่ายตอนไหน", a: "จ่าย 2 ครั้งค่ะ สิ้นปีที่ 10 กับตอนครบสัญญาปีที่ 15 ถ้าดัชนีติดลบ โบนัสเป็นศูนย์ แต่เงินที่การันตียังได้ครบ" },
+        { key: "sure", q: "ส่วนไหนได้แน่นอน", a: `เงินคืน 1% ของทุนทุกปี กับเงินครบสัญญา ${gs?.maturityPct ?? 801}% ของทุน ได้แน่นอนค่ะ ส่วนโบนัสตามดัชนีไม่แน่นอน` },
+        { key: "bonus", q: "โบนัสดัชนีจ่ายตอนไหน", a: `จ่าย ${gs?.bonusYears.length ?? 2} ครั้งค่ะ สิ้นปีที่ ${(gs?.bonusYears ?? [10, 15]).slice(0, -1).join(" ")} กับตอนครบสัญญาปีที่ ${gs?.term ?? 15} ถ้าดัชนีติดลบ โบนัสเป็นศูนย์ แต่เงินที่การันตียังได้ครบ` },
         { key: "tax", q: "ลดหย่อนภาษีได้ไหม", a: "ได้ค่ะ ตามที่ออมจริง สูงสุด 100,000 บาทต่อปี นับรวมกับประกันชีวิตฉบับอื่น ตามเกณฑ์สรรพากร" },
-        { key: "years", q: "ต้องออมกี่ปี", a: "ออม 8 ปีค่ะ ครบสัญญาปีที่ 15 ระหว่างนั้นยังคุ้มครองชีวิตด้วย" },
+        { key: "years", q: "ต้องออมกี่ปี", a: `ออม ${gs?.payYears ?? 8} ปีค่ะ ครบสัญญาปีที่ ${gs?.term ?? 15} ระหว่างนั้นยังคุ้มครองชีวิตด้วย` },
         { key: "min", q: "ออมขั้นต่ำเท่าไหร่", a: "ขั้นต่ำปีละ 20,000 บาทค่ะ" },
       ];
     case "PENSION":
@@ -107,9 +110,9 @@ const FIRST: Record<string, string[]> = {
 };
 
 /** the two questions a clip answers, for its product and story */
-export function pickQas(product: Product, story?: string, variant?: string, hide?: readonly string[]): SpokenQa[] {
+export function pickQas(product: Product, story?: string, variant?: string, hide?: readonly string[], gs?: GsQaFacts): SpokenQa[] {
   // ตั้งค่าส่วนตัว: "จ่ายรายเดือนได้ไหม" names the instalments; never asked where the agent hid one
-  const all = productQas(product, variant).filter((q) => !(q.key === "monthly" && hide?.length));
+  const all = productQas(product, variant, gs).filter((q) => !(q.key === "monthly" && hide?.length));
   const first = FIRST[story ?? ""] ?? [];
   const ordered = [...first.map((k) => all.find((q) => q.key === k)).filter((q): q is SpokenQa => Boolean(q)), ...all];
   return ordered.filter((q, i) => ordered.findIndex((x) => x.key === q.key) === i).slice(0, 2);

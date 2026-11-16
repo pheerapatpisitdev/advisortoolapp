@@ -224,7 +224,7 @@ function IndexScene({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; 
         </On>
         {g.wide && (
           <On layer={layer} own="over" style={{ marginTop: 30 }}>
-            <Swept p={s.sweep[1] ?? 1} size={38}>{up ? `โบนัส ${gsMoney(gs.bonus10 + gs.bonus15)} บาท ไม่การันตี` : `ยังได้การันตี ${gsMoney(gs.guaranteed)} บาทเต็ม`}</Swept>
+            <Swept p={s.sweep[1] ?? 1} size={38}>{up ? `โบนัส ${gsMoney(gs.bonusAll)} บาท ไม่การันตี` : `ยังได้การันตี ${gsMoney(gs.guaranteed)} บาทเต็ม`}</Swept>
           </On>
         )}
       </div>
