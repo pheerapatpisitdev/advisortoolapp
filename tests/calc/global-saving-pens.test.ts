@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { barPens, GS_TABLE_COLUMNS as C, tablePens, type Box, type TableMeasure } from "@/lib/global-saving-pens";
+import { barPens, GS25_TABLE_COLUMNS, GS_TABLE_COLUMNS as C, tablePens, type Box, type TableMeasure } from "@/lib/global-saving-pens";
 
 /** a made-up yearly table: 100px columns, a 60px heading, 30px rows, figures 50px wide at the right of their cells */
 const ROW = 30, HEAD = 60, COL = 100;
@@ -68,5 +68,36 @@ describe("the bar chart's pen notes", () => {
   it("leaves the red note off when no scenario pays a bonus", () => {
     const d = barPens({ guaranteed: bars, totals: bars.map((b) => ({ x: b.x + 25, y: 96, w: 50, h: 20 })), topBonus: null }, 407_916);
     expect(d.strokes.every((s) => s.ink === "blue")).toBe(true);
+  });
+});
+
+/** 25/5's table: five premiums, 25 rows, the surrender value before the bonuses, four bonus years. */
+describe("the same pens on Global Savings Plus 25/5's table", () => {
+  const C25 = GS25_TABLE_COLUMNS, years = [10, 15, 20, 25];
+  const blank25 = (y: number, c: number) =>
+    ((c === C25.premium || c === C25.paid || c === C25.tax) && y > 5)
+    || (c >= C25.bonusFirst && c <= C25.bonusLast && !years.includes(y))
+    || (c === C25.bonusFirst && years.includes(y));
+  const d = tablePens(
+    { cell, text: (y, c) => (blank25(y, c) ? null : { x: c * COL + COL - 58, y: HEAD + (y - 1) * ROW + 6, w: 50, h: 18 }) },
+    { premYears: 5, term: 25, payback: 1_000, maturity: 501_000, bonusYears: years, maturityPct: 501, columns: C25 },
+  );
+  const text = d.labels.map((l) => l.lines.join(" ")).join("\n");
+
+  it("says five paying years, 501% at maturity, and names all four bonuses", () => {
+    expect(text).toContain("จ่ายแค่ 5 ปี");
+    expect(text).toContain("ครบสัญญารับ 501% ของทุน");
+    expect(text).toContain("501,000 บาท (การันตี)");
+    for (const y of [10, 15, 20]) expect(text).toContain(`สิ้นปีที่ ${y}`);
+    expect(text).toContain("ตอนครบสัญญา");
+    expect(d.strokes.filter((s) => s.ink === "red" && s.width === 1.8)).toHaveLength(4);
+    for (const s of d.strokes) expect(s.d).not.toMatch(/NaN|Infinity/);
+  });
+
+  it("writes only into cells that table leaves empty, clear of the surrender column", () => {
+    for (const l of d.labels) {
+      const c = Math.floor(l.x / COL), y = Math.floor((l.y - HEAD) / ROW) + 1;
+      expect(blank25(y, c) || blank25(y + 1, c), `${l.lines[0]} at year ${y}, column ${c}`).toBe(true);
+    }
   });
 });
