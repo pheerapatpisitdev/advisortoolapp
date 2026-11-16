@@ -8,6 +8,7 @@ import { boxIn, GsPens, textIn } from "@/components/global-saving/GsPens";
 import { barPens, GS25_TABLE_COLUMNS, tablePens } from "@/lib/global-saving-pens";
 import { BLUE_PEN } from "@/lib/card-theme";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import { gsaving255CardPath } from "@/lib/global-saving-card";
 import { gs255QuoteText } from "@/lib/global-saving-text";
 import {
@@ -23,7 +24,7 @@ import {
  * and blue pen notes on the bars and the table (owner, 2026-11-16). This plan pays its index
  * bonus four times and the table carries the surrender value, so the two pages do not share a
  * component. ส่งให้ลูกค้า sends the whole page as one picture and the quote as text, as 15/8's
- * does (owner, 2026-11-16); วิดีโอนำเสนอ is not built for this plan yet.
+ * does, and สร้างวิดีโอ opens วิดีโอนำเสนอ on this plan (owner, 2026-11-16).
  */
 
 const baht = (n: number) => Math.round(n).toLocaleString("en-US");
@@ -73,6 +74,7 @@ export function GlobalSaving255Calculator() {
   const sendable = q && !q.warnings.length ? q : null;
   const copyText = sendable ? gs255QuoteText(age, sendable) : undefined;
   const tableCard = sendable && amount !== "" ? gsaving255CardPath({ age, basis, amount }) : undefined;
+  const videoHref = sendable ? videoStartHref({ product: "GSAVING", gsPlan: "25/5", age, premium: Math.ceil(sendable.premium) }) : undefined;
 
   const top = q ? Math.max(...q.scenarios.map((s) => s.total)) * 1.12 : 1;
   const bonusYears = q ? q.scenarios[0].bonuses.map((b) => b.year) : [];
@@ -145,7 +147,7 @@ export function GlobalSaving255Calculator() {
             {q?.notes.map((n) => (
               <div key={n} className="rounded-md bg-[var(--bot-sand-soft)] px-3 py-2 text-xs leading-relaxed text-[var(--bot-sand-ink)]">{n}</div>
             ))}
-            {q ? <ContactButtons copyText={copyText} tableCardPath={tableCard} tableLabel="ตาราง + ดัชนี" /> : null}
+            {q ? <ContactButtons copyText={copyText} tableCardPath={tableCard} tableLabel="ตาราง + ดัชนี" videoHref={videoHref} /> : null}
             <div className="space-y-0.5 border-t border-[var(--lg-hair)] pt-3 text-xs leading-relaxed text-[var(--lg-mute)]">
               <div>รหัสแบบ {GS25_CODE} · กรุงไทย-แอกซา</div>
               <div>เงินคืน 1% ของทุนทุกปี · ครบสัญญา 501% ของทุน</div>

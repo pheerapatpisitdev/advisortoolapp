@@ -969,7 +969,7 @@ export function gsIndexHead(f: QuoteVideoFacts) {
   return {
     sub: `${up ? "ถ้าดัชนีโตเฉลี่ยปีละ" : "ถ้าดัชนีเฉลี่ยปีละ"} ${rateLabel(g.rate)}`,
     label: up ? "รวมรับประมาณ" : "รวมรับ (การันตี)",
-    pill: up ? `โบนัส ${gsMoney(g.bonus10 + g.bonus15)} บาท ไม่การันตี` : `✓ ยังได้การันตี ${gsMoney(g.guaranteed)} เต็ม`,
+    pill: up ? `โบนัส ${gsMoney(g.bonusAll)} บาท ไม่การันตี` : `✓ ยังได้การันตี ${gsMoney(g.guaranteed)} เต็ม`,
     up,
   };
 }

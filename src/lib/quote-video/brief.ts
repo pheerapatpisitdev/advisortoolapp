@@ -1,4 +1,5 @@
 import type { Product, QuoteVideoFacts } from "./script";
+import { gsWords } from "./gsaving";
 
 /**
  * โจทย์การเล่า of a วิดีโอนำเสนอ clip (owner, 2026-10-13; spec
@@ -163,7 +164,7 @@ export function allowedNumbers(f: QuoteVideoFacts, note = ""): Set<number> {
   }
   if (f.gsaving) {
     const g = f.gsaving;
-    for (const n of [g.premium, g.perDay, g.payYears, g.term, g.paid, g.payback, g.maturity, g.guaranteed, g.deathMax, g.taxYearly, g.total, g.bonus10, g.bonus15, 10]) add(typeof n === "number" ? Math.round(n) : n);
+    for (const n of [g.premium, g.perDay, g.payYears, g.term, g.paid, g.payback, g.maturity, g.guaranteed, g.deathMax, g.taxYearly, g.total, g.bonus10, g.bonus15, g.bonusAll, g.bonusAll - g.bonus15, g.maturityPct, ...g.bonusYears]) add(typeof n === "number" ? Math.round(n) : n);
   }
   if (f.pension) {
     const p = f.pension;
@@ -297,6 +298,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
   const kind = settleHook(b, f, seed);
   const aud = AUDIENCES.find((a) => a.key === b.audience);
   const p = f.product;
+  const gs = (text: string) => (f.gsaving ? gsWords(text, f.gsaving) : text);
   const lead = said(f.lead.baht);
   const perDay = f.perDayAmount;
   const monthly = f.spokenPrice.amount;
@@ -430,11 +432,12 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
   };
   return {
     kind,
-    hook: hooks[kind][p],
-    headline: heads[kind][p],
+    // Global Savings' lines were written for 15/8: 25/5's clip says its own years (gsaving.ts gsWords)
+    hook: gs(hooks[kind][p]),
+    headline: heads[kind][p].map(gs),
     close: closes[p],
     loopClose: loops[kind],
     story: `ลองนึกภาพนะคะ ${aud?.scene ?? "ชีวิตที่มีคนพึ่งพาคุณอยู่"} ${tails[p]}`,
-    points: points[p],
+    points: points[p].map(gs),
   };
 }

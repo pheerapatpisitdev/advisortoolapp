@@ -5,6 +5,7 @@ import {
   type VideoBrief, type WrittenLines,
 } from "./brief";
 import type { QuoteVideoFacts, VideoLength } from "./script";
+import { gsBonusWhen, gsWords } from "./gsaving";
 
 /**
  * The lines a วิดีโอนำเสนอ clip is told to its brief with (owner, 2026-10-13, choice ค): a small
@@ -65,7 +66,7 @@ export function factLines(f: QuoteVideoFacts): string[] {
       `เงินคืนทุกปี ปีละ ${m(g.payback)} บาท และครบสัญญารับ ${m(g.maturity)} บาท รวมเงินที่ได้แน่นอน ${m(g.guaranteed)} บาท`,
       `ระหว่างสัญญาคุ้มครองชีวิตสูงสุด ${m(g.deathMax)} บาท`,
       "ยอดออมลดหย่อนภาษีได้ตามเกณฑ์สรรพากร",
-      "มีโบนัสตามดัชนีโลก จ่ายสิ้นปีที่ 10 และตอนครบสัญญา โบนัสไม่แน่นอน ห้ามบอกตัวเลขโบนัส และห้ามพูดว่าโบนัสได้แน่นอน");
+      `มีโบนัสตามดัชนีโลก จ่าย${gsBonusWhen(g)} โบนัสไม่แน่นอน ห้ามบอกตัวเลขโบนัส และห้ามพูดว่าโบนัสได้แน่นอน`);
   }
   if (f.pension) {
     const p = f.pension;
@@ -98,7 +99,7 @@ function prompt(f: QuoteVideoFacts, b: VideoBrief, length: VideoLength, kind: Wr
     "ข้อมูลของแผน (ใช้ได้เฉพาะตัวเลขในนี้ เขียนเป็นตัวเลขอารบิก เช่น 79 หรือ 2 ล้าน):",
     ...factLines(f).map((l) => `- ${l}`),
     "",
-    `เรื่องที่เล่า: ${story ? story.about : "ภาพรวมของแผน"}`,
+    `เรื่องที่เล่า: ${story ? (f.gsaving ? gsWords(story.about, f.gsaving) : story.about) : "ภาพรวมของแผน"}`,
     ...(aud ? [`ลูกค้าเป็น: ${aud.name} (${aud.scene})`] : []),
     ...(b.note ? [`ตัวแทนอยากเน้น: ${b.note}`] : []),
     "",

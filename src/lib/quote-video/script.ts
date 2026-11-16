@@ -70,7 +70,8 @@ export type VideoInput = (
   /** Protection Life: a term (paid and covered alike) and a sum from the /plb page's steps (plb.ts) */
   | { product: "PLB"; variant: PlbVariant; age: number; sex: "M" | "F"; sumAssured: number }
   /** Global Savings 15/8: the yearly premium and the index's return, % a year, the clip's example is worked at (gsaving.ts) */
-  | { product: "GSAVING"; age: number; sex: "M" | "F"; premium: number; rate: number }
+  /** `plan`: "25/5" for Global Savings Plus 25/5 (owner, 2026-11-16); absent = 15/8 */
+  | { product: "GSAVING"; age: number; sex: "M" | "F"; premium: number; rate: number; plan?: "25/5" }
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
@@ -1062,7 +1063,7 @@ export function pageCaption(f: QuoteVideoFacts): string {
   if (f.product === "GSAVING" && f.gsaving) {
     const g = f.gsaving;
     return [
-      `Global Savings 15/8 ออม ${g.payYears} ปี รับเงินการันตีรวม ${f.lead.amount} บาท`,
+      `${f.planLine} ออม ${g.payYears} ปี รับเงินการันตีรวม ${f.lead.amount} บาท`,
       `${who} ออมปีละ ${gsMoney(g.premium)} บาท (ตกวันละ ${g.perDay} บาท) ลดหย่อนภาษีได้`,
       g.rate > 0
         ? `ถ้าดัชนีโตเฉลี่ยปีละ ${rateLabel(g.rate)} รวมรับประมาณ ${gsMoney(g.total)} บาท (โบนัสดัชนีไม่การันตี)`

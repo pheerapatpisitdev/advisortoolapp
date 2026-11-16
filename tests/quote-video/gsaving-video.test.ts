@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { quoteGlobalSaving } from "@/calc/global-saving/engine";
+import { quoteGlobalSaving255 } from "@/calc/global-saving/engine-25-5";
 import { fallbackLines, lineProblem, storiesFor, writtenProblems, WRITTEN_HOOKS } from "@/lib/quote-video/brief";
 import { resolveBudget } from "@/lib/quote-video/budget";
 import { checkedGsaving, gsavingVideoFacts, GS_RATES, type GsVideoInput } from "@/lib/quote-video/gsaving";
@@ -157,5 +158,120 @@ describe("Global Savings 15/8 in วิดีโอนำเสนอ", () => {
     expect(lineProblem("มีโบนัสตามดัชนีโลก แต่โบนัสไม่แน่นอน", f, 150)).toBeNull();
     expect(lineProblem("รับคืนรวม 500,000 บาท", f, 150)).toMatch(/500,000/);
     expect(lineProblem("ออมวันละ 137 บาท แค่ 8 ปี รับคืนรวม 407,916 บาท", f, 150)).toBeNull();
+  });
+});
+
+/** the 25/5 page's own example (owner, 2026-11-16): a man of 40 saving 99,500 a year, the printed illustration's quote */
+const PAGE25: GsVideoInput = { product: "GSAVING", plan: "25/5", age: 40, sex: "M", premium: 99_500, rate: 3 };
+
+describe("Global Savings 25/5 in the same clip", () => {
+  it("states the 25/5 page's own figures, the printed illustration's", () => {
+    const f = gsavingVideoFacts(PAGE25)!;
+    const g = f.gsaving!;
+    const page = quoteGlobalSaving255({ basis: "premium", amount: 99_500, age: 40 });
+    expect(f.planLine).toBe("Global Savings 25/5");
+    expect(g).toMatchObject({ plan: "25/5", premium: 99_500, sa: 100_000, perDay: "273", payYears: 5, term: 25, paid: 497_500, maturityPct: 501, bonusYears: [10, 15, 20, 25] });
+    expect([g.payback, g.maturity, g.guaranteed, g.deathMax]).toEqual([1_000, 501_000, 525_000, 535_000]);
+    expect([g.bonus10, g.bonus15, g.bonusAll, g.total]).toEqual([7_699.42, 342_817.37, 429_640.19, 954_640.19]);
+    expect(g.total).toBe(page.scenarios[2].total);
+    expect(g.bars.map((b) => [b.rate, b.on])).toEqual([[-1, false], [0, false], [1, false], [2, false], [3, true], [4, false], [5, false]]);
+    expect(g.bars[0].total).toBe(525_000);
+    expect(f.cover.map((r) => r.label)).toEqual(["เงินคืน 1% ของทุน ทุกปี (ปีที่ 1–24)", "ครบสัญญา ปีที่ 25 รับ 501% ของทุน", "รวมเงินการันตี"]);
+    expect(f.pills[0]).toBe("เท่าเดิมทุกปี จ่ายแค่ 5 ปี");
+    expect([f.coverToAge, f.payYears, f.lastPayAge]).toEqual([65, 5, 44]);
+  });
+
+  it("speaks 15/8's lines with this plan's years, and all four bonuses", () => {
+    const f = quoteVideoFacts(PAGE25)!;
+    const lines = quoteVideoScript(f, "");
+    expect(lines.map((l) => l.key)).toEqual(["lead", "price", "cover", "index", "contact"]);
+    expect(lines[0].voice).toBe("สวัสดีค่ะ ขอเล่าแผนออมนี้ให้ฟังสั้นๆ นะคะ คุณผู้ชายอายุ 40 ปี ออมเพียง 5 ปี รับเงินการันตีรวม 525,000 บาท แถมมีโบนัสตามดัชนีโลกด้วยค่ะ");
+    expect(lines[1].voice).toBe("ออมแค่วันละ 273 บาท หรือปีละ 99,500 บาท ออมเพียง 5 ปีก็ครบ ยอดออมเท่าเดิมทุกปี แล้วยังนำไปลดหย่อนภาษีได้ด้วยค่ะ");
+    expect(lines[2].voice).toBe("ระหว่างทางรับเงินคืน 1% ของทุนทุกปี ครบ 25 ปีรับอีก 501,000 บาท รวมเงินการันตี 525,000 บาท ได้แน่นอนค่ะ ระหว่างนี้ยังคุ้มครองชีวิตสูงสุด 535,000 บาทด้วยค่ะ");
+    expect(lines[3].voice).toBe("ที่ชอบที่สุดคือ มีโบนัสตามดัชนีโลก ถ้าดัชนีโตเฉลี่ยปีละ 3% รับโบนัสสิ้นปีที่ 10 15 และ 20 รวมประมาณ 86,823 บาท และตอนครบสัญญาอีกประมาณ 342,817 บาท รวมรับทั้งหมดประมาณ 954,640 บาท ส่วนโบนัสนี้ไม่การันตีนะคะ");
+    expect(pageCaption(f)).toContain("Global Savings 25/5 ออม 5 ปี รับเงินการันตีรวม 525,000 บาท");
+    const short = quoteVideoScript(f, "", "F", "short");
+    expect(short[1].voice).toBe("ออมแค่วันละ 273 บาท เพียง 5 ปี แถมลดหย่อนภาษีได้ค่ะ");
+  });
+
+  it("never says the bonus as certain, at any index or length", () => {
+    for (const rate of GS_RATES) {
+      const f = quoteVideoFacts({ ...PAGE25, rate })!;
+      const index = quoteVideoScript(f, "").find((l) => l.key === "index")!.voice;
+      if (rate > 0) expect(index).toContain("ไม่การันตี");
+      else {
+        expect(index).toContain("ก็ยังได้เงินการันตี 525,000 บาทเต็มจำนวน");
+        expect(f.gsaving!.bonusAll).toBe(0);
+      }
+      for (const length of LENGTHS) {
+        for (const l of quoteVideoScript(f, "สมชาย", "F", length)) {
+          expect(l.voice).not.toMatch(NEVER);
+          expect(l.voice).not.toMatch(/โบนัส\S*?(?<!ไม่)(ได้)?แน่นอน/);
+          // nothing of 15/8's is left in a 25/5 clip
+          expect(l.voice).not.toMatch(/8 ปี|15 ปี|801/);
+        }
+      }
+    }
+  });
+
+  it("checks the 25/5 page's own limits and keeps the plan on the input", () => {
+    expect(checkedGsaving(PAGE25)).toEqual(PAGE25);
+    expect(checkedGsaving({ ...PAGE25, age: 76 })).toMatch(/0–75/);
+    expect(checkedGsaving({ ...PAGE25, premium: 19_999 })).toMatch(/20,000/);
+    // from 71 the sum must reach 200,000
+    expect(checkedGsaving({ ...PAGE25, age: 72, premium: 100_000 })).toMatch(/200,000/);
+    const budget = resolveBudget(PAGE25, { baht: 10_000, per: "month" });
+    if (typeof budget === "string") throw new Error(budget);
+    expect(budget).toMatchObject({ product: "GSAVING", plan: "25/5", premium: 120_000 });
+    // 15/8's input never carries a plan, so a clip made before 25/5 reads as it did
+    expect(checkedGsaving(PAGE)).not.toHaveProperty("plan");
+  });
+
+  it("opens the Studio form on 25/5 from its page's shortcut", () => {
+    const href = videoStartHref({ product: "GSAVING", gsPlan: "25/5", age: 40, premium: 99_500 });
+    expect(href).toContain("gs=25-5");
+    const q = Object.fromEntries(new URL(href, "https://x").searchParams);
+    expect(videoStartFrom(q)).toEqual({ product: "GSAVING", gsPlan: "25/5", age: 40, premium: 99_500 });
+    // only this product reads it, and only this value
+    expect(videoStartFrom({ product: "PLB", gs: "25-5" })).toEqual({ product: "PLB" });
+    expect(videoStartFrom({ product: "GSAVING", gs: "x" })).toEqual({ product: "GSAVING" });
+  });
+
+  it("sets its 25 years and four bonus years in the classic clip's table, and walks down to the end", () => {
+    const f = quoteVideoFacts(PAGE25)!;
+    const g = f.gsaving!;
+    expect(g.rows).toHaveLength(25);
+    expect(g.totals.map((t) => t.toFixed(2))).toEqual(["525000.00", "954640.19", "1446371.34"]);
+    expect(g.rows.filter((r) => r.bonus).map((r) => [r.year, r.bonus])).toEqual([
+      [10, [0, 7_699.42, 14_079.39]], [15, [0, 24_982.97, 48_309]], [20, [0, 54_140.43, 111_039.63]], [25, [0, 342_817.37, 747_943.32]],
+    ]);
+    expect([g.rows[4].premium, g.rows[5].premium, g.rows[24].payback]).toEqual([99_500, 0, 501_000]);
+    const cover = quoteVideoScript(f, "").find((l) => l.key === "cover")!;
+    const { height } = gsTableImage(f);
+    const { plan } = gsTablePlan(f, cover.voice, 12, TABLE);
+    expect(plan.moves).toHaveLength(1);
+    expect(plan.moves[0].to).toBe(height - TABLE.h);
+  });
+
+  it("tells the longer clips, the fixed lines and the answers with 25/5's own facts", () => {
+    const f = quoteVideoFacts(PAGE25)!;
+    expect(extraVoice("versus", f, {})).toContain("ออม 5 ปี รวม 497,500 บาท แผนนี้รับคืนการันตี 525,000 บาท");
+    const answers = productQas("GSAVING", undefined, f.gsaving).map((q) => q.a).join("\n");
+    expect(answers).toContain("เงินครบสัญญา 501% ของทุน");
+    expect(answers).toContain("จ่าย 4 ครั้งค่ะ สิ้นปีที่ 10 15 20 กับตอนครบสัญญาปีที่ 25");
+    expect(answers).toContain("ออม 5 ปีค่ะ ครบสัญญาปีที่ 25");
+    // 15/8's answers are what they were
+    expect(productQas("GSAVING").map((q) => q.a).join("\n")).toContain("จ่าย 2 ครั้งค่ะ สิ้นปีที่ 10 กับตอนครบสัญญาปีที่ 15");
+    for (const g of [f, quoteVideoFacts({ ...PAGE25, rate: -1, age: 60, sex: "F" })!, quoteVideoFacts({ ...PAGE25, premium: 1_000_000 })!]) {
+      for (const s of storiesFor(g)) {
+        for (const hook of WRITTEN_HOOKS) {
+          const w = fallbackLines(g, { hook, story: s.key });
+          expect(`${w.hook} ${w.headline.join(" ")} ${(w.points ?? []).join(" ")}`).not.toMatch(/8 ปี|15 ปี/);
+          expect(writtenProblems(w, g, { loop: false, story: true })).toEqual({});
+          expect(writtenProblems(w, g, { loop: true, story: true })).toEqual({});
+        }
+      }
+    }
+    expect(lineProblem("ออมวันละ 273 บาท แค่ 5 ปี รับคืนรวม 525,000 บาท", f, 150)).toBeNull();
   });
 });
