@@ -37,6 +37,10 @@ import { WORDS, baseWords } from "@/lib/ihealthy-words";
 import { riderLines } from "@/lib/ihealthy-rider-lines";
 import { Highlighted } from "@/components/Highlighted";
 import { markPdfReady, registerPrepare } from "@/lib/quote-pdf/prepare";
+import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
+import { cashProjection } from "@/lib/cash-projection";
+import type { IHealthySchedule, IHealthyScheduleInput } from "@/lib/ihealthy-schedule";
+import { healthSchedule } from "@/app/ihealthy-ultra/actions";
 
 export interface IHealthyCalculatorProps {
   table: IHealthyTable;
@@ -255,6 +259,41 @@ export function IHealthyCalculator(
   // sum to what the family receives, and the card was charging for DCI while printing a
   // figure worked out as though nothing were attached.
   const death = answered?.deathBenefit ?? deathBenefitOf(table, base.variant, age, sumAssured);
+
+  /**
+   * The value table under the card (owner chose ข, 2026-11-16): the life page's table, with the
+   * health premium in a column of its own. Its two lists come from the server, because the
+   * health cover renews to 98 and the rates this page carries stop at the last issue age.
+   *
+   * The daily cash is the one on the quote: the fold's once it has answered (null where the
+   * agent took it off), the agency's standard until then.
+   */
+  const scheduleAsk: IHealthyScheduleInput | undefined = lang === "th" && shown && plan && territory && coverage
+    ? {
+        base: base.variant, sex, age, plan: plan.code, territory, coverage,
+        dailyCash: answered ? answered.dailyCash : standardPlan,
+      }
+    : undefined;
+  const scheduleKey = scheduleAsk ? JSON.stringify(scheduleAsk) : undefined;
+  const [schedule, setSchedule] = useState<{ key: string; value: IHealthySchedule | null }>();
+  useEffect(() => {
+    if (!scheduleKey) return;
+    let live = true;
+    healthSchedule(JSON.parse(scheduleKey) as IHealthyScheduleInput)
+      .then((value) => { if (live) setSchedule({ key: scheduleKey, value }); })
+      .catch(() => { if (live) setSchedule({ key: scheduleKey, value: null }); });
+    return () => { live = false; };
+  }, [scheduleKey]);
+  const scheduled = schedule && schedule.key === scheduleKey ? schedule.value : null;
+  const baseAnnual = priced?.base.find((m) => m.mode === "annual")?.total;
+  const projection = scheduled && baseAnnual !== undefined
+    ? cashProjection({
+        factors: scheduled.factors, age, sumAssured, annualSatang: baseAnnual,
+        payYears: base.payYears ?? Math.max(0, (base.payToAge ?? 99) - age),
+        death: deathBenefitOf(table, base.variant, age, sumAssured), topUp: scheduled.topUp,
+        riderDue: scheduled.healthDue,
+      })
+    : undefined;
 
   /**
    * Where the same arrangement is drawn as one picture — the card and the benefit table in a
@@ -696,6 +735,17 @@ export function IHealthyCalculator(
           onPicked={setPicked}
           w={w}
           lang={lang}
+        />
+      )}
+
+      {/* every year of the contract, the health premium beside the base's (Thai page only for now) */}
+      {projection && plan && (
+        <CashValueTable
+          projection={projection}
+          sheet={false}
+          riderHead="เบี้ยประกันสุขภาพ"
+          caption={`ทุนประกัน ${fig(sumAssured)} บาท · ${w.sex[sex]} ${age} ปี · ${bases(base).label}`
+            + ` · iHealthy Ultra ${planLabel(plan.code)} · เบี้ยประกันสุขภาพตามอัตราปัจจุบันของแต่ละอายุ บริษัทอาจปรับเมื่อต่ออายุ`}
         />
       )}
 

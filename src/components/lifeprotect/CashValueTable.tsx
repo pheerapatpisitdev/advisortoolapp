@@ -47,11 +47,23 @@ export interface CashValueTableProps {
   notes?: boolean;
   /** false when the agent switched แสดงคำอธิบายในตาราง off (src/lib/pay-prefs.ts): no braces, words or pen rings */
   pen?: boolean;
+  /**
+   * What the riders' column is headed. The health page names it เบี้ยประกันสุขภาพ, which is what
+   * it holds there (owner chose ข, 2026-11-16).
+   */
+  riderHead?: string;
+  /**
+   * False where the table sits inside a page that prints a sheet of its own (the health page):
+   * no print button, no printed heading or footer, and the page's PDF is not taken over by it.
+   */
+  sheet?: boolean;
 }
 
 const HEAD = ["ปีที่", "อายุ", "เบี้ย/ปี", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
+/** the riders' column's heading, unless the page names it otherwise */
+const RIDER_HEAD = "สัญญาเพิ่มเติม";
 /** the same, with the riders' premium in a column of its own beside the plan's */
-const HEAD_RIDERS = ["ปีที่", "อายุ", "เบี้ย/ปี", "สัญญาเพิ่มเติม", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
+const headRiders = (rider: string) => ["ปีที่", "อายุ", "เบี้ย/ปี", rider, "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
 
 /** every column but the first is ruled off from the one before it */
 const RULE = "border-l border-l-white/10";
@@ -70,7 +82,9 @@ const CELL = "whitespace-nowrap border-b border-white/5 px-[5px] py-1.5";
  * try to surrender — and it is said plainly, by the 0 in the column and by the note
  * underneath, rather than by making the numbers harder to read.
  */
-export function CashValueTable({ projection, caption, cardPath, planName, notes = true, pen = true }: CashValueTableProps) {
+export function CashValueTable({
+  projection, caption, cardPath, planName, notes = true, pen = true, riderHead = RIDER_HEAD, sheet = true,
+}: CashValueTableProps) {
   const { rows, breakEven, zeroYears, maturityAge } = projection;
   const tableRef = useRef<HTMLTableElement>(null);
   if (!rows.length) return null;
@@ -85,7 +99,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
   // a year is paid for when either the plan or a rider is: a rider can outlast the plan's term
   const pays = (r: ProjectionRow) => Boolean(r.premiumDue || r.riderDue);
   const riders = rows.some((r) => r.riderDue);
-  const head = riders ? HEAD_RIDERS : HEAD;
+  const head = riders ? headRiders(riderHead) : HEAD;
   const paying = rows.filter(pays);
   const payingYears = paying.length;
   // the plan's own premiums: what the riders cost is spent on the year's cover (เบี้ยทิ้ง)
@@ -119,14 +133,14 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
   const braceRoom = pen && needsBraceRoom(penCard);
 
   return (
-    <section className="print-table mt-3.5 border-t border-[var(--lg-panel-line)] pt-3">
+    <section className={`${sheet ? "print-table" : "print:hidden"} mt-3.5 border-t border-[var(--lg-panel-line)] pt-3`}>
       {/* The heading a printed sheet needs and a web page does not: what plan this is, and
           who it was worked out for. Taken from the layout of the insurer's own proposal,
           which is what the owner asked for — but deliberately without their marks. Ours is an
           estimate from an agent's calculator and theirs is a quotation, and a sheet that
           looks like the second while being the first is one a customer would be right to feel
           misled by. So it says what it is, at the top, where it cannot be missed. */}
-      <div data-print-only className="mb-4 hidden">
+      {sheet && <div data-print-only className="mb-4 hidden">
         <div className="flex items-start justify-between gap-4 border-b-2 border-black pb-2">
           <div>
             <p className="text-base font-semibold">{planName ?? "ตารางมูลค่ากรมธรรม์"}</p>
@@ -144,12 +158,12 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           <CashValueChart projection={projection} age={rows[0].age} onPaper />
         </div>
         <p className="text-sm font-semibold">ตารางมูลค่ากรมธรรม์</p>
-      </div>
+      </div>}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 data-screen-only className="text-sm font-normal text-[var(--lg-gold)]">มูลค่าทุกปี</h4>
         <div data-screen-only className="flex flex-wrap items-center gap-2">
-          <PrintButton className="rounded-sm border border-[var(--lg-gold)] px-3 py-1.5 text-xs font-medium text-[var(--lg-gold)]" />
+          {sheet && <PrintButton className="rounded-sm border border-[var(--lg-gold)] px-3 py-1.5 text-xs font-medium text-[var(--lg-gold)]" />}
           {cardPath && (
             <CardButton
               path={cardPath}
@@ -335,7 +349,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
               break-even leave them out (owner, 2026-10-10) */}
           {riders && (
             <>
-              {" "}· สัญญาเพิ่มเติมอีก{" "}
+              {" "}· {riderHead}อีก{" "}
               <span className="font-medium tabular-nums text-[var(--lg-white)]">{formatBaht(riderTotal)}</span>{" "}
               บาท (เบี้ยทิ้ง ไม่มีมูลค่าเวนคืน)
             </>
@@ -355,15 +369,15 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           licence belongs on every customer's sheet (the owner, 2026-10-02). The date is written in by the print button rather than rendered here — a
           `new Date()` in a component that hydrates is a mismatch waiting to happen, and the
           only moment the date means anything is the moment the sheet is made. */}
-      <div data-print-only className="mt-6 hidden border-t border-black pt-2 text-[9.5px] leading-[1.6]">
+      {sheet && <div data-print-only className="mt-6 hidden border-t border-black pt-2 text-[9.5px] leading-[1.6]">
         <p>
           เบี้ยประกันเป็นตัวเลขประมาณการจากตารางของบริษัท ไม่ใช่ใบเสนอราคา
           เบี้ยและความคุ้มครองจริงเป็นไปตามผลการพิจารณารับประกันและที่ระบุในกรมธรรม์
         </p>
         <p className="mt-1.5">รับประกันโดย {INSURER}</p>
         <p data-printed-at className="mt-1" />
-      </div>
-      <PdfPrepare />
+      </div>}
+      {sheet && <PdfPrepare />}
     </section>
   );
 }
