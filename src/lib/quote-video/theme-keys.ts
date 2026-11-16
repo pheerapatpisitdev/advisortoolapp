@@ -21,7 +21,7 @@ export const readTheme = (v: unknown): ThemeKey => (THEME_KEYS.includes(v as The
 /** what the form shows for each */
 export const THEME_LABELS: Record<ThemeKey, { name: string; swatch: string; note: string }> = {
   navy: { name: "น้ำเงินทอง", swatch: VIDEO_THEME_EXTRA.swatch.navy, note: "หน้าตาเดิมของ Motion Graphic" },
-  paper: { name: "วาดมือบนกระดาษ", swatch: VIDEO_THEME_EXTRA.swatch.paper, note: "หน้าการ์ตูนและลายมือแบบคลิปเล่าเรื่อง ปากกาแดงเน้นตัวเลข" },
+  paper: { name: "วาดมือบนกระดาษ", swatch: VIDEO_THEME_EXTRA.swatch.paper, note: "พื้นกระดาษ ลายมือ ปากกาแดงเน้นตัวเลข" },
   board: { name: "ไวท์บอร์ด", swatch: VIDEO_THEME_EXTRA.swatch.board, note: "ปากกาเขียนทีละอย่างตามเสียง เหมือนนั่งอธิบายบนกระดาน ปากกาแดงวงจุดสำคัญ" },
   kinetic: { name: "ตัวหนังสือเด้ง", swatch: VIDEO_THEME_EXTRA.swatch.kinetic, note: "ไม่มีรูป ตัวหนังสือใหญ่เด้งตามเสียงทีละคำ ตัวเลขเต็มจอ พื้นสลับดำ เหลือง น้ำเงิน เหมาะกับ Reels และ TikTok" },
   mine: { name: "สีของฉัน", swatch: VIDEO_THEME_EXTRA.swatch.mine, note: "สีประจำตัวที่เลือกไว้ ใช้กับทุกคลิป พร้อมรูปและชื่อของคุณด้านบน" },
