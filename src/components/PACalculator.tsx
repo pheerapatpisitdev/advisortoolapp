@@ -5,6 +5,7 @@ import {
   type PaFamily, type PaFamilyId, type PaPlan,
 } from "@/lib/pa-plans";
 import { PA_WORDS, paRowLabel, type PaWords } from "@/lib/pa-words";
+import { paCardPath, paTablePath } from "@/lib/pa-card";
 import { WORDS } from "@/lib/ihealthy-words";
 import { figure, type Lang } from "@/lib/ihealthy-lang";
 import { Highlighted } from "@/components/Highlighted";
@@ -56,6 +57,11 @@ export function PACalculator({ sticky = false, lang = "th" }: { sticky?: boolean
   const ageOk = age >= family.ageMin && age <= family.ageMax;
 
   const quoteText = useMemo(() => w.quote({ family, plan, cls, age }), [w, family, plan, cls, age]);
+
+  // the two pictures ส่งให้ลูกค้า sends beside the text (owner, 2026-11-16): Thai, whatever the page's language
+  const ask = quoteText ? { code: plan.code, cls, age } : undefined;
+  const card = ask && paCardPath(ask);
+  const tableCard = ask && paTablePath(ask);
 
   const pickFamily = (id: PaFamilyId) => {
     setFamilyId(id);
@@ -132,7 +138,7 @@ export function PACalculator({ sticky = false, lang = "th" }: { sticky?: boolean
           </p>
         </div>
         <div className="order-2">
-          <ContactButtons copyText={quoteText} words={contact} />
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางทุกแผน" words={contact} />
         </div>
       </div>
 
@@ -197,7 +203,7 @@ export function PACalculator({ sticky = false, lang = "th" }: { sticky?: boolean
 
       {sticky && quoteText && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
-          <ContactButtons copyText={quoteText} words={contact} compact />
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางทุกแผน" words={contact} compact />
         </div>
       )}
     </div>
