@@ -1,0 +1,69 @@
+# เครื่องวาดคลิป: the Remotion job a pull request's drawing names is made before the merge (owner chose ก, 2026-11-16).
+# The app starts `remotion-<REMOTION_DRAWING>` (src/lib/quote-video/remotion.ts). A push from the Mac makes that job in
+# .githooks/pre-push; a merge on GitHub runs no hook, so on 2026-11-16 three merged PRs left the site naming a job
+# that was never made and every clip failed (Google Cloud 403). Here the same remotion/cloudrun/ship.sh runs on the
+# pull request: at once when the job is there, 5–10 minutes when the drawing changed. Merge on green.
+# The run on main is the net under a merge made on red.
+#
+# Google Cloud lets this repository in without a stored key (workload identity pool `github`, account github-ship).
+name: เครื่องวาดคลิป
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# ship.sh points the one trial job remotion-port at its image: one run at a time
+concurrency:
+  group: remotion-ship
+  cancel-in-progress: false
+
+jobs:
+  ship:
+    name: เครื่องวาดคลิป
+    # a fork gets no Google Cloud identity; its drawing is made when a maintainer's branch carries it
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/172913509850/locations/global/workloadIdentityPools/github/providers/advisortoolapp
+          service_account: github-ship@advisortool-video.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Is the job there already?
+        id: job
+        run: |
+          fp="$(sed -n 's/^export const REMOTION_DRAWING = "\([0-9a-f]*\)";.*/\1/p' src/lib/quote-video/remotion.ts)"
+          [ -n "$fp" ] || { echo "REMOTION_DRAWING not found in remotion.ts" >&2; exit 1; }
+          if gcloud --project advisortool-video run jobs describe "remotion-$fp" --region asia-southeast1 --format='value(metadata.name)' 2>describe.err; then
+            echo "ready=yes" >> "$GITHUB_OUTPUT"
+            echo "remotion-$fp พร้อม" >> "$GITHUB_STEP_SUMMARY"
+          else
+            cat describe.err
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+          fi
+          echo "fp=$fp" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.job.outputs.ready == 'no'
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            remotion/package-lock.json
+      - name: Make the job (5–10 minutes)
+        if: steps.job.outputs.ready == 'no'
+        env:
+          # a pull request's job is not yet main's: it must not push the job main names out of the newest three
+          SHIP_NO_PRUNE: ${{ github.event_name == 'pull_request' && '1' || '' }}
+        run: |
+          npm ci --no-audit --no-fund
+          remotion/cloudrun/ship.sh
+          echo "สร้าง remotion-${{ steps.job.outputs.fp }} แล้ว" >> "$GITHUB_STEP_SUMMARY"
