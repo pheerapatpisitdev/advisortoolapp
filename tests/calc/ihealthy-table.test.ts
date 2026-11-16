@@ -19,16 +19,28 @@ const KEYS = [
 ];
 
 describe("iHealthyTable", () => {
-  it("offers the two bases the page sells, in order", () => {
+  it("offers the bases the page sells, in order", () => {
     const t = iHealthyTable(WHILE_CURRENT);
     // x 1.5 is deliberately absent: the rate table still carries it and the back-office
     // calculator still sells it, but this page does not offer that choice
-    expect(t.bases.map((b) => [b.variant, b.short, b.booster, b.fixedSum, b.saMin])).toEqual([
-      ["WLF99H", "x 2", 1, undefined, 150_000],
-      ["WLF99HX", "แพ็กเกจสุขภาพ", 1, 50_000, 50_000],
+    expect(t.bases.map((b) => [b.variant, b.group, b.short, b.booster, b.fixedSum, b.saMin])).toEqual([
+      ["WLF99H", "WLF99H", "x 2", 1, undefined, 150_000],
+      ["WLF99HX", "WLF99HX", "แพ็กเกจสุขภาพ", 1, 50_000, 50_000],
+      ["WLF09H", "WLF99H", "x 2", 1, undefined, 150_000],
+      ["WLF19H", "WLF99H", "x 2", 1, undefined, 150_000],
     ]);
     // the package pins the sum, so its button subtitle comes from fixedSum rather than prose
-    expect(t.bases.map((b) => b.note)).toEqual(["ตั้งทุนเอง", undefined]);
+    expect(t.bases.map((b) => b.note)).toEqual(["ตั้งทุนเอง", undefined, "ตั้งทุนเอง", "ตั้งทุนเอง"]);
+  });
+
+  it("says how long each base is paid for (owner, 2026-11-16)", () => {
+    const t = iHealthyTable(WHILE_CURRENT);
+    expect(t.bases.map((b) => [b.variant, b.payYears, b.payToAge, b.label])).toEqual([
+      ["WLF99H", undefined, 99, "ไลฟ์ โพรเทค+ x 2"],
+      ["WLF99HX", undefined, 99, "Health Ultra Package"],
+      ["WLF09H", 9, undefined, "ไลฟ์ โพรเทค+ x 2 จ่าย 9 ปี"],
+      ["WLF19H", 19, undefined, "ไลฟ์ โพรเทค+ x 2 จ่าย 19 ปี"],
+    ]);
   });
 
   it("takes the age range from the health rider, not the base plan", () => {

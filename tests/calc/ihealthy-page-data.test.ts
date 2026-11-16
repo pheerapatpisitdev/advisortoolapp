@@ -81,7 +81,10 @@ describe("baseFor", () => {
     // lands on the page's own first base rather than on a button that is not there
     expect(baseFor(table, "WLF99L").variant).toBe(table.bases[0].variant);
     // iHealthyPricing throws on a variant the table has never heard of
-    expect(baseFor(table, "WLF09H").variant).toBe(table.bases[0].variant);
+    expect(baseFor(table, "WLF09L").variant).toBe(table.bases[0].variant);
+    // the 9- and 19-year terms of x 2 are sold here (owner, 2026-11-16) and kept as asked
+    expect(baseFor(table, "WLF09H").variant).toBe("WLF09H");
+    expect(baseFor(table, "WLF19H").variant).toBe("WLF19H");
     expect(() => iHealthyPricing(table, {
       base: baseFor(table, "nonsense").variant, sex: "F", age: 35, sumAssured: 150_000,
       plan: "GOLD", territory: THAI, coverage: FULL,

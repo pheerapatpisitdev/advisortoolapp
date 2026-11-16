@@ -29,6 +29,16 @@ export interface IHealthyBase {
    * page says that figure from the field itself, so the subtitle cannot drift from it.
    */
   note?: string;
+  /**
+   * The base whose button this one sits under. ไลฟ์ โพรเทค+ x 2 is one button whatever term
+   * it is paid over, so the three terms share it and the form asks for the term on a row of
+   * its own; a base sold over one term only is its own group.
+   */
+  group: string;
+  /** years of premium for a limited-pay base, e.g. 9; absent where it is paid to an age */
+  payYears?: number;
+  /** the age premiums are paid to where they are not paid for a fixed number of years */
+  payToAge?: number;
   /** the extra multiple paid on death before the booster age (1 = pays double) */
   booster: number;
   /** the package pins the sum assured here and the form must not let it change */
@@ -102,9 +112,16 @@ const STANDARD_RIDER = "MEB";
 const STANDARD_PLAN = 1_000;
 
 
-const BASES: { variant: string; short: string; label: string; note?: string }[] = [
-  { variant: "WLF99H", short: "x 2", label: "ไลฟ์ โพรเทค+ x 2", note: "ตั้งทุนเอง" },
-  { variant: "WLF99HX", short: "แพ็กเกจสุขภาพ", label: "Health Ultra Package" },
+/**
+ * The first base is what a link naming an unknown one falls back to, so x 2 paid to 99 stays
+ * first. The 9- and 19-year terms (owner, 2026-11-16) come after the package so the buttons,
+ * drawn in order of first appearance, still read x 2 then the package.
+ */
+const BASES: { variant: string; group: string; short: string; label: string; note?: string }[] = [
+  { variant: "WLF99H", group: "WLF99H", short: "x 2", label: "ไลฟ์ โพรเทค+ x 2", note: "ตั้งทุนเอง" },
+  { variant: "WLF99HX", group: "WLF99HX", short: "แพ็กเกจสุขภาพ", label: "Health Ultra Package" },
+  { variant: "WLF09H", group: "WLF99H", short: "x 2", label: "ไลฟ์ โพรเทค+ x 2 จ่าย 9 ปี", note: "ตั้งทุนเอง" },
+  { variant: "WLF19H", group: "WLF99H", short: "x 2", label: "ไลฟ์ โพรเทค+ x 2 จ่าย 19 ปี", note: "ตั้งทุนเอง" },
 ];
 
 /** Built once per process; `expired` is asked again on every call, as in lifeprotect-table.ts. */
@@ -136,8 +153,12 @@ export function iHealthyTable(today: Date = new Date()): IHealthyTable {
     // the workbook prices WLF99HX from age 0, which its package does not sell
     const rateAt = (sex: Sex, age: number) =>
       age >= range.min && age <= range.max ? baseRate(rates, b.variant, sex, age) ?? null : null;
+    const payToAge = rates.base.payTermToAge?.[b.variant];
+    const payYears = payToAge === undefined ? rates.base.payTerm?.[b.variant] : undefined;
     return {
       ...b,
+      ...(payYears !== undefined ? { payYears } : {}),
+      ...(payToAge !== undefined ? { payToAge } : {}),
       booster: pkg.booster ?? 0,
       ...(sum.exact ? { fixedSum: sum.min } : {}),
       saMin: sum.min,

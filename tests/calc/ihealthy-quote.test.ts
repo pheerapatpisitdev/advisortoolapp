@@ -231,14 +231,14 @@ describe("iHealthyPricing", () => {
   });
 
   it("refuses a base the table does not carry rather than pricing a stale one", () => {
-    // a real LIFEPROTECT variant, but not one of the three this page sells
+    // a real LIFEPROTECT variant (x 1.5), but not one this page sells
     const stale = {
-      base: "WLF19H", sex: "F" as Sex, age: 35, sumAssured: 1_000_000,
+      base: "WLF19L", sex: "F" as Sex, age: 35, sumAssured: 1_000_000,
       plan: "BRONZE", territory: "ประเทศไทย", coverage: "Full Coverage",
     };
-    expect(() => iHealthyPricing(table, stale)).toThrow("Unknown base: WLF19H");
+    expect(() => iHealthyPricing(table, stale)).toThrow("Unknown base: WLF19L");
     // and the cover figure does not answer where the premium panel cannot
-    expect(() => deathBenefitOf(table, "WLF19H", 35, 1_000_000)).toThrow("Unknown base: WLF19H");
+    expect(() => deathBenefitOf(table, "WLF19L", 35, 1_000_000)).toThrow("Unknown base: WLF19L");
   });
 
   it("has no price for a combination the company does not sell", () => {

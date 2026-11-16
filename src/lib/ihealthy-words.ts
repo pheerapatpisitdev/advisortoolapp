@@ -70,6 +70,19 @@ export interface IHealthyWords {
   /** the base plan and its sum, as one line on the card */
   baseWithSum: (label: string, sum: number) => string;
   fixedSum: (sum: number) => string;
+  /** the heading of the row that asks how long the base is paid for, where it may vary */
+  payTerm: string;
+  /** a pay-term button: a fixed number of years, or up to an age */
+  payFor: (years: number) => string;
+  payTo: (age: number) => string;
+  /** the base premium a year under a pay-term button, already formatted */
+  perYear: (amount: string) => string;
+  payTermHint: string;
+  /** under the total of a limited-pay base: the years the base is paid in, and what then */
+  payingYears: (years: number) => string;
+  payingSplit: (base: string, riders: string) => string;
+  afterYears: (years: number) => string;
+  afterSplit: string;
   onlyPlans: (age: number, plans: string[]) => string;
   territoryOnly: (territory: string, coverage: string) => string;
 
@@ -228,6 +241,8 @@ interface RiderPhrases {
   notPriced: (line: string) => string;
   unreadable: (count: string) => string;
   paysTo: (plan: string, age: string) => string;
+  /** a limited-pay base: premiums for a fixed number of years */
+  paysFor: (plan: string, years: string) => string;
   monthlyBelow: (min: string) => string;
   packageNeeds: (code: string) => string;
   /** an accident rider priced at the cheapest occupational class */
@@ -261,6 +276,7 @@ function riderReader(p: RiderPhrases): (thai: string) => string {
       return p.mustBe(m[1], n(Number(m[2]) * 100_000));
     }
     if ((m = /^(.+) — ชำระเบี้ยครบอายุ (\d+) ปี$/.exec(s))) return p.paysTo(m[1], m[2]);
+    if ((m = /^(.+) — ชำระเบี้ย (\d+) ปี$/.exec(s))) return p.paysFor(m[1], m[2]);
     if ((m = /^เบี้ยประกันภัยรายเดือนต่ำกว่า ([\d,]+) บาท$/.exec(s))) return p.monthlyBelow(m[1]);
     if ((m = /^แพ็กเกจนี้ต้องซื้อ (\S+)$/.exec(s))) return p.packageNeeds(m[1]);
     if ((m = /^เบี้ย (.+?) คิดที่อาชีพชั้น 1 — อาชีพชั้นอื่นเบี้ยสูงกว่านี้$/.exec(s))) return p.classOne(m[1]);
@@ -325,6 +341,15 @@ const th: IHealthyWords = {
   sumOf: (sum) => `ทุน ${n(sum)}`,
   baseWithSum: (label, sum) => `${label} ทุน ${n(sum)}`,
   fixedSum: (sum) => `${n(sum)} บาท · แพ็กเกจกำหนดไว้ เปลี่ยนไม่ได้`,
+  payTerm: "ระยะชำระเบี้ยสัญญาหลัก",
+  payFor: (y) => `จ่าย ${y} ปี`,
+  payTo: (a) => `ถึงอายุ ${a}`,
+  perYear: (x) => `${x} / ปี`,
+  payTermHint: "ตัวเลขใต้ปุ่มคือเบี้ยสัญญาหลักอย่างเดียว เบี้ยสุขภาพยังจ่ายทุกปีตามอายุ",
+  payingYears: (y) => `ปีที่ 1–${y}`,
+  payingSplit: (b, r) => `สัญญาหลัก ${b} + สัญญาเพิ่มเติม ${r}`,
+  afterYears: (y) => `ปีที่ ${y + 1} เป็นต้นไป`,
+  afterSplit: "เหลือเฉพาะเบี้ยสัญญาเพิ่มเติม (ปรับตามอายุ)",
   onlyPlans: (age, plans) => `ที่อายุ ${age} ปี บริษัทขายเฉพาะแผน ${plans.join(" และ ")}`,
   territoryOnly: (t, c) => `อาณาเขต${t}มีเฉพาะความคุ้มครองแบบ${c}`,
 
@@ -476,12 +501,21 @@ const en: IHealthyWords = {
   baseSum: "Base sum assured",
   healthPlan: "Health plan",
   coverageLabel: "Coverage",
-  baseLabel: { WLF99H: "Life Protect+ x 2", WLF99HX: "Health Ultra Package" },
+  baseLabel: { WLF99H: "Life Protect+ x 2", WLF09H: "Life Protect+ x 2 (pay 9 years)", WLF19H: "Life Protect+ x 2 (pay 19 years)", WLF99HX: "Health Ultra Package" },
   baseShort: { WLF99H: "x 2", WLF99HX: "Health package" },
   baseNote: { WLF99H: "Choose your sum" },
   sumOf: (sum) => `Sum ${n(sum)}`,
   baseWithSum: (label, sum) => `${label}, sum assured ${n(sum)}`,
   fixedSum: (sum) => `${n(sum)} baht · fixed by the package`,
+  payTerm: "Base premium term",
+  payFor: (y) => `Pay ${y} years`,
+  payTo: (a) => `To age ${a}`,
+  perYear: (x) => `${x} / yr`,
+  payTermHint: "The figure under each button is the base premium alone. The health cover is still paid every year at the age reached.",
+  payingYears: (y) => `Years 1–${y}`,
+  payingSplit: (b, r) => `base ${b} + riders ${r}`,
+  afterYears: (y) => `Year ${y + 1} onward`,
+  afterSplit: "riders only (priced on age)",
   onlyPlans: (age, plans) => `At age ${age} the company sells only ${plans.join(" and ")}`,
   territoryOnly: (t, c) => `${t} cover is available only as ${c.toLowerCase()}`,
 
@@ -655,6 +689,7 @@ const en: IHealthyWords = {
     notPriced: (l) => `${l} — not included in the premium`,
     unreadable: (c) => `${c} riders could not be read and were not priced`,
     paysTo: (p, a) => `${p} — premiums payable to age ${a}`,
+    paysFor: (p, y) => `${p} — premiums payable for ${y} years`,
     monthlyBelow: (m) => `Monthly premium is below ${m} baht`,
     packageNeeds: (c) => `This package requires ${c}`,
     classOne: (c) => `${c} premium is for occupational class 1; other classes cost more`,
@@ -708,12 +743,21 @@ const zh: IHealthyWords = {
   baseSum: "主合同保额",
   healthPlan: "健康计划",
   coverageLabel: "保障方式",
-  baseLabel: { WLF99H: "Life Protect+ x 2", WLF99HX: "Health Ultra Package" },
+  baseLabel: { WLF99H: "Life Protect+ x 2", WLF09H: "Life Protect+ x 2（缴费 9 年）", WLF19H: "Life Protect+ x 2（缴费 19 年）", WLF99HX: "Health Ultra Package" },
   baseShort: { WLF99H: "x 2", WLF99HX: "健康套餐" },
   baseNote: { WLF99H: "自选保额" },
   sumOf: (sum) => `保额 ${n(sum)}`,
   baseWithSum: (label, sum) => `${label} 保额 ${n(sum)}`,
   fixedSum: (sum) => `${n(sum)} 泰铢 · 套餐固定，不可更改`,
+  payTerm: "主合同缴费期",
+  payFor: (y) => `缴费 ${y} 年`,
+  payTo: (a) => `缴至 ${a} 岁`,
+  perYear: (x) => `${x} / 年`,
+  payTermHint: "按钮下的金额仅为主合同保费，健康保障仍需每年按年龄缴费",
+  payingYears: (y) => `第 1–${y} 年`,
+  payingSplit: (b, r) => `主合同 ${b} + 附加合同 ${r}`,
+  afterYears: (y) => `第 ${y + 1} 年起`,
+  afterSplit: "仅缴附加合同保费（按年龄调整）",
   onlyPlans: (age, plans) => `${age}岁时公司仅销售 ${plans.join("、")} 计划`,
   territoryOnly: (t, c) => `${t}区域仅提供${c}`,
 
@@ -884,6 +928,7 @@ const zh: IHealthyWords = {
     notPriced: (l) => `${l}，因此未计入保费`,
     unreadable: (c) => `有${c}项附加合同无法读取，因此未计入保费`,
     paysTo: (p, a) => `${p} — 缴费至${a}岁`,
+    paysFor: (p, y) => `${p} — 缴费${y}年`,
     monthlyBelow: (m) => `月缴保费低于 ${m} 泰铢`,
     packageNeeds: (c) => `此套餐必须购买 ${c}`,
     classOne: (c) => `${c} 保费按第1类职业计算，其他职业类别保费更高`,
@@ -928,12 +973,21 @@ const ru: IHealthyWords = {
   baseSum: "Страховая сумма основного договора",
   healthPlan: "План медицинского страхования",
   coverageLabel: "Покрытие",
-  baseLabel: { WLF99H: "Life Protect+ x 2", WLF99HX: "Health Ultra Package" },
+  baseLabel: { WLF99H: "Life Protect+ x 2", WLF09H: "Life Protect+ x 2 (взносы 9 лет)", WLF19H: "Life Protect+ x 2 (взносы 19 лет)", WLF99HX: "Health Ultra Package" },
   baseShort: { WLF99H: "x 2", WLF99HX: "Пакет здоровья" },
   baseNote: { WLF99H: "Своя сумма" },
   sumOf: (sum) => `Сумма ${n(sum)}`,
   baseWithSum: (label, sum) => `${label}, страховая сумма ${n(sum)}`,
   fixedSum: (sum) => `${n(sum)} бат · задана пакетом, изменить нельзя`,
+  payTerm: "Срок уплаты основного договора",
+  payFor: (y) => `Взносы ${y} лет`,
+  payTo: (a) => `До ${a} лет`,
+  perYear: (x) => `${x} / год`,
+  payTermHint: "Под кнопкой — взнос только по основному договору. Медицинская страховка оплачивается ежегодно по достигнутому возрасту.",
+  payingYears: (y) => `Годы 1–${y}`,
+  payingSplit: (b, r) => `основной ${b} + дополнительные ${r}`,
+  afterYears: (y) => `С ${y + 1}-го года`,
+  afterSplit: "только дополнительные договоры (по возрасту)",
   onlyPlans: (age, plans) => `В возрасте ${age} лет компания продаёт только планы ${plans.join(" и ")}`,
   territoryOnly: (t, c) => `Для территории «${t}» доступно только: ${c.toLowerCase()}`,
 
@@ -1107,6 +1161,7 @@ const ru: IHealthyWords = {
     notPriced: (l) => `${l} — не включено во взнос`,
     unreadable: (c) => `Не удалось прочитать дополнительных договоров: ${c}, они не включены во взнос`,
     paysTo: (p, a) => `${p} — взносы до ${a} лет`,
+    paysFor: (p, y) => `${p} — взносы ${y} лет`,
     monthlyBelow: (m) => `Ежемесячный взнос ниже ${m} бат`,
     packageNeeds: (c) => `Этот пакет требует ${c}`,
     classOne: (c) => `Взнос ${c} рассчитан для 1-го класса профессии; для других классов он выше`,
@@ -1150,12 +1205,21 @@ const my: IHealthyWords = {
   baseSum: "အဓိကစာချုပ် အာမခံငွေ",
   healthPlan: "ကျန်းမာရေးအစီအစဉ်",
   coverageLabel: "အကာအကွယ်ပုံစံ",
-  baseLabel: { WLF99H: "Life Protect+ x 2", WLF99HX: "Health Ultra Package" },
+  baseLabel: { WLF99H: "Life Protect+ x 2", WLF09H: "Life Protect+ x 2 (9 နှစ် ပေးသွင်း)", WLF19H: "Life Protect+ x 2 (19 နှစ် ပေးသွင်း)", WLF99HX: "Health Ultra Package" },
   baseShort: { WLF99H: "x 2", WLF99HX: "ကျန်းမာရေးပက်ကေ့ချ်" },
   baseNote: { WLF99H: "ငွေပမာဏ ကိုယ်တိုင်ရွေး" },
   sumOf: (sum) => `အာမခံငွေ ${n(sum)}`,
   baseWithSum: (label, sum) => `${label} အာမခံငွေ ${n(sum)}`,
   fixedSum: (sum) => `${n(sum)} ဘတ် · ပက်ကေ့ချ်က သတ်မှတ်ထားပြီး ပြောင်း၍မရပါ`,
+  payTerm: "အဓိကစာချုပ် ပရီမီယံ ပေးသွင်းကာလ",
+  payFor: (y) => `${y} နှစ် ပေးသွင်း`,
+  payTo: (a) => `အသက် ${a} အထိ`,
+  perYear: (x) => `${x} / နှစ်`,
+  payTermHint: "ခလုတ်အောက်ရှိ ပမာဏသည် အဓိကစာချုပ် ပရီမီယံသာ ဖြစ်သည်။ ကျန်းမာရေး အာမခံကို နှစ်စဉ် အသက်အလိုက် ဆက်ပေးရသည်။",
+  payingYears: (y) => `နှစ် 1–${y}`,
+  payingSplit: (b, r) => `အဓိကစာချုပ် ${b} + ဖြည့်စွက်စာချုပ် ${r}`,
+  afterYears: (y) => `နှစ် ${y + 1} မှစ၍`,
+  afterSplit: "ဖြည့်စွက်စာချုပ်သာ (အသက်အလိုက်)",
   onlyPlans: (age, plans) => `အသက် ${age} နှစ်တွင် ကုမ္ပဏီက ${plans.join(" နှင့် ")} အစီအစဉ်ကိုသာ ရောင်းချသည်`,
   territoryOnly: (t, c) => `${t} နယ်မြေအတွက် ${c} ပုံစံသာ ရနိုင်သည်`,
 
@@ -1329,6 +1393,7 @@ const my: IHealthyWords = {
     notPriced: (l) => `${l} — ပရီမီယံတွင် မထည့်တွက်ပါ`,
     unreadable: (c) => `ဖတ်၍မရသော ဖြည့်စွက်စာချုပ် ${c} ခုကို ပရီမီယံတွင် မထည့်တွက်ပါ`,
     paysTo: (p, a) => `${p} — အသက် ${a} နှစ်အထိ ပရီမီယံပေးသွင်း`,
+    paysFor: (p, y) => `${p} — ${y} နှစ် ပရီမီယံပေးသွင်း`,
     monthlyBelow: (m) => `လစဉ်ပရီမီယံသည် ${m} ဘတ်ထက် နည်းသည်`,
     packageNeeds: (c) => `ဤပက်ကေ့ချ်သည် ${c} ဝယ်ရန် လိုအပ်သည်`,
     classOne: (c) => `${c} ပရီမီယံကို အလုပ်အကိုင်အဆင့် ၁ ဖြင့် တွက်ထားသည်၊ အခြားအဆင့်များ ပိုများသည်`,
@@ -1379,12 +1444,21 @@ const fr: IHealthyWords = {
   baseSum: "Capital du contrat principal",
   healthPlan: "Formule santé",
   coverageLabel: "Type de couverture",
-  baseLabel: { WLF99H: "Life Protect+ x 2", WLF99HX: "Health Ultra Package" },
+  baseLabel: { WLF99H: "Life Protect+ x 2", WLF09H: "Life Protect+ x 2 (paiement sur 9 ans)", WLF19H: "Life Protect+ x 2 (paiement sur 19 ans)", WLF99HX: "Health Ultra Package" },
   baseShort: { WLF99H: "x 2", WLF99HX: "Package santé" },
   baseNote: { WLF99H: "Choisissez votre capital" },
   sumOf: (sum) => `Capital ${nFr(sum)}`,
   baseWithSum: (label, sum) => `${label}, capital assuré ${nFr(sum)}`,
   fixedSum: (sum) => `${nFr(sum)} bahts · fixé par le package`,
+  payTerm: "Durée de paiement du contrat principal",
+  payFor: (y) => `Payer ${y} ans`,
+  payTo: (a) => `Jusqu'à ${a} ans`,
+  perYear: (x) => `${x} / an`,
+  payTermHint: "Le montant sous chaque bouton est la prime du contrat principal seule. La couverture santé reste payée chaque année selon l'âge atteint.",
+  payingYears: (y) => `Années 1 à ${y}`,
+  payingSplit: (b, r) => `principal ${b} + avenants ${r}`,
+  afterYears: (y) => `À partir de l'année ${y + 1}`,
+  afterSplit: "avenants seuls (selon l'âge)",
   onlyPlans: (age, plans) => `À ${age} ans, la compagnie ne propose que ${plans.join(" et ")}`,
   territoryOnly: (t, c) => `La couverture ${t} n'est proposée qu'avec l'option « ${c} »`,
 
@@ -1558,6 +1632,7 @@ const fr: IHealthyWords = {
     notPriced: (l) => `${l} — non inclus dans la prime`,
     unreadable: (c) => `${c} garanties complémentaires n'ont pas pu être lues et n'ont pas été tarifées`,
     paysTo: (p, a) => `${p} — primes payables jusqu'à ${a} ans`,
+    paysFor: (p, y) => `${p} — primes payables pendant ${y} ans`,
     monthlyBelow: (m) => `La prime mensuelle est inférieure à ${m} bahts`,
     packageNeeds: (c) => `Ce package nécessite ${c}`,
     classOne: (c) => `La prime ${c} est calculée pour la classe professionnelle 1 ; les autres classes coûtent plus cher`,
@@ -1601,12 +1676,21 @@ const de: IHealthyWords = {
   baseSum: "Versicherungssumme des Hauptvertrags",
   healthPlan: "Gesundheitstarif",
   coverageLabel: "Tarifart",
-  baseLabel: { WLF99H: "Life Protect+ x 2", WLF99HX: "Health Ultra Package" },
+  baseLabel: { WLF99H: "Life Protect+ x 2", WLF09H: "Life Protect+ x 2 (9 Jahre Beitragszahlung)", WLF19H: "Life Protect+ x 2 (19 Jahre Beitragszahlung)", WLF99HX: "Health Ultra Package" },
   baseShort: { WLF99H: "x 2", WLF99HX: "Gesundheitspaket" },
   baseNote: { WLF99H: "Versicherungssumme wählen" },
   sumOf: (sum) => `Summe ${nDe(sum)}`,
   baseWithSum: (label, sum) => `${label}, Versicherungssumme ${nDe(sum)}`,
   fixedSum: (sum) => `${nDe(sum)} Baht · durch das Paket festgelegt`,
+  payTerm: "Beitragszahlungsdauer des Hauptvertrags",
+  payFor: (y) => `${y} Jahre zahlen`,
+  payTo: (a) => `Bis Alter ${a}`,
+  perYear: (x) => `${x} / Jahr`,
+  payTermHint: "Der Betrag unter jeder Schaltfläche ist nur die Prämie des Hauptvertrags. Die Krankenversicherung wird weiterhin jährlich nach erreichtem Alter bezahlt.",
+  payingYears: (y) => `Jahre 1–${y}`,
+  payingSplit: (b, r) => `Hauptvertrag ${b} + Zusatzversicherungen ${r}`,
+  afterYears: (y) => `Ab Jahr ${y + 1}`,
+  afterSplit: "nur Zusatzversicherungen (nach Alter)",
   onlyPlans: (age, plans) => `Im Alter von ${age} Jahren bietet die Gesellschaft nur ${plans.join(" und ")} an`,
   territoryOnly: (t, c) => `Deckung für ${t} gibt es nur in der Tarifart „${c}“`,
 
@@ -1780,6 +1864,7 @@ const de: IHealthyWords = {
     notPriced: (l) => `${l} — nicht in der Prämie enthalten`,
     unreadable: (c) => `${c} Zusatzversicherungen konnten nicht gelesen werden und wurden nicht berechnet`,
     paysTo: (p, a) => `${p} — Prämienzahlung bis zum Alter von ${a} Jahren`,
+    paysFor: (p, y) => `${p} — Prämienzahlung über ${y} Jahre`,
     monthlyBelow: (m) => `Die Monatsprämie liegt unter ${deDigits(m)} Baht`,
     packageNeeds: (c) => `Dieses Paket erfordert ${c}`,
     classOne: (c) => `Die Prämie für ${c} gilt für Berufsklasse 1; andere Klassen kosten mehr`,
@@ -1790,10 +1875,14 @@ const de: IHealthyWords = {
 export const WORDS: Record<Lang, IHealthyWords> = { th, en, zh, ru, my, fr, de };
 
 /** The engine's own Thai names and notes stay as they are where a language has no line for them. */
-export function baseWords(w: IHealthyWords, variant: string, table: { label: string; short: string; note?: string }) {
+export function baseWords(
+  w: IHealthyWords, variant: string, table: { label: string; short: string; note?: string; group?: string },
+) {
+  // a pay term shares its button with the rest of its group, so it says what the group says
+  const group = table.group ?? variant;
   return {
     label: w.baseLabel[variant] ?? table.label,
-    short: w.baseShort[variant] ?? table.short,
-    note: table.note === undefined ? undefined : w.baseNote[variant] ?? table.note,
+    short: w.baseShort[variant] ?? w.baseShort[group] ?? table.short,
+    note: table.note === undefined ? undefined : w.baseNote[variant] ?? w.baseNote[group] ?? table.note,
   };
 }

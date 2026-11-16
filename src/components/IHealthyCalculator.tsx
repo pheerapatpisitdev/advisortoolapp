@@ -337,6 +337,22 @@ export function IHealthyCalculator(
     ? riderLines(w, answered.riders, answered.codes)
     : standardPlan !== null ? [w.dailyCash(standardPlan)] : undefined;
   const bases = (b: (typeof table.bases)[number]) => baseWords(w, b.variant, b);
+  /** one button per group, each the base its group is named after */
+  const groups = table.bases.filter((b) => b.variant === b.group);
+  /** the terms the base on screen is sold over: fixed years first, shortest first, then to an age */
+  const terms = table.bases
+    .filter((b) => b.group === base.group)
+    .sort((a, b) => (a.payYears ?? Infinity) - (b.payYears ?? Infinity));
+  const termName = (b: (typeof table.bases)[number]) =>
+    b.payYears !== undefined ? w.payFor(b.payYears) : w.payTo(b.payToAge ?? 99);
+  /** the base premium a year on this term, everything else as on screen */
+  const termYearly = (variant: string) => {
+    if (table.expired || !plan || !territory || !coverage) return undefined;
+    const p = iHealthyPricing(table, {
+      base: variant, sex, age, sumAssured, plan: plan.code, territory, coverage,
+    });
+    return p?.base.find((m) => m.mode === "annual")?.total;
+  };
   // In the language the page is read in: the text goes to the customer the page is shown to.
   const quoteFacts = { ...cta, baseLabel: bases(base).label, standardLabel: standardLines };
   const standardText = iHealthyQuoteText(quoteFacts, w);
@@ -428,11 +444,12 @@ export function IHealthyCalculator(
           {/* One column per base the page sells, so dropping one closes the gap it left.
               Written out rather than composed: Tailwind reads these names out of the source
               and would not generate a class it never sees spelled. */}
-          <div className={`mt-1.5 grid gap-2 ${table.bases.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-            {table.bases.map((b) => (
+          <div className={`mt-1.5 grid gap-2 ${groups.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+            {groups.map((b) => (
               <button
-                key={b.variant} type="button" aria-pressed={b.variant === base.variant}
-                onClick={() => setWantBase(b.variant)} className={chip(b.variant === base.variant)}
+                key={b.variant} type="button" aria-pressed={b.group === base.group}
+                onClick={() => { if (b.group !== base.group) setWantBase(b.variant); }}
+                className={chip(b.group === base.group)}
               >
                 <span className="block">{bases(b).short}</span>
                 {/* the package carries no note: its subtitle is its pinned sum, read from
@@ -444,6 +461,33 @@ export function IHealthyCalculator(
             ))}
           </div>
         </div>
+
+        {/* How long the base is paid for (owner, 2026-11-16), asked only where the base on
+            screen is sold over more than one term. Under each term its own base premium a
+            year: the health cover is paid yearly whichever is chosen, so this is the only
+            part of the bill the choice moves. */}
+        {terms.length > 1 && (
+          <div>
+            <span className={label}>{w.payTerm}</span>
+            <div className="mt-1.5 grid grid-cols-3 gap-2">
+              {terms.map((t) => {
+                const yearly = termYearly(t.variant);
+                return (
+                  <button
+                    key={t.variant} type="button" aria-pressed={t.variant === base.variant}
+                    onClick={() => setWantBase(t.variant)} className={chip(t.variant === base.variant)}
+                  >
+                    <span className="block">{termName(t)}</span>
+                    {yearly !== undefined && (
+                      <span className="mt-0.5 block text-xs tabular-nums opacity-80">{w.perYear(bahtOf(yearly))}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className={hint}>{w.payTermHint}</p>
+          </div>
+        )}
 
         <div>
           {/* The heading branches with the field under it. `htmlFor` would point at nothing
@@ -553,6 +597,20 @@ export function IHealthyCalculator(
                     <p className="mt-2 text-xs text-[var(--lg-gold)]">
                       {w.belowMinimum(table.minMonthly)}
                     </p>
+                  )}
+                  {/* A limited-pay base stops costing anything after its term, and the total
+                      above would otherwise read as the price for life. */}
+                  {base.payYears !== undefined && (
+                    <dl className="mt-2 space-y-0.5 text-xs text-[var(--lg-mute)]">
+                      <div className="flex flex-wrap justify-between gap-x-3">
+                        <dt>{w.payingYears(base.payYears)}</dt>
+                        <dd className="tabular-nums">{w.payingSplit(bahtOf(shown.base), bahtOf(shown.total - shown.base))}</dd>
+                      </div>
+                      <div className="flex flex-wrap justify-between gap-x-3">
+                        <dt>{w.afterYears(base.payYears)}</dt>
+                        <dd>{w.afterSplit}</dd>
+                      </div>
+                    </dl>
                   )}
                   {/* One instalment to a line, and laid out the way the two contract lines
                       above are: an agent reading a figure off the screen to a customer
