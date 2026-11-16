@@ -100,6 +100,17 @@ describe("ปากกาพล็อตเตอร์", () => {
     }
     expect(at(pen, "knowOne", 30)).not.toContain("clip-path:inset(");
   });
+
+  it("lays the fading words over their own box exactly, not where they would fall on their own (Chrome measure, 2026-11-16)", () => {
+    let layers = 0;
+    for (const art of ["plot", "board", "blueprint"]) for (let i = 0; i < 120; i++) {
+      for (const m of at({ ...pen, art } as StoryVideoInput, "knowOne", i * 0.1).matchAll(/position:absolute;left:0;top:0;([^"]*?)opacity:/g)) {
+        layers++;
+        expect(m[1]).toBe("right:0;bottom:0;");
+      }
+    }
+    expect(layers).toBeGreaterThan(0);
+  });
 });
 
 describe("การ์ตูนลายเส้น", () => {

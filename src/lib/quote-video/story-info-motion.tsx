@@ -255,7 +255,7 @@ export function E({ an, t, style, children }: { an?: Anim; t: number; style: Rea
   return (
     <div style={place}>
       <div style={{ ...(ownText(children) ? mute(piece) : piece), flexGrow: 1, ...sweep }}>{layer(children, "lines")}</div>
-      <div style={{ ...clearOf(piece), position: "absolute", left: 0, top: 0, opacity: Number(p.toFixed(3)) }}>{layer(children, "words")}</div>
+      <div style={{ ...clearOf(piece), position: "absolute", left: 0, top: 0, right: 0, bottom: 0, opacity: Number(p.toFixed(3)) }}>{layer(children, "words")}</div>
     </div>
   );
 }
