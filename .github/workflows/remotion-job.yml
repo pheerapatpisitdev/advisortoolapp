@@ -42,10 +42,11 @@ jobs:
         run: |
           fp="$(sed -n 's/^export const REMOTION_DRAWING = "\([0-9a-f]*\)";.*/\1/p' src/lib/quote-video/remotion.ts)"
           [ -n "$fp" ] || { echo "REMOTION_DRAWING not found in remotion.ts" >&2; exit 1; }
-          if gcloud --project advisortool-video run jobs describe "remotion-$fp" --region asia-southeast1 >/dev/null 2>&1; then
+          if gcloud --project advisortool-video run jobs describe "remotion-$fp" --region asia-southeast1 --format='value(metadata.name)' 2>describe.err; then
             echo "ready=yes" >> "$GITHUB_OUTPUT"
             echo "remotion-$fp พร้อม" >> "$GITHUB_STEP_SUMMARY"
           else
+            cat describe.err
             echo "ready=no" >> "$GITHUB_OUTPUT"
           fi
           echo "fp=$fp" >> "$GITHUB_OUTPUT"

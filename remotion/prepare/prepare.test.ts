@@ -95,14 +95,23 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets
   console.log(JSON.stringify(report, null, 2));
 });
 
+/**
+ * Only a Mac has `say`. On GitHub's Linux (.github/workflows/remotion-job.yml) each line is silence of its length:
+ * the samples are for the smoke renders, which need a clip's timing, and no real clip takes its voice from here.
+ */
+const MAC = process.platform === "darwin";
+const silence = (line: string) => Buffer.alloc(Math.round(Math.max(2, [...line].length * 0.07) * 24000) * 2);
+
 /** the voice: the Mac's Narisa, 24 kHz 16-bit mono as Gemini gives it, a line a file in `vdir`; kept while the line is the same */
 function narisa(vdir: string, script: { voice: string }[]): Buffer[] {
   mkdirSync(vdir, { recursive: true });
   return script.map((s, i) => {
     const pcm = join(vdir, `${i}.pcm`);
     if (!existsSync(pcm) || readFileSync(join(vdir, `${i}.txt`), "utf8") !== s.voice) {
-      execFileSync("say", ["-v", "Narisa", "-o", join(vdir, `${i}.aiff`), s.voice]);
-      execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(vdir, `${i}.aiff`), "-ar", "24000", "-ac", "1", "-f", "s16le", pcm]);
+      if (MAC) {
+        execFileSync("say", ["-v", "Narisa", "-o", join(vdir, `${i}.aiff`), s.voice]);
+        execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(vdir, `${i}.aiff`), "-ar", "24000", "-ac", "1", "-f", "s16le", pcm]);
+      } else writeFileSync(pcm, silence(s.voice));
       writeFileSync(join(vdir, `${i}.txt`), s.voice);
     }
     return readFileSync(pcm);
@@ -143,11 +152,11 @@ it.runIf(Boolean(process.env.IHEALTHY))("prepares iHealthy props in each languag
     const pcms = script.map((s, i) => {
       const pcm = join(vdir, `${i}.pcm`);
       if (!existsSync(pcm) || readFileSync(join(vdir, `${i}.txt`), "utf8") !== s.voice) {
-        const voice = SAY[lang];
+        const voice = MAC ? SAY[lang] : null;
         if (voice) {
           execFileSync("say", ["-v", voice, "-o", join(vdir, `${i}.aiff`), s.voice]);
           execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(vdir, `${i}.aiff`), "-ar", "24000", "-ac", "1", "-f", "s16le", pcm]);
-        } else writeFileSync(pcm, Buffer.alloc(Math.round(Math.max(2, [...s.voice].length * 0.07) * 24000) * 2));
+        } else writeFileSync(pcm, silence(s.voice));
         writeFileSync(join(vdir, `${i}.txt`), s.voice);
       }
       return readFileSync(pcm);
