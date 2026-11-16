@@ -6,12 +6,12 @@ import { availablePensionAges, PENSION_LIMITS, type PensionPay } from "@/calc/pe
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { CostView } from "@/lib/quote-video/make";
 import { STORY_DEFAULT_TERM, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { FESTIVALS, figureShown, GRADUATE_AGE, INFO_ARTS, INFO_SHELVES, infoArt, isMoneyTopic, LADDER_AGES, LADDER_PLAN, LIVE_TO, MONEY_INPUTS, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type InfoArt, type MoneyField, type MoneyTopic, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { FESTIVALS, figureShown, GRADUATE_AGE, INFO_ARTS, INFO_SHELVES, infoArt, isMoneyTopic, LADDER_AGES, LADDER_PLAN, LIVE_TO, MONEY_INPUTS, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type InfoArt, type MoneyField, type MoneyTopic, type StoryTopic } from "@/lib/story/topics";
 import { TAX_RATES } from "@/lib/scene-library/tax-th";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
-import { BABY, CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, defaultPartner, FACE_PAPER, FACES, faceSrc, familyOf, type FaceTag } from "@/lib/story/faces";
+import { CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, FACES, narratorFaceFor } from "@/lib/story/faces";
 import { dollLook, PaperDoll } from "@/lib/story/paper-doll";
 import { checkedLook, DEFAULT_CAST, Figure, FIGURE_HAIRS, FIGURE_PANTS, FIGURE_SHIRTS, GROUNDS, HAIR_WORD, lookFromId, POSES, type FigureGround, type FigureLook } from "@/lib/story/figure";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
@@ -58,11 +58,8 @@ const SHELVES = ["story", "knowledge", "family", "objection", "life", "after", "
 const MONEY_SHOWS: Record<MoneyTopic, string> = { lifeneed: "ขึ้นในฉากที่ 2 และ 4", ciincome: "ขึ้นในฉากที่ 2 และ 3", taxback: "ขึ้นในฉากที่ 3" };
 /** a date input's value, a month from today: the usual next due day is near */
 const inAMonth = () => { const d = new Date(Date.now() + 30 * 86_400_000); return d.toISOString().slice(0, 10); };
-/** the family topics that have the hero's partner in them */
-const WITH_PARTNER: StoryTopic[] = ["pillar", "mompillar", "prebaby", "wedding", "mortgage"];
 const baht = (v: number) => v.toLocaleString("en-US");
 const digits = (v: string, max: number) => { const n = Number(v.replace(/[^\d]/g, "").slice(0, max)); return n ? baht(n) : ""; };
-const TAG_WORD: Record<FaceTag, string> = { glasses: "ใส่แว่น", curly: "ผมหยิก", hat: "ใส่หมวก" };
 /** what each plan's figure makes of the story (story.ts storyEvent) */
 const PLAN_STORY: Record<StoryPlan, string> = { ISHIELD: "คลิปเล่าว่าป่วยเป็นโรคร้ายแรง", LIFEPROTECT: "คลิปเล่าว่าจากไปไม่ทันตั้งตัว เงินไปถึงครอบครัว" };
 /** the looks drawn on อินโฟกราฟิก's route (topics.ts INFO_ARTS), as the form names them, and the line under each */
@@ -73,7 +70,6 @@ const INFO_LOOK: Record<InfoArt, { name: string; tells: string }> = {
   blueprint: { name: "บลูพริ้นท์", tells: "เส้นขาวบนพื้นน้ำเงินแบบแปลนวิศวกร ไม่มีตัวละครในฉาก ราคาเท่าเดิม" },
 };
 
-const NARRATOR_KEY = "story-narrator-face";
 const LOOK_KEY = "story-look";
 const CAST_KEY = "story-cast";
 /**
@@ -114,93 +110,6 @@ export function readLook(): Look {
   } catch {
     return DEFAULT_LOOK;
   }
-}
-
-/** a grid of faces to pick one from, narrowed by sex and by look */
-export function FacePicker({ id, value, onPick, sex, exclude }: { id: string; value: string; onPick: (f: string) => void; sex?: "M" | "F"; exclude?: string }) {
-  const [tag, setTag] = useState<FaceTag | null>(null);
-  const shown = FACES.filter((f) => (!sex || f.sex === sex) && f.id !== exclude && (!tag || f.tags.includes(tag)));
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2" role="group" aria-label="กรองหน้า">
-        <button type="button" className={chip(tag === null)} onClick={() => setTag(null)}>ทั้งหมด</button>
-        {(Object.keys(TAG_WORD) as FaceTag[]).map((t) => <button key={t} type="button" className={chip(tag === t)} onClick={() => setTag(t)}>{TAG_WORD[t]}</button>)}
-      </div>
-      <div id={id} className="flex max-h-[200px] flex-wrap gap-2 overflow-y-auto rounded-lg p-1" role="radiogroup">
-        {shown.map((f) => (
-          <button
-            key={f.id} type="button" role="radio" aria-checked={value === f.id} aria-label={`หน้า ${f.id}`} onClick={() => onPick(f.id)}
-            className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border ${value === f.id ? "border-[var(--ct-solid)] ring-2 ring-[var(--ct-solid)]" : "border-[var(--ct-hair)]"}`}
-            style={{ background: FACE_PAPER }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={faceSrc(f.id)} alt="" width={56} height={56} loading="lazy" className="h-full w-full" />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** the opening as the clip draws it: the 48, grey until covered (or in colour), the hero among them */
-function OpeningPreview({ hero, narrator, palette, size }: { hero: string; narrator: string; palette: "reveal" | "color"; size: VideoSize }) {
-  const crowd = crowdOf(hero, narrator);
-  const cols = size === "landscape" ? 12 : size === "square" ? 8 : 6;
-  return (
-    <div className="rounded-[26px] p-2.5" style={{ background: STORY_CLIP_COLORS.bezel }}>
-      <div className="relative flex flex-col items-center overflow-hidden rounded-[18px] px-[9%] pt-[7%]" style={{ background: FACE_PAPER, aspectRatio: size === "landscape" ? "16 / 9" : size === "square" ? "1 / 1" : "9 / 16", color: STORY_CLIP_COLORS.ink }}>
-        <p className="text-2xl font-semibold leading-tight">48 คน</p>
-        <p className="mb-3 text-center text-[11px]">ถ้ามีคนหนึ่งเจอเรื่องใหญ่ จะเป็นใคร?</p>
-        <div className="grid w-full gap-[3px]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-          {crowd.map((f, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={i} src={faceSrc(f, palette === "reveal")} alt="" loading="lazy" className={`aspect-square w-full ${i === CROWD_HERO ? "rounded-full ring-2" : ""}`} style={i === CROWD_HERO ? { boxShadow: `0 0 0 2px ${STORY_CLIP_COLORS.red}` } : undefined} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** an episode's opening: its name and the one who wonders */
-function KnowPreview({ hero, title, size, ask = true }: { hero: string; title: string; size: VideoSize; ask?: boolean }) {
-  return (
-    <div className="rounded-[26px] p-2.5" style={{ background: STORY_CLIP_COLORS.bezel }}>
-      <div className="relative flex flex-col items-center overflow-hidden rounded-[18px] px-[8%] pt-[8%]" style={{ background: FACE_PAPER, aspectRatio: size === "landscape" ? "16 / 9" : size === "square" ? "1 / 1" : "9 / 16", color: STORY_CLIP_COLORS.ink }}>
-        <p className="text-center text-xl font-semibold leading-tight">{title}</p>
-        <div className="relative mt-[12%] w-[55%]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={faceSrc(hero)} alt="" className="aspect-square w-full" />
-          {ask && <span className="absolute -right-3 -top-2 text-4xl font-bold" style={{ color: STORY_CLIP_COLORS.red }}>?</span>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** a family episode's opening: its name and the family as the first scene draws them */
-function FamilyPreview({ info, hero, partner, size }: { info: StoryTopicInfo; hero: string; partner: string; size: VideoSize }) {
-  const f = familyOf(hero);
-  const people: { id: string; big?: boolean; dash?: boolean }[] =
-    info.key === "eldercare" ? [{ id: f.grandpa }, { id: hero, big: true }, { id: f.grandma }]
-      : info.key === "prebaby" ? [{ id: hero }, { id: partner }, { id: BABY, dash: true }]
-        : info.key === "tuition" ? [{ id: hero, big: true }, { id: f.kids[0] }]
-          : info.key === "wedding" ? [{ id: hero, big: true }, { id: partner, big: true }]
-          : info.key === "mortgage" ? [{ id: partner }, { id: hero, big: true }, { id: f.kids[0] }]
-          : [{ id: partner }, { id: hero, big: true }, { id: f.kids[0] }, { id: f.kids[1] }];
-  return (
-    <div className="rounded-[26px] p-2.5" style={{ background: STORY_CLIP_COLORS.bezel }}>
-      <div className="relative flex flex-col items-center overflow-hidden rounded-[18px] px-[6%] pt-[8%]" style={{ background: FACE_PAPER, aspectRatio: size === "landscape" ? "16 / 9" : size === "square" ? "1 / 1" : "9 / 16", color: STORY_CLIP_COLORS.ink }}>
-        <p className="text-center text-xl font-semibold leading-tight">{info.name}</p>
-        <div className="mt-[14%] flex w-full items-end justify-center gap-1">
-          {people.map((p, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={i} src={faceSrc(p.id, p.dash)} alt="" className={`aspect-square ${p.big ? "w-[34%]" : "w-[24%]"} ${p.dash ? "rounded-full border-2 border-dashed opacity-50" : ""}`} style={p.dash ? { borderColor: STORY_CLIP_COLORS.ink } : undefined} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 const swatch = (on: boolean) => `h-8 w-8 shrink-0 rounded-full border-2 ${on ? "border-[var(--ct-solid)] ring-2 ring-[var(--ct-solid)] ring-offset-2 ring-offset-[var(--ct-panel)]" : "border-[var(--ct-line)]"}`;
@@ -372,7 +281,6 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   // a linked topic held to one plan opens on it, as picking it would (pickTopic)
   const firstTopic = topicOf(start?.topic ?? "pool48")!;
   const firstPlan: StoryPlan = firstTopic.plans && !firstTopic.plans.includes("ISHIELD") ? firstTopic.plans[0] : "ISHIELD";
-  const [narratorFace, setNarratorFace] = useState(DEFAULT_NARRATOR_FACE);
   const [heroSex, setHeroSex] = useState<"M" | "F">("F");
   const [heroFace, setHeroFace] = useState(DEFAULT_HERO_FACE.F);
   const [customer, setCustomer] = useState("");
@@ -393,9 +301,6 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [dueAmount, setDueAmount] = useState("");
   const [festival, setFestival] = useState<Festival>("newyear");
   useEffect(() => { setDueDate((d) => d || inAMonth()); }, []);
-  const [partner, setPartner] = useState<string | null>(null);
-  const partnerFace = partner ?? defaultPartner(heroFace, narratorFace);
-  const withPartner = WITH_PARTNER.includes(topic);
   const [withHome, setWithHome] = useState(false);
   const [monthly, setMonthly] = useState("25,000");
   const [years, setYears] = useState("10");
@@ -425,6 +330,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [sum, setSum] = useState("1,000,000");
   const [figure, setFigure] = useState<{ annual: number; monthly: number } | { error: string } | null>(null);
   const [look, setLook] = useState<Look>(start?.look ? { ...DEFAULT_LOOK, art: start.look } : DEFAULT_LOOK);
+  // the characters are the system's to pick (owner chose ก, 2026-11-17): the agent's own by the narrator's voice,
+  // the hero by the sex asked for, the partner and the family from the hero (story-family.ts)
+  const narratorFace = narratorFaceFor(look.narrator);
   const [cast, setCast] = useState<Cast>(DEFAULT_FORM_CAST);
   const [dressing, setDressing] = useState<"hero" | "narrator">("hero");
   const mini = look.art === "minimal";
@@ -439,12 +347,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [cost, setCost] = useState<CostView | null>(firstCost);
   const [quota, setQuota] = useState<VoiceQuota | null>(firstQuota);
 
-  // the narrator's face and the clip's look, as they were left in this browser
+  // the clip's look, as it was left in this browser
   useEffect(() => {
-    try {
-      const f = localStorage.getItem(NARRATOR_KEY);
-      if (f && FACES.some((x) => x.id === f)) setNarratorFace(f);
-    } catch { /* the default stands */ }
     // a voice no longer listed (the cloned ones, gone 2026-10-17) falls back to Gemini's
     // a look the library's link asked for wins over the one remembered (not saved until the agent picks)
     const kept = readLook();
@@ -453,11 +357,6 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     setCast(readCast());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- read once, as the page opens
   }, []);
-  function pickNarratorFace(f: string) {
-    setNarratorFace(f);
-    if (f === heroFace) setHeroFace(FACES.find((x) => x.sex === heroSex && x.id !== f)!.id);
-    try { localStorage.setItem(NARRATOR_KEY, f); } catch { /* not remembered, still used */ }
-  }
   function pickLook(next: Partial<Look>) {
     setLook((was) => {
       const l = { ...was, ...next };
@@ -474,7 +373,6 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   }
   function pickSex(s: "M" | "F") {
     setHeroSex(s);
-    setPartner(null);
     const d = DEFAULT_HERO_FACE[s];
     setHeroFace(d === narratorFace ? FACES.find((x) => x.sex === s && x.id !== narratorFace)!.id : d);
   }
@@ -484,10 +382,6 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     // แม่คือเสาหลักอีกต้น is told by the children's mother; a story held to one plan starts on it
     if (next.heroSex && heroSex !== next.heroSex) pickSex(next.heroSex);
     if (next.plans && !next.plans.includes(plan)) { setPlan(next.plans[0]); setVariant(STORY_DEFAULT_TERM[next.plans[0]]); }
-  }
-  function pickHero(f: string) {
-    setHeroFace(f);
-    if (f === partner) setPartner(null);
   }
 
   // the premium, worked out as the form changes
@@ -613,7 +507,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     try {
       const r = await makeStoryVideo({
         topic, size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
-        faces: { narrator: narratorFace, hero: heroFace, ...(withPartner && partner && !mini ? { partner } : {}) },
+        faces: { narrator: narratorFace, hero: heroFace },
         ...(mini ? { art: "minimal" as const, ground: look.ground, cast: { hero: cast.hero[heroSex], narrator: cast.narrator } } : {}),
         ...(infoOn ? { art: infoOn } : {}),
         ...(!mini && !infoLook ? { art: lineLook ? "line" as const : "paper" as const } : {}),
@@ -690,14 +584,14 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             <div className="grid gap-4 @md:grid-cols-2">
               <div className="min-w-0 space-y-2">
                 <span className={label}>ผู้เล่าเรื่อง (คุณ)</span>
-                <p className="text-xs text-[var(--ct-mute)]">ขึ้นท้ายคลิปพร้อมชื่อ เบอร์ และ LINE จากบัญชีของฉัน · เลือกครั้งเดียว จำไว้ในเครื่องนี้</p>
+                <p className="text-xs text-[var(--ct-mute)]">ขึ้นท้ายคลิปพร้อมชื่อ เบอร์ และ LINE จากบัญชีของฉัน</p>
                 {mini
                   ? <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">สไตล์มินิมอล: แต่งตัวคุณที่ขั้นที่ 4</p>
-                  : <FacePicker id="sc-narrator" value={narratorFace} onPick={pickNarratorFace} exclude={heroFace} />}
+                  : <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">ตัวละครของคุณเป็นผู้หญิงหรือผู้ชายตามเสียงผู้เล่าที่เลือกในขั้นที่ 4</p>}
               </div>
               <div className="min-w-0 space-y-2">
                 {topic === "festival" ? (
-                  <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">คลิปเทศกาลใช้หน้าของคุณ ไม่มีชื่อลูกค้า ส่งได้ทุกคนและลงเพจได้</p>
+                  <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">คลิปเทศกาลใช้ตัวละครของคุณ ไม่มีชื่อลูกค้า ส่งได้ทุกคนและลงเพจได้</p>
                 ) : <>
                 <label htmlFor="sc-customer" className={label}>{afterSale ? "ลูกค้า" : asks ? "คนที่สงสัย" : info.heroSex ? "ตัวเอกของเรื่อง (แม่)" : family && topic !== "prebaby" && topic !== "eldercare" ? "ตัวเอกของเรื่อง (พ่อหรือแม่)" : "ตัวเอกของเรื่อง"}</label>
                 <input id="sc-customer" className={field} value={customer} maxLength={40} placeholder="ชื่อลูกค้า เช่น นิด (เว้นว่าง = คนทั่วไป ลงเพจได้)" onChange={(e) => setCustomer(e.target.value)} />
@@ -705,20 +599,11 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                   <button type="button" className={chip(heroSex === "F")} onClick={() => pickSex("F")}>หญิง</button>
                   {!info.heroSex && <button type="button" className={chip(heroSex === "M")} onClick={() => pickSex("M")}>ชาย</button>}
                 </div>
-                {mini
-                  ? <p className="text-xs text-[var(--ct-mute)]">แต่งตัวละครหลักที่ขั้นที่ 4</p>
-                  : <FacePicker id="sc-hero" value={heroFace} onPick={pickHero} sex={heroSex} exclude={narratorFace} />}
+                <p className="text-xs text-[var(--ct-mute)]">{mini ? "แต่งตัวละครหลักที่ขั้นที่ 4" : "ระบบเลือกตัวละครให้ตามเพศ"}</p>
                 </>}
               </div>
-              {withPartner && !mini && (
-                <div className="min-w-0 space-y-2 md:col-span-2">
-                  <span className={label}>คู่ชีวิต</span>
-                  <p className="text-xs text-[var(--ct-mute)]">ระบบเลือกหน้า{heroSex === "F" ? "ผู้ชาย" : "ผู้หญิง"}ให้ กดเปลี่ยนหน้าได้</p>
-                  <FacePicker id="sc-partner" value={partnerFace} onPick={setPartner} sex={heroSex === "F" ? "M" : "F"} exclude={narratorFace} />
-                </div>
-              )}
             </div>
-            <p className="text-xs text-[var(--ct-mute)]">{afterSale ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในคลิปและบนการ์ดตัวแทน · ไม่ถามเลขกรมธรรม์ วันเกิด หรือเบอร์ลูกค้า" : asks ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในประโยคปิดท้ายและบนปุ่มของการ์ดตัวแทน" : life ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน · คู่ชีวิตและลูกในเรื่อง ระบบเลือกหน้าให้" : family ? "ลูก และพ่อแม่ของตัวเอก ระบบเลือกจากหน้าชุดเด็กและผู้สูงอายุให้ · ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน" : "อีก 47 คนในโหล ระบบเลือกจากคลัง ชายหญิงครึ่งต่อครึ่ง"}</p>
+            <p className="text-xs text-[var(--ct-mute)]">{afterSale ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในคลิปและบนการ์ดตัวแทน · ไม่ถามเลขกรมธรรม์ วันเกิด หรือเบอร์ลูกค้า" : asks ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในประโยคปิดท้ายและบนปุ่มของการ์ดตัวแทน" : life ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน · คู่ชีวิตและลูกในเรื่อง ระบบเลือกตัวละครให้" : family ? "คู่ชีวิต ลูก และพ่อแม่ของตัวเอก ระบบเลือกตัวละครให้ · ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน" : "อีก 47 คนในโหล ระบบเลือกจากคลัง ชายหญิงครึ่งต่อครึ่ง"}</p>
           </Step>
 
           <Step n={3} title={info.figureRequired ? "แบบที่ลูกค้าซื้อ" : info.pensionRequired ? "บำนาญที่ลูกค้าต้องการ" : info.ask === "due" ? "วันครบกำหนดชำระเบี้ย" : info.ask === "festival" ? "เทศกาล" : info.home ? "ตัวเลขของบ้าน และเบี้ยจริง" : moneyTopic ? "ตัวเลขของลูกค้า" : "ข้อมูลจากแบบประกัน"} summary={[showsHome ? "ตัวเลขของบ้าน" : "", Object.keys(moneyOut).length ? `ใส่ไว้ ${Object.keys(moneyOut).length} ช่อง` : "", !showsFigure ? "" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : info.figure === "pension" ? "ตัวเลขจริง · บำนาญ 95" : info.figure === "health" ? "ตัวเลขจริง · iHealthy" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`].filter(Boolean).join(" · ") || "ไม่ใช้"}>
@@ -1030,17 +915,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                     title={topic === "pool48" ? "48 คน" : topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name}
                     hero={topic === "festival" ? narratorFace : heroFace} size={look.size}
                     crowd={topic === "pool48" ? crowdOf(heroFace, narratorFace) : undefined} pose={afterSale ? "wave" : asks ? "think" : "stand"} />
-                : infoOn === "plot"
+                : infoOn === "plot" || !infoOn
                 ? <PlotPreview title={info.name} size={look.size} />
-                : infoOn
-                ? <InfoLookPreview art={infoOn} title={info.name} size={look.size} />
-                : afterSale
-                ? <KnowPreview hero={topic === "festival" ? narratorFace : heroFace} title={topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name} size={look.size} ask={topic === "claimish"} />
-                : asks || (life && !lifeFamily)
-                ? <KnowPreview hero={heroFace} title={info.name} size={look.size} />
-                : family || life
-                  ? <FamilyPreview info={info} hero={heroFace} partner={partnerFace} size={look.size} />
-                  : <OpeningPreview hero={heroFace} narrator={narratorFace} palette={look.palette} size={look.size} />}
+                : <InfoLookPreview art={infoOn} title={info.name} size={look.size} />}
             </div>
             <p className="text-center text-xs text-[var(--ct-mute)]">{afterSale ? "ฉากเปิด" : asks ? "ฉากเปิด · คนที่สงสัย" : life && !lifeFamily ? "ฉากเปิด · ตัวเอก" : family || life ? "ฉากเปิด · ครอบครัวของตัวเอก" : `ฉากเปิด · วงแดงคือตัวเอก${name ? ` (คุณ${name})` : ""}`}</p>
           </section>

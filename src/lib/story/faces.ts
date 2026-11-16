@@ -54,6 +54,11 @@ export const faceOf = (faceId: string): Face | undefined => FACES.find((f) => f.
 
 /** the mockup's picks: ภัทรา the narrator, นิด the customer, and a man for a man's clip */
 export const DEFAULT_NARRATOR_FACE = "w26";
+/**
+ * The agent's own character, picked by the system from the narrator's voice (owner chose ก, 2026-11-17: the face
+ * picker left the forms, as the clips draw paper dolls and a face gave its doll only its sex).
+ */
+export const narratorFaceFor = (sex: "M" | "F") => (sex === "M" ? "m03" : DEFAULT_NARRATOR_FACE);
 export const DEFAULT_HERO_FACE: Record<"M" | "F", string> = { F: "w15", M: "m09" };
 
 /** where the browser finds a face's file */

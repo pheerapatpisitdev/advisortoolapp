@@ -2,11 +2,10 @@
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
-import { FacePicker } from "../story-clip/StoryClipBoard";
 import { SizePicker } from "../quote-video/QuoteVideoBoard";
 import { VoicePicker } from "../quote-video/VoicePicker";
 
-/** หน้าตาคลิป: the size, the narrator's face and the voice, as คลิปเล่าเรื่อง asks them */
+/** หน้าตาคลิป: the size and the voice, as คลิปเล่าเรื่อง asks them (the narrator's face left the form, owner chose ก, 2026-11-17) */
 
 /**
  * `gemini`: one of Gemini's 30 voices by name, or "" for the narrator's own (owner, 2026-10-17).
@@ -16,11 +15,9 @@ export interface Look { size: VideoSize; narrator: "F" | "M"; voice: string; gem
 
 const label = "mb-1 block text-sm font-medium";
 
-export function LookStep({ look, pick, face, pickFace, customer, setCustomer, eleven, prices }: {
+export function LookStep({ look, pick, customer, setCustomer, eleven, prices }: {
   look: Look;
   pick: (next: Partial<Look>) => void;
-  face: string;
-  pickFace: (f: string) => void;
   customer: string;
   setCustomer: (v: string) => void;
   eleven: ElevenChoice[];
@@ -30,10 +27,6 @@ export function LookStep({ look, pick, face, pickFace, customer, setCustomer, el
   return (
     <div className="space-y-3">
       <SizePicker size={look.size} pick={(size) => pick({ size })} />
-      <div>
-        <span className={label}>หน้าผู้เล่า</span>
-        <FacePicker id="ps-face" value={face} onPick={pickFace} />
-      </div>
       <VoicePicker
         id="ps-voice" pick={look} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)}
         onPick={(p) => pick(p)}

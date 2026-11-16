@@ -25,7 +25,7 @@ export function clipTail(key: StorySceneKey, input: StoryVideoInput, voiceSec: n
   return tail === undefined ? {} : { tail };
 }
 
-/** the faces a clip draws, in colour and grey (story-faces.ts loads them) */
+/** the faces a clip draws, in colour and grey (remotion StoryClip.tsx loads them) */
 export function clipFaces(input: StoryVideoInput): string[] {
   return pool(input) ? [...crowdOf(input.faces.hero, input.faces.narrator), input.faces.narrator] : knowFaces(input);
 }

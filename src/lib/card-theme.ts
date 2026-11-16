@@ -602,9 +602,8 @@ export function myColorPalette(key: MyColor): VideoThemePalette {
 /** น้องโล่ (owner, 2026-10-20; quote-video/mascot.tsx): the brand's shield, the same in every look */
 export const MASCOT_COLORS = { body: "#1f5bd6", rim: "#c6bc99", eye: "#ffffff", pupil: "#01143d", cheek: "#f9a8d4", mouth: "#ffffff", hand: "#ffffff" } as const;
 
-/** the rest a theme draws in: the hand-drawn faces' rings, and each theme's chip in the form */
+/** the rest a theme draws in: each theme's chip in the form */
 export const VIDEO_THEME_EXTRA = {
-  paperFaceRing: "#22252b",
   swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b", kinetic: "#facc15", board: "#fbfbf8", mine: "#0f5132", glass: "#3a4fa8", sticky: "#ffe36e" },
   /** ไวท์บอร์ด's marker: its body, cap band and tip */
   marker: { body: "#022162", band: "#c2412d", tip: "#1a1a1a" },

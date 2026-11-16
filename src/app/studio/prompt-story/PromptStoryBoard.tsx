@@ -7,7 +7,7 @@ import { totalLine } from "@/lib/prompt-story/total";
 import { BRIEF_MAX, PICTURE_STYLES, PROMPT_FORMATS, REWRITES_PER_DRAFT, SCENE_COUNTS, type PictureStyle, type PromptFormat, type PromptStoryInput, type SceneCount } from "@/lib/prompt-story/types";
 import { briefTax, deviceAllowed } from "@/lib/prompt-story/check";
 import { missingPicture, needPictureWords, pictureCount } from "@/lib/prompt-story/editor-state";
-import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
+import { narratorFaceFor } from "@/lib/story/faces";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
@@ -39,7 +39,6 @@ const STYLE_GROUPS = [
 const PAINTERS: { id: PromptStoryInput["painter"]; name: string }[] = [{ id: "standard", name: "มาตรฐาน" }, { id: "sharp", name: "คมชัด" }, { id: "gemini", name: "Gemini" }];
 const SCENES = SCENE_COUNTS;
 const LOOK_KEY = "prompt-story-look";
-const FACE_KEY = "story-narrator-face";
 const DEFAULT_LOOK: Look = { size: "portrait", narrator: "F", voice: "", gemini: "" };
 
 function readLook(): Look {
@@ -94,7 +93,6 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const [premium, setPremium] = useState<{ annual: number; monthly: number } | null>(null);
   const [format, setFormat] = useState<PromptFormat>(start?.format ?? "free");
   const [look, setLook] = useState<Look>(DEFAULT_LOOK);
-  const [face, setFace] = useState(DEFAULT_NARRATOR_FACE);
   const [customer, setCustomer] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [notes, setNotes] = useState<number[]>([]);
@@ -106,12 +104,8 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const [cost, setCost] = useState<CostView | null>(firstCost);
   const [quota, setQuota] = useState<VoiceQuota | null>(firstQuota);
 
-  // the clip's look and the narrator's face, as they were left in this browser
+  // the clip's look, as it was left in this browser
   useEffect(() => {
-    try {
-      const f = localStorage.getItem(FACE_KEY);
-      if (f && FACES.some((x) => x.id === f)) setFace(f);
-    } catch { /* the default stands */ }
     // a voice no longer listed (the cloned ones, gone 2026-10-17) falls back to Gemini's
     const kept = readLook();
     setLook(eleven.some((v) => v.id === kept.voice) ? kept : { ...kept, voice: "" });
@@ -123,10 +117,6 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       try { localStorage.setItem(LOOK_KEY, JSON.stringify(l)); } catch { /* not remembered, still used */ }
       return l;
     });
-  }
-  function pickFace(f: string) {
-    setFace(f);
-    try { localStorage.setItem(FACE_KEY, f); } catch { /* not remembered, still used */ }
   }
 
   // Gemini's voice used up for the day: the warning goes by itself when the day turns over
@@ -185,7 +175,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       const r = await makePromptStory({
         draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption, scenes: draft.scenes, format: written.format,
         style, ...(styleRef ? { styleRef } : {}), painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
-        faces: { narrator: face }, ...(written.figure ? { figure: written.figure } : {}),
+        faces: { narrator: narratorFaceFor(look.narrator) }, ...(written.figure ? { figure: written.figure } : {}),
       }, customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
@@ -276,7 +266,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           {withFigure && <FigurePicker value={figure} onChange={setFigure} onPremium={setPremium} />}
         </Step>
         <Step n={4} title="หน้าตาคลิป" summary="">
-          <LookStep look={look} pick={pickLook} face={face} pickFace={pickFace} customer={customer} setCustomer={setCustomer} eleven={eleven} prices={prices} />
+          <LookStep look={look} pick={pickLook} customer={customer} setCustomer={setCustomer} eleven={eleven} prices={prices} />
         </Step>
 
         {/* what it costs and the buttons: pinned to the foot of the tools, always in view */}

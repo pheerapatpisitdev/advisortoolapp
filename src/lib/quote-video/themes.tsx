@@ -2,10 +2,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type React from "react";
 import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
-import { myColorPalette, QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS, VIDEO_THEME_EXTRA as X, type MyColor, type VideoThemePalette } from "@/lib/card-theme";
-import { DEFAULT_HERO_FACE, familyOf } from "@/lib/story/faces";
-import { faceUris } from "./story-faces";
-import { abs, box, El, MOTION_BG_H, setPenMode, type Anim } from "./motion";
+import { myColorPalette, QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS, type MyColor, type VideoThemePalette } from "@/lib/card-theme";
+import { abs, MOTION_BG_H, setPenMode } from "./motion";
 import { clearOf, holdsText, layer, mute, ownText } from "./pen-layers";
 import type { FestivalKey } from "./festival";
 import type { ThemeKey } from "./theme-keys";
@@ -295,35 +293,6 @@ export function themeBack(t: ThemeKey | undefined, w: number, h: number, look?: 
       background: "rgba(255,255,255,0.07)", border: "2px solid rgba(255,255,255,0.18)",
       boxShadow: "0 40px 90px -30px rgba(0,0,0,0.55), inset 0 2px 0 rgba(255,255,255,0.22)" }} />
   );
-}
-
-/** the opening's picture where a theme has its own; the shield and the family otherwise */
-export type Hero = (s: Record<string, Anim>, t: number, w: number, h: number) => ReactNode;
-
-/** the hand-drawn theme's opening: the insured, their partner and a child as the story clips draw them */
-export async function themeHero(theme: ThemeKey | undefined, sex: "M" | "F"): Promise<Hero | undefined> {
-  if (theme === "paper") {
-    const hero = DEFAULT_HERO_FACE[sex];
-    const ids = [hero, DEFAULT_HERO_FACE[sex === "M" ? "F" : "M"], familyOf(hero).kids[0]];
-    const uris = await faceUris(ids);
-    return function paperHero(s, t, w, h) {
-      const d = Math.round(Math.min(w / 2.6, h / 1.7));
-      return (
-        <div style={box({ position: "relative", width: w, height: h, alignItems: "center", justifyContent: "center" })}>
-          {ids.map((id, i) => {
-            const size = i === 2 ? Math.round(d * 0.78) : d;
-            return (
-              <El key={id} an={s.family} t={t} style={{ position: "absolute", left: Math.round(w / 2 + (i - 1) * d * 0.82 - size / 2), top: Math.round(h / 2 - size / 2 + (i === 2 ? d * 0.22 : -d * 0.08)), width: size, height: size, borderRadius: size / 2, border: `${Math.round(d * 0.045)}px solid ${X.paperFaceRing}`, overflow: "hidden" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={uris[id]} width={size} height={size} style={{ width: size, height: size }} alt="" />
-              </El>
-            );
-          })}
-        </div>
-      );
-    };
-  }
-  return undefined;
 }
 
 /** every letter a themed frame can show, for the theme's own face (cut to these, fetched once a process) */

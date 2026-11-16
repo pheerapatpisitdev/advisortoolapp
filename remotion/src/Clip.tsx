@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { motionBackground, motionBgHeight, motionFrame, type MotionContext } from "@/lib/quote-video/motion";
 import { wideQuoteFrame } from "@/lib/quote-video/wide";
-import { lookFill, lookOf, mineFront, themeBack, themeBackground, themed, themeHero, type Hero } from "@/lib/quote-video/themes";
+import { lookFill, lookOf, mineFront, themeBack, themeBackground, themed } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import { festivalBack, festivalFront } from "@/lib/quote-video/festival-decor";
@@ -80,7 +80,7 @@ export async function loadScriptFonts(scriptFont?: { url: string; weight: number
   })));
 }
 
-interface Loaded { hero?: Hero; ground: ReactNode }
+interface Loaded { ground: ReactNode }
 
 function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
   const [handle] = useState(() => delayRender("fonts and pictures"));
@@ -89,15 +89,16 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
     (async () => {
       await loadFonts();
       await loadScriptFonts(p.scriptFont);
-      // a recipe clip draws its own ground (recipes-draw.tsx): no theme hero or background to fetch
+      // a recipe clip draws its own ground (recipes-draw.tsx): no theme background to fetch
       if (p.recipe) {
         setGot({ ground: null });
         continueRender(handle);
         return;
       }
       const bgH = motionBgHeight({ h });
-      const [hero, ground] = await Promise.all([themeHero(p.theme, p.sex), themeBackground(p.theme, { w, h }, bgH, lookOf(p))]);
-      setGot({ hero, ground: ground ?? motionBackground({ w, h }) });
+      // วาดมือบนกระดาษ's opening of hand-drawn faces left with the faces (owner chose ก, 2026-11-17): every theme opens on the shield and the family
+      const ground = await themeBackground(p.theme, { w, h }, bgH, lookOf(p));
+      setGot({ ground: ground ?? motionBackground({ w, h }) });
       continueRender(handle);
     })().catch((e) => { console.error(e); throw e; });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -184,7 +185,6 @@ export function Clip(p: ClipProps) {
     const c: MotionContext = {
       facts: p.facts, narrator: p.narrator, customer: p.customer, contact: p.contact,
       words: sc.voice.split(" ").filter(Boolean), voiceSec: sc.voiceSec, ...p.shown,
-      ...(got.hero ? { hero: got.hero } : {}),
     };
     // the ground drifts up the scene (down on every other one), as buildJob's crop does
     const y = drift * (s % 2 ? 1 - t / sc.dur : t / sc.dur);

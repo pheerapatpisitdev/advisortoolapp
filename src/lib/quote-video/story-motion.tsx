@@ -120,7 +120,7 @@ export interface StoryContext {
   contact: { name: string; phone: string; line?: string; more?: string; photo?: string };
   /** the 48, the hero at CROWD_HERO (lib/story/faces.ts crowdOf) */
   crowd: string[];
-  /** face id → data URI; `${id}-g` the grey one (story-faces.ts) */
+  /** face id → data URI; `${id}-g` the grey one (remotion StoryClip.tsx loads them) */
   faces: Record<string, string>;
   words: string[];
   voiceSec: number;
