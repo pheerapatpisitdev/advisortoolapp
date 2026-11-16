@@ -1,9 +1,15 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { readCalcStart } from "@/lib/calc-start";
 import { MoneyInput } from "@/components/MoneyInput";
 import { Highlighted } from "@/components/Highlighted";
 import { Watermark } from "@/components/sales/Watermark";
+import { boxIn, GsPens, textIn } from "@/components/global-saving/GsPens";
+import { barPens, GS25_TABLE_COLUMNS, tablePens } from "@/lib/global-saving-pens";
+import { BLUE_PEN } from "@/lib/card-theme";
+import { ContactButtons } from "@/components/sales/ContactButtons";
+import { gsaving255CardPath } from "@/lib/global-saving-card";
+import { gs255QuoteText } from "@/lib/global-saving-text";
 import {
   GS25_AGE_MAX, GS25_AGE_MIN, GS25_CODE, GS25_MAX_SA, GS25_MIN_SA, GS25_PREM_YEARS, GS25_TAX_CAP, GS25_TERM,
   quoteGlobalSaving255, type Gs25Basis,
@@ -11,11 +17,13 @@ import {
 
 /**
  * Global Savings Plus 25/5's calculator, laid out as 15/8's is (GlobalSavingCalculator.tsx): age
- * and a premium or a sum on the left; on the right the guaranteed total and the company's three
- * index examples as stacked bars; under both, the overview against a bank and the year-by-year
- * table. This plan pays its index bonus four times and the table carries the surrender value, so
- * the two pages do not share a component. 15/8's send buttons, quote card, video and pen notes
- * are not wired here yet.
+ * and a premium or a sum on the left; on the right the guaranteed total and five index returns as
+ * stacked bars (owner, 2026-11-16: +2% and +4% beside the company's own −1%, 3% and 5%, as on
+ * 15/8); under both, the overview against a bank and the year-by-year table, with 15/8's red
+ * and blue pen notes on the bars and the table (owner, 2026-11-16). This plan pays its index
+ * bonus four times and the table carries the surrender value, so the two pages do not share a
+ * component. ส่งให้ลูกค้า sends the whole page as one picture and the quote as text, as 15/8's
+ * does (owner, 2026-11-16); วิดีโอนำเสนอ is not built for this plan yet.
  */
 
 const baht = (n: number) => Math.round(n).toLocaleString("en-US");
@@ -24,9 +32,9 @@ const premium = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits
 const pct = (r: number) => `${r >= 0 ? "+" : "−"}${+(Math.abs(r) * 100).toFixed(2)}%`;
 const field = "mt-1 w-full rounded border px-3 py-2";
 
-/** the bonus part of each bar: pale, mid and deep on the page's navy, as the first, third and last of 15/8's five */
-const BONUS_FILL = ["var(--gs-b1)", "var(--gs-b3)", "var(--gs-b5)"];
-const BONUS_INK = ["var(--lg-white)", "var(--lg-white)", "#fff"];
+/** the bonus part of each bar, lighter for a weak index and deeper for a strong one, all on the page's navy */
+const BONUS_FILL = ["var(--gs-b1)", "var(--gs-b2)", "var(--gs-b3)", "var(--gs-b4)", "var(--gs-b5)"];
+const BONUS_INK = ["var(--lg-white)", "var(--lg-white)", "var(--lg-white)", "#fff", "#fff"];
 
 const TH = "bg-[var(--bot-navy)] px-2 py-2 text-right align-bottom font-semibold text-white print:!text-black border-l border-l-white/35";
 const TD = "whitespace-nowrap px-2 py-1.5 text-right";
@@ -61,8 +69,37 @@ export function GlobalSaving255Calculator() {
     setBasis(next);
   }
 
+  // ส่งให้ลูกค้า: the whole page as one picture and the quote as text, only for a quote the plan allows
+  const sendable = q && !q.warnings.length ? q : null;
+  const copyText = sendable ? gs255QuoteText(age, sendable) : undefined;
+  const tableCard = sendable && amount !== "" ? gsaving255CardPath({ age, basis, amount }) : undefined;
+
   const top = q ? Math.max(...q.scenarios.map((s) => s.total)) * 1.12 : 1;
   const bonusYears = q ? q.scenarios[0].bonuses.map((b) => b.year) : [];
+
+  // the pen notes (lib/global-saving-pens.ts), aimed by measuring the table and the bars as drawn
+  const yearly = useRef<HTMLTableElement>(null);
+  const bars = useRef<HTMLDivElement>(null);
+  const penKey = q ? `${q.sa}|${q.premium}|${age}` : "";
+  const drawTable = (el: HTMLElement) => {
+    const rows = (el as HTMLTableElement).tBodies[0]?.rows;
+    if (!q || !rows || rows.length < GS25_TERM) return null;
+    return tablePens(
+      { cell: (y, c) => boxIn(rows[y - 1].cells[c], el), text: (y, c) => textIn(rows[y - 1].cells[c], el) },
+      { premYears: GS25_PREM_YEARS, term: GS25_TERM, payback: q.scenarios[0].rows[0].payback, maturity: q.scenarios[0].maturity,
+        bonusYears, maturityPct: 501, columns: GS25_TABLE_COLUMNS },
+    );
+  };
+  const drawBars = (el: HTMLElement) => {
+    const cols = [...el.querySelectorAll("[data-bar]")];
+    if (!q || !cols.length) return null;
+    const last = cols[cols.length - 1].querySelector("[data-bonus]");
+    return barPens({
+      guaranteed: cols.map((c) => boxIn(c.querySelector("[data-guaranteed]")!, el)),
+      totals: cols.map((c) => boxIn(c.querySelector("[data-total]")!, el)),
+      topBonus: last ? boxIn(last, el) : null,
+    }, q.guaranteed);
+  };
 
   return (
     <div className="gs-tool flex flex-col gap-8">
@@ -108,6 +145,7 @@ export function GlobalSaving255Calculator() {
             {q?.notes.map((n) => (
               <div key={n} className="rounded-md bg-[var(--bot-sand-soft)] px-3 py-2 text-xs leading-relaxed text-[var(--bot-sand-ink)]">{n}</div>
             ))}
+            {q ? <ContactButtons copyText={copyText} tableCardPath={tableCard} tableLabel="ตาราง + ดัชนี" /> : null}
             <div className="space-y-0.5 border-t border-[var(--lg-hair)] pt-3 text-xs leading-relaxed text-[var(--lg-mute)]">
               <div>รหัสแบบ {GS25_CODE} · กรุงไทย-แอกซา</div>
               <div>เงินคืน 1% ของทุนทุกปี · ครบสัญญา 501% ของทุน</div>
@@ -136,19 +174,20 @@ export function GlobalSaving255Calculator() {
               <h2 className="text-base font-semibold">
                 เงินรับรวมเมื่อถือครบ {GS25_TERM} ปี <span className="ml-1 text-sm font-normal text-[var(--lg-mute)]">แยกตามผลตอบแทนดัชนีต่อปี</span>
               </h2>
-              <div className="mt-3 grid h-56 grid-cols-3 items-end gap-3 border-b border-[var(--lg-panel-line)] pt-12 sm:h-64 sm:gap-6" aria-hidden>
+              <div className="relative mt-3">
+              <div ref={bars} className="grid h-56 grid-cols-5 items-end gap-1.5 border-b border-[var(--lg-panel-line)] pt-12 sm:h-64 sm:gap-2.5" aria-hidden>
                 {q.scenarios.map((s, i) => {
                   const bonus = s.total - q.guaranteed;
                   return (
-                    <div key={s.rate} className="flex h-full flex-col justify-end text-center">
-                      <div className="mb-1 text-xs font-semibold tabular-nums sm:text-sm">{baht(s.total)}</div>
+                    <div key={s.rate} data-bar className="flex h-full flex-col justify-end text-center">
+                      <div data-total className="mb-1 text-xs font-semibold tabular-nums sm:text-sm">{baht(s.total)}</div>
                       {bonus > 0 && (
-                        <div className="flex justify-center rounded-t pt-0.5 text-[10px] tabular-nums sm:text-xs"
+                        <div data-bonus className="flex justify-center rounded-t pt-0.5 text-[10px] tabular-nums sm:text-xs"
                              style={{ height: `${bonus / top * 100}%`, background: BONUS_FILL[i], color: BONUS_INK[i] }}>
                           +{baht(bonus)}
                         </div>
                       )}
-                      <div className="flex items-center justify-center bg-[var(--bot-navy)] text-[10px] text-white sm:text-xs"
+                      <div data-guaranteed className="flex items-center justify-center bg-[var(--bot-navy)] text-[10px] text-white sm:text-xs"
                            style={{ height: `${q.guaranteed / top * 100}%` }}>
                         {i === 0 ? "การันตี" : ""}
                       </div>
@@ -156,7 +195,9 @@ export function GlobalSaving255Calculator() {
                   );
                 })}
               </div>
-              <div className="mt-1.5 grid grid-cols-3 gap-3 text-center text-xs text-[var(--lg-mute)] sm:gap-6 sm:text-sm">
+              <GsPens over={bars} draw={drawBars} deps={penKey} />
+              </div>
+              <div className="mt-1.5 grid grid-cols-5 gap-1.5 text-center text-xs text-[var(--lg-mute)] sm:gap-2.5 sm:text-sm">
                 {q.scenarios.map((s) => (
                   <div key={s.rate}>ดัชนี {pct(s.rate)}<br /><b className="text-[var(--lg-white)]">IRR {s.irr.toFixed(2)}%</b></div>
                 ))}
@@ -213,7 +254,9 @@ export function GlobalSaving255Calculator() {
             </h2>
             <Watermark>
             <div className="mt-2 overflow-x-auto rounded-lg border border-[var(--lg-panel-line)]">
-              <table className="print-table w-full min-w-max text-sm tabular-nums">
+              {/* the pen notes are drawn over the table and scroll with it */}
+              <div className="relative min-w-max">
+              <table ref={yearly} className="print-table w-full min-w-full text-sm tabular-nums">
                 <thead>
                   <tr>
                     <th colSpan={2} className="bg-[var(--bot-navy-deep)] print:!bg-transparent" />
@@ -266,14 +309,33 @@ export function GlobalSaving255Calculator() {
                   </tr>
                 </tbody>
               </table>
+              <GsPens over={yearly} draw={drawTable} deps={penKey} />
+              </div>
             </div>
             </Watermark>
-            <p className="mt-2 text-xs leading-relaxed text-[var(--lg-mute)]">
-              โบนัสดัชนีจ่ายจริง {bonusYears.length} ครั้ง คือสิ้นปีที่ {bonusYears.slice(0, -1).join(", ")} และตอนครบสัญญา ปีอื่นจึงเว้นว่าง
-              · มูลค่าเวนคืนเป็นส่วนการันตี ยังไม่รวมโบนัสดัชนีที่อาจได้เพิ่มเมื่อเวนคืนตั้งแต่ปีที่ 6
+            <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+              <span style={{ color: BLUE_PEN }}>✎ ปากกาน้ำเงิน = เงินที่การันตี ได้แน่นอน</span>
+              <span className="text-[var(--lg-pen)]">✎ ปากกาแดง = เบี้ยที่จ่าย และโบนัสดัชนีที่ไม่การันตี</span>
             </p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-[var(--lg-mute)]">
+              <li>โบนัสดัชนีจ่ายจริง {bonusYears.length} ครั้ง คือสิ้นปีที่ {bonusYears.slice(0, -1).join(", ")} และตอนครบสัญญา ปีอื่นจึงเว้นว่าง</li>
+              <li>
+                โบนัสแต่ละครั้ง = เบี้ยที่จ่ายมาทั้งหมด × ส่วนที่ดัชนีขึ้นจากวันเริ่ม × 90% × อัตราจ่ายของปีนั้น
+                (ปี 10 จ่าย 5% · ปี 15 จ่าย 10% · ปี 20 จ่าย 15% · ครบสัญญาจ่าย 70%) ดัชนีติดลบได้ 0 ไม่ถูกหักเงิน
+              </li>
+              <li>ดัชนี −1%, +3% และ +5% ตรงกับตัวอย่างในใบเสนอขายของบริษัท ส่วน +2% และ +4% จำลองด้วยสูตรเดียวกัน</li>
+              <li>มูลค่าเวนคืนเป็นส่วนการันตี ยังไม่รวมโบนัสดัชนีที่อาจได้เพิ่มเมื่อเวนคืนตั้งแต่ปีที่ 6</li>
+              <li>คุ้มครองชีวิตปีที่ 1–2 จ่าย 102% ของเบี้ยที่ชำระแล้ว ปีที่ 3 จ่าย 315% ปีที่ 4 จ่าย 420% และตั้งแต่ปีที่ 5 จ่าย 535% ของทุน</li>
+            </ul>
           </section>
         </>
+      )}
+
+      {/* on a phone the send bar stays at the foot of the screen, as on the other plans' pages */}
+      {copyText && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
+          <ContactButtons copyText={copyText} tableCardPath={tableCard} tableLabel="ตาราง + ดัชนี" compact />
+        </div>
       )}
     </div>
   );

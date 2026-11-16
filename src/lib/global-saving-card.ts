@@ -20,3 +20,14 @@ export function gsavingCardPath(input: { age: number; basis: "premium" | "sumAss
   q.set("v", `${cardVersionFor()}-${GSAVING_CARD_REVISION}`);
   return `/api/card/gsaving-card?${q.toString()}`;
 }
+
+/** 25/5's own revision, bumped when its card alone changes. 1: the first card (owner, 2026-11-16). */
+const GSAVING255_CARD_REVISION = "h1";
+
+/** The path Global Savings Plus 25/5's whole-page card is drawn at (src/app/api/card/gsaving255-card), by the same keys. */
+export function gsaving255CardPath(input: { age: number; basis: "premium" | "sumAssured"; amount: number }): string {
+  const q = new URLSearchParams({ age: String(input.age) });
+  q.set(input.basis === "premium" ? "prem" : "sum", String(input.amount));
+  q.set("v", `${cardVersionFor()}-${GSAVING255_CARD_REVISION}`);
+  return `/api/card/gsaving255-card?${q.toString()}`;
+}

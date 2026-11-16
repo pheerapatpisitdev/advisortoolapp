@@ -91,10 +91,21 @@ export interface TableFacts {
   maturity: number;
   /** policy years the index bonus is paid */
   bonusYears: number[];
+  /** the maturity payout as a percentage of the sum, for the words: 801 unless given (25/5 pays 501) */
+  maturityPct?: number;
+  /** where the columns are, when the table is not 15/8's (25/5 has the surrender value before the bonuses) */
+  columns?: TableColumns;
 }
 
+export type TableColumns = { [K in keyof typeof GS_TABLE_COLUMNS]: number };
+
+/** Global Savings Plus 25/5's yearly table: 15/8's with the surrender value after the death cover */
+export const GS25_TABLE_COLUMNS: TableColumns = {
+  year: 0, age: 1, premium: 2, paid: 3, payback: 4, death: 5, bonusFirst: 7, bonusLast: 11, tax: 12,
+};
+
 export function tablePens(m: TableMeasure, f: TableFacts): PenDrawing {
-  const C = GS_TABLE_COLUMNS, jit = wobble(7);
+  const C = f.columns ?? GS_TABLE_COLUMNS, jit = wobble(7);
   const strokes: PenStroke[] = [], labels: PenText[] = [];
   const red = (d: string, width = 1.7) => strokes.push({ d, ink: "red", width });
   const blue = (d: string, width = 1.7) => strokes.push({ d, ink: "blue", width });
@@ -122,10 +133,11 @@ export function tablePens(m: TableMeasure, f: TableFacts): PenDrawing {
   const mat = m.text(T, C.payback) ?? m.cell(T, C.payback);
   blue(ring(mat, jit, 9, 5), 2);
   const matWords = m.cell(T - 1, C.premium);
-  labels.push({ lines: ["ครบสัญญารับ 801% ของทุน", `${baht(f.maturity)} บาท (การันตี)`], x: matWords.x + 8, y: matWords.y - 6, ink: "blue", tilt: -2 });
+  labels.push({ lines: [`ครบสัญญารับ ${f.maturityPct ?? 801}% ของทุน`, `${baht(f.maturity)} บาท (การันตี)`], x: matWords.x + 8, y: matWords.y - 6, ink: "blue", tilt: -2 });
   blue(arrow(matWords.x + 150, matWords.y + 30, mat.x - 6, mat.y + mat.h / 2, -8));
 
-  // red · the two bonuses underlined twice, each with what it is, written in the empty rows above
+  // red · the bonuses underlined twice, each with what it is, written in the empty rows above
+  // (two on 15/8; 25/5 pays two more between the first and maturity, each named by its year)
   const notes: Record<number, string[]> = {
     [f.bonusYears[0]]: [`โบนัสดัชนีก้อนแรก สิ้นปีที่ ${f.bonusYears[0]}`, "ไม่การันตี · ดัชนีขึ้นมาก ได้มาก ดัชนีติดลบ ได้ 0"],
     [T]: ["โบนัสก้อนใหญ่ ตอนครบสัญญา (ไม่การันตี)"],
@@ -140,7 +152,7 @@ export function tablePens(m: TableMeasure, f: TableFacts): PenDrawing {
     const row = m.cell(y, C.bonusFirst);
     const x1 = figs[0].x - 4, x2 = figs[figs.length - 1].x + figs[figs.length - 1].w + 4;
     red(underline(x1, x2, row.y + row.h - 6, jit), 1.8);
-    const lines = notes[y] ?? [];
+    const lines = notes[y] ?? [`โบนัสดัชนี สิ้นปีที่ ${y} (ไม่การันตี)`];
     const above = m.cell(y - (lines.length > 1 ? 4 : 3), C.bonusFirst);
     labels.push({ lines, x: above.x + 6, y: above.y + 4, ink: "red", tilt: -2 });
     red(arrow(above.x + 120, above.y + 4 + lines.length * 21, (x1 + x2) / 2, row.y - 4, 12));

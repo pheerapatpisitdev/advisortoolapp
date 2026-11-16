@@ -224,8 +224,14 @@ export function scenario(sa: number, premium: number, rate: number, age: number)
   return { rate, rows, paybackTotal, maturity, bonuses, total, irr: irr(cf) * 100 };
 }
 
-/** the index returns the company's own illustration shows: examples 1, 2 and 3 */
-export const GS25_RATES = [-0.01, 0.03, 0.05];
+/**
+ * The index returns the page shows side by side, the five 15/8's page shows (owner, 2026-11-16).
+ * The company's own illustration prints −1%, 3% and 5% (its examples 1, 2 and 3); 2% and 4% are
+ * the same formula at a return it does not print.
+ */
+export const GS25_RATES = [-0.01, 0.02, 0.03, 0.04, 0.05];
+/** the three of them the company's illustration prints */
+export const GS25_PRINTED_RATES = [-0.01, 0.03, 0.05];
 
 export interface Gs25Bank { rate: number; principal: number; interest: number; total: number }
 

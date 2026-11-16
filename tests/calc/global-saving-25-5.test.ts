@@ -71,7 +71,7 @@ describe("from age 66, against AdvisorZone's illustration", () => {
 /** Entry age 65, sum 200,000, example 2 (index +3% a year): still the younger rate, and every index figure. */
 describe("at age 65 with the index at 3%, against AdvisorZone's illustration", () => {
   const q = quoteGlobalSaving255({ basis: "sumAssured", amount: 200_000, age: 65 });
-  const mid = q.scenarios[1];
+  const mid = q.scenarios[2];
   const row = (y: number) => mid.rows[y - 1];
 
   it("still charges 995 per 1,000", () => {
@@ -120,11 +120,11 @@ describe("at age 30, against AdvisorZone's illustration", () => {
  */
 describe("at age 40, against the printed illustration", () => {
   const q = quoteGlobalSaving255({ basis: "sumAssured", amount: 100_000, age: 40 });
-  const [low, mid, high] = q.scenarios;
+  const [low, , mid, , high] = q.scenarios;
 
   it("returns 0.24%, 3.02% and 5.04% a year", () => {
     expect(q.premium).toBe(99_500);
-    expect(q.scenarios.map((s) => s.irr.toFixed(2))).toEqual(["0.24", "3.02", "5.04"]);
+    expect([low, mid, high].map((s) => s.irr.toFixed(2))).toEqual(["0.24", "3.02", "5.04"]);
     expect(q.warnings.concat(q.notes)).toHaveLength(0);
   });
 
@@ -169,12 +169,12 @@ describe("at age 40, against the printed illustration", () => {
 /** The printed illustration for a man of 50, sum 100,000 (the owner's 50.pdf): 40's premium and bonuses, its own surrender column. */
 describe("at age 50, against the printed illustration", () => {
   const q = quoteGlobalSaving255({ basis: "sumAssured", amount: 100_000, age: 50 });
-  const [low, , high] = q.scenarios;
+  const [low, , , , high] = q.scenarios;
 
   it("charges 99,500 and returns 0.24% and 5.04%", () => {
     expect(q.premium).toBe(99_500);
     expect([low, high].map((s) => s.irr.toFixed(2))).toEqual(["0.24", "5.04"]);
-    expect(q.scenarios.map((s) => s.total.toFixed(2))).toEqual(["525000.00", "954640.19", "1446371.34"]);
+    expect([0, 2, 4].map((i) => q.scenarios[i].total.toFixed(2))).toEqual(["525000.00", "954640.19", "1446371.34"]);
     expect(q.warnings.concat(q.notes)).toHaveLength(0);
   });
 
@@ -189,7 +189,7 @@ describe("at age 50, against the printed illustration", () => {
 /** The printed illustration for a man of 70, sum 100,000 (the owner's 70.pdf): the senior rate at a small sum. */
 describe("at age 70, against the printed illustration", () => {
   const q = quoteGlobalSaving255({ basis: "sumAssured", amount: 100_000, age: 70 });
-  const [low, mid, high] = q.scenarios;
+  const [low, , mid, , high] = q.scenarios;
 
   it("charges 1,000 per 1,000 with no size discount, and returns 0.22% and 3.01%", () => {
     expect(q.premium).toBe(100_000);
@@ -231,7 +231,7 @@ describe("at ages 55 and 60, against the printed illustrations", () => {
 /** The printed illustration for a man of 75, sum 200,000 (75.pdf, plan code E25G5AS): the oldest entry age. */
 describe("at age 75, against the printed illustration", () => {
   const q = quoteGlobalSaving255({ basis: "sumAssured", amount: 200_000, age: 75 });
-  const [low, , high] = q.scenarios;
+  const [low, , , , high] = q.scenarios;
 
   it("charges 200,000 and returns 0.22% and 5.03%", () => {
     expect(q.premium).toBe(200_000);
@@ -247,6 +247,20 @@ describe("at age 75, against the printed illustration", () => {
     expect([6, 17, 24, 25].map((y) => withBonus(y).toFixed(2))).toEqual(["850860.86", "1085737.94", "2316083.50", "2505403.65"]);
     expect([2, 5, 21].map((y) => (high.rows[y - 1].death + high.rows[y - 1].deathBonus).toFixed(2)))
       .toEqual(["444900.00", "1318653.80", "2195156.69"]);
+  });
+});
+
+describe("the two returns the company does not print", () => {
+  const q = quoteGlobalSaving255({ basis: "sumAssured", amount: 100_000, age: 40 });
+
+  it("sit between the printed ones, by the same formula", () => {
+    expect(q.scenarios.map((s) => s.rate)).toEqual([-0.01, 0.02, 0.03, 0.04, 0.05]);
+    const totals = q.scenarios.map((s) => s.total);
+    expect([...totals].sort((a, b) => a - b)).toEqual(totals);
+    const irrs = q.scenarios.map((s) => s.irr);
+    expect([...irrs].sort((a, b) => a - b)).toEqual(irrs);
+    // 2% a year for 10 years: the level cut to four places is 121.8994
+    expect(q.scenarios[1].bonuses[0].value).toBe(Math.round(Math.round(497_500 * 0.218994 * 0.9 * 100) / 100 * 0.05 * 100) / 100);
   });
 });
 
