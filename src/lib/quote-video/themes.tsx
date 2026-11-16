@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import type React from "react";
 import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
 import { myColorPalette, QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS, VIDEO_THEME_EXTRA as X, type MyColor, type VideoThemePalette } from "@/lib/card-theme";
 import { DEFAULT_HERO_FACE, familyOf } from "@/lib/story/faces";
 import { faceUris } from "./story-faces";
 import { abs, box, El, MOTION_BG_H, setPenMode, type Anim } from "./motion";
+import { clearOf, holdsText, layer, mute, ownText } from "./pen-layers";
 import type { FestivalKey } from "./festival";
 import type { ThemeKey } from "./theme-keys";
 import { W } from "./timeline";
@@ -209,8 +211,31 @@ export function themed(frame: ReactNode, t: ThemeKey | undefined, look?: LookOf)
     setPenMode("survey");
     repaint(frame, p, "ground");
     setPenMode("draw");
-    return repaint(frame, p, "ground");
+    return whole(repaint(frame, p, "ground"));
   } finally { setPenMode(false); }
+}
+
+/**
+ * ไวท์บอร์ด's words and figures are never written in part (owner chose ก, 2026-11-16): each piece the marker is writing
+ * (data-pen, motion.tsx El), now in the board's colours, is laid twice: its lines, frames and coins (its words made
+ * clear) still cut at the marker's edge, and its words and figures alone over them, fading in whole (pen-layers.tsx).
+ */
+function whole(node: ReactNode): ReactNode {
+  if (Array.isArray(node)) return node.map(whole);
+  if (!isValidElement(node)) return node;
+  const el = node as ReactElement<Record<string, unknown> & { style?: React.CSSProperties; children?: ReactNode }>;
+  const kids = el.props.children;
+  const pen = el.props["data-pen"];
+  if (typeof pen !== "number") return kids === undefined ? el : cloneElement(el, {}, ...Children.toArray(kids).map(whole));
+  const style = el.props.style ?? {};
+  if (!holdsText(kids)) return cloneElement(el, { "data-pen": undefined });
+  const { clipPath: _cut, flexGrow: _grow, ...piece } = style;
+  return (
+    <Fragment key={el.key ?? undefined}>
+      {cloneElement(el, { "data-pen": undefined, style: ownText(kids) ? mute(style) : style }, layer(kids, "lines"))}
+      <div style={{ ...clearOf(piece), position: "absolute", left: 0, top: 0, right: 0, bottom: 0, opacity: pen }}>{layer(kids, "words")}</div>
+    </Fragment>
+  );
 }
 
 /** the crumpled paper ground, read once a process (named in full for the deploy's file tracing) */

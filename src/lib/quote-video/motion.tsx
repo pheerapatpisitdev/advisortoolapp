@@ -286,15 +286,16 @@ export function El({ an, t, style, children }: { an?: Anim; t: number; style: Re
     if (penMode === "survey") writing.push(an.at);
     const mine = typeof penMode === "object" && !penMode.drawn && an.at === penMode.latest;
     if (mine && typeof penMode === "object") penMode.drawn = true;
-    // the place on the outside, with the marker; the piece inside, cut at the edge written so far
-    const place: React.CSSProperties = { display: "flex" };
+    // the place on the outside, with the marker; the piece inside, cut at the edge written so far. data-pen marks the
+    // piece for themed (themes.tsx), which, once the piece is repainted, lays its words and figures over it whole
+    const place: React.CSSProperties = { display: "flex", position: "relative" };
     const piece: React.CSSProperties = { display: "flex", ...style };
     for (const k of PLACE_KEYS) if (k in style) { (place as Record<string, unknown>)[k] = style[k]; delete (piece as Record<string, unknown>)[k]; }
     if (style.width !== undefined) piece.width = style.width;
     if (style.height !== undefined) piece.height = style.height;
     return (
       <div style={place}>
-        <div style={{ ...piece, flexGrow: 1, clipPath: `inset(-40% ${((1 - p) * 100).toFixed(1)}% -40% -10%)` }}>{children}</div>
+        <div data-pen={Number(p.toFixed(3))} style={{ ...piece, flexGrow: 1, clipPath: `inset(-40% ${((1 - p) * 100).toFixed(1)}% -40% -10%)` }}>{children}</div>
         {mine ? <div style={{ display: "flex", position: "absolute", left: `${(p * 100).toFixed(1)}%`, top: "60%", width: 0, height: 0 }}>{marker()}</div> : null}
       </div>
     );
