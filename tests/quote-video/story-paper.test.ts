@@ -1,3 +1,4 @@
+import { textClips } from "../helpers/text-clips";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { clipFrame } from "@/lib/quote-video/story-frames";
@@ -91,8 +92,12 @@ describe("ปากกาพล็อตเตอร์", () => {
     expect(html).not.toContain("#1f2126");
   });
 
-  it("writes a piece in from the left over its own moments", () => {
-    expect(at(pen, "knowOne", 0.5)).toContain("clip-path:inset(");
+  it("writes a drawn piece in from the left over its own moments; words and figures fade in whole (owner chose ก, 2026-11-16)", () => {
+    const frames = Array.from({ length: 120 }, (_, i) => at(pen, "knowOne", i * 0.1));
+    expect(frames.some((h) => h.includes("clip-path:inset(")), "some line, frame or icon is written in").toBe(true);
+    for (let i = 0; i < 120; i++) {
+      for (const f of textClips(clipFrame("knowOne" as never, { ...c, input: pen }, i * 0.1))) expect(f.clipped, `${i / 10}s "${f.text}"`).toBe(false);
+    }
     expect(at(pen, "knowOne", 30)).not.toContain("clip-path:inset(");
   });
 });

@@ -1,6 +1,7 @@
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { StoryTopic } from "@/lib/story/topics";
 import type React from "react";
+import { cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
 import { abs, box, El, look, type Anim } from "./motion";
 import { HEALTH_WORDS as HW, isLife, n, type KnowEpisode, type KnowSceneKey, type Health2Show, type KnowShow, type LifeShow, type MetaShow, type NoteLine, type SaveShow } from "./story-knowledge";
 import { ageRows, baht, groupBars, limitFigs, overflowBar, PART_FILL, roomFigs, splitParts, wrapLines } from "./story-health-motion";
@@ -228,6 +229,11 @@ export function infoDrawn(shown: KnowShow, c: StoryContext, t: number, key?: Kno
  * A piece of a scene. อินโฟกราฟิก brings it in by its own entrance; the pen (and ไวต์บอร์ด's marker, บลูพริ้นท์'s
  * ruling pen) writes it, left to right, over the same moments; นีออน switches it on: dark, two quick dips, then
  * full. It is whole from then on.
+ *
+ * Words and figures are never written in part (owner chose ก, 2026-11-16): a sweep across "1,800,000" shows "1,8" for a
+ * moment. So in a look that writes, a piece holding text is laid twice in the same place: its lines, frames, bars and
+ * icons (the words in it made clear) written in by the pen as before, and over them its words and figures alone (every
+ * ground, edge and icon in it made clear), fading in whole over the same moments.
  */
 export function E({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSProperties; children?: React.ReactNode }) {
   if (K.reveal === "fade" || !an) return <El an={an} t={t} style={style}>{children}</El>;
@@ -237,7 +243,88 @@ export function E({ an, t, style, children }: { an?: Anim; t: number; style: Rea
     const lit = flicker(p);
     return <div style={{ display: "flex", ...style, ...(lit < 1 ? { opacity: lit } : {}) }}>{children}</div>;
   }
-  return <div style={{ display: "flex", ...style, ...(p < 1 ? { clipPath: `inset(-40% ${((1 - p) * 100).toFixed(1)}% -40% -10%)` } : {}) }}>{children}</div>;
+  if (p >= 1) return <div style={{ display: "flex", ...style }}>{children}</div>;
+  const sweep = { clipPath: `inset(-40% ${((1 - p) * 100).toFixed(1)}% -40% -10%)` };
+  if (!holdsText(children)) return <div style={{ display: "flex", ...style, ...sweep }}>{children}</div>;
+  // the place outside; the piece inside it twice, the lines in the flow and the words over them at its top left
+  const place: React.CSSProperties = { display: "flex", position: "relative" };
+  const piece: React.CSSProperties = { display: "flex", ...style };
+  for (const k of PLACE) if (k in style) { (place as Record<string, unknown>)[k] = style[k]; delete (piece as Record<string, unknown>)[k]; }
+  if (style.width !== undefined) piece.width = style.width;
+  if (style.height !== undefined) piece.height = style.height;
+  return (
+    <div style={place}>
+      <div style={{ ...(ownText(children) ? mute(piece) : piece), flexGrow: 1, ...sweep }}>{layer(children, "lines")}</div>
+      <div style={{ ...clearOf(piece), position: "absolute", left: 0, top: 0, opacity: Number(p.toFixed(3)) }}>{layer(children, "words")}</div>
+    </div>
+  );
+}
+
+/** where a piece stands, kept on the place around its two layers (as motion.tsx's El keeps it for the pen's marker) */
+const PLACE = ["position", "left", "top", "right", "bottom", "width", "height", "margin", "marginTop", "marginBottom", "marginLeft", "marginRight", "alignSelf", "flex", "flexGrow", "flexShrink", "zIndex"] as const;
+const CLEAR = "rgba(0,0,0,0)";
+
+/** whether a piece holds any word or figure, through the drawers' own parts (they are plain functions of their props) */
+export function holdsText(node: ReactNode): boolean {
+  if (node === null || node === undefined || typeof node === "boolean") return false;
+  if (typeof node === "string") return node.trim() !== "";
+  if (typeof node === "number" || typeof node === "bigint") return true;
+  if (Array.isArray(node)) return node.some(holdsText);
+  if (!isValidElement(node)) return false;
+  const el = node as ReactElement<{ children?: ReactNode }>;
+  if (typeof el.type === "function") return holdsText((el.type as (p: unknown) => ReactNode)(el.props));
+  return holdsText(el.props.children);
+}
+
+/** whether words or figures stand directly in an element (not in one inside it) */
+const ownText = (kids: ReactNode) => (Array.isArray(kids) ? kids : [kids]).some((k) => (typeof k === "string" && k.trim() !== "") || typeof k === "number");
+
+/** a style with its ground, edges and shadow made clear: what is left is its words (its layout unchanged) */
+function clearOf(style: React.CSSProperties): React.CSSProperties {
+  const out: Record<string, unknown> = { ...style };
+  for (const [k, v] of Object.entries(style)) {
+    if (/^border(Top|Right|Bottom|Left)?$/.test(k) && typeof v === "string" && !/^(none|0)$/.test(v.trim())) {
+      const [w, how] = v.trim().split(/\s+/);
+      out[k] = `${w} ${how ?? "solid"} ${CLEAR}`;
+    }
+    if (/^border(Top|Right|Bottom|Left)?Color$/.test(k)) out[k] = CLEAR;
+  }
+  if ("background" in out) out.background = CLEAR;
+  if ("backgroundColor" in out) out.backgroundColor = CLEAR;
+  delete out.backgroundImage;
+  if ("boxShadow" in out) out.boxShadow = "none";
+  return out as React.CSSProperties;
+}
+
+/** a style with its own words made clear: what is left is its ground and edges */
+function mute(style: React.CSSProperties): React.CSSProperties {
+  const out: Record<string, unknown> = { ...style, color: CLEAR };
+  if ("textShadow" in out) out.textShadow = "none";
+  delete out.WebkitTextStroke;
+  return out as React.CSSProperties;
+}
+
+/**
+ * The same piece with only its lines and edges showing ("lines"), or only its words and figures ("words"): each element
+ * kept where it is, only its paint changed, so the two lie exactly over each other. In the words, a drawing (svg) is an
+ * empty box of its size, and no element carries a data- mark twice.
+ */
+function layer(node: ReactNode, keep: "lines" | "words"): ReactNode {
+  if (node === null || node === undefined || typeof node === "boolean" || typeof node === "string" || typeof node === "number") return node;
+  if (Array.isArray(node)) return node.map((x) => layer(x, keep));
+  if (!isValidElement(node)) return node;
+  const el = node as ReactElement<Record<string, unknown> & { style?: React.CSSProperties; children?: ReactNode }>;
+  if (el.type === Fragment) return cloneElement(el, { children: layer(el.props.children, keep) });
+  if (typeof el.type === "function") return layer((el.type as (p: unknown) => ReactNode)(el.props), keep);
+  const style = el.props.style ?? {};
+  if (el.type !== "div" && el.type !== "span") {
+    if (keep === "lines") return el;
+    return <div key={el.key ?? undefined} style={{ ...style, display: "flex", flexShrink: 0, width: el.props.width as number, height: el.props.height as number }} />;
+  }
+  const kids = el.props.children;
+  const own = ownText(kids);
+  const marks = keep === "words" ? Object.fromEntries(Object.keys(el.props).filter((k) => k.startsWith("data-")).map((k) => [k, undefined])) : {};
+  return cloneElement(el, { ...marks, style: keep === "words" ? clearOf(style) : own ? mute(style) : style, children: layer(kids, keep) });
 }
 
 /** a neon tube coming on, over its piece's moments: two quick dips, at about a quarter and a little under half */

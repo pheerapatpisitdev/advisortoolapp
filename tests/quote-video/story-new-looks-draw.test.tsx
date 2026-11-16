@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import sharp from "sharp";
+import { textClips } from "../helpers/text-clips";
 import { describe, expect, it } from "vitest";
 import { CARD_PALETTE as P, STORY_CLIP_COLORS as S } from "@/lib/card-theme";
 import { drawPngHere } from "@/lib/draw/core";
@@ -434,4 +435,20 @@ describe("Task 3, Review Focus 2: every word can be read where it is drawn", () 
       expect(html, art).toMatch(new RegExp(`color:${P.ink};line-height:1.45[^>]*>(<[^>]*>)*รับปรึกษาวางแผนฟรี`));
     }
   }, 120_000);
+});
+
+describe("a word or figure is whole or not there at every frame (owner chose ก, 2026-11-16)", () => {
+  it("no text is ever drawn under a clip, in any look, size or beat: the health devices and every knowledge layout", () => {
+    const cases = [...DEVICES.map((show) => ({ show, topic: "mythclaim", key: undefined as KnowSceneKey | undefined })), ...KNOWLEDGE];
+    let seen = 0;
+    for (const { show, topic, key } of cases) for (const size of ["portrait", "square", "landscape"] as VideoSize[]) for (const art of ["plot", "board", "neon", "blueprint", "info"]) {
+      const e = Math.max(...Object.values(kspec(show)).map((x) => x.at + x.dur));
+      for (let i = 0; i <= 24; i++) {
+        const out = textClips(infoDrawn(show, ctx(inputOf(art, topic, size)), (e * i) / 24, key));
+        seen += out.length;
+        for (const f of out) expect(f.clipped, `${show.layout} ${size} ${art} ${i}/24 "${f.text}"`).toBe(false);
+      }
+    }
+    expect(seen).toBeGreaterThan(1000);
+  });
 });

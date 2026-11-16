@@ -3,6 +3,7 @@ import path from "node:path";
 import { cloneElement, createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import sharp from "sharp";
+import { textClips } from "../helpers/text-clips";
 import { describe, expect, it } from "vitest";
 import { STORY_CLIP_COLORS as S } from "@/lib/card-theme";
 import { drawPngHere } from "@/lib/draw/core";
@@ -22,6 +23,8 @@ import { SIZES as FRAME, type VideoSize } from "@/lib/quote-video/timeline";
  * retired อินโฟกราฟิก — drawn with the Kit, telling the same little story as the paper (the same sheet, beats and words).
  */
 const SIZES: VideoSize[] = ["portrait", "square", "landscape"];
+/** a fully clear paint draws nothing: the pen's layer of a piece holding words, whose words fade in over it (owner chose ก, 2026-11-16) */
+const CLEARED = /^rgba\(0,\s*0,\s*0,\s*0\)$/;
 const LOOKS = ["plot", "board", "neon", "blueprint", "info"] as const;
 type Look = (typeof LOOKS)[number];
 const DARK = ["neon", "blueprint"] as const;
@@ -329,7 +332,7 @@ describe("drawn with the Kit", () => {
       const kit = kitFor({ art });
       const own = new Set([...Object.values(kit).filter((v): v is string => typeof v === "string"), S.plotRail, S.plotRailEdge, S.plotHead, S.plotPaper, S.plotPen].map((x) => x.replace(/\s/g, "")));
       for (const show of ALL) for (const size of SIZES) for (const t of [mid(show), end(show)]) {
-        for (const m of draw(show, size, art, t).matchAll(COLOR)) expect(own.has(m[1].replace(/\s/g, "")), `${art} ${show.layout} ${size} ${m[1]}`).toBe(true);
+        for (const m of draw(show, size, art, t).matchAll(COLOR)) expect(CLEARED.test(m[1]) || own.has(m[1].replace(/\s/g, "")), `${art} ${show.layout} ${size} ${m[1]}`).toBe(true);
       }
     }
   });
@@ -416,4 +419,19 @@ describe("Review Focus 3: นีออน and บลูพริ้นท์ kee
       }
     }, 900_000);
   }
+});
+
+describe("a word or figure is whole or not there at every frame (owner chose ก, 2026-11-16)", () => {
+  it("no text is ever drawn under a clip, in any look, size or beat", () => {
+    let seen = 0;
+    for (const show of ALL) for (const size of SIZES) for (const art of LOOKS) {
+      const e = end(show);
+      for (let i = 0; i <= 24; i++) {
+        const out = textClips(infoDrawn(show, ctx(size, art), (e * i) / 24));
+        seen += out.length;
+        for (const f of out) expect(f.clipped, `${show.layout} ${size} ${art} ${i}/24 "${f.text}"`).toBe(false);
+      }
+    }
+    expect(seen).toBeGreaterThan(1000);
+  });
 });

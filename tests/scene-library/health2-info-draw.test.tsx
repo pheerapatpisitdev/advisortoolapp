@@ -26,6 +26,8 @@ import { SIZES as FRAME, type VideoSize } from "@/lib/quote-video/timeline";
  */
 const STILLS = process.env.HEALTH2_STILLS === "1";
 const SIZES: VideoSize[] = ["portrait", "square", "landscape"];
+/** a fully clear paint draws nothing: the pen's layer of a piece holding words, whose words fade in over it (owner chose ก, 2026-11-16) */
+const CLEARED = /^rgba\(0,\s*0,\s*0,\s*0\)$/;
 const LOOKS = ["plot", "board", "neon", "blueprint", "info"] as const;
 type Look = (typeof LOOKS)[number];
 const DARK = ["neon", "blueprint"] as const;
@@ -471,7 +473,7 @@ describe("drawn with the Kit", () => {
       const kit = kitFor({ art });
       const own = new Set([...Object.values(kit).filter((v): v is string => typeof v === "string"), S.plotRail, S.plotRailEdge, S.plotHead, S.plotPaper, S.plotPen].map((x) => x.replace(/\s/g, "")));
       for (const show of KEY) for (const size of SIZES) for (const t of [mid(show), end(show)]) {
-        for (const m of draw(show, size, art, t).matchAll(COLOR)) expect(own.has(m[1].replace(/\s/g, "")), `${art} ${show.layout} ${size} ${m[1]}`).toBe(true);
+        for (const m of draw(show, size, art, t).matchAll(COLOR)) expect(CLEARED.test(m[1]) || own.has(m[1].replace(/\s/g, "")), `${art} ${show.layout} ${size} ${m[1]}`).toBe(true);
       }
     }
   });
@@ -590,7 +592,8 @@ function expand(node: ReactNode, pass: Pass): ReactNode {
   const list = Array.isArray(kids) ? kids.flat(Infinity) : [kids];
   const mine = list.filter((k) => typeof k === "string" || typeof k === "number").join("").trim();
   let style = el.props.style;
-  if (mine) {
+  // words painted clear are the pen's layer of a piece whose words fade in over it: not seen, so not audited
+  if (mine && !(typeof style?.color === "string" && CLEARED.test(style.color))) {
     const i = pass.n++;
     if (pass.mode === "count") { pass.seen[i] = mine; pass.ink[i] = typeof style?.color === "string" ? style.color : undefined; }
     else if (pass.mode === "probe") style = { ...style, color: hex(PROBES[i % PROBES.length]), textShadow: "none" };
