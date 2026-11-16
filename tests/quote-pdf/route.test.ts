@@ -125,7 +125,7 @@ describe("GET /api/quote-pdf", () => {
 
   it("refuses a language the page does not have, and Thai written out", async () => {
     const query = queryFrom(iHealthyTable(), IHEALTHY_OPENING);
-    for (const l of ["fr", "th", "", "EN"]) {
+    for (const l of ["es", "th", "", "EN"]) {
       const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&l=${l}&v=${V}`));
       expect(res.status).toBe(400);
     }

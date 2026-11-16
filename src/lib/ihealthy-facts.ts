@@ -127,7 +127,7 @@ export function isHeading(entry: BenefitEntry): entry is BenefitHeading {
  * in each of the readings the page offers (see ihealthy-translate.ts), whose headings keep
  * the number where the Thai has it so the phone's "N more categories" counts the same.
  */
-const CATEGORY_NO = /^(?:หมวดที่ |Category |Раздел |第|အပိုင်း )(\d+)/;
+const CATEGORY_NO = /^(?:หมวดที่ |Category |Раздел |第|အပိုင်း |Catégorie |Kategorie )(\d+)/;
 
 /**
  * Every หมวด the contract has, in order.

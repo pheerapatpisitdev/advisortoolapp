@@ -3,6 +3,7 @@ import { insuredWho, whoRowHeight, type WhoStyle } from "../card/insured-who";
 import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
 import type { NextRequest } from "next/server";
 import { iHealthyCard, type IHealthyCard } from "@/lib/ihealthy-card";
+import { figure } from "@/lib/ihealthy-lang";
 import { WORDS } from "@/lib/ihealthy-words";
 import {
   band, CARD_HEADERS, GOLD, GOLD_LIT, GROUND, GROUND_DEEP, H, Line, loadFonts, MUTE, PAD, PlanTable, RULE,
@@ -123,7 +124,7 @@ export async function GET(req: NextRequest) {
             style={{ ...band(H.death), fontSize: 23, color: GOLD, alignItems: "center", justifyContent: "space-between" }}
           >
             <div style={{ display: "flex" }}>{row.label}</div>
-            <div style={{ display: "flex" }}>{row.amount.toLocaleString("en-US")} {w.baht}</div>
+            <div style={{ display: "flex" }}>{figure(row.amount, card.lang)} {w.baht}</div>
           </div>
         ))}
 

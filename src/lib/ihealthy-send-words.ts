@@ -1,7 +1,7 @@
 import type { Lang } from "@/lib/ihealthy-lang";
 
 /**
- * What the page says about the whole-table picture and the phone's PDF, in its five languages
+ * What the page says about the whole-table picture and the phone's PDF, in its seven languages
  * (owner, 2026-10-25, mockup https://claude.ai/artifact/6Wk2LKxWA5hqojpF2LfnHt).
  *
  * Beside ihealthy-words.ts rather than in it: that file is part of the drawing code the clips'
@@ -56,5 +56,19 @@ export const SEND_WORDS: Record<Lang, SendWords> = {
     pdfMaking: "PDF ပြုလုပ်နေသည်… စက္ကန့် 10–20 ခန့်",
     pdfReady: "PDF အဆင်သင့်ဖြစ်ပြီ၊ သိမ်းရန် နှိပ်ပါ",
     pdfFailed: "PDF မပြုလုပ်နိုင်ပါ၊ ထပ်စမ်းရန် နှိပ်ပါ",
+  },
+  fr: {
+    fullTable: "Tableau complet des prestations",
+    fullTableKit: (n) => `Tableau complet, ${n} formules`,
+    pdfMaking: "Création du PDF… environ 10 à 20 secondes",
+    pdfReady: "PDF prêt, touchez pour l'enregistrer",
+    pdfFailed: "Impossible de créer le PDF, touchez pour réessayer",
+  },
+  de: {
+    fullTable: "Vollständige Leistungstabelle",
+    fullTableKit: (n) => `Vollständige Tabelle, ${n} Tarife`,
+    pdfMaking: "PDF wird erstellt… etwa 10–20 Sekunden",
+    pdfReady: "PDF bereit, zum Speichern tippen",
+    pdfFailed: "PDF konnte nicht erstellt werden, zum Wiederholen tippen",
   },
 };

@@ -1,6 +1,7 @@
 import type { Sex } from "@/calc/types";
 import { benefitCell, type BenefitCell } from "@/components/ihealthy/BenefitTable";
 import type { BenefitEntry } from "@/lib/ihealthy-facts";
+import type { Lang } from "@/lib/ihealthy-lang";
 import type { CompareWords } from "@/lib/ihealthy-compare-words";
 import type { IHealthyWords } from "@/lib/ihealthy-words";
 
@@ -39,8 +40,8 @@ export function comparePlans(sellable: readonly string[]): string[] {
 }
 
 /** One row's cells under these plans at this age. */
-export function compareCells(entry: BenefitEntry, plans: string[], age: number): BenefitCell[] {
-  return plans.map((code) => benefitCell(entry, code, age, plans));
+export function compareCells(entry: BenefitEntry, plans: string[], age: number, lang: Lang = "th"): BenefitCell[] {
+  return plans.map((code) => benefitCell(entry, code, age, plans, lang));
 }
 
 /**

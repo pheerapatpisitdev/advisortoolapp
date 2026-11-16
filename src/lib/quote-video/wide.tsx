@@ -1,3 +1,4 @@
+import { figure } from "@/lib/ihealthy-lang";
 import type { ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import type { Level } from "@/lib/fhc/health";
@@ -433,7 +434,7 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
             </div>
           ) : null}
           <El an={s.kicker} t={t} style={{ fontSize: g.px(44, 64), fontWeight: 600, color: WHITE }}>{f.lead.label}</El>
-          <El an={s.big} t={t} style={{ fontSize: big, fontWeight: 700, color: GOLD, lineHeight: 1.15 }}>{n0.toLocaleString("en-US")}</El>
+          <El an={s.big} t={t} style={{ fontSize: big, fontWeight: 700, color: GOLD, lineHeight: 1.15 }}>{figure(n0, f.lang ?? "th")}</El>
           <El an={s.note} t={t} style={{ fontSize: g.px(28, 40), color: WHITE, opacity: 0.85 }}>{`${vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
           <El an={s.mark} t={t} style={{ marginTop: g.px(20, 30) }}>
             <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "6px 30px", fontSize: g.px(34, 48), fontWeight: 600 })}>{f.leadMark}</div>
@@ -591,7 +592,7 @@ function Price({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
               marginBottom: g.px(16, 22), color: r.main ? NAVY : WHITE, fontSize: g.px(28, 42),
             }}>
               <div style={box({})}>{r.label}</div>
-              <div style={box({ fontWeight: 700, fontSize: g.px(r.main ? 44 : 34, r.main ? 64 : 50) })}>{r.main ? countAt(num(r.amount), look(s.count, t).p).toLocaleString("en-US") : r.amount}</div>
+              <div style={box({ fontWeight: 700, fontSize: g.px(r.main ? 44 : 34, r.main ? 64 : 50) })}>{r.main ? figure(countAt(num(r.amount), look(s.count, t).p), f.lang ?? "th") : r.amount}</div>
             </El>
           ))}
         </div>

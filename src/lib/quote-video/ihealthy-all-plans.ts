@@ -7,6 +7,7 @@ import { FULL_ROW_LABEL, type FullRowKey } from "@/lib/ihealthy-full-rows";
 import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
 import { MODES, plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
+import { figure } from "@/lib/ihealthy-lang";
 import { WORDS } from "@/lib/ihealthy-words";
 import type { VideoLang } from "./video-words";
 
@@ -151,6 +152,34 @@ export const ALL_PLANS_WORDS: Record<VideoLang, ScreenWords> = {
     asCharged: "ကုန်ကျသလောက်",
     opdLabel: "ပြင်ပလူနာ/နှစ်",
   },
+  fr: {
+    lead: (n) => `${n} formules`,
+    leadSub: "côte à côte",
+    priceTitle: (mode) => `Première année · ${mode}`,
+    priceNote: (sum, cash) => `Assurance vie de ${sum} incluse${cash ? " + indemnité journalière" : ""} · ensuite selon l'âge`,
+    coverTitle: "Plafond annuel",
+    roomLabel: "Chambre/jour",
+    sameTitle: "Toutes les formules",
+    sameBig: "Frais réels",
+    sameNote: "Sans franchise",
+    extraTitle: (names) => `${names.join(" · ")} en plus`,
+    asCharged: "Frais réels",
+    opdLabel: "Ambulatoire/an",
+  },
+  de: {
+    lead: (n) => `${n} Tarife`,
+    leadSub: "im Vergleich",
+    priceTitle: (mode) => `Erstes Jahr · ${mode}`,
+    priceNote: (sum, cash) => `Inkl. Lebensversicherung ${sum}${cash ? " + Krankenhaustagegeld" : ""} · danach nach Alter`,
+    coverTitle: "Jahreslimit",
+    roomLabel: "Zimmer/Tag",
+    sameTitle: "Alle Tarife",
+    sameBig: "Nach Kosten",
+    sameNote: "Ohne Selbstbehalt",
+    extraTitle: (names) => `${names.join(" · ")} zusätzlich`,
+    asCharged: "Nach Kosten",
+    opdLabel: "Ambulant/Jahr",
+  },
 };
 
 /** "2. ค่าบริการ…" → "ค่าบริการ…": the screen lists them without the sheet's numbers */
@@ -239,7 +268,7 @@ export function allPlansFacts(sex: Sex, age: number, mode: PayMode, lang: VideoL
       leadSub: sw.leadSub,
       who: `${w.sex[sex]} ${w.years(age)}`,
       priceTitle: sw.priceTitle(w.mode[mode]),
-      priceNote: sw.priceNote(lifeSum.toLocaleString("en-US"), dailyCash !== null),
+      priceNote: sw.priceNote(figure(lifeSum, lang), dailyCash !== null),
       coverTitle: sw.coverTitle,
       roomLabel: sw.roomLabel,
       sameTitle: sw.sameTitle,

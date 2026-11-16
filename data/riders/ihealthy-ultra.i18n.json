@@ -3,684 +3,912 @@
     "en": "1. Inpatient benefits",
     "zh": "1. 住院保障",
     "ru": "1. Стационарное лечение",
-    "my": "1. အတွင်းလူနာ အကျိုးခံစားခွင့်များ"
+    "my": "1. အတွင်းလူနာ အကျိုးခံစားခွင့်များ",
+    "fr": "1. Prestations en cas d'hospitalisation",
+    "de": "1. Leistungen bei stationärer Behandlung"
   },
   "หมวดที่ 1 ค่าห้องและค่าอาหาร ค่าบริการในโรงพยาบาล (ผู้ป่วยใน) ต่อรอบปีกรมธรรม์ประกันภัย ในกรณีที่ผู้เอาประกันภัยได้รับการรักษาในห้องผู้ป่วยวิกฤติ (Intensive Care Inpatient Room) จะจ่ายค่าห้องและค่าอาหาร ค่าบริการในโรงพยาบาล (ผู้ป่วยใน) ตามที่จ่ายจริง": {
     "en": "Category 1 Room and board, hospital services (inpatient), per policy year. If the insured is treated in an intensive care room (Intensive Care Inpatient Room), room and board and hospital services (inpatient) are paid as charged",
     "zh": "第1类 住院房费及膳食费、医院服务费（住院），每保单年度。被保险人如在重症监护病房（Intensive Care Inpatient Room）接受治疗，房费及膳食费、医院服务费（住院）按实际费用赔付",
     "ru": "Раздел 1 Проживание и питание, больничные услуги (стационар) за полисный год. При лечении в палате интенсивной терапии (Intensive Care Inpatient Room) проживание и питание, больничные услуги (стационар) оплачиваются по фактическим расходам",
-    "my": "အပိုင်း 1 အခန်းခနှင့် အစားအသောက်၊ ဆေးရုံဝန်ဆောင်မှုခ (အတွင်းလူနာ)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်။ အာမခံထားသူသည် အထူးကြပ်မတ်ကုသဆောင် (Intensive Care Inpatient Room) တွင် ကုသမှုခံယူပါက အခန်းခနှင့် အစားအသောက်၊ ဆေးရုံဝန်ဆောင်မှုခ (အတွင်းလူနာ) ကို အမှန်တကယ်ကုန်ကျသည့်အတိုင်း ပေးသည်"
+    "my": "အပိုင်း 1 အခန်းခနှင့် အစားအသောက်၊ ဆေးရုံဝန်ဆောင်မှုခ (အတွင်းလူနာ)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်။ အာမခံထားသူသည် အထူးကြပ်မတ်ကုသဆောင် (Intensive Care Inpatient Room) တွင် ကုသမှုခံယူပါက အခန်းခနှင့် အစားအသောက်၊ ဆေးရုံဝန်ဆောင်မှုခ (အတွင်းလူနာ) ကို အမှန်တကယ်ကုန်ကျသည့်အတိုင်း ပေးသည်",
+    "fr": "Catégorie 1 Frais de chambre et de repas, services hospitaliers (hospitalisation), par année d'assurance. Si l'assuré est soigné en chambre de soins intensifs (Intensive Care Inpatient Room), les frais de chambre et de repas et les services hospitaliers (hospitalisation) sont remboursés aux frais réels",
+    "de": "Kategorie 1 Zimmer und Verpflegung, Krankenhausleistungen (stationär), pro Versicherungsjahr. Wird die versicherte Person in einem Intensivpflegezimmer (Intensive Care Inpatient Room) behandelt, werden Zimmer und Verpflegung sowie Krankenhausleistungen (stationär) nach tatsächlichen Kosten erstattet"
   },
   "1,500 ต่อวัน": {
     "en": "1,500 per day",
     "zh": "每天1,500",
     "ru": "1,500 в день",
-    "my": "တစ်ရက်လျှင် 1,500"
+    "my": "တစ်ရက်လျှင် 1,500",
+    "fr": "1,500 par jour",
+    "de": "1.500 pro Tag"
   },
   "3,000 ต่อวัน": {
     "en": "3,000 per day",
     "zh": "每天3,000",
     "ru": "3,000 в день",
-    "my": "တစ်ရက်လျှင် 3,000"
+    "my": "တစ်ရက်လျှင် 3,000",
+    "fr": "3,000 par jour",
+    "de": "3.000 pro Tag"
   },
   "5,500 ต่อวัน": {
     "en": "5,500 per day",
     "zh": "每天5,500",
     "ru": "5,500 в день",
-    "my": "တစ်ရက်လျှင် 5,500"
+    "my": "တစ်ရက်လျှင် 5,500",
+    "fr": "5,500 par jour",
+    "de": "5.500 pro Tag"
   },
   "9,000 ต่อวัน": {
     "en": "9,000 per day",
     "zh": "每天9,000",
     "ru": "9,000 в день",
-    "my": "တစ်ရက်လျှင် 9,000"
+    "my": "တစ်ရက်လျှင် 9,000",
+    "fr": "9,000 par jour",
+    "de": "9.000 pro Tag"
   },
   "15,000 ต่อวัน": {
     "en": "15,000 per day",
     "zh": "每天15,000",
     "ru": "15,000 в день",
-    "my": "တစ်ရက်လျှင် 15,000"
+    "my": "တစ်ရက်လျှင် 15,000",
+    "fr": "15,000 par jour",
+    "de": "15.000 pro Tag"
   },
   "21,000 ต่อวัน": {
     "en": "21,000 per day",
     "zh": "每天21,000",
     "ru": "21,000 в день",
-    "my": "တစ်ရက်လျှင် 21,000"
+    "my": "တစ်ရက်လျှင် 21,000",
+    "fr": "21,000 par jour",
+    "de": "21.000 pro Tag"
   },
   "หมวดที่ 2 ค่าบริการทางการแพทย์เพื่อการตรวจวินิจฉัยหรือบำบัดรักษา ค่าบริการโลหิตและส่วนประกอบของโลหิต ค่าบริการทางการพยาบาล ค่ายา ค่าสารอาหารทางหลอดเลือด และค่าเวชภัณฑ์ ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 2 Medical services for diagnosis or treatment, blood and blood components, nursing services, medicines, parenteral nutrition and medical supplies, per policy year",
     "zh": "第2类 诊断或治疗的医疗服务费、血液及血液成分服务费、护理服务费、药费、静脉营养费及医疗用品费，每保单年度",
     "ru": "Раздел 2 Медицинские услуги по диагностике или лечению, кровь и компоненты крови, сестринский уход, лекарства, парентеральное питание и медицинские расходные материалы за полисный год",
-    "my": "အပိုင်း 2 ရောဂါရှာဖွေစစ်ဆေးခြင်း သို့မဟုတ် ကုသခြင်းအတွက် ဆေးဘက်ဆိုင်ရာဝန်ဆောင်မှုခ၊ သွေးနှင့် သွေးအစိတ်အပိုင်းဝန်ဆောင်မှုခ၊ သူနာပြုဝန်ဆောင်မှုခ၊ ဆေးဝါးခ၊ သွေးကြောမှ အာဟာရပေးခြင်းခနှင့် ဆေးပစ္စည်းခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 2 ရောဂါရှာဖွေစစ်ဆေးခြင်း သို့မဟုတ် ကုသခြင်းအတွက် ဆေးဘက်ဆိုင်ရာဝန်ဆောင်မှုခ၊ သွေးနှင့် သွေးအစိတ်အပိုင်းဝန်ဆောင်မှုခ၊ သူနာပြုဝန်ဆောင်မှုခ၊ ဆေးဝါးခ၊ သွေးကြောမှ အာဟာရပေးခြင်းခနှင့် ဆေးပစ္စည်းခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 2 Services médicaux de diagnostic ou de traitement, sang et composants sanguins, soins infirmiers, médicaments, nutrition parentérale et fournitures médicales, par année d'assurance",
+    "de": "Kategorie 2 Medizinische Leistungen zur Diagnose oder Behandlung, Blut und Blutbestandteile, Pflegeleistungen, Arzneimittel, parenterale Ernährung und medizinisches Verbrauchsmaterial, pro Versicherungsjahr"
   },
   "หมวดย่อยที่ 2.1 ค่าบริการทางการแพทย์เพื่อการตรวจวินิจฉัย": {
     "en": "Sub-category 2.1 Medical services for diagnosis",
     "zh": "第2.1小类 诊断医疗服务费",
     "ru": "Подраздел 2.1 Медицинские услуги по диагностике",
-    "my": "အပိုင်းခွဲ 2.1 ရောဂါရှာဖွေစစ်ဆေးခြင်းအတွက် ဆေးဘက်ဆိုင်ရာဝန်ဆောင်မှုခ"
+    "my": "အပိုင်းခွဲ 2.1 ရောဂါရှာဖွေစစ်ဆေးခြင်းအတွက် ဆေးဘက်ဆိုင်ရာဝန်ဆောင်မှုခ",
+    "fr": "Sous-catégorie 2.1 Services médicaux de diagnostic",
+    "de": "Unterkategorie 2.1 Medizinische Leistungen zur Diagnose"
   },
   "ตามที่จ่ายจริง": {
     "en": "As charged",
     "zh": "按实际费用",
     "ru": "По фактическим расходам",
-    "my": "အမှန်တကယ်ကုန်ကျသည့်အတိုင်း"
+    "my": "အမှန်တကယ်ကုန်ကျသည့်အတိုင်း",
+    "fr": "Aux frais réels",
+    "de": "Nach tatsächlichen Kosten"
   },
   "หมวดย่อยที่ 2.2 ค่าบริการทางการแพทย์เพื่อการบำบัดรักษา ค่าบริการโลหิตและส่วนประกอบของโลหิต และค่าบริการทางการพยาบาล": {
     "en": "Sub-category 2.2 Medical services for treatment, blood and blood components, and nursing services",
     "zh": "第2.2小类 治疗医疗服务费、血液及血液成分服务费及护理服务费",
     "ru": "Подраздел 2.2 Медицинские услуги по лечению, кровь и компоненты крови и сестринский уход",
-    "my": "အပိုင်းခွဲ 2.2 ကုသခြင်းအတွက် ဆေးဘက်ဆိုင်ရာဝန်ဆောင်မှုခ၊ သွေးနှင့် သွေးအစိတ်အပိုင်းဝန်ဆောင်မှုခနှင့် သူနာပြုဝန်ဆောင်မှုခ"
+    "my": "အပိုင်းခွဲ 2.2 ကုသခြင်းအတွက် ဆေးဘက်ဆိုင်ရာဝန်ဆောင်မှုခ၊ သွေးနှင့် သွေးအစိတ်အပိုင်းဝန်ဆောင်မှုခနှင့် သူနာပြုဝန်ဆောင်မှုခ",
+    "fr": "Sous-catégorie 2.2 Services médicaux de traitement, sang et composants sanguins, et soins infirmiers",
+    "de": "Unterkategorie 2.2 Medizinische Leistungen zur Behandlung, Blut und Blutbestandteile sowie Pflegeleistungen"
   },
   "หมวดย่อยที่ 2.3 ค่ายา ค่าสารอาหารทางหลอดเลือด และค่าเวชภัณฑ์": {
     "en": "Sub-category 2.3 Medicines, parenteral nutrition and medical supplies",
     "zh": "第2.3小类 药费、静脉营养费及医疗用品费",
     "ru": "Подраздел 2.3 Лекарства, парентеральное питание и медицинские расходные материалы",
-    "my": "အပိုင်းခွဲ 2.3 ဆေးဝါးခ၊ သွေးကြောမှ အာဟာရပေးခြင်းခနှင့် ဆေးပစ္စည်းခ"
+    "my": "အပိုင်းခွဲ 2.3 ဆေးဝါးခ၊ သွေးကြောမှ အာဟာရပေးခြင်းခနှင့် ဆေးပစ္စည်းခ",
+    "fr": "Sous-catégorie 2.3 Médicaments, nutrition parentérale et fournitures médicales",
+    "de": "Unterkategorie 2.3 Arzneimittel, parenterale Ernährung und medizinisches Verbrauchsmaterial"
   },
   "หมวดย่อยที่ 2.4 ค่ายาและค่าเวชภัณฑ์สิ้นเปลือง (เวชภัณฑ์ 1) สำหรับกลับบ้าน": {
     "en": "Sub-category 2.4 Take-home medicines and consumable medical supplies (Supplies 1)",
     "zh": "第2.4小类 出院带回家的药品及消耗性医疗用品（医疗用品1）",
     "ru": "Подраздел 2.4 Лекарства и расходные материалы на дом после выписки (материалы 1)",
-    "my": "အပိုင်းခွဲ 2.4 ဆေးရုံဆင်းချိန် အိမ်ယူသွားသည့် ဆေးဝါးနှင့် သုံးကုန်ဆေးပစ္စည်း (ဆေးပစ္စည်း 1)"
+    "my": "အပိုင်းခွဲ 2.4 ဆေးရုံဆင်းချိန် အိမ်ယူသွားသည့် ဆေးဝါးနှင့် သုံးကုန်ဆေးပစ္စည်း (ဆေးပစ္စည်း 1)",
+    "fr": "Sous-catégorie 2.4 Médicaments à emporter et fournitures médicales consommables (Supplies 1)",
+    "de": "Unterkategorie 2.4 Mitgegebene Arzneimittel und medizinisches Verbrauchsmaterial (Supplies 1)"
   },
   "15 วัน ต่อการเข้าพักรักษาตัวเป็นผู้ป่วยในแต่ละครั้ง": {
     "en": "15 days per inpatient admission",
     "zh": "每次住院最多15天",
     "ru": "15 дней на каждую госпитализацию",
-    "my": "ဆေးရုံတက်မှုတစ်ကြိမ်လျှင် 15 ရက်"
+    "my": "ဆေးရုံတက်မှုတစ်ကြိမ်လျှင် 15 ရက်",
+    "fr": "15 jours par hospitalisation",
+    "de": "15 Tage pro stationärem Aufenthalt"
   },
   "หมวดที่ 3 ค่าผู้ประกอบวิชาชีพเวชกรรม (แพทย์) ตรวจรักษา ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 3 Physician's fees for treatment, per policy year",
     "zh": "第3类 医师诊疗费，每保单年度",
     "ru": "Раздел 3 Гонорар врача за лечение за полисный год",
-    "my": "အပိုင်း 3 ဆရာဝန်ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 3 ဆရာဝန်ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 3 Honoraires du médecin pour le traitement, par année d'assurance",
+    "de": "Kategorie 3 Arzthonorare für die Behandlung, pro Versicherungsjahr"
   },
   "1,000 ต่อวัน*/ ตามที่จ่ายจริง": {
     "en": "1,000 per day* / As charged",
     "zh": "每天1,000* / 按实际费用",
     "ru": "1,000 в день* / По фактическим расходам",
-    "my": "တစ်ရက်လျှင် 1,000* / အမှန်တကယ်ကုန်ကျသည့်အတိုင်း"
+    "my": "တစ်ရက်လျှင် 1,000* / အမှန်တကယ်ကုန်ကျသည့်အတိုင်း",
+    "fr": "1,000 par jour* / Aux frais réels",
+    "de": "1.000 pro Tag* / Nach tatsächlichen Kosten"
   },
   "3,000 ต่อวัน*/ ตามที่จ่ายจริง": {
     "en": "3,000 per day* / As charged",
     "zh": "每天3,000* / 按实际费用",
     "ru": "3,000 в день* / По фактическим расходам",
-    "my": "တစ်ရက်လျှင် 3,000* / အမှန်တကယ်ကုန်ကျသည့်အတိုင်း"
+    "my": "တစ်ရက်လျှင် 3,000* / အမှန်တကယ်ကုန်ကျသည့်အတိုင်း",
+    "fr": "3,000 par jour* / Aux frais réels",
+    "de": "3.000 pro Tag* / Nach tatsächlichen Kosten"
   },
   "หมวดที่ 4 ค่ารักษาพยาบาลโดยการผ่าตัด (ศัลยกรรม) และหัตถการ ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 4 Surgery and procedures, per policy year",
     "zh": "第4类 手术及医疗操作费用，每保单年度",
     "ru": "Раздел 4 Хирургические операции и процедуры за полисный год",
-    "my": "အပိုင်း 4 ခွဲစိတ်ကုသမှုနှင့် ဆေးကုသလုပ်ငန်းစဉ်များ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 4 ခွဲစိတ်ကုသမှုနှင့် ဆေးကုသလုပ်ငန်းစဉ်များ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 4 Chirurgie et actes médicaux, par année d'assurance",
+    "de": "Kategorie 4 Operationen und Eingriffe, pro Versicherungsjahr"
   },
   "หมวดย่อยที่ 4.1 ค่าห้องผ่าตัด และค่าห้องทำหัตถการ": {
     "en": "Sub-category 4.1 Operating room and procedure room",
     "zh": "第4.1小类 手术室及操作室费用",
     "ru": "Подраздел 4.1 Операционная и процедурная",
-    "my": "အပိုင်းခွဲ 4.1 ခွဲစိတ်ခန်းခနှင့် လုပ်ငန်းစဉ်ခန်းခ"
+    "my": "အပိုင်းခွဲ 4.1 ခွဲစိတ်ခန်းခနှင့် လုပ်ငန်းစဉ်ခန်းခ",
+    "fr": "Sous-catégorie 4.1 Bloc opératoire et salle d'intervention",
+    "de": "Unterkategorie 4.1 Operationssaal und Eingriffsraum"
   },
   "หมวดย่อยที่ 4.2 ค่ายา ค่าสารอาหารทางหลอดเลือด ค่าเวชภัณฑ์ และค่าอุปกรณ์การผ่าตัดและหัตถการ": {
     "en": "Sub-category 4.2 Medicines, parenteral nutrition, medical supplies, and surgical and procedural equipment",
     "zh": "第4.2小类 药费、静脉营养费、医疗用品费及手术与操作器材费",
     "ru": "Подраздел 4.2 Лекарства, парентеральное питание, медицинские расходные материалы, хирургическое и процедурное оборудование",
-    "my": "အပိုင်းခွဲ 4.2 ဆေးဝါးခ၊ သွေးကြောမှ အာဟာရပေးခြင်းခ၊ ဆေးပစ္စည်းခနှင့် ခွဲစိတ်မှုနှင့် လုပ်ငန်းစဉ်သုံး ကိရိယာခ"
+    "my": "အပိုင်းခွဲ 4.2 ဆေးဝါးခ၊ သွေးကြောမှ အာဟာရပေးခြင်းခ၊ ဆေးပစ္စည်းခနှင့် ခွဲစိတ်မှုနှင့် လုပ်ငန်းစဉ်သုံး ကိရိယာခ",
+    "fr": "Sous-catégorie 4.2 Médicaments, nutrition parentérale, fournitures médicales, et matériel chirurgical et d'intervention",
+    "de": "Unterkategorie 4.2 Arzneimittel, parenterale Ernährung, medizinisches Verbrauchsmaterial sowie Operations- und Eingriffsausrüstung"
   },
   "หมวดย่อยที่ 4.3 ค่าผู้ประกอบวิชาชีพเวชกรรม ทำศัลยกรรมและหัตถการ สำหรับแพทย์ทำศัลยกรรมและหัตถการ (รวมแพทย์ผู้ช่วยผ่าตัด) (Doctor fee)": {
     "en": "Sub-category 4.3 Surgeon's and proceduralist's fees (including assistant surgeon) (Doctor fee)",
     "zh": "第4.3小类 手术及操作医师费（含助理手术医师）（Doctor fee）",
     "ru": "Подраздел 4.3 Гонорар хирурга и врача, проводящего процедуру (включая ассистента хирурга) (Doctor fee)",
-    "my": "အပိုင်းခွဲ 4.3 ခွဲစိတ်ဆရာဝန်နှင့် လုပ်ငန်းစဉ်ဆောင်ရွက်သည့် ဆရာဝန်ခ (လက်ထောက်ခွဲစိတ်ဆရာဝန် အပါအဝင်) (Doctor fee)"
+    "my": "အပိုင်းခွဲ 4.3 ခွဲစိတ်ဆရာဝန်နှင့် လုပ်ငန်းစဉ်ဆောင်ရွက်သည့် ဆရာဝန်ခ (လက်ထောက်ခွဲစိတ်ဆရာဝန် အပါအဝင်) (Doctor fee)",
+    "fr": "Sous-catégorie 4.3 Honoraires du chirurgien et du praticien (y compris l'assistant chirurgien) (Doctor fee)",
+    "de": "Unterkategorie 4.3 Honorare des Chirurgen und des behandelnden Arztes (einschließlich Assistenzchirurg) (Doctor fee)"
   },
   "หมวดย่อยที่ 4.4 ค่าผู้ประกอบวิชาชีพเวชกรรม วิสัญญีแพทย์ (Doctor fee)": {
     "en": "Sub-category 4.4 Anaesthetist's fees (Doctor fee)",
     "zh": "第4.4小类 麻醉医师费（Doctor fee）",
     "ru": "Подраздел 4.4 Гонорар анестезиолога (Doctor fee)",
-    "my": "အပိုင်းခွဲ 4.4 မေ့ဆေးဆရာဝန်ခ (Doctor fee)"
+    "my": "အပိုင်းခွဲ 4.4 မေ့ဆေးဆရာဝန်ခ (Doctor fee)",
+    "fr": "Sous-catégorie 4.4 Honoraires de l'anesthésiste (Doctor fee)",
+    "de": "Unterkategorie 4.4 Honorare des Anästhesisten (Doctor fee)"
   },
   "หมวดย่อยที่ 4.5 ค่ารักษาพยาบาลโดยการผ่าตัดเปลี่ยนอวัยวะ": {
     "en": "Sub-category 4.5 Organ transplant surgery",
     "zh": "第4.5小类 器官移植手术费用",
     "ru": "Подраздел 4.5 Операции по трансплантации органов",
-    "my": "အပိုင်းခွဲ 4.5 ကိုယ်တွင်းအင်္ဂါ အစားထိုးခွဲစိတ်ကုသခ"
+    "my": "အပိုင်းခွဲ 4.5 ကိုယ်တွင်းအင်္ဂါ အစားထိုးခွဲစိတ်ကုသခ",
+    "fr": "Sous-catégorie 4.5 Chirurgie de transplantation d'organes",
+    "de": "Unterkategorie 4.5 Organtransplantation"
   },
   "หมวดที่ 5 การผ่าตัดใหญ่ที่ไม่ต้องเข้าพักรักษาตัวเป็นผู้ป่วยใน (Day Surgery)": {
     "en": "Category 5 Major surgery without inpatient admission (Day Surgery)",
     "zh": "第5类 无需住院的大手术（Day Surgery）",
     "ru": "Раздел 5 Крупные операции без госпитализации (Day Surgery)",
-    "my": "အပိုင်း 5 ဆေးရုံတက်ရန်မလိုသော ခွဲစိတ်မှုကြီး (Day Surgery)"
+    "my": "အပိုင်း 5 ဆေးရုံတက်ရန်မလိုသော ခွဲစိတ်မှုကြီး (Day Surgery)",
+    "fr": "Catégorie 5 Chirurgie majeure sans hospitalisation (Day Surgery)",
+    "de": "Kategorie 5 Größere Operation ohne stationäre Aufnahme (Day Surgery)"
   },
   "2. ผลประโยชน์กรณีไม่ต้องเข้าพักรักษาตัวเป็นผู้ป่วยใน": {
     "en": "2. Benefits without inpatient admission",
     "zh": "2. 无需住院的保障",
     "ru": "2. Лечение без госпитализации",
-    "my": "2. ဆေးရုံတက်ရန်မလိုသော အကျိုးခံစားခွင့်များ"
+    "my": "2. ဆေးရုံတက်ရန်မလိုသော အကျိုးခံစားခွင့်များ",
+    "fr": "2. Prestations sans hospitalisation",
+    "de": "2. Leistungen ohne stationäre Aufnahme"
   },
   "หมวดที่ 6 ค่าบริการทางการแพทย์เพื่อตรวจวินิจฉัยที่เกี่ยวข้องโดยตรง ก่อนและหลังการเข้าพักรักษาตัวเป็นผู้ป่วยใน หรือค่ารักษาพยาบาลผู้ป่วยนอกต่อเนื่องที่เกี่ยวข้องโดยตรงหลังการเข้าพักรักษาตัวเป็นผู้ป่วยใน ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 6 Directly related diagnostic services before and after an inpatient admission, or directly related follow-up outpatient treatment after an inpatient admission, per policy year",
     "zh": "第6类 住院前后直接相关的诊断医疗服务费，或出院后直接相关的门诊后续治疗费，每保单年度",
     "ru": "Раздел 6 Диагностические услуги, непосредственно связанные с госпитализацией, до и после неё, или непосредственно связанное последующее амбулаторное лечение после госпитализации, за полисный год",
-    "my": "အပိုင်း 6 ဆေးရုံတက်မှု မတိုင်မီနှင့် ပြီးနောက် တိုက်ရိုက်သက်ဆိုင်သော ရောဂါရှာဖွေစစ်ဆေးမှုခ သို့မဟုတ် ဆေးရုံဆင်းပြီးနောက် တိုက်ရိုက်သက်ဆိုင်သော ဆက်လက်ကုသမှု ပြင်ပလူနာကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 6 ဆေးရုံတက်မှု မတိုင်မီနှင့် ပြီးနောက် တိုက်ရိုက်သက်ဆိုင်သော ရောဂါရှာဖွေစစ်ဆေးမှုခ သို့မဟုတ် ဆေးရုံဆင်းပြီးနောက် တိုက်ရိုက်သက်ဆိုင်သော ဆက်လက်ကုသမှု ပြင်ပလူနာကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 6 Services de diagnostic directement liés, avant et après une hospitalisation, ou soins ambulatoires de suivi directement liés après une hospitalisation, par année d'assurance",
+    "de": "Kategorie 6 Unmittelbar zusammenhängende Diagnoseleistungen vor und nach einem stationären Aufenthalt oder unmittelbar zusammenhängende ambulante Nachbehandlung nach einem stationären Aufenthalt, pro Versicherungsjahr"
   },
   "หมวดย่อยที่ 6.1 ค่าบริการทางการแพทย์ เพื่อการตรวจวินิจฉัยที่เกี่ยวข้องโดยตรง และเกิดขึ้นภายใน 30 วัน ก่อนและหลังการเข้าพักรักษาตัวเป็นผู้ป่วยใน": {
     "en": "Sub-category 6.1 Directly related diagnostic services within 30 days before and after an inpatient admission",
     "zh": "第6.1小类 住院前后30天内发生的直接相关诊断医疗服务费",
     "ru": "Подраздел 6.1 Непосредственно связанные диагностические услуги в течение 30 дней до и после госпитализации",
-    "my": "အပိုင်းခွဲ 6.1 ဆေးရုံတက်မှု မတိုင်မီနှင့် ပြီးနောက် 30 ရက်အတွင်း တိုက်ရိုက်သက်ဆိုင်သော ရောဂါရှာဖွေစစ်ဆေးမှုခ"
+    "my": "အပိုင်းခွဲ 6.1 ဆေးရုံတက်မှု မတိုင်မီနှင့် ပြီးနောက် 30 ရက်အတွင်း တိုက်ရိုက်သက်ဆိုင်သော ရောဂါရှာဖွေစစ်ဆေးမှုခ",
+    "fr": "Sous-catégorie 6.1 Services de diagnostic directement liés, dans les 30 jours avant et après une hospitalisation",
+    "de": "Unterkategorie 6.1 Unmittelbar zusammenhängende Diagnoseleistungen innerhalb von 30 Tagen vor und nach einem stationären Aufenthalt"
   },
   "หมวดย่อยที่ 6.2 ค่ารักษาพยาบาลผู้ป่วยนอก หลังการเข้าพักรักษาตัวเป็นผู้ป่วยในต่อครั้ง สำหรับการรักษาพยาบาลต่อเนื่อง ภายใน 30 วัน หลังจากออกจากการเข้าพักรักษาตัวเป็นผู้ป่วยในครั้งนั้น (ไม่รวมค่าบริการทางการแพทย์เพื่อการตรวจวินิจฉัย)": {
     "en": "Sub-category 6.2 Outpatient treatment after an inpatient admission, per visit, for follow-up treatment within 30 days of discharge from that admission (excluding diagnostic services)",
     "zh": "第6.2小类 出院后门诊费用（每次），用于该次出院后30天内的后续治疗（不含诊断医疗服务费）",
     "ru": "Подраздел 6.2 Амбулаторное лечение после госпитализации, за визит, для продолжения лечения в течение 30 дней после выписки (без диагностических услуг)",
-    "my": "အပိုင်းခွဲ 6.2 ဆေးရုံဆင်းပြီးနောက် ပြင်ပလူနာကုသခ (တစ်ကြိမ်လျှင်)၊ ထိုဆေးရုံတက်မှုမှ ဆင်းပြီး 30 ရက်အတွင်း ဆက်လက်ကုသမှုအတွက် (ရောဂါရှာဖွေစစ်ဆေးမှုခ မပါဝင်)"
+    "my": "အပိုင်းခွဲ 6.2 ဆေးရုံဆင်းပြီးနောက် ပြင်ပလူနာကုသခ (တစ်ကြိမ်လျှင်)၊ ထိုဆေးရုံတက်မှုမှ ဆင်းပြီး 30 ရက်အတွင်း ဆက်လက်ကုသမှုအတွက် (ရောဂါရှာဖွေစစ်ဆေးမှုခ မပါဝင်)",
+    "fr": "Sous-catégorie 6.2 Soins ambulatoires après une hospitalisation, par consultation, pour un traitement de suivi dans les 30 jours suivant la sortie de cette hospitalisation (hors services de diagnostic)",
+    "de": "Unterkategorie 6.2 Ambulante Behandlung nach einem stationären Aufenthalt, pro Besuch, zur Nachbehandlung innerhalb von 30 Tagen nach der Entlassung aus diesem Aufenthalt (ohne Diagnoseleistungen)"
   },
   "2 ครั้ง ต่อการเข้าพักรักษาตัวเป็นผู้ป่วยในแต่ละครั้ง": {
     "en": "2 visits per inpatient admission",
     "zh": "每次住院最多2次",
     "ru": "2 визита на каждую госпитализацию",
-    "my": "ဆေးရုံတက်မှုတစ်ကြိမ်လျှင် 2 ကြိမ်"
+    "my": "ဆေးရုံတက်မှုတစ်ကြိမ်လျှင် 2 ကြိမ်",
+    "fr": "2 consultations par hospitalisation",
+    "de": "2 Besuche pro stationärem Aufenthalt"
   },
   "หมวดที่ 7 ค่ารักษาพยาบาลการบาดเจ็บ กรณีผู้ป่วยนอก ภายใน 24 ชั่วโมง ของการเกิดอุบัติเหตุต่อครั้ง": {
     "en": "Category 7 Outpatient treatment of injuries within 24 hours of an accident, per accident",
     "zh": "第7类 意外发生后24小时内的门诊伤害治疗费（每次意外）",
     "ru": "Раздел 7 Амбулаторное лечение травм в течение 24 часов после несчастного случая, за каждый случай",
-    "my": "အပိုင်း 7 မတော်တဆမှုဖြစ်ပြီး 24 နာရီအတွင်း ဒဏ်ရာအတွက် ပြင်ပလူနာကုသခ (တစ်ကြိမ်လျှင်)"
+    "my": "အပိုင်း 7 မတော်တဆမှုဖြစ်ပြီး 24 နာရီအတွင်း ဒဏ်ရာအတွက် ပြင်ပလူနာကုသခ (တစ်ကြိမ်လျှင်)",
+    "fr": "Catégorie 7 Soins ambulatoires des blessures dans les 24 heures suivant un accident, par accident",
+    "de": "Kategorie 7 Ambulante Behandlung von Verletzungen innerhalb von 24 Stunden nach einem Unfall, pro Unfall"
   },
   "หมวดที่ 8 ค่าเวชศาสตร์ฟื้นฟู หลังการเข้าพักรักษาตัวเป็นผู้ป่วยในแต่ละครั้ง ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 8 Rehabilitation medicine after each inpatient admission, per policy year",
     "zh": "第8类 每次住院后的康复医疗费，每保单年度",
     "ru": "Раздел 8 Реабилитация после каждой госпитализации за полисный год",
-    "my": "အပိုင်း 8 ဆေးရုံတက်မှုတစ်ကြိမ်စီပြီးနောက် ပြန်လည်ထူထောင်ရေးဆေးကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 8 ဆေးရုံတက်မှုတစ်ကြိမ်စီပြီးနောက် ပြန်လည်ထူထောင်ရေးဆေးကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 8 Médecine de rééducation après chaque hospitalisation, par année d'assurance",
+    "de": "Kategorie 8 Rehabilitationsmedizin nach jedem stationären Aufenthalt, pro Versicherungsjahr"
   },
   "ไม่คุ้มครอง": {
     "en": "Not covered",
     "zh": "不保障",
     "ru": "Не покрывается",
-    "my": "အကာအကွယ်မပေးပါ"
+    "my": "အကာအကွယ်မပေးပါ",
+    "fr": "Non couvert",
+    "de": "Nicht gedeckt"
   },
   "หมวดที่ 9 ค่าบริการทางการแพทย์เพื่อการบำบัดรักษาโรคไตวายเรื้อรัง โดยการล้างไตผ่านทางเส้นเลือด ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 9 Medical services for chronic kidney failure treated by haemodialysis, per policy year",
     "zh": "第9类 以血液透析治疗慢性肾衰竭的医疗服务费，每保单年度",
     "ru": "Раздел 9 Лечение хронической почечной недостаточности методом гемодиализа за полисный год",
-    "my": "အပိုင်း 9 နာတာရှည်ကျောက်ကပ်ပျက်ခြင်းကို သွေးစစ်ထုတ်ခြင်း (ဟီမိုဒိုင်ယာလိုက်ဆစ်) ဖြင့် ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 9 နာတာရှည်ကျောက်ကပ်ပျက်ခြင်းကို သွေးစစ်ထုတ်ခြင်း (ဟီမိုဒိုင်ယာလိုက်ဆစ်) ဖြင့် ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 9 Services médicaux pour l'insuffisance rénale chronique traitée par hémodialyse, par année d'assurance",
+    "de": "Kategorie 9 Medizinische Leistungen bei chronischem Nierenversagen mit Hämodialyse, pro Versicherungsjahr"
   },
   "หมวดที่ 10 ค่าบริการทางการแพทย์เพื่อการบำบัดรักษาโรคเนื้องอกหรือมะเร็ง โดยรังสีรักษา รังสีร่วมรักษา เวชศาสตร์นิวเคลียร์รักษา ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 10 Medical services for tumours or cancer treated by radiotherapy, interventional radiology or nuclear medicine therapy, per policy year",
     "zh": "第10类 以放射治疗、介入放射治疗或核医学治疗肿瘤或癌症的医疗服务费，每保单年度",
     "ru": "Раздел 10 Лечение опухолей или рака методами лучевой терапии, интервенционной радиологии или ядерной медицины за полисный год",
-    "my": "အပိုင်း 10 အကျိတ် သို့မဟုတ် ကင်ဆာကို ဓာတ်ရောင်ခြည်ကုထုံး၊ ဓာတ်ရောင်ခြည်ဖြင့် ကြားဝင်ကုသမှု သို့မဟုတ် နျူကလီးယားဆေးပညာဖြင့် ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 10 အကျိတ် သို့မဟုတ် ကင်ဆာကို ဓာတ်ရောင်ခြည်ကုထုံး၊ ဓာတ်ရောင်ခြည်ဖြင့် ကြားဝင်ကုသမှု သို့မဟုတ် နျူကလီးယားဆေးပညာဖြင့် ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 10 Services médicaux pour les tumeurs ou le cancer traités par radiothérapie, radiologie interventionnelle ou médecine nucléaire, par année d'assurance",
+    "de": "Kategorie 10 Medizinische Leistungen bei Tumoren oder Krebs mit Strahlentherapie, interventioneller Radiologie oder nuklearmedizinischer Therapie, pro Versicherungsjahr"
   },
   "หมวดที่ 11 ค่าบริการทางการแพทย์เพื่อการบำบัดรักษาโรคมะเร็ง โดยเคมีบำบัด ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 11 Medical services for cancer treated by chemotherapy, per policy year",
     "zh": "第11类 以化学治疗癌症的医疗服务费，每保单年度",
     "ru": "Раздел 11 Лечение рака химиотерапией за полисный год",
-    "my": "အပိုင်း 11 ကင်ဆာကို ဓာတုကုထုံးဖြင့် ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 11 ကင်ဆာကို ဓာတုကုထုံးဖြင့် ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 11 Services médicaux pour le cancer traité par chimiothérapie, par année d'assurance",
+    "de": "Kategorie 11 Medizinische Leistungen bei Krebs mit Chemotherapie, pro Versicherungsjahr"
   },
   "หมวดที่ 12 ค่าบริการรถพยาบาลฉุกเฉิน": {
     "en": "Category 12 Emergency ambulance services",
     "zh": "第12类 紧急救护车服务费",
     "ru": "Раздел 12 Скорая медицинская помощь",
-    "my": "အပိုင်း 12 အရေးပေါ်လူနာတင်ယာဉ်ခ"
+    "my": "အပိုင်း 12 အရေးပေါ်လူနာတင်ယာဉ်ခ",
+    "fr": "Catégorie 12 Transport d'urgence en ambulance",
+    "de": "Kategorie 12 Notfall-Krankentransport"
   },
   "หมวดที่ 13 ค่ารักษาพยาบาล โดยการผ่าตัดเล็ก": {
     "en": "Category 13 Minor surgery",
     "zh": "第13类 小手术费用",
     "ru": "Раздел 13 Малые хирургические операции",
-    "my": "အပိုင်း 13 ခွဲစိတ်မှုငယ်"
+    "my": "အပိုင်း 13 ခွဲစိတ်မှုငယ်",
+    "fr": "Catégorie 13 Petite chirurgie",
+    "de": "Kategorie 13 Kleinere Operationen"
   },
   "หมวดที่ 14 ค่าพยาบาลพิเศษในโรงพยาบาล และ/หรือ ที่บ้าน หลังการเข้าพักรักษาตัวเป็นผู้ป่วยใน": {
     "en": "Category 14 Private nursing in hospital and/or at home after an inpatient admission",
     "zh": "第14类 住院后在医院和/或家中的特别护理费",
     "ru": "Раздел 14 Индивидуальный сестринский уход в больнице и/или на дому после госпитализации",
-    "my": "အပိုင်း 14 ဆေးရုံဆင်းပြီးနောက် ဆေးရုံတွင် နှင့်/သို့မဟုတ် အိမ်တွင် အထူးသူနာပြုစောင့်ရှောက်ခ"
+    "my": "အပိုင်း 14 ဆေးရုံဆင်းပြီးနောက် ဆေးရုံတွင် နှင့်/သို့မဟုတ် အိမ်တွင် အထူးသူနာပြုစောင့်ရှောက်ခ",
+    "fr": "Catégorie 14 Soins infirmiers privés à l'hôpital et/ou à domicile après une hospitalisation",
+    "de": "Kategorie 14 Private Pflege im Krankenhaus und/oder zu Hause nach einem stationären Aufenthalt"
   },
   "หมวดที่ 15 ค่าทันตกรรมเนื่องจากอุบัติเหตุ (ภายใน 7 วัน)": {
     "en": "Category 15 Dental treatment due to an accident (within 7 days)",
     "zh": "第15类 意外导致的牙科治疗费（7天内）",
     "ru": "Раздел 15 Стоматологическое лечение после несчастного случая (в течение 7 дней)",
-    "my": "အပိုင်း 15 မတော်တဆမှုကြောင့် သွားကုသခ (7 ရက်အတွင်း)"
+    "my": "အပိုင်း 15 မတော်တဆမှုကြောင့် သွားကုသခ (7 ရက်အတွင်း)",
+    "fr": "Catégorie 15 Soins dentaires à la suite d'un accident (dans les 7 jours)",
+    "de": "Kategorie 15 Zahnbehandlung infolge eines Unfalls (innerhalb von 7 Tagen)"
   },
   "หมวดที่ 16 ค่าศัลยกรรมในช่องปาก": {
     "en": "Category 16 Oral surgery",
     "zh": "第16类 口腔外科手术费",
     "ru": "Раздел 16 Хирургия полости рта",
-    "my": "အပိုင်း 16 ခံတွင်းခွဲစိတ်ကုသခ"
+    "my": "အပိုင်း 16 ခံတွင်းခွဲစိတ်ကုသခ",
+    "fr": "Catégorie 16 Chirurgie buccale",
+    "de": "Kategorie 16 Oralchirurgie"
   },
   "หมวดที่ 17 ภาวะแทรกซ้อนก่อนและหลังการคลอดบุตร (12MWP)": {
     "en": "Category 17 Complications before and after childbirth (12MWP)",
     "zh": "第17类 分娩前后并发症（12MWP）",
     "ru": "Раздел 17 Осложнения до и после родов (12MWP)",
-    "my": "အပိုင်း 17 မီးမဖွားမီနှင့် ဖွားပြီးနောက် နောက်ဆက်တွဲပြဿနာများ (12MWP)"
+    "my": "အပိုင်း 17 မီးမဖွားမီနှင့် ဖွားပြီးနောက် နောက်ဆက်တွဲပြဿနာများ (12MWP)",
+    "fr": "Catégorie 17 Complications avant et après l'accouchement (12MWP)",
+    "de": "Kategorie 17 Komplikationen vor und nach der Geburt (12MWP)"
   },
   "หมวดที่ 18 ค่าปรึกษาแพทย์และยารวมถึงใบสั่งยาสำหรับผู้ป่วยนอก ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 18 Outpatient doctor consultations and medicines, including prescriptions, per policy year",
     "zh": "第18类 门诊医师咨询费及药费（含处方），每保单年度",
     "ru": "Раздел 18 Амбулаторные консультации врача и лекарства, включая рецепты, за полисный год",
-    "my": "အပိုင်း 18 ပြင်ပလူနာ ဆရာဝန်တိုင်ပင်ခနှင့် ဆေးဝါးခ (ဆေးညွှန်းအပါအဝင်)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 18 ပြင်ပလူနာ ဆရာဝန်တိုင်ပင်ခနှင့် ဆေးဝါးခ (ဆေးညွှန်းအပါအဝင်)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 18 Consultations médicales ambulatoires et médicaments, y compris les ordonnances, par année d'assurance",
+    "de": "Kategorie 18 Ambulante Arztkonsultationen und Arzneimittel, einschließlich Verschreibungen, pro Versicherungsjahr"
   },
   "หมวดที่ 19 ค่ากายภาพบำบัดสำหรับผู้ป่วยนอกต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 19 Outpatient physiotherapy, per policy year",
     "zh": "第19类 门诊物理治疗费，每保单年度",
     "ru": "Раздел 19 Амбулаторная физиотерапия за полисный год",
-    "my": "အပိုင်း 19 ပြင်ပလူနာ ကိုယ်လက်လှုပ်ရှားကုထုံးခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 19 ပြင်ပလူနာ ကိုယ်လက်လှုပ်ရှားကုထုံးခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 19 Kinésithérapie ambulatoire, par année d'assurance",
+    "de": "Kategorie 19 Ambulante Physiotherapie, pro Versicherungsjahr"
   },
   "หมวดที่ 20 ค่าหออภิบาลทารกแรกเกิด": {
     "en": "Category 20 Neonatal intensive care",
     "zh": "第20类 新生儿重症监护费",
     "ru": "Раздел 20 Интенсивная терапия новорождённых",
-    "my": "အပိုင်း 20 မွေးကင်းစကလေး အထူးကြပ်မတ်ကုသခ"
+    "my": "အပိုင်း 20 မွေးကင်းစကလေး အထူးကြပ်မတ်ကုသခ",
+    "fr": "Catégorie 20 Soins intensifs néonatals",
+    "de": "Kategorie 20 Neonatale Intensivpflege"
   },
   "หมวดที่ 21 ค่ารักษาโดยแพทย์ทางเลือก ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 21 Alternative medicine, per policy year",
     "zh": "第21类 替代医学治疗费，每保单年度",
     "ru": "Раздел 21 Альтернативная медицина за полисный год",
-    "my": "အပိုင်း 21 အစားထိုးဆေးပညာဖြင့် ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 21 အစားထိုးဆေးပညာဖြင့် ကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 21 Médecine alternative, par année d'assurance",
+    "de": "Kategorie 21 Alternativmedizin, pro Versicherungsjahr"
   },
   "หมวดที่ 22 ค่าตรวจรักษาทางทันตกรรม ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 22 Dental treatment, per policy year",
     "zh": "第22类 牙科治疗费，每保单年度",
     "ru": "Раздел 22 Стоматологическое лечение за полисный год",
-    "my": "အပိုင်း 22 သွားကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 22 သွားကုသခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 22 Soins dentaires, par année d'assurance",
+    "de": "Kategorie 22 Zahnbehandlung, pro Versicherungsjahr"
   },
   "หมวดที่ 23 ค่ารักษาด้านจิตเวช สำหรับกรณีผู้ป่วยในและผู้ป่วยนอก ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 23 Psychiatric treatment, inpatient and outpatient, per policy year",
     "zh": "第23类 精神科治疗费（住院及门诊），每保单年度",
     "ru": "Раздел 23 Психиатрическое лечение, стационарное и амбулаторное, за полисный год",
-    "my": "အပိုင်း 23 စိတ်ရောဂါကုသခ (အတွင်းလူနာနှင့် ပြင်ပလူနာ)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 23 စိတ်ရောဂါကုသခ (အတွင်းလူနာနှင့် ပြင်ပလူနာ)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 23 Traitement psychiatrique, en hospitalisation et en ambulatoire, par année d'assurance",
+    "de": "Kategorie 23 Psychiatrische Behandlung, stationär und ambulant, pro Versicherungsjahr"
   },
   "หมวดที่ 24 ค่ารักษาพยาบาลสำหรับการตั้งครรภ์และคลอดบุตร (12MWP) ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 24 Pregnancy and childbirth (12MWP), per policy year",
     "zh": "第24类 妊娠及分娩费用（12MWP），每保单年度",
     "ru": "Раздел 24 Беременность и роды (12MWP) за полисный год",
-    "my": "အပိုင်း 24 ကိုယ်ဝန်ဆောင်ခြင်းနှင့် မီးဖွားခြင်းကုသခ (12MWP)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 24 ကိုယ်ဝန်ဆောင်ခြင်းနှင့် မီးဖွားခြင်းကုသခ (12MWP)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 24 Grossesse et accouchement (12MWP), par année d'assurance",
+    "de": "Kategorie 24 Schwangerschaft und Geburt (12MWP), pro Versicherungsjahr"
   },
   "หมวดที่ 25 ค่าดูแลรักษาสายตา ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 25 Vision care, per policy year",
     "zh": "第25类 视力保健费，每保单年度",
     "ru": "Раздел 25 Уход за зрением за полисный год",
-    "my": "အပိုင်း 25 မျက်စိစောင့်ရှောက်မှုခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 25 မျက်စိစောင့်ရှောက်မှုခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 25 Soins de la vue, par année d'assurance",
+    "de": "Kategorie 25 Augenversorgung, pro Versicherungsjahr"
   },
   "หมวดที่ 26 ค่าตรวจสุขภาพประจำปี (12MWP) ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 26 Annual health check-up (12MWP), per policy year",
     "zh": "第26类 年度体检费（12MWP），每保单年度",
     "ru": "Раздел 26 Ежегодный медосмотр (12MWP) за полисный год",
-    "my": "အပိုင်း 26 နှစ်စဉ်ကျန်းမာရေးစစ်ဆေးခ (12MWP)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 26 နှစ်စဉ်ကျန်းမာရေးစစ်ဆေးခ (12MWP)၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 26 Bilan de santé annuel (12MWP), par année d'assurance",
+    "de": "Kategorie 26 Jährlicher Gesundheitscheck (12MWP), pro Versicherungsjahr"
   },
   "หมวดที่ 27 ค่าฉีดวัคซีน ต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Category 27 Vaccinations, per policy year",
     "zh": "第27类 疫苗接种费，每保单年度",
     "ru": "Раздел 27 Вакцинация за полисный год",
-    "my": "အပိုင်း 27 ကာကွယ်ဆေးထိုးခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်"
+    "my": "အပိုင်း 27 ကာကွယ်ဆေးထိုးခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင်",
+    "fr": "Catégorie 27 Vaccinations, par année d'assurance",
+    "de": "Kategorie 27 Impfungen, pro Versicherungsjahr"
   },
   "หมวดที่ 28 ค่ารักษาพยาบาล และการดูแลแบบประคับประคอง ระยะสุดท้าย ต่อรอบปีกรมธรรม์ประกันภัย (12MWP)": {
     "en": "Category 28 End-of-life and palliative care, per policy year (12MWP)",
     "zh": "第28类 临终及姑息治疗费，每保单年度（12MWP）",
     "ru": "Раздел 28 Паллиативная помощь в терминальной стадии за полисный год (12MWP)",
-    "my": "အပိုင်း 28 ဘဝနောက်ဆုံးအဆင့်နှင့် ဝေဒနာသက်သာစေရေး စောင့်ရှောက်မှုခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင် (12MWP)"
+    "my": "အပိုင်း 28 ဘဝနောက်ဆုံးအဆင့်နှင့် ဝေဒနာသက်သာစေရေး စောင့်ရှောက်မှုခ၊ ပေါ်လစီနှစ်တစ်နှစ်လျှင် (12MWP)",
+    "fr": "Catégorie 28 Soins de fin de vie et soins palliatifs, par année d'assurance (12MWP)",
+    "de": "Kategorie 28 Versorgung am Lebensende und Palliativversorgung, pro Versicherungsjahr (12MWP)"
   },
   "ไอเฮลท์ตี้ อัลตร้า": {
     "en": "iHealthy Ultra",
     "zh": "iHealthy Ultra",
     "ru": "iHealthy Ultra",
-    "my": "iHealthy Ultra"
+    "my": "iHealthy Ultra",
+    "fr": "iHealthy Ultra",
+    "de": "iHealthy Ultra"
   },
   "สมาร์ท": {
     "en": "Smart",
     "zh": "Smart",
     "ru": "Smart",
-    "my": "Smart"
+    "my": "Smart",
+    "fr": "Smart",
+    "de": "Smart"
   },
   "3,000,000 ต่อรอบปีกรมธรรม์ประกันภัย (นับรวมผลประโยชน์จากสัญญาเพิ่มเติม และบันทึกสลักหลังที่แนบท้ายสัญญาเพิ่มเติมนี้)": {
     "en": "3,000,000 per policy year (including benefits under the rider and the endorsement attached to it)",
     "zh": "每保单年度 3,000,000（包括本附加合同及其所附批单的保障）",
     "ru": "3,000,000 за полисный год (включая выплаты по дополнительному договору и прилагаемому к нему дополнению)",
-    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 3,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)"
+    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 3,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)",
+    "fr": "3,000,000 par année d'assurance (y compris les prestations de la garantie complémentaire et de l'avenant qui y est annexé)",
+    "de": "3.000.000 pro Versicherungsjahr (einschließlich der Leistungen der Zusatzversicherung und des ihr beigefügten Nachtrags)"
   },
   "บรอนซ์": {
     "en": "Bronze",
     "zh": "Bronze",
     "ru": "Bronze",
-    "my": "Bronze"
+    "my": "Bronze",
+    "fr": "Bronze",
+    "de": "Bronze"
   },
   "10,000,000 ต่อรอบปีกรมธรรม์ประกันภัย (นับรวมผลประโยชน์จากสัญญาเพิ่มเติม และบันทึกสลักหลังที่แนบท้ายสัญญาเพิ่มเติมนี้)": {
     "en": "10,000,000 per policy year (including benefits under the rider and the endorsement attached to it)",
     "zh": "每保单年度 10,000,000（包括本附加合同及其所附批单的保障）",
     "ru": "10,000,000 за полисный год (включая выплаты по дополнительному договору и прилагаемому к нему дополнению)",
-    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 10,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)"
+    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 10,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)",
+    "fr": "10,000,000 par année d'assurance (y compris les prestations de la garantie complémentaire et de l'avenant qui y est annexé)",
+    "de": "10.000.000 pro Versicherungsjahr (einschließlich der Leistungen der Zusatzversicherung und des ihr beigefügten Nachtrags)"
   },
   "ซิลเวอร์": {
     "en": "Silver",
     "zh": "Silver",
     "ru": "Silver",
-    "my": "Silver"
+    "my": "Silver",
+    "fr": "Silver",
+    "de": "Silver"
   },
   "15,000,000 ต่อรอบปีกรมธรรม์ประกันภัย (นับรวมผลประโยชน์จากสัญญาเพิ่มเติม และบันทึกสลักหลังที่แนบท้ายสัญญาเพิ่มเติมนี้)": {
     "en": "15,000,000 per policy year (including benefits under the rider and the endorsement attached to it)",
     "zh": "每保单年度 15,000,000（包括本附加合同及其所附批单的保障）",
     "ru": "15,000,000 за полисный год (включая выплаты по дополнительному договору и прилагаемому к нему дополнению)",
-    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 15,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)"
+    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 15,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)",
+    "fr": "15,000,000 par année d'assurance (y compris les prestations de la garantie complémentaire et de l'avenant qui y est annexé)",
+    "de": "15.000.000 pro Versicherungsjahr (einschließlich der Leistungen der Zusatzversicherung und des ihr beigefügten Nachtrags)"
   },
   "โกลด์": {
     "en": "Gold",
     "zh": "Gold",
     "ru": "Gold",
-    "my": "Gold"
+    "my": "Gold",
+    "fr": "Gold",
+    "de": "Gold"
   },
   "25,000,000 ต่อรอบปีกรมธรรม์ประกันภัย (นับรวมผลประโยชน์จากสัญญาเพิ่มเติม และบันทึกสลักหลังที่แนบท้ายสัญญาเพิ่มเติมนี้)": {
     "en": "25,000,000 per policy year (including benefits under the rider and the endorsement attached to it)",
     "zh": "每保单年度 25,000,000（包括本附加合同及其所附批单的保障）",
     "ru": "25,000,000 за полисный год (включая выплаты по дополнительному договору и прилагаемому к нему дополнению)",
-    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 25,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)"
+    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 25,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)",
+    "fr": "25,000,000 par année d'assurance (y compris les prestations de la garantie complémentaire et de l'avenant qui y est annexé)",
+    "de": "25.000.000 pro Versicherungsjahr (einschließlich der Leistungen der Zusatzversicherung und des ihr beigefügten Nachtrags)"
   },
   "ไดมอนด์": {
     "en": "Diamond",
     "zh": "Diamond",
     "ru": "Diamond",
-    "my": "Diamond"
+    "my": "Diamond",
+    "fr": "Diamond",
+    "de": "Diamond"
   },
   "70,000,000 ต่อรอบปีกรมธรรม์ประกันภัย (นับรวมผลประโยชน์จากสัญญาเพิ่มเติม และบันทึกสลักหลังที่แนบท้ายสัญญาเพิ่มเติมนี้)": {
     "en": "70,000,000 per policy year (including benefits under the rider and the endorsement attached to it)",
     "zh": "每保单年度 70,000,000（包括本附加合同及其所附批单的保障）",
     "ru": "70,000,000 за полисный год (включая выплаты по дополнительному договору и прилагаемому к нему дополнению)",
-    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 70,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)"
+    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 70,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)",
+    "fr": "70,000,000 par année d'assurance (y compris les prestations de la garantie complémentaire et de l'avenant qui y est annexé)",
+    "de": "70.000.000 pro Versicherungsjahr (einschließlich der Leistungen der Zusatzversicherung und des ihr beigefügten Nachtrags)"
   },
   "แพลทินั่ม": {
     "en": "Platinum",
     "zh": "Platinum",
     "ru": "Platinum",
-    "my": "Platinum"
+    "my": "Platinum",
+    "fr": "Platinum",
+    "de": "Platinum"
   },
   "100,000,000 ต่อรอบปีกรมธรรม์ประกันภัย (นับรวมผลประโยชน์จากสัญญาเพิ่มเติม และบันทึกสลักหลังที่แนบท้ายสัญญาเพิ่มเติมนี้)": {
     "en": "100,000,000 per policy year (including benefits under the rider and the endorsement attached to it)",
     "zh": "每保单年度 100,000,000（包括本附加合同及其所附批单的保障）",
     "ru": "100,000,000 за полисный год (включая выплаты по дополнительному договору и прилагаемому к нему дополнению)",
-    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 100,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)"
+    "my": "ပေါ်လစီနှစ်တစ်နှစ်လျှင် 100,000,000 (ဖြည့်စွက်စာချုပ်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်းမှ အကျိုးခံစားခွင့်များ အပါအဝင်)",
+    "fr": "100,000,000 par année d'assurance (y compris les prestations de la garantie complémentaire et de l'avenant qui y est annexé)",
+    "de": "100.000.000 pro Versicherungsjahr (einschließlich der Leistungen der Zusatzversicherung und des ihr beigefügten Nachtrags)"
   },
   "เนื้องอก ถุงน้ำ หรือมะเร็งทุกชนิด": {
     "en": "Tumours, cysts or cancers of any kind",
     "zh": "各类肿瘤、囊肿或癌症",
     "ru": "Опухоли, кисты или рак любого вида",
-    "my": "အကျိတ်၊ အရည်အိတ် သို့မဟုတ် ကင်ဆာ အမျိုးအစားအားလုံး"
+    "my": "အကျိတ်၊ အရည်အိတ် သို့မဟုတ် ကင်ဆာ အမျိုးအစားအားလုံး",
+    "fr": "Tumeurs, kystes ou cancers de toute nature",
+    "de": "Tumore, Zysten oder Krebs jeder Art"
   },
   "ริดสีดวงทวาร": {
     "en": "Haemorrhoids",
     "zh": "痔疮",
     "ru": "Геморрой",
-    "my": "လိပ်ခေါင်း"
+    "my": "လိပ်ခေါင်း",
+    "fr": "Hémorroïdes",
+    "de": "Hämorrhoiden"
   },
   "ไส้เลื่อนทุกชนิด": {
     "en": "Hernias of any kind",
     "zh": "各类疝气",
     "ru": "Грыжи любого вида",
-    "my": "အူကျွံခြင်း အမျိုးအစားအားလုံး"
+    "my": "အူကျွံခြင်း အမျိုးအစားအားလုံး",
+    "fr": "Hernies de toute nature",
+    "de": "Hernien jeder Art"
   },
   "ต้อเนื้อ หรือต้อกระจก": {
     "en": "Pterygium or cataract",
     "zh": "翼状胬肉或白内障",
     "ru": "Птеригиум или катаракта",
-    "my": "မျက်သားတက်ခြင်း သို့မဟုတ် အတွင်းတိမ်"
+    "my": "မျက်သားတက်ခြင်း သို့မဟုတ် အတွင်းတိမ်",
+    "fr": "Ptérygion ou cataracte",
+    "de": "Pterygium oder Katarakt (grauer Star)"
   },
   "การตัดทอนซิล หรืออดีนอยด์": {
     "en": "Removal of tonsils or adenoids",
     "zh": "扁桃体或腺样体切除",
     "ru": "Удаление миндалин или аденоидов",
-    "my": "အာသီး သို့မဟုတ် နှာခေါင်းနောက်အကျိတ် (adenoid) ဖြတ်ထုတ်ခြင်း"
+    "my": "အာသီး သို့မဟုတ် နှာခေါင်းနောက်အကျိတ် (adenoid) ဖြတ်ထုတ်ခြင်း",
+    "fr": "Ablation des amygdales ou des végétations adénoïdes",
+    "de": "Entfernung der Gaumen- oder Rachenmandeln"
   },
   "นิ่วทุกชนิด": {
     "en": "Stones of any kind",
     "zh": "各类结石",
     "ru": "Камни любого вида",
-    "my": "ကျောက်ရောဂါ အမျိုးအစားအားလုံး"
+    "my": "ကျောက်ရောဂါ အမျိုးအစားအားလုံး",
+    "fr": "Calculs de toute nature",
+    "de": "Steine jeder Art"
   },
   "เส้นเลือดขอดที่ขา": {
     "en": "Varicose veins of the legs",
     "zh": "下肢静脉曲张",
     "ru": "Варикозное расширение вен ног",
-    "my": "ခြေထောက် သွေးကြောဖောင်းခြင်း"
+    "my": "ခြေထောက် သွေးကြောဖောင်းခြင်း",
+    "fr": "Varices des jambes",
+    "de": "Krampfadern der Beine"
   },
   "เยื่อบุโพรงมดลูกเจริญผิดที่": {
     "en": "Endometriosis",
     "zh": "子宫内膜异位症",
     "ru": "Эндометриоз",
-    "my": "သားအိမ်အတွင်းနံရံတစ်သျှူး နေရာလွဲပေါက်ခြင်း (Endometriosis)"
+    "my": "သားအိမ်အတွင်းနံရံတစ်သျှူး နေရာလွဲပေါက်ခြင်း (Endometriosis)",
+    "fr": "Endométriose",
+    "de": "Endometriose"
   },
   "สัญญาเพิ่มเติมค่ารักษาพยาบาล ไอเฮลท์ตี้ อัลตร้า (MHP) สามารถต่ออายุได้ถึงอายุ 98 ปี ทั้งนี้ ต้องไม่เกินระยะเวลาเอาประกันภัยของกรมธรรม์ประกันชีวิตที่สัญญาเพิ่มเติมนี้แนบท้ายอยู่ ในการต่ออายุสัญญาเพิ่มเติมนี้ บริษัทจะสงวนสิทธิในการเปลี่ยนแปลงเงื่อนไขข้อตกลงความคุ้มครอง โดยการเพิ่มเงื่อนไขให้ผู้เอาประกันภัยมีค่าใช้จ่ายร่วม (Copayment) ตามอัตราและหลักเกณฑ์ดังต่อไปนี้ (1) อัตราร้อยละ 30 ของค่าใช้จ่ายที่ได้รับความคุ้มครอง กรณีผู้เอาประกันภัยมีการเรียกร้องผลประโยชน์จากการป่วยเล็กน้อยทั่วไป (Simple diseases) และเข้าพักรักษาตัวในโรงพยาบาล ในรอบปีกรมธรรม์ประกันภัยตั้งแต่ 3 ครั้งขึ้นไป และมีอัตราการเรียกร้องค่าสินไหมทดแทนจากสาเหตุข้างต้นของผู้เอาประกันภัยแต่ละรายภายใต้สัญญาเพิ่มเติมฉบับนี้ ตั้งแต่ร้อยละ 200 หรือ (2) อัตราร้อยละ 30 ของค่าใช้จ่ายที่ได้รับความคุ้มครอง กรณีผู้เอาประกันภัยมีการเรียกร้องผลประโยชน์จากการเข้าพักรักษาตัวในโรงพยาบาล ในรอบปีกรมธรรม์ประกันภัยตั้งแต่ 3 ครั้งขึ้นไป และมีอัตราการเรียกร้องค่าสินไหมทดแทนจากสาเหตุข้างต้นของผู้เอาประกันภัยแต่ละรายภายใต้สัญญาเพิ่มเติมฉบับนี้ ตั้งแต่ร้อยละ 400 แต่ไม่รวมถึงค่าสินไหมทดแทนจากค่ารักษาโรคร้ายแรงตามรายชื่อในเอกสารแนบท้ายรายชื่อโรคร้ายแรง และ/หรือการผ่าตัดใหญ่ หากบริษัทเพิ่มเงื่อนไขให้ผู้เอาประกันภัยมีค่าใช้จ่ายร่วม (Copayment) เนื่องจากมีกรณีตาม (1) และ (2) บริษัทจะกำหนดเงื่อนไขให้ผู้เอาประกันภัยมีค่าใช้จ่ายร่วม (Copayment) ร้อยละ 50 ของค่าใช้จ่ายที่ได้รับความคุ้มครอง ในกรณีที่บริษัทกำหนดเงื่อนไขให้ผู้เอาประกันภัยมีค่าใช้จ่ายร่วม (Copayment) แล้ว ต่อมาการเรียกร้องผลประโยชน์หรืออัตราการเรียกร้องค่าสินไหมทดแทนของผู้เอาประกันภัยปรับลดลงจากหลักเกณฑ์ข้างต้นให้บริษัทพิจารณาปรับลดอัตราค่าใช้จ่ายร่วม (Copayment) ให้กับผู้เอาประกันภัย ในกรณีบริษัทเพิ่มเติมเงื่อนไขให้ผู้เอาประกันภัยมีค่าใช้จ่ายร่วม (Copayment) ที่เป็นไปตามอัตราและหลักเกณฑ์ข้างต้น บริษัทจะออกหลักฐานเกี่ยวกับการกำหนดอัตราและหลักเกณฑ์ค่าใช้จ่ายร่วม (Copayment) ให้ผู้เอาประกันภัยทราบก่อนวันครบรอบปีกรมธรรม์ประกันภัย ไม่น้อยกว่า 15 วัน": {
     "en": "The iHealthy Ultra medical expense rider (MHP) can be renewed up to age 98, but not beyond the coverage period of the life insurance policy it is attached to. On renewal, the company reserves the right to change the terms of coverage by adding a co-payment (Copayment) borne by the insured, at the following rates and criteria: (1) 30% of covered expenses, where the insured has claimed for simple diseases (Simple diseases) with hospital admission 3 or more times in a policy year, and the insured's own claims ratio for those causes under this rider is 200% or more; or (2) 30% of covered expenses, where the insured has claimed for hospital admission 3 or more times in a policy year, and the insured's own claims ratio for those causes under this rider is 400% or more, excluding claims for treatment of the critical illnesses in the attached critical illness list and/or major surgery. If the company adds a co-payment because both (1) and (2) apply, the co-payment is 50% of covered expenses. Once a co-payment has been set, if the insured's claims or claims ratio later falls below the criteria above, the company will consider reducing the co-payment rate. Where the company adds a co-payment under the rates and criteria above, it will send the insured written evidence of the rate and criteria at least 15 days before the policy anniversary.",
     "zh": "iHealthy Ultra 医疗费用附加合同（MHP）可续保至98岁，但不得超过其所附寿险保单的保险期间。续保本附加合同时，公司保留变更保障条款的权利，即按以下比例及标准增加由被保险人承担的共付额（Copayment）：(1) 被保险人在一个保单年度内因一般轻微疾病（Simple diseases）申请理赔并住院3次或以上，且本附加合同下该被保险人因上述原因的理赔率达200%或以上的，共付已保障费用的30%；或 (2) 被保险人在一个保单年度内因住院申请理赔3次或以上，且本附加合同下该被保险人因上述原因的理赔率达400%或以上的，共付已保障费用的30%，但不包括附件重大疾病清单所列重大疾病的治疗费用理赔及/或大手术。如公司因同时符合(1)和(2)而增加共付额，共付比例为已保障费用的50%。设定共付额后，如被保险人的理赔次数或理赔率降至上述标准以下，公司将考虑为被保险人调低共付比例。公司按上述比例及标准增加共付额时，将于保单周年日前不少于15天向被保险人出具有关共付比例及标准的证明文件。",
     "ru": "Дополнительный договор медицинского страхования iHealthy Ultra (MHP) может продлеваться до возраста 98 лет, но не дольше срока страхования полиса страхования жизни, к которому он прилагается. При продлении компания оставляет за собой право изменить условия покрытия, добавив доплату застрахованного (Copayment) по следующим ставкам и критериям: (1) 30% покрываемых расходов, если застрахованный заявлял требования по простым заболеваниям (Simple diseases) с госпитализацией 3 и более раз за полисный год, а его собственный коэффициент убыточности по этим причинам по данному договору составляет 200% и более; или (2) 30% покрываемых расходов, если застрахованный заявлял требования по госпитализации 3 и более раз за полисный год, а его собственный коэффициент убыточности по этим причинам по данному договору составляет 400% и более, за исключением выплат на лечение критических заболеваний из прилагаемого перечня и/или крупных операций. Если компания вводит доплату, поскольку выполняются оба условия (1) и (2), доплата составит 50% покрываемых расходов. Если после введения доплаты число требований или коэффициент убыточности застрахованного снизится ниже указанных критериев, компания рассмотрит снижение ставки доплаты. Вводя доплату по указанным ставкам и критериям, компания направит застрахованному подтверждение ставки и критериев не менее чем за 15 дней до годовщины полиса.",
-    "my": "iHealthy Ultra ဆေးကုသစရိတ် ဖြည့်စွက်စာချုပ် (MHP) ကို အသက် 98 နှစ်အထိ သက်တမ်းတိုးနိုင်သော်လည်း ၎င်းပူးတွဲထားသော အသက်အာမခံပေါ်လစီ၏ အာမခံကာလထက် မကျော်လွန်ရပါ။ သက်တမ်းတိုးသည့်အခါ ကုမ္ပဏီသည် အာမခံထားသူက တွဲဖက်ပေးချေရမည့်ငွေ (Copayment) ကို အောက်ပါနှုန်းနှင့် စံနှုန်းများအတိုင်း ထည့်သွင်း၍ အကာအကွယ်စည်းကမ်းများကို ပြောင်းလဲပိုင်ခွင့်ရှိသည်- (1) အာမခံထားသူသည် ပေါ်လစီနှစ်တစ်နှစ်အတွင်း သာမန်ရောဂါငယ်များ (Simple diseases) ဖြင့် ဆေးရုံတက်၍ 3 ကြိမ်နှင့်အထက် လျော်ကြေးတောင်းခံပြီး ဤဖြည့်စွက်စာချုပ်အောက်တွင် ထိုအကြောင်းများအတွက် ၎င်း၏ လျော်ကြေးအချိုး 200% နှင့်အထက် ဖြစ်ပါက အကာအကွယ်ရသော ကုန်ကျစရိတ်၏ 30%၊ သို့မဟုတ် (2) အာမခံထားသူသည် ပေါ်လစီနှစ်တစ်နှစ်အတွင်း ဆေးရုံတက်မှုအတွက် 3 ကြိမ်နှင့်အထက် လျော်ကြေးတောင်းခံပြီး ဤဖြည့်စွက်စာချုပ်အောက်တွင် ထိုအကြောင်းများအတွက် ၎င်း၏ လျော်ကြေးအချိုး 400% နှင့်အထက် ဖြစ်ပါက အကာအကွယ်ရသော ကုန်ကျစရိတ်၏ 30%၊ သို့သော် ပူးတွဲပါ ပြင်းထန်သောရောဂါစာရင်းပါ ရောဂါများ ကုသခ နှင့်/သို့မဟုတ် ခွဲစိတ်မှုကြီးအတွက် လျော်ကြေးများ မပါဝင်ပါ။ (1) နှင့် (2) နှစ်ခုစလုံးနှင့် ကိုက်ညီသဖြင့် ကုမ္ပဏီက တွဲဖက်ပေးချေငွေ ထည့်သွင်းပါက အကာအကွယ်ရသော ကုန်ကျစရိတ်၏ 50% ဖြစ်မည်။ တွဲဖက်ပေးချေငွေ သတ်မှတ်ပြီးနောက် အာမခံထားသူ၏ လျော်ကြေးတောင်းခံမှု သို့မဟုတ် လျော်ကြေးအချိုးသည် အထက်ပါစံနှုန်းအောက်သို့ ကျဆင်းပါက ကုမ္ပဏီက တွဲဖက်ပေးချေနှုန်းကို လျှော့ချရန် စဉ်းစားမည်။ အထက်ပါနှုန်းနှင့် စံနှုန်းများအတိုင်း တွဲဖက်ပေးချေငွေ ထည့်သွင်းပါက ကုမ္ပဏီသည် ပေါ်လစီနှစ်ပတ်လည်နေ့ မတိုင်မီ အနည်းဆုံး 15 ရက်အလိုတွင် နှုန်းနှင့် စံနှုန်းဆိုင်ရာ အထောက်အထားကို အာမခံထားသူထံ ပေးပို့မည်။"
+    "my": "iHealthy Ultra ဆေးကုသစရိတ် ဖြည့်စွက်စာချုပ် (MHP) ကို အသက် 98 နှစ်အထိ သက်တမ်းတိုးနိုင်သော်လည်း ၎င်းပူးတွဲထားသော အသက်အာမခံပေါ်လစီ၏ အာမခံကာလထက် မကျော်လွန်ရပါ။ သက်တမ်းတိုးသည့်အခါ ကုမ္ပဏီသည် အာမခံထားသူက တွဲဖက်ပေးချေရမည့်ငွေ (Copayment) ကို အောက်ပါနှုန်းနှင့် စံနှုန်းများအတိုင်း ထည့်သွင်း၍ အကာအကွယ်စည်းကမ်းများကို ပြောင်းလဲပိုင်ခွင့်ရှိသည်- (1) အာမခံထားသူသည် ပေါ်လစီနှစ်တစ်နှစ်အတွင်း သာမန်ရောဂါငယ်များ (Simple diseases) ဖြင့် ဆေးရုံတက်၍ 3 ကြိမ်နှင့်အထက် လျော်ကြေးတောင်းခံပြီး ဤဖြည့်စွက်စာချုပ်အောက်တွင် ထိုအကြောင်းများအတွက် ၎င်း၏ လျော်ကြေးအချိုး 200% နှင့်အထက် ဖြစ်ပါက အကာအကွယ်ရသော ကုန်ကျစရိတ်၏ 30%၊ သို့မဟုတ် (2) အာမခံထားသူသည် ပေါ်လစီနှစ်တစ်နှစ်အတွင်း ဆေးရုံတက်မှုအတွက် 3 ကြိမ်နှင့်အထက် လျော်ကြေးတောင်းခံပြီး ဤဖြည့်စွက်စာချုပ်အောက်တွင် ထိုအကြောင်းများအတွက် ၎င်း၏ လျော်ကြေးအချိုး 400% နှင့်အထက် ဖြစ်ပါက အကာအကွယ်ရသော ကုန်ကျစရိတ်၏ 30%၊ သို့သော် ပူးတွဲပါ ပြင်းထန်သောရောဂါစာရင်းပါ ရောဂါများ ကုသခ နှင့်/သို့မဟုတ် ခွဲစိတ်မှုကြီးအတွက် လျော်ကြေးများ မပါဝင်ပါ။ (1) နှင့် (2) နှစ်ခုစလုံးနှင့် ကိုက်ညီသဖြင့် ကုမ္ပဏီက တွဲဖက်ပေးချေငွေ ထည့်သွင်းပါက အကာအကွယ်ရသော ကုန်ကျစရိတ်၏ 50% ဖြစ်မည်။ တွဲဖက်ပေးချေငွေ သတ်မှတ်ပြီးနောက် အာမခံထားသူ၏ လျော်ကြေးတောင်းခံမှု သို့မဟုတ် လျော်ကြေးအချိုးသည် အထက်ပါစံနှုန်းအောက်သို့ ကျဆင်းပါက ကုမ္ပဏီက တွဲဖက်ပေးချေနှုန်းကို လျှော့ချရန် စဉ်းစားမည်။ အထက်ပါနှုန်းနှင့် စံနှုန်းများအတိုင်း တွဲဖက်ပေးချေငွေ ထည့်သွင်းပါက ကုမ္ပဏီသည် ပေါ်လစီနှစ်ပတ်လည်နေ့ မတိုင်မီ အနည်းဆုံး 15 ရက်အလိုတွင် နှုန်းနှင့် စံနှုန်းဆိုင်ရာ အထောက်အထားကို အာမခံထားသူထံ ပေးပို့မည်။",
+    "fr": "La garantie complémentaire de frais médicaux iHealthy Ultra (MHP) est renouvelable jusqu'à 98 ans, sans dépasser la durée de couverture du contrat d'assurance vie auquel elle est rattachée. Au renouvellement, la compagnie se réserve le droit de modifier les conditions de couverture en ajoutant une quote-part (Copayment) à la charge de l'assuré, selon les taux et critères suivants : (1) 30 % des frais couverts, lorsque l'assuré a déclaré des sinistres pour des maladies simples (Simple diseases) avec hospitalisation 3 fois ou plus au cours d'une année d'assurance, et que le ratio de sinistres propre à l'assuré pour ces causes au titre de cette garantie complémentaire est de 200 % ou plus ; ou (2) 30 % des frais couverts, lorsque l'assuré a déclaré des sinistres avec hospitalisation 3 fois ou plus au cours d'une année d'assurance, et que le ratio de sinistres propre à l'assuré pour ces causes au titre de cette garantie complémentaire est de 400 % ou plus, à l'exclusion des sinistres pour le traitement des maladies graves figurant dans la liste des maladies graves annexée et/ou pour une chirurgie majeure. Si la compagnie ajoute une quote-part parce que les cas (1) et (2) s'appliquent tous les deux, la quote-part est de 50 % des frais couverts. Une fois la quote-part fixée, si les sinistres ou le ratio de sinistres de l'assuré redescendent ensuite en dessous des critères ci-dessus, la compagnie envisagera de réduire le taux de quote-part. Lorsque la compagnie ajoute une quote-part selon les taux et critères ci-dessus, elle adresse à l'assuré une justification écrite du taux et des critères au moins 15 jours avant la date anniversaire du contrat.",
+    "de": "Die Zusatzversicherung für Krankheitskosten iHealthy Ultra (MHP) kann bis zum Alter von 98 Jahren verlängert werden, jedoch nicht über die Laufzeit der Lebensversicherung hinaus, der sie beigefügt ist. Bei der Verlängerung behält sich die Gesellschaft das Recht vor, die Deckungsbedingungen zu ändern, indem eine von der versicherten Person zu tragende Zuzahlung (Copayment) nach folgenden Sätzen und Kriterien eingeführt wird: (1) 30 % der gedeckten Kosten, wenn die versicherte Person in einem Versicherungsjahr 3-mal oder öfter Leistungen für einfache Erkrankungen (Simple diseases) mit Krankenhausaufnahme beantragt hat und die eigene Schadenquote der versicherten Person für diese Ursachen aus dieser Zusatzversicherung 200 % oder mehr beträgt; oder (2) 30 % der gedeckten Kosten, wenn die versicherte Person in einem Versicherungsjahr 3-mal oder öfter Leistungen mit Krankenhausaufnahme beantragt hat und die eigene Schadenquote der versicherten Person für diese Ursachen aus dieser Zusatzversicherung 400 % oder mehr beträgt, ausgenommen Leistungen für die Behandlung der schweren Krankheiten der beigefügten Liste schwerer Krankheiten und/oder für größere Operationen. Führt die Gesellschaft eine Zuzahlung ein, weil sowohl (1) als auch (2) zutreffen, beträgt die Zuzahlung 50 % der gedeckten Kosten. Ist eine Zuzahlung festgelegt und fallen die Leistungsanträge oder die Schadenquote der versicherten Person später unter die obigen Kriterien, prüft die Gesellschaft eine Senkung des Zuzahlungssatzes. Führt die Gesellschaft nach den obigen Sätzen und Kriterien eine Zuzahlung ein, übermittelt sie der versicherten Person mindestens 15 Tage vor dem Jahrestag der Police einen schriftlichen Nachweis über Satz und Kriterien."
   },
   "บริษัทจะไม่จ่ายผลประโยชน์ตามสัญญาเพิ่มเติมนี้ สำหรับโรคเรื้อรัง การบาดเจ็บ หรือการป่วย (รวมถึงภาวะแทรกซ้อน) ที่ยังมิได้รักษาให้หายก่อนวันที่สัญญาเพิ่มเติมนี้เริ่มมีผลคุ้มครองเป็นครั้งแรก เว้นแต่ (1) ผู้เอาประกันภัยได้แถลงให้บริษัททราบ และบริษัทยินยอมรับความเสี่ยงภัย โดยไม่มีเงื่อนไขยกเว้นความคุ้มครองดังกล่าว หรือ (2) โรคเรื้อรัง การบาดเจ็บ หรือการป่วย (รวมถึงภาวะแทรกซ้อน) นั้น ไม่ปรากฏอาการ ไม่ได้รับการตรวจรักษาหรือวินิจฉัยโดยแพทย์ หรือไม่ได้พบหรือปรึกษาแพทย์ ในระยะ 5 ปี ก่อนวันที่สัญญาเพิ่มเติมเริ่มมีผลคุ้มครองเป็นครั้งแรก และในช่วงเวลา 3 ปี ตั้งแต่วันที่สัญญาเพิ่มเติมนี้เริ่มมีผลคุ้มครองเป็นครั้งแรก": {
     "en": "The company will not pay benefits under this rider for chronic diseases, injuries or illnesses (including complications) that had not been cured before the date this rider first took effect, unless (1) the insured disclosed them to the company and the company accepted the risk without excluding them, or (2) the chronic disease, injury or illness (including complications) showed no symptoms, was not examined, treated or diagnosed by a doctor, and no doctor was seen or consulted about it, in the 5 years before the date this rider first took effect and in the 3 years from the date this rider first took effect.",
     "zh": "对于本附加合同首次生效日前尚未治愈的慢性病、伤害或疾病（包括并发症），公司不支付本附加合同下的保险金，除非 (1) 被保险人已向公司告知，且公司同意承保并未将其除外；或 (2) 该慢性病、伤害或疾病（包括并发症）在本附加合同首次生效日前5年内以及自首次生效日起3年内，未出现症状、未经医生检查治疗或诊断，也未就医或咨询医生。",
     "ru": "Компания не выплачивает возмещение по этому дополнительному договору в отношении хронических заболеваний, травм или болезней (включая осложнения), не излеченных до даты первого вступления договора в силу, кроме случаев, когда (1) застрахованный сообщил о них компании и компания приняла риск, не исключив их из покрытия, или (2) такое хроническое заболевание, травма или болезнь (включая осложнения) не проявлялись симптомами, не обследовались, не лечились и не диагностировались врачом, и застрахованный не обращался и не консультировался с врачом в течение 5 лет до даты первого вступления договора в силу и в течение 3 лет с этой даты.",
-    "my": "ဤဖြည့်စွက်စာချုပ် ပထမဆုံးအကြိမ် အာမခံစတင်သည့်နေ့ မတိုင်မီ မပျောက်ကင်းသေးသော နာတာရှည်ရောဂါ၊ ဒဏ်ရာ သို့မဟုတ် ဖျားနာမှု (နောက်ဆက်တွဲပြဿနာများ အပါအဝင်) အတွက် ကုမ္ပဏီက ဤဖြည့်စွက်စာချုပ်အရ အကျိုးခံစားခွင့် ပေးမည်မဟုတ်ပါ။ သို့သော် (1) အာမခံထားသူက ကုမ္ပဏီသို့ ထုတ်ဖော်ပြောကြားခဲ့ပြီး ကုမ္ပဏီက ၎င်းကို ချန်လှပ်ခြင်းမပြုဘဲ အာမခံလက်ခံခဲ့လျှင်၊ သို့မဟုတ် (2) ထိုနာတာရှည်ရောဂါ၊ ဒဏ်ရာ သို့မဟုတ် ဖျားနာမှု (နောက်ဆက်တွဲပြဿနာများ အပါအဝင်) သည် ဤဖြည့်စွက်စာချုပ် ပထမဆုံးအကြိမ် အာမခံစတင်သည့်နေ့ မတိုင်မီ 5 နှစ်အတွင်းနှင့် ထိုနေ့မှစ၍ 3 နှစ်အတွင်း ရောဂါလက္ခဏာမပြ၊ ဆရာဝန်၏ စစ်ဆေးကုသခြင်း သို့မဟုတ် ရောဂါရှာဖွေခြင်း မခံရဘဲ ဆရာဝန်နှင့် တွေ့ဆုံတိုင်ပင်ခြင်းလည်း မရှိခဲ့လျှင် ခြွင်းချက်ဖြစ်သည်။"
+    "my": "ဤဖြည့်စွက်စာချုပ် ပထမဆုံးအကြိမ် အာမခံစတင်သည့်နေ့ မတိုင်မီ မပျောက်ကင်းသေးသော နာတာရှည်ရောဂါ၊ ဒဏ်ရာ သို့မဟုတ် ဖျားနာမှု (နောက်ဆက်တွဲပြဿနာများ အပါအဝင်) အတွက် ကုမ္ပဏီက ဤဖြည့်စွက်စာချုပ်အရ အကျိုးခံစားခွင့် ပေးမည်မဟုတ်ပါ။ သို့သော် (1) အာမခံထားသူက ကုမ္ပဏီသို့ ထုတ်ဖော်ပြောကြားခဲ့ပြီး ကုမ္ပဏီက ၎င်းကို ချန်လှပ်ခြင်းမပြုဘဲ အာမခံလက်ခံခဲ့လျှင်၊ သို့မဟုတ် (2) ထိုနာတာရှည်ရောဂါ၊ ဒဏ်ရာ သို့မဟုတ် ဖျားနာမှု (နောက်ဆက်တွဲပြဿနာများ အပါအဝင်) သည် ဤဖြည့်စွက်စာချုပ် ပထမဆုံးအကြိမ် အာမခံစတင်သည့်နေ့ မတိုင်မီ 5 နှစ်အတွင်းနှင့် ထိုနေ့မှစ၍ 3 နှစ်အတွင်း ရောဂါလက္ခဏာမပြ၊ ဆရာဝန်၏ စစ်ဆေးကုသခြင်း သို့မဟုတ် ရောဂါရှာဖွေခြင်း မခံရဘဲ ဆရာဝန်နှင့် တွေ့ဆုံတိုင်ပင်ခြင်းလည်း မရှိခဲ့လျှင် ခြွင်းချက်ဖြစ်သည်။",
+    "fr": "La compagnie ne verse pas de prestations au titre de cette garantie complémentaire pour les maladies chroniques, blessures ou maladies (y compris leurs complications) qui n'étaient pas guéries avant la date de première prise d'effet de cette garantie complémentaire, sauf si (1) l'assuré les a déclarées à la compagnie et que la compagnie a accepté le risque sans les exclure, ou (2) la maladie chronique, la blessure ou la maladie (y compris ses complications) n'a présenté aucun symptôme, n'a fait l'objet d'aucun examen, traitement ou diagnostic par un médecin, et qu'aucun médecin n'a été vu ni consulté à son sujet, au cours des 5 années précédant la date de première prise d'effet de cette garantie complémentaire et des 3 années suivant cette date.",
+    "de": "Die Gesellschaft erbringt aus dieser Zusatzversicherung keine Leistungen für chronische Krankheiten, Verletzungen oder Krankheiten (einschließlich Komplikationen), die vor dem Tag des erstmaligen Inkrafttretens dieser Zusatzversicherung nicht ausgeheilt waren, es sei denn, (1) die versicherte Person hat sie der Gesellschaft angezeigt und die Gesellschaft hat das Risiko ohne Ausschluss übernommen, oder (2) die chronische Krankheit, Verletzung oder Krankheit (einschließlich Komplikationen) zeigte in den 5 Jahren vor dem Tag des erstmaligen Inkrafttretens dieser Zusatzversicherung und in den 3 Jahren ab diesem Tag keine Symptome, wurde von keinem Arzt untersucht, behandelt oder diagnostiziert, und es wurde deswegen kein Arzt aufgesucht oder konsultiert."
   },
   "ข้อยกเว้นสัญญาเพิ่มเติมค่ารักษาพยาบาล ไอเฮลท์ตี้ อัลตร้า (MHP) มีทั้งหมด 21 ข้อ ตัวอย่างเช่น การประกันภัยนี้ไม่คุ้มครองค่าใช้จ่ายจากการรักษาพยาบาล หรือความเสียหายที่เกิดจากการบาดเจ็บหรือการป่วย (รวมทั้งภาวะแทรกซ้อน) อาการ หรือภาวะความผิดปกติที่เกิดจาก 1. ภาวะที่เป็นผลจากความผิดปกติที่เกิดขึ้นแต่กำเนิด หรือระบบการสร้างอวัยวะของร่างกายไม่สมบูรณ์แต่กำเนิด หรือโรคทางพันธุกรรม หรือความผิดปกติในการพัฒนาการของร่างกาย เว้นแต่ สัญญาเพิ่มเติมนี้มีผลคุ้มครองมาไม่น้อยกว่า 1 ปี และปรากฏอาการหลังผู้เอาประกันภัยมีอายุครบ 16 ปีบริบูรณ์ 2. การตรวจรักษาหรือการผ่าตัดเพื่อเสริมสวย หรือการแก้ไขปัญหาผิวพรรณ สิว ฝ้า กระ รังแค ผมร่วงหรือการควบคุมน้ำหนักตัว การผ่าตัดที่สามารถทดแทนด้วยการรักษาแนวทางอื่น เว้นแต่เป็นการตกแต่งบาดแผลอันเนื่องมาจากอุบัติเหตุที่ได้รับความคุ้มครอง 3. โรคเอดส์ หรือกามโรค หรือโรคติดต่อทางเพศสัมพันธ์ 4. การฆ่าตัวตาย การพยายามฆ่าตัวตาย การทำร้ายร่างกายตนเอง หรือการพยายามทำร้ายร่างกายตนเองไม่ว่าจะเป็นการกระทำโดยตนเอง หรือยินยอมให้ผู้อื่นกระทำไม่ว่าจะอยู่ในระหว่างวิกลจริตหรือไม่ก็ตาม ทั้งนี้รวมถึงอุบัติเหตุจากการที่ผู้เอาประกันภัย กิน ดื่ม หรือฉีดยาหรือสารมีพิษเข้าร่างกาย การใช้ยาเกินกว่าที่แพทย์สั่ง 5. การบาดเจ็บที่เกิดขึ้นอันเป็นผลมาจากการกระทำของผู้เอาประกันภัย (1) ขณะอยู่ภายใต้ฤทธิ์สารเสพติด หรือยาเสพติดให้โทษจนไม่สามารถครองสติได้ หรือ (2) ขณะอยู่ภายใต้ฤทธิ์สุราโดยมีระดับแอลกอฮอล์ในร่างกายขณะตรวจเทียบเท่ากับระดับแอลกอฮอล์ในเลือด ตั้งแต่ 150 มิลลิกรัมเปอร์เซ็นต์ขึ้นไป หรือ (3) ขณะอยู่ภายใต้ฤทธิ์สุราจนไม่สามารถครองสติได้ ในกรณีที่ไม่มีการตรวจวัดหรือในกรณีที่ไม่สามารถตรวจวัด ระดับแอลกอฮอล์ได้": {
     "en": "The iHealthy Ultra medical expense rider (MHP) has 21 exclusions in total. For example, this insurance does not cover medical expenses or losses from injury or illness (including complications), symptoms or abnormal conditions caused by: 1. Conditions resulting from congenital abnormalities, congenitally incomplete organ development, hereditary diseases, or abnormal physical development, unless this rider has been in force for at least 1 year and symptoms appear after the insured has turned 16. 2. Examination, treatment or surgery for cosmetic purposes, or for skin problems, acne, melasma, freckles, dandruff, hair loss or weight control; surgery that could be replaced by another form of treatment, except reconstruction of wounds caused by a covered accident. 3. AIDS, venereal diseases or sexually transmitted diseases. 4. Suicide, attempted suicide, self-injury or attempted self-injury, whether done by the insured or by another person with the insured's consent, and whether or not the insured was of unsound mind, including accidents from the insured eating, drinking or injecting drugs or toxic substances, or taking more medicine than a doctor prescribed. 5. Injury resulting from the insured's own actions (1) while under the influence of narcotics or addictive drugs to the point of losing self-control, or (2) while under the influence of alcohol with a measured alcohol level equivalent to a blood alcohol concentration of 150 milligram percent or more, or (3) while under the influence of alcohol to the point of losing self-control, where the alcohol level was not or could not be measured.",
     "zh": "iHealthy Ultra 医疗费用附加合同（MHP）共有21项除外责任，例如：本保险不保障由以下原因导致的伤害或疾病（包括并发症）、症状或异常状况所产生的医疗费用或损失：1. 先天性异常、先天性器官发育不全、遗传性疾病或身体发育异常所致的状况，但本附加合同已生效满1年且症状在被保险人年满16周岁后出现的除外。2. 以美容为目的的检查、治疗或手术，或治疗皮肤问题、痤疮、黄褐斑、雀斑、头皮屑、脱发或控制体重；可用其他治疗方式替代的手术，但修复受保障意外所致伤口的除外。3. 艾滋病、性病或性传播疾病。4. 自杀、自杀未遂、自残或企图自残，无论是本人所为或同意他人所为，也无论当时是否精神失常，包括被保险人服用、饮用或注射药物或有毒物质所致的意外，以及超出医嘱用药。5. 被保险人在以下情况下因自身行为所致的伤害：(1) 受麻醉品或毒品影响以致无法自控；或 (2) 受酒精影响，检测时体内酒精含量相当于血液酒精浓度150毫克百分比或以上；或 (3) 在未检测或无法检测酒精含量的情况下，受酒精影响以致无法自控。",
     "ru": "Дополнительный договор медицинского страхования iHealthy Ultra (MHP) содержит всего 21 исключение. Например, страхование не покрывает расходы на лечение или ущерб от травм или болезней (включая осложнения), симптомов или патологических состояний, вызванных: 1. Врождёнными аномалиями, врождённым недоразвитием органов, наследственными заболеваниями или нарушениями физического развития, кроме случаев, когда договор действует не менее 1 года и симптомы проявились после достижения застрахованным полных 16 лет. 2. Обследованием, лечением или операциями в косметических целях, лечением проблем кожи, акне, мелазмы, веснушек, перхоти, выпадения волос или контролем веса; операциями, которые можно заменить другим методом лечения, кроме восстановления ран после покрываемого несчастного случая. 3. СПИДом, венерическими заболеваниями или инфекциями, передающимися половым путём. 4. Самоубийством, попыткой самоубийства, членовредительством или попыткой членовредительства, совершёнными самим застрахованным или другим лицом с его согласия, независимо от вменяемости, включая несчастные случаи от приёма внутрь, питья или инъекций лекарств или ядовитых веществ, а также приёма лекарств сверх назначения врача. 5. Травмами в результате действий самого застрахованного (1) под воздействием наркотических веществ до потери самоконтроля, или (2) под воздействием алкоголя при измеренном уровне алкоголя, эквивалентном концентрации в крови 150 миллиграмм-процентов и выше, или (3) под воздействием алкоголя до потери самоконтроля, если уровень алкоголя не измерялся или его невозможно было измерить.",
-    "my": "iHealthy Ultra ဆေးကုသစရိတ် ဖြည့်စွက်စာချုပ် (MHP) တွင် ခြွင်းချက် စုစုပေါင်း 21 ခု ရှိသည်။ ဥပမာ- ဤအာမခံသည် အောက်ပါတို့ကြောင့် ဖြစ်ပေါ်သော ဒဏ်ရာ သို့မဟုတ် ဖျားနာမှု (နောက်ဆက်တွဲပြဿနာများ အပါအဝင်)၊ ရောဂါလက္ခဏာ သို့မဟုတ် ပုံမှန်မဟုတ်သော အခြေအနေများမှ ဆေးကုသစရိတ် သို့မဟုတ် ဆုံးရှုံးမှုကို အကာအကွယ်မပေးပါ- 1. မွေးရာပါ ချို့ယွင်းချက်၊ မွေးရာပါ ကိုယ်တွင်းအင်္ဂါ ဖွံ့ဖြိုးမှုမပြည့်စုံခြင်း၊ မျိုးရိုးဗီဇရောဂါ သို့မဟုတ် ခန္ဓာကိုယ်ဖွံ့ဖြိုးမှု ပုံမှန်မဟုတ်ခြင်းကြောင့် ဖြစ်သော အခြေအနေများ၊ သို့သော် ဤဖြည့်စွက်စာချုပ် အာမခံသက်တမ်း အနည်းဆုံး 1 နှစ် ရှိပြီး အာမခံထားသူ အသက် 16 နှစ်ပြည့်ပြီးနောက် ရောဂါလက္ခဏာ ပေါ်လာလျှင် ခြွင်းချက်ဖြစ်သည်။ 2. အလှအပအတွက် စစ်ဆေးကုသခြင်း သို့မဟုတ် ခွဲစိတ်ခြင်း၊ အရေပြား၊ ဝက်ခြံ၊ တင်းမဲ့၊ မှဲ့၊ ဗောက်၊ ဆံပင်ကျွတ်ခြင်း သို့မဟုတ် ကိုယ်အလေးချိန်ထိန်းခြင်း ကုသမှု၊ အခြားနည်းဖြင့် အစားထိုးကုသနိုင်သော ခွဲစိတ်မှု၊ သို့သော် အကာအကွယ်ရသော မတော်တဆမှုကြောင့် ဖြစ်သော အနာကို ပြုပြင်ခြင်းမှာ ခြွင်းချက်ဖြစ်သည်။ 3. အေအိုင်ဒီအက်စ်၊ ကာလသားရောဂါ သို့မဟုတ် လိင်မှတစ်ဆင့် ကူးစက်သောရောဂါ။ 4. သတ်သေခြင်း၊ သတ်သေရန်ကြိုးစားခြင်း၊ မိမိကိုယ်ကို ထိခိုက်အောင်ပြုခြင်း သို့မဟုတ် ထိုသို့ပြုရန်ကြိုးစားခြင်း၊ မိမိကိုယ်တိုင်ပြုသည်ဖြစ်စေ၊ အခြားသူကို ခွင့်ပြု၍ ပြုစေသည်ဖြစ်စေ၊ စိတ်ပေါ့ပျက်နေသည်ဖြစ်စေ မဖြစ်စေ၊ အာမခံထားသူက ဆေးဝါး သို့မဟုတ် အဆိပ်ပစ္စည်းကို စား၊ သောက် သို့မဟုတ် ထိုးသွင်းခြင်းကြောင့် ဖြစ်သော မတော်တဆမှုနှင့် ဆရာဝန်ညွှန်ကြားသည်ထက် ဆေးပိုသုံးခြင်း အပါအဝင်။ 5. အာမခံထားသူ၏ ကိုယ်ပိုင်လုပ်ရပ်ကြောင့် ဖြစ်သော ဒဏ်ရာ- (1) မူးယစ်ဆေးဝါး၏ အာနိသင်ကြောင့် သတိမထိန်းနိုင်သည့်အခြေအနေတွင်၊ သို့မဟုတ် (2) အရက်၏အာနိသင်အောက်တွင် စစ်ဆေးချိန်၌ သွေးတွင်းအရက်ပါဝင်မှု 150 မီလီဂရမ်ရာခိုင်နှုန်း နှင့်အထက်နှင့် ညီမျှသည့်အခါ၊ သို့မဟုတ် (3) အရက်ပါဝင်မှုကို မစစ်ဆေးခဲ့ သို့မဟုတ် မစစ်ဆေးနိုင်ခဲ့သည့်အခါ အရက်၏အာနိသင်ကြောင့် သတိမထိန်းနိုင်သည့်အခြေအနေတွင်။"
+    "my": "iHealthy Ultra ဆေးကုသစရိတ် ဖြည့်စွက်စာချုပ် (MHP) တွင် ခြွင်းချက် စုစုပေါင်း 21 ခု ရှိသည်။ ဥပမာ- ဤအာမခံသည် အောက်ပါတို့ကြောင့် ဖြစ်ပေါ်သော ဒဏ်ရာ သို့မဟုတ် ဖျားနာမှု (နောက်ဆက်တွဲပြဿနာများ အပါအဝင်)၊ ရောဂါလက္ခဏာ သို့မဟုတ် ပုံမှန်မဟုတ်သော အခြေအနေများမှ ဆေးကုသစရိတ် သို့မဟုတ် ဆုံးရှုံးမှုကို အကာအကွယ်မပေးပါ- 1. မွေးရာပါ ချို့ယွင်းချက်၊ မွေးရာပါ ကိုယ်တွင်းအင်္ဂါ ဖွံ့ဖြိုးမှုမပြည့်စုံခြင်း၊ မျိုးရိုးဗီဇရောဂါ သို့မဟုတ် ခန္ဓာကိုယ်ဖွံ့ဖြိုးမှု ပုံမှန်မဟုတ်ခြင်းကြောင့် ဖြစ်သော အခြေအနေများ၊ သို့သော် ဤဖြည့်စွက်စာချုပ် အာမခံသက်တမ်း အနည်းဆုံး 1 နှစ် ရှိပြီး အာမခံထားသူ အသက် 16 နှစ်ပြည့်ပြီးနောက် ရောဂါလက္ခဏာ ပေါ်လာလျှင် ခြွင်းချက်ဖြစ်သည်။ 2. အလှအပအတွက် စစ်ဆေးကုသခြင်း သို့မဟုတ် ခွဲစိတ်ခြင်း၊ အရေပြား၊ ဝက်ခြံ၊ တင်းမဲ့၊ မှဲ့၊ ဗောက်၊ ဆံပင်ကျွတ်ခြင်း သို့မဟုတ် ကိုယ်အလေးချိန်ထိန်းခြင်း ကုသမှု၊ အခြားနည်းဖြင့် အစားထိုးကုသနိုင်သော ခွဲစိတ်မှု၊ သို့သော် အကာအကွယ်ရသော မတော်တဆမှုကြောင့် ဖြစ်သော အနာကို ပြုပြင်ခြင်းမှာ ခြွင်းချက်ဖြစ်သည်။ 3. အေအိုင်ဒီအက်စ်၊ ကာလသားရောဂါ သို့မဟုတ် လိင်မှတစ်ဆင့် ကူးစက်သောရောဂါ။ 4. သတ်သေခြင်း၊ သတ်သေရန်ကြိုးစားခြင်း၊ မိမိကိုယ်ကို ထိခိုက်အောင်ပြုခြင်း သို့မဟုတ် ထိုသို့ပြုရန်ကြိုးစားခြင်း၊ မိမိကိုယ်တိုင်ပြုသည်ဖြစ်စေ၊ အခြားသူကို ခွင့်ပြု၍ ပြုစေသည်ဖြစ်စေ၊ စိတ်ပေါ့ပျက်နေသည်ဖြစ်စေ မဖြစ်စေ၊ အာမခံထားသူက ဆေးဝါး သို့မဟုတ် အဆိပ်ပစ္စည်းကို စား၊ သောက် သို့မဟုတ် ထိုးသွင်းခြင်းကြောင့် ဖြစ်သော မတော်တဆမှုနှင့် ဆရာဝန်ညွှန်ကြားသည်ထက် ဆေးပိုသုံးခြင်း အပါအဝင်။ 5. အာမခံထားသူ၏ ကိုယ်ပိုင်လုပ်ရပ်ကြောင့် ဖြစ်သော ဒဏ်ရာ- (1) မူးယစ်ဆေးဝါး၏ အာနိသင်ကြောင့် သတိမထိန်းနိုင်သည့်အခြေအနေတွင်၊ သို့မဟုတ် (2) အရက်၏အာနိသင်အောက်တွင် စစ်ဆေးချိန်၌ သွေးတွင်းအရက်ပါဝင်မှု 150 မီလီဂရမ်ရာခိုင်နှုန်း နှင့်အထက်နှင့် ညီမျှသည့်အခါ၊ သို့မဟုတ် (3) အရက်ပါဝင်မှုကို မစစ်ဆေးခဲ့ သို့မဟုတ် မစစ်ဆေးနိုင်ခဲ့သည့်အခါ အရက်၏အာနိသင်ကြောင့် သတိမထိန်းနိုင်သည့်အခြေအနေတွင်။",
+    "fr": "La garantie complémentaire de frais médicaux iHealthy Ultra (MHP) comporte 21 exclusions au total. Par exemple, cette assurance ne couvre pas les frais médicaux ni les pertes résultant d'une blessure ou d'une maladie (y compris ses complications), de symptômes ou d'états anormaux causés par : 1. Les affections résultant d'anomalies congénitales, d'un développement incomplet congénital des organes, de maladies héréditaires ou d'un développement physique anormal, sauf si cette garantie complémentaire est en vigueur depuis au moins 1 an et que les symptômes apparaissent après les 16 ans de l'assuré. 2. Les examens, traitements ou interventions chirurgicales à visée esthétique, ou pour des problèmes de peau, l'acné, le mélasma, les taches de rousseur, les pellicules, la chute des cheveux ou le contrôle du poids ; une intervention chirurgicale qui pourrait être remplacée par une autre forme de traitement, sauf la reconstruction de plaies causées par un accident couvert. 3. Le sida, les maladies vénériennes ou les infections sexuellement transmissibles. 4. Le suicide, la tentative de suicide, l'automutilation ou la tentative d'automutilation, qu'elle soit le fait de l'assuré ou d'une autre personne avec le consentement de l'assuré, et que l'assuré ait été ou non sain d'esprit, y compris les accidents dus au fait que l'assuré a mangé, bu ou s'est injecté des drogues ou des substances toxiques, ou a pris plus de médicaments que ce qu'un médecin a prescrit. 5. Les blessures résultant des propres actes de l'assuré (1) sous l'emprise de stupéfiants ou de drogues addictives au point de perdre le contrôle de soi, ou (2) sous l'emprise de l'alcool avec un taux d'alcool mesuré équivalent à une concentration d'alcool dans le sang de 150 milligrammes pour cent ou plus, ou (3) sous l'emprise de l'alcool au point de perdre le contrôle de soi, lorsque le taux d'alcool n'a pas été ou n'a pas pu être mesuré.",
+    "de": "Die Zusatzversicherung für Krankheitskosten iHealthy Ultra (MHP) enthält insgesamt 21 Ausschlüsse. Zum Beispiel deckt diese Versicherung keine Behandlungskosten oder Schäden aus Verletzungen oder Krankheiten (einschließlich Komplikationen), Symptomen oder krankhaften Zuständen, die verursacht sind durch: 1. Zustände infolge angeborener Fehlbildungen, angeborener unvollständiger Organentwicklung, Erbkrankheiten oder abnormaler körperlicher Entwicklung, es sei denn, diese Zusatzversicherung besteht seit mindestens 1 Jahr und die Symptome treten nach Vollendung des 16. Lebensjahres der versicherten Person auf. 2. Untersuchungen, Behandlungen oder Operationen zu kosmetischen Zwecken oder wegen Hautproblemen, Akne, Melasma, Sommersprossen, Schuppen, Haarausfall oder Gewichtskontrolle; Operationen, die durch eine andere Behandlungsform ersetzt werden könnten, ausgenommen die Wiederherstellung von Wunden infolge eines gedeckten Unfalls. 3. AIDS, Geschlechtskrankheiten oder sexuell übertragbare Krankheiten. 4. Suizid, Suizidversuch, Selbstverletzung oder versuchte Selbstverletzung, gleich ob durch die versicherte Person selbst oder durch eine andere Person mit Einwilligung der versicherten Person, und gleich ob die versicherte Person zurechnungsfähig war oder nicht, einschließlich Unfällen, weil die versicherte Person Drogen oder giftige Stoffe gegessen, getrunken oder injiziert oder mehr Arzneimittel eingenommen hat, als ein Arzt verordnet hat. 5. Verletzungen infolge eigener Handlungen der versicherten Person (1) unter dem Einfluss von Betäubungsmitteln oder suchterzeugenden Drogen bis zum Verlust der Selbstkontrolle, oder (2) unter Alkoholeinfluss mit einem gemessenen Alkoholwert, der einer Blutalkoholkonzentration von 150 Milligrammprozent oder mehr entspricht, oder (3) unter Alkoholeinfluss bis zum Verlust der Selbstkontrolle, wenn der Alkoholwert nicht gemessen wurde oder nicht gemessen werden konnte."
   },
   "สัญญาเพิ่มเติมนี้มีระยะเวลาเอาประกันภัย 1 ปี โดยเบี้ยประกันภัยปีต่ออายุของสัญญาเพิ่มเติมนี้ อาจมีการเปลี่ยนแปลงอันเนื่องมาจาก อายุ ขั้นอาชีพ ค่าใช้จ่ายในการรักษาพยาบาลที่สูงขึ้น หรือจากประสบการณ์การจ่ายค่าสินไหมทดแทนโดยรวมของสัญญาเพิ่มเติมนี้ แต่ทั้งนี้ขึ้นอยู่กับเงื่อนไขในกรมธรรม์": {
     "en": "This rider has a coverage period of 1 year. The renewal premium of this rider may change because of age, occupational class, rising medical costs, or the overall claims experience of this rider, subject to the conditions of the policy.",
     "zh": "本附加合同的保险期间为1年，续保保费可能因年龄、职业等级、医疗费用上涨或本附加合同的整体理赔经验而变动，但以保单条款为准。",
     "ru": "Срок страхования по этому дополнительному договору — 1 год. Взнос при продлении может меняться в зависимости от возраста, класса профессии, роста стоимости лечения или общей статистики выплат по этому договору, в соответствии с условиями полиса.",
-    "my": "ဤဖြည့်စွက်စာချုပ်၏ အာမခံကာလမှာ 1 နှစ် ဖြစ်သည်။ သက်တမ်းတိုးနှစ် ပရီမီယံသည် အသက်၊ အလုပ်အကိုင်အဆင့်၊ ဆေးကုသစရိတ် မြင့်တက်လာခြင်း သို့မဟုတ် ဤဖြည့်စွက်စာချုပ်၏ လျော်ကြေးပေးချေမှု အတွေ့အကြုံ အလုံးစုံပေါ် မူတည်၍ ပြောင်းလဲနိုင်ပြီး ပေါ်လစီပါ စည်းကမ်းချက်များနှင့်အညီ ဖြစ်သည်။"
+    "my": "ဤဖြည့်စွက်စာချုပ်၏ အာမခံကာလမှာ 1 နှစ် ဖြစ်သည်။ သက်တမ်းတိုးနှစ် ပရီမီယံသည် အသက်၊ အလုပ်အကိုင်အဆင့်၊ ဆေးကုသစရိတ် မြင့်တက်လာခြင်း သို့မဟုတ် ဤဖြည့်စွက်စာချုပ်၏ လျော်ကြေးပေးချေမှု အတွေ့အကြုံ အလုံးစုံပေါ် မူတည်၍ ပြောင်းလဲနိုင်ပြီး ပေါ်လစီပါ စည်းကမ်းချက်များနှင့်အညီ ဖြစ်သည်။",
+    "fr": "Cette garantie complémentaire a une durée de couverture de 1 an. La prime de renouvellement de cette garantie complémentaire peut évoluer en fonction de l'âge, de la classe professionnelle, de la hausse des frais médicaux ou de la sinistralité globale de cette garantie complémentaire, conformément aux conditions du contrat.",
+    "de": "Diese Zusatzversicherung hat eine Laufzeit von 1 Jahr. Die Verlängerungsprämie dieser Zusatzversicherung kann sich aufgrund des Alters, der Berufsklasse, steigender Behandlungskosten oder des gesamten Schadenverlaufs dieser Zusatzversicherung ändern, gemäß den Bedingungen der Police."
   },
   "ความคุ้มครองการรักษาพยาบาลนอกอาณาเขตความคุ้มครอง บริษัทจะให้ความคุ้มครองการรักษาพยาบาลเฉพาะการรักษาพยาบาลฉุกเฉินที่เกิดขึ้นภายใน 90 วันนับตั้งแต่วันเดินทางเท่านั้น โดยบริษัท จะให้ความคุ้มครองการรักษาพยาบาลดังกล่าว สูงสุดไม่เกินวันที่ 90 นับตั้งแต่วันเดินทาง": {
     "en": "Treatment outside the territory of coverage: the company covers only emergency medical treatment occurring within 90 days from the date of travel, up to no later than the 90th day from the date of travel.",
     "zh": "保障区域以外的医疗：公司仅保障自出行之日起90天内发生的紧急医疗，最长保障至出行之日起第90天。",
     "ru": "Лечение за пределами территории покрытия: компания покрывает только экстренное лечение, возникшее в течение 90 дней с даты начала поездки, и не позднее 90-го дня с даты начала поездки.",
-    "my": "အကာအကွယ်နယ်မြေပြင်ပ ဆေးကုသမှု- ကုမ္ပဏီသည် ခရီးထွက်သည့်နေ့မှစ၍ 90 ရက်အတွင်း ဖြစ်ပေါ်သော အရေးပေါ်ဆေးကုသမှုကိုသာ အကာအကွယ်ပေးပြီး ခရီးထွက်သည့်နေ့မှစ၍ 90 ရက်မြောက်နေ့ထက် မကျော်လွန်ရပါ။"
+    "my": "အကာအကွယ်နယ်မြေပြင်ပ ဆေးကုသမှု- ကုမ္ပဏီသည် ခရီးထွက်သည့်နေ့မှစ၍ 90 ရက်အတွင်း ဖြစ်ပေါ်သော အရေးပေါ်ဆေးကုသမှုကိုသာ အကာအကွယ်ပေးပြီး ခရီးထွက်သည့်နေ့မှစ၍ 90 ရက်မြောက်နေ့ထက် မကျော်လွန်ရပါ။",
+    "fr": "Soins hors de la zone de couverture : la compagnie ne couvre que les soins médicaux d'urgence survenant dans les 90 jours à compter de la date du voyage, au plus tard jusqu'au 90e jour à compter de la date du voyage.",
+    "de": "Behandlung außerhalb des Geltungsbereichs: Die Gesellschaft deckt nur medizinische Notfallbehandlungen innerhalb von 90 Tagen ab dem Reisedatum, längstens bis zum 90. Tag ab dem Reisedatum."
   },
   "การให้ส่วนลดเบี้ยประกันภัยในกรณีที่ไม่มีการเรียกร้องค่าสินไหมทดแทน (No Claim Discount) บริษัทจะให้ส่วนลดเบี้ยประกันภัยร้อยละ 10 ของเบี้ยประกันภัยปีต่ออายุ (Renewal) สำหรับปีกรมธรรม์ประกันภัย ที่ถัดจากช่วงระยะเวลาที่ใช้พิจารณาสิทธิ (ระยะเวลา 3 ปีกรมธรรม์ประกันภัย ติดต่อกัน ก่อนปีกรมธรรม์ประกันภัยถัดไป) ในกรณีที่ไม่มีการเรียกร้องสินไหมทดแทนตามสัญญาเพิ่มเติมนี้ และสัญญาเพิ่มเติมนี้มีผลคุ้มครองต่อเนื่องตลอดช่วงระยะเวลาที่ใช้พิจารณาสิทธิ (ข้อกำหนดและเงื่อนไขเป็นไปตามที่ระบุไว้ในบันทึกสลักหลัง)": {
     "en": "No Claim Discount: the company gives a discount of 10% of the renewal premium (Renewal) for the policy year following the qualifying period (3 consecutive policy years before the next policy year), where no claim has been made under this rider and this rider has been continuously in force throughout the qualifying period (terms and conditions as stated in the endorsement).",
     "zh": "无理赔优惠（No Claim Discount）：如在资格考察期（下一保单年度前连续3个保单年度）内未根据本附加合同申请理赔，且本附加合同在整个资格考察期内持续有效，公司将在该考察期之后的保单年度给予续保（Renewal）保费10%的折扣（条款及条件以批单所载为准）。",
     "ru": "Скидка за отсутствие выплат (No Claim Discount): компания предоставляет скидку 10% от взноса при продлении (Renewal) на полисный год, следующий за оценочным периодом (3 полисных года подряд перед следующим полисным годом), если по этому дополнительному договору не заявлялось требований о выплате и договор непрерывно действовал весь оценочный период (условия указаны в дополнении к договору).",
-    "my": "လျော်ကြေးမတောင်းခံသည့်အတွက် လျှော့စျေး (No Claim Discount)- အရည်အချင်းသတ်မှတ်ကာလ (နောက်ပေါ်လစီနှစ် မတိုင်မီ ဆက်တိုက် ပေါ်လစီ 3 နှစ်) အတွင်း ဤဖြည့်စွက်စာချုပ်အရ လျော်ကြေးမတောင်းခံခဲ့ဘဲ ဤဖြည့်စွက်စာချုပ်သည် ထိုကာလတစ်လျှောက် ဆက်တိုက်အာမခံသက်ရောက်နေခဲ့ပါက ကုမ္ပဏီသည် နောက်ပေါ်လစီနှစ်အတွက် သက်တမ်းတိုး (Renewal) ပရီမီယံ၏ 10% လျှော့ပေးမည် (စည်းကမ်းချက်များမှာ ပြင်ဆင်ချက်မှတ်တမ်းတွင် ဖော်ပြထားသည့်အတိုင်း)။"
+    "my": "လျော်ကြေးမတောင်းခံသည့်အတွက် လျှော့စျေး (No Claim Discount)- အရည်အချင်းသတ်မှတ်ကာလ (နောက်ပေါ်လစီနှစ် မတိုင်မီ ဆက်တိုက် ပေါ်လစီ 3 နှစ်) အတွင်း ဤဖြည့်စွက်စာချုပ်အရ လျော်ကြေးမတောင်းခံခဲ့ဘဲ ဤဖြည့်စွက်စာချုပ်သည် ထိုကာလတစ်လျှောက် ဆက်တိုက်အာမခံသက်ရောက်နေခဲ့ပါက ကုမ္ပဏီသည် နောက်ပေါ်လစီနှစ်အတွက် သက်တမ်းတိုး (Renewal) ပရီမီယံ၏ 10% လျှော့ပေးမည် (စည်းကမ်းချက်များမှာ ပြင်ဆင်ချက်မှတ်တမ်းတွင် ဖော်ပြထားသည့်အတိုင်း)။",
+    "fr": "Bonus sans sinistre (No Claim Discount) : la compagnie accorde une réduction de 10 % de la prime de renouvellement (Renewal) pour l'année d'assurance suivant la période de référence (3 années d'assurance consécutives précédant l'année d'assurance suivante), lorsqu'aucun sinistre n'a été déclaré au titre de cette garantie complémentaire et que celle-ci est restée en vigueur sans interruption pendant toute la période de référence (modalités et conditions selon l'avenant).",
+    "de": "Schadenfreiheitsrabatt (No Claim Discount): Die Gesellschaft gewährt einen Rabatt von 10 % der Verlängerungsprämie (Renewal) für das Versicherungsjahr nach dem Bezugszeitraum (3 aufeinanderfolgende Versicherungsjahre vor dem nächsten Versicherungsjahr), wenn aus dieser Zusatzversicherung keine Leistung beantragt wurde und diese Zusatzversicherung während des gesamten Bezugszeitraums ununterbrochen in Kraft war (Bedingungen gemäß Nachtrag)."
   },
   "การจ่ายผลประโยชน์ของสัญญาเพิ่มเติมนี้ และผลประโยชน์ในหมวดอื่นใดของบันทึกสลักหลังที่แนบท้ายสัญญาเพิ่มเติมนี้ รวมกันแล้วต้องไม่เกินผลประโยชน์สูงสุดต่อรอบปีกรมธรรม์ประกันภัย": {
     "en": "Benefits paid under this rider and under any other category of the endorsement attached to this rider must not together exceed the maximum benefit per policy year.",
     "zh": "本附加合同的保险金与所附批单任何其他类别的保险金合计，不得超过每保单年度最高保障额。",
     "ru": "Выплаты по этому дополнительному договору вместе с выплатами по любым другим разделам прилагаемого к нему дополнения в сумме не могут превышать максимальную сумму возмещения за полисный год.",
-    "my": "ဤဖြည့်စွက်စာချုပ်အရ ပေးချေသော အကျိုးခံစားခွင့်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်း၏ အခြားအပိုင်းများမှ အကျိုးခံစားခွင့် စုစုပေါင်းသည် ပေါ်လစီနှစ်တစ်နှစ်လျှင် အမြင့်ဆုံးအကျိုးခံစားခွင့်ထက် မကျော်လွန်ရပါ။"
+    "my": "ဤဖြည့်စွက်စာချုပ်အရ ပေးချေသော အကျိုးခံစားခွင့်နှင့် ၎င်းတွင် ပူးတွဲပါရှိသော ပြင်ဆင်ချက်မှတ်တမ်း၏ အခြားအပိုင်းများမှ အကျိုးခံစားခွင့် စုစုပေါင်းသည် ပေါ်လစီနှစ်တစ်နှစ်လျှင် အမြင့်ဆုံးအကျိုးခံစားခွင့်ထက် မကျော်လွန်ရပါ။",
+    "fr": "Les prestations versées au titre de cette garantie complémentaire et de toute autre catégorie de l'avenant qui y est annexé ne peuvent pas dépasser ensemble la prestation maximale par année d'assurance.",
+    "de": "Die aus dieser Zusatzversicherung und aus allen anderen Kategorien des ihr beigefügten Nachtrags gezahlten Leistungen dürfen zusammen die Höchstleistung pro Versicherungsjahr nicht überschreiten."
   },
   "* สำหรับผลประโยชน์ในหมวดใดที่มีการระบุวงเงินผลประโยชน์ ในกรณีที่ค่าใช้จ่ายที่เกิดขึ้นจริงสูงกว่าวงเงินผลประโยชน์ที่ระบุในหมวดนั้น การคำนวณการมีส่วนร่วมจ่ายจะคำนวณจากวงเงินของผลประโยชน์ที่ระบุในหมวดนั้นๆ ทั้งนี้ การจ่ายผลประโยชน์ต้องไม่เกินผลประโยชน์สูงสุดที่กำหนดไว้ของหมวดนั้นๆ": {
     "en": "* For any category with a stated benefit limit, where the actual expenses exceed the limit stated for that category, the co-payment is calculated on the limit stated for that category. Benefits paid must not exceed the maximum benefit set for that category.",
     "zh": "* 对于列明保障限额的任何类别，如实际发生费用高于该类别所列保障限额，共付额按该类别所列保障限额计算。赔付金额不得超过该类别规定的最高保障额。",
     "ru": "* Для разделов с указанным лимитом возмещения: если фактические расходы превышают лимит раздела, доля доплаты рассчитывается от лимита этого раздела. Выплата не может превышать максимальную сумму, установленную для раздела.",
-    "my": "* အကျိုးခံစားခွင့် ကန့်သတ်ငွေ ဖော်ပြထားသော အပိုင်းတွင် အမှန်တကယ်ကုန်ကျစရိတ်သည် ထိုကန့်သတ်ငွေထက် များပါက တွဲဖက်ပေးချေငွေကို ထိုအပိုင်းတွင် ဖော်ပြထားသော ကန့်သတ်ငွေပေါ်မူတည်၍ တွက်ချက်သည်။ ပေးချေသော အကျိုးခံစားခွင့်သည် ထိုအပိုင်းအတွက် သတ်မှတ်ထားသော အမြင့်ဆုံးပမာဏထက် မကျော်လွန်ရပါ။"
+    "my": "* အကျိုးခံစားခွင့် ကန့်သတ်ငွေ ဖော်ပြထားသော အပိုင်းတွင် အမှန်တကယ်ကုန်ကျစရိတ်သည် ထိုကန့်သတ်ငွေထက် များပါက တွဲဖက်ပေးချေငွေကို ထိုအပိုင်းတွင် ဖော်ပြထားသော ကန့်သတ်ငွေပေါ်မူတည်၍ တွက်ချက်သည်။ ပေးချေသော အကျိုးခံစားခွင့်သည် ထိုအပိုင်းအတွက် သတ်မှတ်ထားသော အမြင့်ဆုံးပမာဏထက် မကျော်လွန်ရပါ။",
+    "fr": "* Pour toute catégorie assortie d'un plafond de prestation, lorsque les frais réels dépassent le plafond indiqué pour cette catégorie, la quote-part est calculée sur le plafond indiqué pour cette catégorie. Les prestations versées ne peuvent pas dépasser la prestation maximale fixée pour cette catégorie.",
+    "de": "* Bei jeder Kategorie mit festgelegter Leistungsgrenze gilt: Übersteigen die tatsächlichen Kosten die für diese Kategorie angegebene Grenze, wird die Zuzahlung auf Basis der für diese Kategorie angegebenen Grenze berechnet. Die gezahlten Leistungen dürfen die für diese Kategorie festgelegte Höchstleistung nicht überschreiten."
   },
   "เอกสารประกอบการเสนอขายนี้เป็นข้อมูลเบื้องต้นของแบบประกันภัย ผลประโยชน์ ความคุ้มครองและข้อยกเว้น เป็นไปตามที่กำหนดในกรมธรรม์ ผู้ซื้อควรทำความเข้าใจรายละเอียด ความคุ้มครองและเงื่อนไขก่อนตัดสินใจทำประกันภัยทุกครั้ง": {
     "en": "This sales material gives preliminary information about the insurance plan. Benefits, coverage and exclusions are as set out in the policy. Buyers should understand the details of coverage and conditions every time before deciding to take out insurance.",
     "zh": "本销售资料为保险计划的初步信息，保险利益、保障范围及除外责任以保单条款为准。购买者每次决定投保前，均应了解保障详情及条件。",
     "ru": "Этот материал содержит предварительную информацию о страховой программе. Выплаты, покрытие и исключения определяются условиями полиса. Перед каждым решением о страховании покупателю следует разобраться в подробностях покрытия и условиях.",
-    "my": "ဤအရောင်းစာရွက်စာတမ်းသည် အာမခံအစီအစဉ်အကြောင်း ကနဦးအချက်အလက်သာ ဖြစ်သည်။ အကျိုးခံစားခွင့်များ၊ အကာအကွယ်နှင့် ခြွင်းချက်များမှာ ပေါ်လစီတွင် သတ်မှတ်ထားသည့်အတိုင်း ဖြစ်သည်။ ဝယ်ယူသူသည် အာမခံဝယ်ယူရန် ဆုံးဖြတ်တိုင်း အကာအကွယ်အသေးစိတ်နှင့် စည်းကမ်းချက်များကို နားလည်ထားသင့်သည်။"
+    "my": "ဤအရောင်းစာရွက်စာတမ်းသည် အာမခံအစီအစဉ်အကြောင်း ကနဦးအချက်အလက်သာ ဖြစ်သည်။ အကျိုးခံစားခွင့်များ၊ အကာအကွယ်နှင့် ခြွင်းချက်များမှာ ပေါ်လစီတွင် သတ်မှတ်ထားသည့်အတိုင်း ဖြစ်သည်။ ဝယ်ယူသူသည် အာမခံဝယ်ယူရန် ဆုံးဖြတ်တိုင်း အကာအကွယ်အသေးစိတ်နှင့် စည်းကမ်းချက်များကို နားလည်ထားသင့်သည်။",
+    "fr": "Ce document commercial fournit des informations préliminaires sur la formule d'assurance. Les prestations, garanties et exclusions sont celles prévues au contrat. Avant toute décision de souscription, l'acheteur doit chaque fois bien comprendre le détail des garanties et des conditions.",
+    "de": "Dieses Verkaufsmaterial gibt vorläufige Informationen über den Versicherungstarif. Leistungen, Deckung und Ausschlüsse richten sich nach der Police. Käufer sollten die Einzelheiten der Deckung und der Bedingungen jedes Mal verstehen, bevor sie sich für eine Versicherung entscheiden."
   },
   "โรคสมองเสื่อมชนิดอัลไซเมอร์": {
     "en": "Alzheimer's disease",
     "zh": "阿尔茨海默病",
     "ru": "Болезнь Альцгеймера",
-    "my": "အယ်လ်ဇိုင်းမားရောဂါ"
+    "my": "အယ်လ်ဇိုင်းမားရောဂါ",
+    "fr": "Maladie d'Alzheimer",
+    "de": "Alzheimer-Krankheit"
   },
   "โรคโลหิตจางจากไขกระดูกไม่สร้างเม็ดโลหิต": {
     "en": "Aplastic anaemia",
     "zh": "再生障碍性贫血",
     "ru": "Апластическая анемия",
-    "my": "ရိုးတွင်းခြင်ဆီ သွေးမထုတ်လုပ်နိုင်သော သွေးအားနည်းရောဂါ"
+    "my": "ရိုးတွင်းခြင်ဆီ သွေးမထုတ်လုပ်နိုင်သော သွေးအားနည်းရောဂါ",
+    "fr": "Anémie aplasique",
+    "de": "Aplastische Anämie"
   },
   "โรคเยื่อหุ้มสมองและไขสันหลังอักเสบจากเชื้อแบคทีเรีย": {
     "en": "Bacterial meningitis",
     "zh": "细菌性脑脊髓膜炎",
     "ru": "Бактериальный менингит",
-    "my": "ဘက်တီးရီးယားကြောင့် ဦးနှောက်အမြှေးရောင်ရောဂါ"
+    "my": "ဘက်တီးရီးယားကြောင့် ဦးနှောက်အမြှေးရောင်ရောဂါ",
+    "fr": "Méningite bactérienne",
+    "de": "Bakterielle Meningitis"
   },
   "เนื้องอกในสมอง ชนิดที่ไม่ใช่มะเร็ง": {
     "en": "Benign brain tumour",
     "zh": "良性脑肿瘤",
     "ru": "Доброкачественная опухоль головного мозга",
-    "my": "ကင်ဆာမဟုတ်သော ဦးနှောက်အကျိတ်"
+    "my": "ကင်ဆာမဟုတ်သော ဦးနှောက်အကျိတ်",
+    "fr": "Tumeur cérébrale bénigne",
+    "de": "Gutartiger Hirntumor"
   },
   "ตาบอด": {
     "en": "Blindness",
     "zh": "失明",
     "ru": "Слепота",
-    "my": "မျက်စိကန်းခြင်း"
+    "my": "မျက်စိကန်းခြင်း",
+    "fr": "Cécité",
+    "de": "Blindheit"
   },
   "โรคมะเร็งระยะลุกลาม": {
     "en": "Advanced-stage cancer",
     "zh": "晚期恶性肿瘤",
     "ru": "Рак в поздней стадии",
-    "my": "ပြန့်ပွားနေသော ကင်ဆာ"
+    "my": "ပြန့်ပွားနေသော ကင်ဆာ",
+    "fr": "Cancer à un stade avancé",
+    "de": "Krebs im fortgeschrittenen Stadium"
   },
   "ไตวายเรื้อรัง": {
     "en": "Chronic kidney failure",
     "zh": "慢性肾衰竭",
     "ru": "Хроническая почечная недостаточность",
-    "my": "နာတာရှည် ကျောက်ကပ်ပျက်ခြင်း"
+    "my": "နာတာရှည် ကျောက်ကပ်ပျက်ခြင်း",
+    "fr": "Insuffisance rénale chronique",
+    "de": "Chronisches Nierenversagen"
   },
   "ตับวาย": {
     "en": "Liver failure",
     "zh": "肝衰竭",
     "ru": "Печёночная недостаточность",
-    "my": "အသည်းပျက်ခြင်း"
+    "my": "အသည်းပျက်ခြင်း",
+    "fr": "Insuffisance hépatique",
+    "de": "Leberversagen"
   },
   "ภาวะโคม่า": {
     "en": "Coma",
     "zh": "昏迷",
     "ru": "Кома",
-    "my": "သတိလစ်မေ့မြောခြင်း (Coma)"
+    "my": "သတိလစ်မေ့မြောခြင်း (Coma)",
+    "fr": "Coma",
+    "de": "Koma"
   },
   "โรคหลอดเลือดหัวใจตีบตันที่ต้องรักษาด้วยการผ่าตัดต่อหลอดเลือด": {
     "en": "Coronary artery disease requiring bypass surgery",
     "zh": "需行冠状动脉搭桥手术的冠状动脉疾病",
     "ru": "Ишемическая болезнь сердца, требующая шунтирования",
-    "my": "ကျော်ဖြတ်ခွဲစိတ်ရန်လိုသော နှလုံးသွေးကြောပိတ်ဆို့ရောဂါ"
+    "my": "ကျော်ဖြတ်ခွဲစိတ်ရန်လိုသော နှလုံးသွေးကြောပိတ်ဆို့ရောဂါ",
+    "fr": "Maladie coronarienne nécessitant un pontage",
+    "de": "Koronare Herzkrankheit mit Bypass-Operation"
   },
   "การสูญเสียการได้ยิน": {
     "en": "Loss of hearing",
     "zh": "丧失听力",
     "ru": "Потеря слуха",
-    "my": "အကြားအာရုံ ဆုံးရှုံးခြင်း"
+    "my": "အကြားအာရုံ ဆုံးရှုံးခြင်း",
+    "fr": "Perte de l'audition",
+    "de": "Verlust des Gehörs"
   },
   "สมองอักเสบ": {
     "en": "Encephalitis",
     "zh": "脑炎",
     "ru": "Энцефалит",
-    "my": "ဦးနှောက်ရောင်ရောဂါ"
+    "my": "ဦးနှောက်ရောင်ရောဂါ",
+    "fr": "Encéphalite",
+    "de": "Enzephalitis"
   },
   "โรคปอดระยะสุดท้าย": {
     "en": "End-stage lung disease",
     "zh": "终末期肺病",
     "ru": "Терминальная стадия заболевания лёгких",
-    "my": "နောက်ဆုံးအဆင့် အဆုတ်ရောဂါ"
+    "my": "နောက်ဆုံးအဆင့် အဆုတ်ရောဂါ",
+    "fr": "Maladie pulmonaire au stade terminal",
+    "de": "Lungenerkrankung im Endstadium"
   },
   "ตับอักเสบระยะอันตราย": {
     "en": "Fulminant hepatitis",
     "zh": "暴发性肝炎",
     "ru": "Фульминантный гепатит",
-    "my": "ပြင်းထန်သော အသည်းရောင်ရောဂါ"
+    "my": "ပြင်းထန်သော အသည်းရောင်ရောဂါ",
+    "fr": "Hépatite fulminante",
+    "de": "Fulminante Hepatitis"
   },
   "กล้ามเนื้อหัวใจตายเฉียบพลันจากการขาดเลือด": {
     "en": "Acute myocardial infarction (heart attack)",
     "zh": "急性心肌梗死",
     "ru": "Острый инфаркт миокарда",
-    "my": "နှလုံးကြွက်သား ရုတ်တရက်သေဆုံးခြင်း (နှလုံးရောဂါဖောက်ခြင်း)"
+    "my": "နှလုံးကြွက်သား ရုတ်တရက်သေဆုံးခြင်း (နှလုံးရောဂါဖောက်ခြင်း)",
+    "fr": "Infarctus aigu du myocarde (crise cardiaque)",
+    "de": "Akuter Myokardinfarkt (Herzinfarkt)"
   },
   "การผ่าตัดเปลี่ยนลิ้นหัวใจ": {
     "en": "Heart valve replacement",
     "zh": "心脏瓣膜置换手术",
     "ru": "Замена сердечного клапана",
-    "my": "နှလုံးအဆို့ရှင် အစားထိုးခွဲစိတ်ခြင်း"
+    "my": "နှလုံးအဆို့ရှင် အစားထိုးခွဲစိတ်ခြင်း",
+    "fr": "Remplacement de valve cardiaque",
+    "de": "Herzklappenersatz"
   },
   "การสูญเสียความสามารถในการพูด": {
     "en": "Loss of speech",
     "zh": "丧失语言能力",
     "ru": "Потеря речи",
-    "my": "စကားပြောနိုင်စွမ်း ဆုံးရှုံးခြင်း"
+    "my": "စကားပြောနိုင်စွမ်း ဆုံးရှုံးခြင်း",
+    "fr": "Perte de la parole",
+    "de": "Verlust der Sprache"
   },
   "แผลไหม้ฉกรรจ์": {
     "en": "Major burns",
     "zh": "严重烧伤",
     "ru": "Тяжёлые ожоги",
-    "my": "ပြင်းထန်သော မီးလောင်ဒဏ်ရာ"
+    "my": "ပြင်းထန်သော မီးလောင်ဒဏ်ရာ",
+    "fr": "Brûlures graves",
+    "de": "Schwere Verbrennungen"
   },
   "การผ่าตัดเปลี่ยนอวัยวะหรือปลูกถ่ายไขกระดูก": {
     "en": "Organ transplant or bone marrow transplant",
     "zh": "器官移植或骨髓移植",
     "ru": "Трансплантация органов или костного мозга",
-    "my": "ကိုယ်တွင်းအင်္ဂါ သို့မဟုတ် ရိုးတွင်းခြင်ဆီ အစားထိုးခြင်း"
+    "my": "ကိုယ်တွင်းအင်္ဂါ သို့မဟုတ် ရိုးတွင်းခြင်ဆီ အစားထိုးခြင်း",
+    "fr": "Greffe d'organe ou greffe de moelle osseuse",
+    "de": "Organtransplantation oder Knochenmarktransplantation"
   },
   "โรคของเซลล์ประสาทควบคุมการเคลื่อนไหว": {
     "en": "Motor neurone disease",
     "zh": "运动神经元病",
     "ru": "Болезнь двигательного нейрона",
-    "my": "လှုပ်ရှားမှုထိန်း အာရုံကြောဆဲလ်ရောဂါ (Motor neurone disease)"
+    "my": "လှုပ်ရှားမှုထိန်း အာရုံကြောဆဲလ်ရောဂါ (Motor neurone disease)",
+    "fr": "Maladie du motoneurone",
+    "de": "Motoneuron-Erkrankung"
   },
   "โรคระบบประสาทมัลติเพิล สะเคลอโรสิส": {
     "en": "Multiple sclerosis",
     "zh": "多发性硬化症",
     "ru": "Рассеянный склероз",
-    "my": "မာလ်တီပယ်စကလီရိုးဆစ် (Multiple sclerosis)"
+    "my": "မာလ်တီပယ်စကလီရိုးဆစ် (Multiple sclerosis)",
+    "fr": "Sclérose en plaques",
+    "de": "Multiple Sklerose"
   },
   "โรคกล้ามเนื้อเสื่อม": {
     "en": "Muscular dystrophy",
     "zh": "肌营养不良症",
     "ru": "Мышечная дистрофия",
-    "my": "ကြွက်သားယုတ်လျော့ရောဂါ (Muscular dystrophy)"
+    "my": "ကြွက်သားယုတ်လျော့ရောဂါ (Muscular dystrophy)",
+    "fr": "Dystrophie musculaire",
+    "de": "Muskeldystrophie"
   },
   "อัมพาตของกล้ามเนื้อแขนหรือขา": {
     "en": "Paralysis of the arms or legs",
     "zh": "上肢或下肢瘫痪",
     "ru": "Паралич рук или ног",
-    "my": "လက် သို့မဟုတ် ခြေထောက် လေဖြတ်ခြင်း"
+    "my": "လက် သို့မဟုတ် ခြေထောက် လေဖြတ်ခြင်း",
+    "fr": "Paralysie des bras ou des jambes",
+    "de": "Lähmung der Arme oder Beine"
   },
   "โรคพาร์กินสัน": {
     "en": "Parkinson's disease",
     "zh": "帕金森病",
     "ru": "Болезнь Паркинсона",
-    "my": "ပါကင်ဆန်ရောဂါ"
+    "my": "ပါကင်ဆန်ရောဂါ",
+    "fr": "Maladie de Parkinson",
+    "de": "Parkinson-Krankheit"
   },
   "โรคโปลิโอ": {
     "en": "Poliomyelitis",
     "zh": "脊髓灰质炎",
     "ru": "Полиомиелит",
-    "my": "ပိုလီယိုရောဂါ"
+    "my": "ပိုလီယိုရောဂါ",
+    "fr": "Poliomyélite",
+    "de": "Poliomyelitis"
   },
   "โรคแรงดันในหลอดเลือดแดงปอดสูงแบบปฐมภูมิ": {
     "en": "Primary pulmonary arterial hypertension",
     "zh": "原发性肺动脉高压",
     "ru": "Первичная лёгочная артериальная гипертензия",
-    "my": "မူလအဆုတ်သွေးလွှတ်ကြော သွေးတိုးရောဂါ"
+    "my": "မူလအဆုတ်သွေးလွှတ်ကြော သွေးတိုးရောဂါ",
+    "fr": "Hypertension artérielle pulmonaire primitive",
+    "de": "Primäre pulmonale arterielle Hypertonie"
   },
   "การสูญเสียอวัยวะโดยการตัด": {
     "en": "Loss of limbs by amputation",
     "zh": "截肢导致肢体缺失",
     "ru": "Потеря конечностей в результате ампутации",
-    "my": "ဖြတ်တောက်ခြင်းကြောင့် ခြေလက် ဆုံးရှုံးခြင်း"
+    "my": "ဖြတ်တောက်ခြင်းကြောင့် ခြေလက် ဆုံးရှုံးခြင်း",
+    "fr": "Perte de membres par amputation",
+    "de": "Verlust von Gliedmaßen durch Amputation"
   },
   "โรคหลอดเลือดสมองแตกหรืออุดตัน": {
     "en": "Stroke (cerebral haemorrhage or infarction)",
     "zh": "脑卒中（脑出血或脑梗死）",
     "ru": "Инсульт (кровоизлияние или инфаркт мозга)",
-    "my": "ဦးနှောက်သွေးကြောပေါက်ခြင်း သို့မဟုတ် ပိတ်ဆို့ခြင်း (Stroke)"
+    "my": "ဦးနှောက်သွေးကြောပေါက်ခြင်း သို့မဟုတ် ပိတ်ဆို့ခြင်း (Stroke)",
+    "fr": "Accident vasculaire cérébral (hémorragie ou infarctus cérébral)",
+    "de": "Schlaganfall (Hirnblutung oder Hirninfarkt)"
   },
   "การผ่าตัดเส้นเลือดแดงใหญ่เอออร์ต้า": {
     "en": "Surgery of the aorta",
     "zh": "主动脉手术",
     "ru": "Операция на аорте",
-    "my": "အဓိကသွေးလွှတ်ကြောမကြီး (Aorta) ခွဲစိတ်ခြင်း"
+    "my": "အဓိကသွေးလွှတ်ကြောမကြီး (Aorta) ခွဲစိတ်ခြင်း",
+    "fr": "Chirurgie de l'aorte",
+    "de": "Operation der Aorta"
   },
   "ภาวะขั้นสุดท้าย": {
     "en": "Terminal illness",
     "zh": "疾病终末期",
     "ru": "Терминальная стадия болезни",
-    "my": "နောက်ဆုံးအဆင့် ရောဂါ"
+    "my": "နောက်ဆုံးအဆင့် ရောဂါ",
+    "fr": "Maladie en phase terminale",
+    "de": "Unheilbare Krankheit im Endstadium"
   },
   "การทุพพลภาพถาวรสิ้นเชิง": {
     "en": "Total and permanent disability",
     "zh": "完全永久残疾",
     "ru": "Полная и постоянная нетрудоспособность",
-    "my": "လုံးဝ အမြဲတမ်း မသန်စွမ်းဖြစ်ခြင်း"
+    "my": "လုံးဝ အမြဲတမ်း မသန်စွမ်းဖြစ်ခြင်း",
+    "fr": "Invalidité totale et permanente",
+    "de": "Dauerhafte Vollinvalidität"
   }
 }

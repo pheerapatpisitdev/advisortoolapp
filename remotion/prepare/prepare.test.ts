@@ -110,7 +110,7 @@ function narisa(vdir: string, script: { voice: string }[]): Buffer[] {
 }
 
 /** the Mac's voice for a language, 24 kHz 16-bit mono; null where it has none */
-const SAY: Record<string, string | null> = { th: "Narisa", en: "Samantha", zh: "Tingting", ru: "Milena", my: null };
+const SAY: Record<string, string | null> = { th: "Narisa", en: "Samantha", zh: "Tingting", ru: "Milena", my: null, fr: "Thomas", de: "Anna" };
 
 it.runIf(Boolean(process.env.IHEALTHY))("prepares iHealthy props in each language, with its script face", async () => {
   const { quoteVideoFacts, quoteVideoScript } = await import("@/lib/quote-video/script");
@@ -123,7 +123,7 @@ it.runIf(Boolean(process.env.IHEALTHY))("prepares iHealthy props in each languag
 
   const report: Record<string, unknown> = {};
   for (const pair of process.env.IHEALTHY!.split(",")) {
-    const [lang, theme = "navy"] = pair.split(":") as ["th" | "zh" | "ru" | "my", "navy"];
+    const [lang, theme = "navy"] = pair.split(":") as ["th" | "zh" | "ru" | "my" | "fr" | "de", "navy"];
     // ALL4=annual|semi|monthly: วิดีโอเทียบ 4 แผน (ihealthy-all-plans.ts) for a woman of 35 instead
     const all4 = process.env.ALL4 as "annual" | "semi" | "monthly" | undefined;
     const input = all4 ? {

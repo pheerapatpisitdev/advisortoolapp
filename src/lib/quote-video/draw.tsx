@@ -1,3 +1,4 @@
+import { figure, type Lang } from "@/lib/ihealthy-lang";
 import type { CSSProperties, ReactNode } from "react";
 import { Chart, chartBlockHeight } from "@/app/api/card/chart-drawing";
 import { insuredFace } from "@/app/api/card/insured-face";
@@ -119,7 +120,8 @@ function Headline({ c, layer }: { c: DrawContext; layer: Layer }) {
 }
 
 
-const money = (n: number) => n.toLocaleString("en-US");
+/** a figure grouped as the clip's language writes it: German 8.000, every other 8,000 */
+const money = (n: number, lang: Lang = "th") => figure(n, lang);
 const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 
 function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
@@ -135,7 +137,7 @@ function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }
       )}
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 40, fontSize: 46, color: P.mute }}>{f.lead.label}</On>
       <div style={abs({ left: SIDE, top: PHOTO.y + PHOTO.h + 100, alignItems: "flex-end" })}>
-        <On layer={layer} own="over" style={{ fontSize: f.lead.amount.length > 9 ? 140 : 170, fontWeight: 600, color: P.figure, lineHeight: 1 }}>{money(countAt(f.lead.baht, s.count))}</On>
+        <On layer={layer} own="over" style={{ fontSize: f.lead.amount.length > 9 ? 140 : 170, fontWeight: 600, color: P.figure, lineHeight: 1 }}>{money(countAt(f.lead.baht, s.count), f.lang)}</On>
         <On layer={layer} own="base" style={{ fontSize: 56, color: P.mute, marginLeft: 24, marginBottom: 14 }}>{vw.baht}</On>
       </div>
       {f.lead.note && (
@@ -295,7 +297,7 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
           <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", marginTop: 10, marginBottom: 10 })}>
             <On layer={layer} own="base" style={{ fontSize: r.main ? 50 : 44, fontWeight: r.main ? 600 : 400, color: r.main ? P.figure : P.ink }}>{r.label}</On>
             {r.main ? (
-              <On layer={layer} own="over" style={{ fontSize: 88, fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count))} ${baht}`}</On>
+              <On layer={layer} own="over" style={{ fontSize: 88, fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count), c.facts.lang)} ${baht}`}</On>
             ) : (
               <On layer={layer} own="base" style={{ fontSize: 48, color: P.ink }}>{`${r.amount} ${baht}`}</On>
             )}

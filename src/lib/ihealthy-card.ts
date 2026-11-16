@@ -1,4 +1,3 @@
-import { formatBaht } from "@/calc/money";
 import type { PayMode } from "@/calc/types";
 import { benefitCell } from "@/components/ihealthy/BenefitTable";
 import { PHONE_ROW_LABEL, phoneColumns } from "@/lib/ihealthy-phone";
@@ -12,7 +11,7 @@ import {
 } from "@/lib/ihealthy-quote";
 import { priceRiders } from "@/lib/ihealthy-rider-quote";
 import { riderLines, riderParts, riderSpokenNames } from "@/lib/ihealthy-rider-lines";
-import { parseLang, type Lang } from "@/lib/ihealthy-lang";
+import { figure, parseLang, type Lang } from "@/lib/ihealthy-lang";
 import { baseWords, WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
 import { translateFacts } from "@/lib/ihealthy-translate";
 
@@ -201,7 +200,7 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
     if (short === undefined) continue;
     rows.push({
       label: w.phoneRow[entry.no] ?? short.label,
-      cells: cellsOf((code) => benefitCell(entry, code, v.age, sellable).text),
+      cells: cellsOf((code) => benefitCell(entry, code, v.age, sellable, lang).text),
     });
   }
   // Last, and outside the company's own categories: a second contract the agency sells
@@ -215,7 +214,7 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
     rows.push({
       label: w.dailyCashRow,
       cells: [],
-      span: attached === null ? DASH : `${attached.toLocaleString("en-US")} ${w.perDay} · ${w.samePlans}`,
+      span: attached === null ? DASH : `${figure(attached, lang)} ${w.perDay} · ${w.samePlans}`,
     });
   }
 
@@ -227,7 +226,7 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
       // total, and a picture that printed the figure anyway would be offering a way of
       // paying that cannot be bought.
       const total = byPlan.get(code)?.total.find((m) => m.mode === mode);
-      return total === undefined || total.belowMinimum ? DASH : formatBaht(total.total);
+      return total === undefined || total.belowMinimum ? DASH : figure(Math.floor(total.total / 100), lang);
     }),
   }));
 
@@ -253,7 +252,7 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
     insuredWho: `${w.sex[v.sex]} ${w.years(v.age)}`,
     sex: v.sex,
     insuredLine: `${w.baseWithSum(baseName, v.sumAssured)} ${w.baht} · ${territory}${cover ? ` · ${cover}` : ""}`,
-    ...(headline ? { premium: { amount: formatBaht(headline.total), per: w.share.per[v.mode] } } : {}),
+    ...(headline ? { premium: { amount: figure(Math.floor(headline.total / 100), lang), per: w.share.per[v.mode] } } : {}),
     lines: here === undefined ? [] : [
       { label: w.baseWithSum(baseName, v.sumAssured) },
       { label: `iHealthy Ultra ${planLabel(v.plan)}` },

@@ -7,7 +7,10 @@ const TODAY = new Date("2026-10-15T12:00:00+07:00");
 const base = { product: "IHEALTHY" as const, age: 35, sex: "F" as const, plan: "SILVER", compare: ["GOLD"] };
 const factsIn = (lang: string, more: Partial<VideoInput> = {}) => quoteVideoFacts({ ...base, lang, ...more } as VideoInput, TODAY)!;
 
-describe("iHealthy clip in the page's five languages (owner, 2026-10-15)", () => {
+/** a figure's digits, however its language groups them: German 3.222, every other 3,222 */
+const digitsOf = (s: string) => s.replace(/(\d)[.,](?=\d{3}\b)/g, "$1");
+
+describe("iHealthy clip in the page's seven languages (owner, 2026-10-15; French and German 2026-11-16)", () => {
   it("leaves the Thai clip exactly as it was", () => {
     const th = factsIn("th");
     const none = quoteVideoFacts(base, TODAY)!;
@@ -21,9 +24,9 @@ describe("iHealthy clip in the page's five languages (owner, 2026-10-15)", () =>
     for (const lang of VIDEO_LANGS.filter((l) => l !== "th")) {
       const f = factsIn(lang);
       expect(f.lang).toBe(lang);
-      expect(f.prices.map((p) => p.amount)).toEqual(th.prices.map((p) => p.amount));
+      expect(f.prices.map((p) => digitsOf(p.amount))).toEqual(th.prices.map((p) => digitsOf(p.amount)));
       expect(f.lead.baht).toBe(th.lead.baht);
-      expect(f.compare?.map((p) => p.monthly)).toEqual(th.compare?.map((p) => p.monthly));
+      expect(f.compare?.map((p) => digitsOf(p.monthly))).toEqual(th.compare?.map((p) => digitsOf(p.monthly)));
       // nothing Thai on screen
       const shown = [f.insuredWho, f.insuredLine, f.lead.label, f.leadMark, f.priceTitle, f.coverTitle, ...f.priceNotes, ...f.prices.map((p) => p.label), ...f.cover.flatMap((r) => [r.label, r.amount])];
       expect(shown.filter((s) => /[฀-๿]/.test(s))).toEqual([]);
@@ -38,7 +41,7 @@ describe("iHealthy clip in the page's five languages (owner, 2026-10-15)", () =>
         expect(lines.map((l) => l.key)).toEqual(length === "short" ? ["lead", "price", "contact"] : ["lead", "price", "cover", "compare", "contact"]);
         for (const l of lines) {
           expect(l.voice).not.toMatch(/[฀-๿:：]/);
-          expect(l.voice).not.toMatch(/visa|worldwide|виз|签证/i);
+          expect(l.voice).not.toMatch(/visa|worldwide|виз|签证|monde entier|weltweit/i);
         }
       }
     }
@@ -51,6 +54,22 @@ describe("iHealthy clip in the page's five languages (owner, 2026-10-15)", () =>
     expect(quoteVideoScript(factsIn("zh"))[0].voice).toContain("1500万泰铢");
     expect(quoteVideoScript(factsIn("ru"))[1].voice).toContain("3222 бата в месяц");
     expect(quoteVideoScript(factsIn("my"))[1].voice).toContain("ဘတ် ၃,၂၂၂");
+    // French groups with a narrow no-break space, kept inside the one word the subtitle lights
+    const fr = quoteVideoScript(factsIn("fr"));
+    expect(fr[0].voice).toBe("Bonjour! Voici un aperçu rapide de cette assurance santé. Pour une femme de 35 ans, la formule Silver rembourse les frais médicaux jusqu'à 15 millions de bahts par an.");
+    expect(fr[1].voice).toContain("3\u202f222 bahts par mois");
+    expect(fr[1].voice.split(" ")).toContain("3\u202f222");
+    const de = quoteVideoScript(factsIn("de"));
+    expect(de[0].voice).toBe("Hallo! Hier ein kurzer Überblick über diese Krankenversicherung. Für eine 35-jährige Frau zahlt der Tarif Silver Behandlungskosten bis zu 15 Millionen Baht pro Jahr.");
+    expect(de[1].voice).toContain("3.222 Baht im Monat");
+  });
+
+  it("groups German figures on screen with a dot (owner, 2026-11-16)", () => {
+    const de = factsIn("de");
+    expect(de.lead.amount).toBe("15.000.000");
+    expect(de.prices.find((p) => p.main)?.amount).toBe("3.222");
+    expect(de.leadMark).toBe("Erstes Jahr 3.222 Baht pro Monat");
+    expect(factsIn("fr").lead.amount).toBe("15,000,000");
   });
 
   it("greets a named customer by name alone, not คุณ", () => {

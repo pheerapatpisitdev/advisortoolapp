@@ -4,7 +4,7 @@ import { iHealthyCard } from "@/lib/ihealthy-card";
 import { cardPath } from "@/lib/ihealthy-link";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
-import { LANGS } from "@/lib/ihealthy-lang";
+import { figure, LANGS } from "@/lib/ihealthy-lang";
 import { WORDS } from "@/lib/ihealthy-words";
 
 /**
@@ -57,9 +57,16 @@ describe("the copied quote", () => {
     for (const lang of LANGS.filter((l) => l !== "th")) {
       const text = iHealthyQuoteText(facts, WORDS[lang])!;
       expect(text, lang).not.toMatch(THAI);
-      expect(text, lang).toContain("4,133");
-      expect(text, lang).toContain("45,930");
+      // German groups thousands with a dot (owner, 2026-11-16)
+      expect(text, lang).toContain(figure(4_133, lang));
+      expect(text, lang).toContain(figure(45_930, lang));
     }
+  });
+
+  it("groups German figures with a dot", () => {
+    const text = iHealthyQuoteText(facts, WORDS.de)!;
+    expect(text).toContain("4.133");
+    expect(text).toContain("25.000.000");
   });
 
   it("is the Thai it always was when no language is named", () => {

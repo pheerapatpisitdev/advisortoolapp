@@ -3,7 +3,6 @@ import { SHARE_PLANS, iHealthySlots } from "@/lib/share-text/plans";
 import { shareText } from "@/lib/share-text/template";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PayMode, Sex } from "@/calc/types";
-import { formatBaht } from "@/calc/money";
 import type { IHealthyTable } from "@/lib/ihealthy-table";
 import type { BenefitTableData } from "@/components/ihealthy/BenefitTable";
 import { planLabel } from "@/lib/ihealthy-facts";
@@ -33,7 +32,7 @@ import { VIDEO_LABEL } from "@/components/sales/video-label";
 import { videoStartHref } from "@/lib/quote-video/link";
 import { iHealthyQuoteText, type IHealthyCtaFacts } from "@/lib/ihealthy-cta";
 import { shareBenefits, type ShareRows } from "@/lib/ihealthy-share-lines";
-import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
+import { HTML_LANG, figure, type Lang } from "@/lib/ihealthy-lang";
 import { WORDS, baseWords } from "@/lib/ihealthy-words";
 import { riderLines } from "@/lib/ihealthy-rider-lines";
 import { Highlighted } from "@/components/Highlighted";
@@ -83,6 +82,9 @@ export function IHealthyCalculator(
   }: IHealthyCalculatorProps,
 ) {
   const w = WORDS[lang];
+  /** a figure, and a premium held in satang, grouped as the reader's language groups digits */
+  const fig = (x: number) => figure(x, lang);
+  const bahtOf = (satang: number) => fig(Math.floor(satang / 100));
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -353,7 +355,7 @@ export function IHealthyCalculator(
   const dciList = (
     <section className="mt-4 border-t border-[var(--lg-panel-line)] pt-4">
       <h3 className="font-medium text-[var(--lg-white)]">
-        {w.dciTitle(dciRider?.sumAssured?.toLocaleString("en-US") ?? "")}
+        {w.dciTitle((dciRider?.sumAssured === undefined ? undefined : fig(dciRider.sumAssured)) ?? "")}
       </h3>
       <p className="mt-1 text-xs leading-relaxed">
         {w.dciNote}
@@ -461,7 +463,7 @@ export function IHealthyCalculator(
             <>
               <label htmlFor="ihu-sum" className={label}>{w.baseSum}</label>
               <select id="ihu-sum" className={field} value={sumAssured} onChange={(e) => setWantSum(Number(e.target.value))}>
-                {sumOptions.map((s) => <option key={s} value={s}>{s.toLocaleString("en-US")} {w.baht}</option>)}
+                {sumOptions.map((s) => <option key={s} value={s}>{fig(s)} {w.baht}</option>)}
               </select>
             </>
           )}
@@ -544,7 +546,7 @@ export function IHealthyCalculator(
                 <div className="border-t border-[var(--lg-panel-line)] pt-4">
                   <div className="text-sm text-[var(--lg-mute)]">{w.totalPremium(w.mode[mode])}</div>
                   <div className="lg-figure mt-1 text-[2.4rem] leading-none tabular-nums">
-                    <span className="lg-metal-text">{formatBaht(shown.total)}</span>
+                    <span className="lg-metal-text">{bahtOf(shown.total)}</span>
                     <span className="ml-2 text-base text-[var(--lg-mute)]">{w.baht}</span>
                   </div>
                   {shown.belowMinimum && (
@@ -562,7 +564,7 @@ export function IHealthyCalculator(
                       <div key={m.mode} className="flex items-baseline justify-between gap-3">
                         <dt className="text-[var(--lg-mute)]"><Highlighted>{w.mode[m.mode]}</Highlighted></dt>
                         <dd className="lg-figure tabular-nums text-[var(--lg-white)]">
-                          <Highlighted>{formatBaht(m.total)} {w.baht}</Highlighted>
+                          <Highlighted>{bahtOf(m.total)} {w.baht}</Highlighted>
                         </dd>
                       </div>
                     ))}
@@ -587,7 +589,7 @@ export function IHealthyCalculator(
                 <Highlighted>
                   {w.annualLimit}{" "}
                   <span className="lg-figure tabular-nums">
-                    {plan.annualMax.toLocaleString("en-US")}
+                    {fig(plan.annualMax)}
                   </span>{" "}
                   {w.baht}
                 </Highlighted>
@@ -604,7 +606,7 @@ export function IHealthyCalculator(
                 <p key={row.label} className="mt-1">
                   {row.label}{" "}
                   <span className="lg-figure tabular-nums text-[var(--lg-white)]">
-                    {row.amount.toLocaleString("en-US")}
+                    {fig(row.amount)}
                   </span>{" "}
                   {w.baht}
                 </p>
@@ -635,6 +637,7 @@ export function IHealthyCalculator(
           onAttached={setAttached}
           onPicked={setPicked}
           w={w}
+          lang={lang}
         />
       )}
 
@@ -648,7 +651,7 @@ export function IHealthyCalculator(
         <BenefitTable
           data={data} selected={plan?.code ?? ""} age={age} sharedLimit={sharedLimit}
           participationNote={participationNote}
-          sellable={plans.map((p) => p.code)} premiums={premiums} w={w}
+          sellable={plans.map((p) => p.code)} premiums={premiums} w={w} lang={lang}
           dailyCash={
             // `??` would be wrong here: null is the fold saying the agent took it off, not
             // the fold saying nothing yet, and falling through to the standard would put a

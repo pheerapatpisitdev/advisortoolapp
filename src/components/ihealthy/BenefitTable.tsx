@@ -1,4 +1,4 @@
-import { formatBaht } from "@/calc/money";
+import { figure, type Lang } from "@/lib/ihealthy-lang";
 import { PHONE_PLANS, PHONE_ROW_LABEL } from "@/lib/ihealthy-phone";
 import {
   benefitValue, categoryNumbers, isHeading, planLabel, type BenefitEntry, type IHealthyFacts,
@@ -46,6 +46,8 @@ export interface BenefitTableProps {
   premiums?: { mode: string; label: string; byPlan: Record<string, number | null> }[];
   /** the page's own words in the reader's language; the rows arrive already translated */
   w?: IHealthyWords;
+  /** the reader's language, for how figures are grouped; Thai where not given */
+  lang?: Lang;
 }
 
 
@@ -101,12 +103,14 @@ export function benefitCell(
   plan: string,
   age: number,
   sellable: string[],
+  /** whose digit grouping a bare number takes: German groups with a dot (owner, 2026-11-16) */
+  lang: Lang = "th",
 ): BenefitCell {
   if (isHeading(entry)) return { text: "", unavailable: false };
   if (!sellable.includes(plan)) return { text: DASH, unavailable: true };
   const v = benefitValue(entry, plan, age);
   if (v === undefined || v.trim() === "") return { text: DASH, unavailable: false };
-  return { text: grouped(v), unavailable: false };
+  return { text: grouped(v, lang), unavailable: false };
 }
 
 /** One cell standing for the run of adjacent columns that all say the same thing. */
@@ -151,8 +155,8 @@ export function cellRuns(cells: BenefitCell[], plans: string[]): CellRun[] {
  * digits are grouped and nothing else is added: what unit it is in is the company's to say,
  * and on these rows it does not say.
  */
-function grouped(value: string): string {
-  return /^\d+$/.test(value) ? Number(value).toLocaleString("en-US") : value;
+function grouped(value: string, lang: Lang): string {
+  return /^\d+$/.test(value) ? figure(Number(value), lang) : value;
 }
 
 /**
@@ -221,7 +225,7 @@ function runAttrs(run: CellRun, selected: string): { "data-plan"?: string; "data
 
 export function BenefitTable(
   {
-    data, selected, age, sellable, sharedLimit, participationNote, premiums, dailyCash, w = WORDS.th,
+    data, selected, age, sellable, sharedLimit, participationNote, premiums, dailyCash, w = WORDS.th, lang = "th",
   }: BenefitTableProps,
 ) {
   const plans = data.plans;
@@ -384,7 +388,7 @@ export function BenefitTable(
                       phone is showing this row at all */}
                   {entry.no !== null && entry.no in PHONE_ROW_LABEL
                     && cellRuns(
-                      phonePlans.map((p) => benefitCell(entry, p.code, age, sellable)),
+                      phonePlans.map((p) => benefitCell(entry, p.code, age, sellable, lang)),
                       phonePlans.map((p) => p.code),
                     ).map((run) => (
                       <td
@@ -396,7 +400,7 @@ export function BenefitTable(
                       </td>
                     ))}
                   {cellRuns(
-                    plans.map((p) => benefitCell(entry, p.code, age, sellable)),
+                    plans.map((p) => benefitCell(entry, p.code, age, sellable, lang)),
                     plans.map((p) => p.code),
                   ).map((run) => (
                     <td
@@ -431,7 +435,7 @@ export function BenefitTable(
                     DASH
                   ) : (
                     <>
-                      <span className="tabular-nums">{dailyCash.toLocaleString("en-US")}</span> {w.perDay}
+                      <span className="tabular-nums">{figure(dailyCash, lang)}</span> {w.perDay}
                       <span className="ml-2 text-[0.65rem] text-[var(--lg-mute)]">{w.samePlans}</span>
                     </>
                   )}
@@ -472,7 +476,7 @@ export function BenefitTable(
                       data-picked={p.code === selected ? "" : undefined}
                       className={`${COLUMN_RULE} ${onPhone(p.code) ? "" : WIDE_ONLY_CELL} px-1.5 py-2.5 text-center font-medium tabular-nums sm:px-3`}
                     >
-                      {premium === null || premium === undefined ? DASH : formatBaht(premium)}
+                      {premium === null || premium === undefined ? DASH : figure(Math.floor(premium / 100), lang)}
                     </td>
                   );
                 })}

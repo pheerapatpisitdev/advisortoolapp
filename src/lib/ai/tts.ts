@@ -29,10 +29,11 @@ const STYLE: Record<Narrator, string> = {
 };
 /**
  * The same ask in the language a line is in (owner, 2026-10-15: iHealthy Ultra clips in the page's
- * five languages). Burmese is asked in English, naming the language, which the voice follows better
+ * five languages; French and German added 2026-11-16, ก on mockup
+ * https://claude.ai/artifact/L9eji4qWrFwkANrygUWj8b). Burmese is asked in English, naming the language, which the voice follows better
  * than an instruction in a script it reads less often.
  */
-export type SpeechLang = "th" | "en" | "zh" | "ru" | "my";
+export type SpeechLang = "th" | "en" | "zh" | "ru" | "my" | "fr" | "de";
 const STYLE_IN: Record<Exclude<SpeechLang, "th">, Record<Narrator, string>> = {
   en: {
     F: "Say in a relaxed, warm, friendly way, like telling a friend, not formal: ",
@@ -49,6 +50,14 @@ const STYLE_IN: Record<Exclude<SpeechLang, "th">, Record<Narrator, string>> = {
   my: {
     F: "Say in Burmese (Myanmar language), in a relaxed, warm, friendly way, not formal: ",
     M: "Say in Burmese (Myanmar language), in a man's voice, relaxed, warm and friendly, not formal: ",
+  },
+  fr: {
+    F: "Dis-le en français, de façon détendue, chaleureuse et amicale, comme à un ami, sans formalité : ",
+    M: "Dis-le en français avec une voix d'homme, détendue, chaleureuse, amicale et rassurante, sans formalité : ",
+  },
+  de: {
+    F: "Sag es auf Deutsch, locker, herzlich und freundlich, wie zu einem Freund, nicht förmlich: ",
+    M: "Sag es auf Deutsch mit Männerstimme, locker, herzlich, freundlich und vertrauenswürdig, nicht förmlich: ",
   },
 };
 const TIMEOUT_MS = 90_000;
@@ -141,7 +150,7 @@ export async function speakThai(text: string, task: string, opts: { narrator?: N
  */
 export const CLOUD_TTS_MODEL = "gemini-2.5-flash-tts";
 const CLOUD_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
-const LANG_CODE: Record<SpeechLang, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN", ru: "ru-RU", my: "my-MM" };
+const LANG_CODE: Record<SpeechLang, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN", ru: "ru-RU", my: "my-MM", fr: "fr-FR", de: "de-DE" };
 /** a second of speech is billed as this many audio tokens (Google's Gemini-TTS price list) */
 const AUDIO_TOKENS_PER_SEC = 25;
 
