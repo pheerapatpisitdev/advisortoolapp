@@ -67,9 +67,13 @@ g run jobs create "$JOB" --region "$REGION" --image "$IMAGE" --cpu 8 --memory 8G
 g run jobs add-iam-policy-binding "$JOB" --region "$REGION" \
   --member "serviceAccount:clip-render@$PROJECT.iam.gserviceaccount.com" --role roles/run.jobsExecutorWithOverrides >/dev/null
 
-# 5. the drawing jobs no deployed app names any more
+# 5. the drawing jobs no deployed app names any more. Never the one main names: a pull request's job is made before
+#    its merge (.github/workflows/remotion-job.yml), so main's may not be among the newest three. SHIP_NO_PRUNE=1
+#    (a pull request's run) deletes nothing.
+[ -z "${SHIP_NO_PRUNE:-}" ] || { echo "ship: $JOB is ready."; exit 0; }
+MAIN_FP="$(git -C "$ROOT" show origin/main:src/lib/quote-video/remotion.ts 2>/dev/null | sed -n 's/^export const REMOTION_DRAWING = "\([0-9a-f]*\)";.*/\1/p')"
 g run jobs list --region "$REGION" --sort-by=~metadata.creationTimestamp --format="value(metadata.name)" \
-  | { grep -E '^remotion-[0-9a-f]{12}$' || true; } | tail -n +4 | while read -r old; do
+  | { grep -E '^remotion-[0-9a-f]{12}$' || true; } | tail -n +4 | { grep -vx "remotion-${MAIN_FP:-none}" || true; } | while read -r old; do
     echo "ship: deleting $old"
     g run jobs delete "$old" --region "$REGION" || echo "ship: $old not deleted (left as it is)" >&2
   done
