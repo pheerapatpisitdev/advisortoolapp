@@ -6,7 +6,7 @@ import {
 } from "@/lib/pa-plans";
 import { PA_WORDS, paRowLabel, type PaWords } from "@/lib/pa-words";
 import { WORDS } from "@/lib/ihealthy-words";
-import type { Lang } from "@/lib/ihealthy-lang";
+import { figure, type Lang } from "@/lib/ihealthy-lang";
 import { Highlighted } from "@/components/Highlighted";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { Watermark } from "@/components/sales/Watermark";
@@ -23,7 +23,6 @@ const PLAN_START = 1;
 const AGE_START = 35;
 const AGES = Array.from({ length: 65 }, (_, i) => i);
 
-const baht = (n: number) => n.toLocaleString("en-US");
 
 function chip(on: boolean, off = false): string {
   return `rounded-sm border px-3 py-2 text-sm leading-tight tabular-nums transition-colors ${
@@ -42,6 +41,8 @@ function planWords(p: PaPlan, w: PaWords): string {
 
 export function PACalculator({ sticky = false, lang = "th" }: { sticky?: boolean; lang?: Lang }) {
   const w = PA_WORDS[lang];
+  // figures as the page's language groups them: 8.000 in German, 8,000 everywhere else
+  const baht = (n: number) => figure(n, lang);
   // the send buttons in the page's language; Thai is the buttons' own default
   const contact = lang === "th" ? undefined : WORDS[lang].contact;
   const [familyId, setFamilyId] = useState<PaFamilyId>(FAMILY_START);
@@ -192,7 +193,7 @@ export function PACalculator({ sticky = false, lang = "th" }: { sticky?: boolean
         </div>
       )}
 
-      <AllPlans family={family} plan={plan} cls={cls} onPick={pickPlan} w={w} />
+      <AllPlans family={family} plan={plan} cls={cls} onPick={pickPlan} w={w} lang={lang} />
 
       {sticky && quoteText && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
@@ -208,8 +209,9 @@ export function PACalculator({ sticky = false, lang = "th" }: { sticky?: boolean
  * plan's column marked, a premium row per class the family takes. Tapping a column picks it.
  */
 function AllPlans(
-  { family, plan, cls, onPick, w }: { family: PaFamily; plan: PaPlan; cls: number; onPick: (i: number) => void; w: PaWords },
+  { family, plan, cls, onPick, w, lang }: { family: PaFamily; plan: PaPlan; cls: number; onPick: (i: number) => void; w: PaWords; lang: Lang },
 ) {
+  const baht = (n: number) => figure(n, lang);
   const labels = paRows(family.plans[0]);
   const classes = paClassesOf(family);
   const on = (p: PaPlan) => (p.code === plan.code ? "bg-[var(--bot-navy-soft)] font-semibold text-[var(--bot-ink)]" : "");

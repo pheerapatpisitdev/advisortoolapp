@@ -170,7 +170,7 @@ describe("the page's own words", () => {
 
   it("reads an unknown or missing cookie as Thai", () => {
     expect(parseLang(undefined)).toBe("th");
-    expect(parseLang("fr")).toBe("th");
+    expect(parseLang("es")).toBe("th");
     expect(parseLang("zh")).toBe("zh");
   });
 });

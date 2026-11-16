@@ -7,4 +7,6 @@ export const VIDEO_LABEL: Record<Lang, string> = {
   zh: "制作视频",
   ru: "Создать видео",
   my: "ဗီဒီယို ပြုလုပ်ရန်",
+  fr: "Créer une vidéo",
+  de: "Video erstellen",
 };

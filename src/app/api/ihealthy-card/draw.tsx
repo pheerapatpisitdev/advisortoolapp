@@ -63,6 +63,9 @@ export interface Geometry { title: number; col: number }
 export function geometryOf(lang: Lang): Geometry {
   if (lang === "ru") return { title: 390, col: 280 };
   if (lang === "my") return { title: 440, col: 305 };
+  // "Nach tatsächlichen Kosten" runs as long as the Russian; "Aux frais réels" a little shorter
+  if (lang === "de") return { title: 390, col: 280 };
+  if (lang === "fr") return { title: 440, col: 240 };
   return { title: TITLE_W, col: COL_W };
 }
 

@@ -1,3 +1,4 @@
+import { figure } from "@/lib/ihealthy-lang";
 import { Fragment, type ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_EXTRA as X } from "@/lib/card-theme";
 import { CHART_WRITE, chartNotes } from "./chart-pen";
@@ -419,7 +420,7 @@ function Lead({ c, t }: { c: MotionContext; t: number }) {
         </>}
       </div>
       <El an={s.kicker} t={t} style={{ position: "absolute", left: 0, width: W, top: 760, justifyContent: "center", fontSize: 58, fontWeight: 600, color: WHITE }}>{f.lead.label}</El>
-      <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 850, justifyContent: "center", fontSize: f.lead.amount.length > 9 ? 130 : 150, fontWeight: 700, color: GOLD }}>{n.toLocaleString("en-US")}</El>
+      <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 850, justifyContent: "center", fontSize: f.lead.amount.length > 9 ? 130 : 150, fontWeight: 700, color: GOLD }}>{figure(n, f.lang ?? "th")}</El>
       <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1040, justifyContent: "center", fontSize: 38, color: WHITE, opacity: 0.85 }}>{`${vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
       <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1130, justifyContent: "center" }}>
         <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "8px 34px", fontSize: 44, fontWeight: 600 })}>{f.leadMark}</div>
@@ -466,7 +467,7 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
             color: r.main ? NAVY : WHITE, fontSize: 44,
           }}>
             <div style={box({})}>{r.label}</div>
-            <div style={box({ fontWeight: 700, fontSize: r.main ? 64 : 50 })}>{r.main ? countAt(num(r.amount), look(s.count, t).p).toLocaleString("en-US") : r.amount}</div>
+            <div style={box({ fontWeight: 700, fontSize: r.main ? 64 : 50 })}>{r.main ? figure(countAt(num(r.amount), look(s.count, t).p), f.lang ?? "th") : r.amount}</div>
           </El>
         ))}
       </div>

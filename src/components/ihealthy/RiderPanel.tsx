@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { formatBaht } from "@/calc/money";
+import { figure, type Lang } from "@/lib/ihealthy-lang";
 import type { PayMode } from "@/calc/types";
 import { WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -13,6 +13,8 @@ import {
 import type { AttachedRider } from "@/app/ihealthy-ultra/actions";
 
 export interface RiderPanelProps {
+  /** the reader's language, for how figures are grouped; Thai where not given */
+  lang?: Lang;
   /** everything the action needs except the attached riders themselves */
   request: Omit<RiderQuoteInput, "riders">;
   /**
@@ -170,10 +172,10 @@ function startingSum(c: RiderChoice): number {
 }
 
 /** The bounds the rider is written between, where it has them. */
-function range(c: RiderChoice): string {
+function range(c: RiderChoice, lang: Lang): string {
   if (c.saMin === undefined) return "";
-  const min = c.saMin.toLocaleString("en-US");
-  return c.saMax === undefined ? min : `${min} – ${c.saMax.toLocaleString("en-US")}`;
+  const min = figure(c.saMin, lang);
+  return c.saMax === undefined ? min : `${min} – ${figure(c.saMax, lang)}`;
 }
 
 /**
@@ -186,7 +188,7 @@ function range(c: RiderChoice): string {
  * arrangement it saw, and the card went on charging for it.
  */
 export function RiderPanel(
-  { request, standard, onAttached, onPicked, initialRiders, w = WORDS.th }: RiderPanelProps,
+  { request, standard, onAttached, onPicked, initialRiders, w = WORDS.th, lang = "th" }: RiderPanelProps,
 ) {
   // Taken apart at the door. The calculator builds `request` inline, so a fresh object
   // arrives on every render; an effect that listed it as a dependency would ask the server
@@ -385,7 +387,7 @@ export function RiderPanel(
                           onChange={(e) => amend(c.code, { plan: Number(e.target.value) })}
                         >
                           {c.plans.map((p) => (
-                            <option key={p} value={p}>{p.toLocaleString("en-US")}</option>
+                            <option key={p} value={p}>{figure(p, lang)}</option>
                           ))}
                         </select>
                       )}
@@ -400,7 +402,7 @@ export function RiderPanel(
                             onChange={(v) => amend(c.code, { sumAssured: v })}
                           />
                           <span className="whitespace-nowrap text-xs tabular-nums text-[var(--lg-mute)]">
-                            {range(c)}
+                            {range(c, lang)}
                           </span>
                         </label>
                       )}
@@ -457,13 +459,13 @@ export function RiderPanel(
                   <dd
                     className={`lg-figure tabular-nums ${i.eligible ? "text-[var(--lg-white)]" : "text-[var(--lg-gold)]"}`}
                   >
-                    {i.eligible ? formatBaht(i.modal) : i.message && w.rider(i.message)}
+                    {i.eligible ? figure(Math.floor(i.modal / 100), lang) : i.message && w.rider(i.message)}
                   </dd>
                 </div>
               ))}
               <div className="flex items-baseline justify-between gap-3 border-t border-[var(--lg-panel-line)] pt-2 font-medium">
                 <dt className="text-[var(--lg-white)]">{w.totalPremium(w.mode[mode])}</dt>
-                <dd className="lg-figure tabular-nums text-[var(--lg-white)]">{formatBaht(result.totalModal)}</dd>
+                <dd className="lg-figure tabular-nums text-[var(--lg-white)]">{figure(Math.floor(result.totalModal / 100), lang)}</dd>
               </div>
             </dl>
             {result.warnings.map((warning) => (

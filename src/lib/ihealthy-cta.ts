@@ -5,7 +5,7 @@ import type { IHealthyShown } from "@/lib/ihealthy-quote";
 import { WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
 import { COMPARE_WORDS } from "@/lib/ihealthy-compare-words";
 import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
-import { LANGS } from "@/lib/ihealthy-lang";
+import { figure, LANGS } from "@/lib/ihealthy-lang";
 import type { ShareBenefits } from "@/lib/ihealthy-share-lines";
 
 const SEX_WORD: Record<Sex, string> = { M: "ชาย", F: "หญิง" };
@@ -134,14 +134,15 @@ export function iHealthyQuoteText(f: IHealthyCtaFacts, w: IHealthyWords = WORDS.
   // for — but the types say they might, and a summary is not worth guessing a plan name for
   const a = f.arrangement;
   if (!shown || a === undefined) return undefined;
-  const baht = (n: number) => n.toLocaleString("en-US");
+  const lang = LANGS.find((l) => WORDS[l] === w) ?? "th";
+  // German groups thousands with a dot; every other language as it always was
+  const baht = (n: number) => figure(n, lang);
   // what the plan pays and what the customer keeps of the bill, exactly as the card pairs them
   const s = w.share;
   const ceiling = s.ceiling(a.annualMax)
     + (a.coverage === "Deductible" ? ` · ${w.deductible(a.deductible)}` : "")
     + (a.coverage === "Co-Payment" ? ` · ${w.copay(f.copayPercent)}` : "");
   const instalments = [{ mode: f.mode, total: shown.total }, ...shown.others];
-  const lang = LANGS.find((l) => WORDS[l] === w) ?? "th";
   const cw = COMPARE_WORDS[lang];
   // Thai says "บาทต่อปี" as the ceiling above it does; the other languages word a yearly
   // amount as the compare page already does
@@ -171,7 +172,7 @@ export function iHealthyQuoteText(f: IHealthyCtaFacts, w: IHealthyWords = WORDS.
     ...INSTALMENT_ORDER.flatMap((mode) => {
       const m = instalments.find((x) => x.mode === mode);
       if (!m) return [];
-      const line = s.instalment(w.mode[mode], formatBaht(m.total));
+      const line = s.instalment(w.mode[mode], baht(Math.floor(m.total / 100)));
       // The flag belongs to the instalment the card is showing. Any other instalment the
       // company refuses never reaches `others` at all — `shownAt` drops it, the way every
       // sibling calculator does — and is named instead by the line below this list.

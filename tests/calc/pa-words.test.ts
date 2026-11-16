@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { LANGS } from "@/lib/ihealthy-lang";
+import { figure, LANGS } from "@/lib/ihealthy-lang";
 import { PA_FAMILIES, paFamily, paQuoteText, paRows } from "@/lib/pa-plans";
 import { PA_WORDS, paRowLabel } from "@/lib/pa-words";
 
-/** the /pa page in five languages (owner, 2026-11-15, ก ก on mockup SZvzGB3ZFMdjHbCA2G3rzW) */
+/**
+ * the /pa page in five languages (owner, 2026-11-15, ก ก on mockup SZvzGB3ZFMdjHbCA2G3rzW),
+ * then seven with French and German (owner, 2026-11-16, ก on mockup L9eji4qWrFwkANrygUWj8b)
+ */
 const THAI = /[฀-๿]/;
 
 /** every string a language's words hold, its functions called with sample figures */
@@ -36,9 +39,9 @@ describe("PA page words", () => {
   it.each([...LANGS])("copies the %s quote with every figure of the plan", (lang) => {
     const f = paFamily("platinum");
     const text = PA_WORDS[lang].quote({ family: f, plan: f.plans[1], cls: 1, age: 35 })!;
-    for (const n of ["8,000", "22", "2,000,000", "1,000,000", "120,000", "2,000", "52", "2,500,000", "Platinum 02"]) {
-      expect(text).toContain(n);
-    }
+    // each figure as the language groups it: 8.000 in German, 8,000 everywhere else
+    const figures = [8_000, 22, 2_000_000, 1_000_000, 120_000, 2_000, 52, 2_500_000].map((n) => figure(n, lang));
+    for (const n of [...figures, "Platinum 02"]) expect(text).toContain(n);
     if (lang !== "th") expect(text).not.toMatch(THAI);
   });
 
@@ -59,6 +62,8 @@ describe("PA page words", () => {
       }
     }
     expect(paRowLabel(PA_WORDS.en, "weekly")).toContain("52 weeks");
+    expect(paRowLabel(PA_WORDS.fr, "weekly")).toContain("52 semaines");
+    expect(paRowLabel(PA_WORDS.de, "weekly")).toContain("52 Wochen");
     expect([1, 2].map(PA_WORDS.en.age)).toEqual(["1 year", "2 years"]);
   });
 
@@ -67,8 +72,23 @@ describe("PA page words", () => {
     expect([1_000_000, 700_000].map(PA_WORDS.zh.sum)).toEqual(["100万", "70万"]);
     expect([1_000_000, 700_000].map(PA_WORDS.ru.sum)).toEqual(["1 млн", "700 тыс."]);
     expect([1_000_000, 700_000].map(PA_WORDS.my.sum)).toEqual(["1 သန်း", "7 သိန်း"]);
+    expect([1_000_000, 700_000].map(PA_WORDS.fr.sum)).toEqual(["1M", "700K"]);
+    expect([10_000_000, 700_000].map(PA_WORDS.de.sum)).toEqual(["10 Mio.", "700 Tsd."]);
+    expect([0, 1, 2].map(PA_WORDS.fr.age)).toEqual(["Moins de 1 an", "1 an", "2 ans"]);
+    expect([0, 1, 2].map(PA_WORDS.de.age)).toEqual(["Unter 1 Jahr", "1 Jahr", "2 Jahre"]);
     expect([0, 1, 2, 5, 11, 21, 22, 35].map(PA_WORDS.ru.age)).toEqual([
       "До 1 года", "1 год", "2 года", "5 лет", "11 лет", "21 год", "22 года", "35 лет",
     ]);
+  });
+});
+
+describe("PA quote in German groups thousands with a dot", () => {
+  it("reads 8.000 and 2.000.000, as on the approved mockup", () => {
+    const f = paFamily("platinum");
+    const text = PA_WORDS.de.quote({ family: f, plan: f.plans[1], cls: 1, age: 35 })!;
+    expect(text).toContain("Prämie 8.000 THB/Jahr (etwa 22 THB pro Tag)");
+    expect(text).toContain("2.000.000 THB");
+    expect(text).not.toContain("8,000");
+    expect(PA_WORDS.fr.quote({ family: f, plan: f.plans[1], cls: 1, age: 35 })).toContain("Prime 8,000 THB/an");
   });
 });

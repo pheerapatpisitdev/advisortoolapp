@@ -64,7 +64,7 @@ export function iHealthyFullCard(query: URLSearchParams, today: Date = new Date(
     }
     rows.push({
       label: key ? names[key] : entry.title,
-      cells: cellsOf((code) => benefitCell(entry, code, v.age, sellable).text),
+      cells: cellsOf((code) => benefitCell(entry, code, v.age, sellable, card.lang).text),
       ...(entry.no === null ? { kind: "sub" as const } : {}),
     });
   });

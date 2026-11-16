@@ -1,4 +1,4 @@
-import type { Lang } from "@/lib/ihealthy-lang";
+import { figure, type Lang } from "@/lib/ihealthy-lang";
 import { sumWords } from "@/lib/ci123-cta";
 import {
   PA_RENEWAL_MAX, PA_WEEKLY_MAX_WEEKS, paPerDay, paPremium, paQuoteText, paSumAfterRenewals,
@@ -6,8 +6,9 @@ import {
 } from "@/lib/pa-plans";
 
 /**
- * The /pa page in the five languages iHealthy Ultra is read in (owner, 2026-11-15, ก ก on mockup
- * https://claude.ai/artifact/SZvzGB3ZFMdjHbCA2G3rzW): the same switch, every word of the page,
+ * The /pa page in the languages iHealthy Ultra is read in (owner, 2026-11-15, ก ก on mockup
+ * https://claude.ai/artifact/SZvzGB3ZFMdjHbCA2G3rzW; French and German added 2026-11-16, ก on mockup
+ * https://claude.ai/artifact/L9eji4qWrFwkANrygUWj8b): the same switch, every word of the page,
  * and the copied text in the page's language. Plan names and codes stay as the company prints
  * them in every language. Thai is the page as it was built; the Thai copied text is still
  * `paQuoteText` itself, so the bot and the Thai page say the same thing.
@@ -390,7 +391,146 @@ const my: PaWords = {
   },
 };
 
-export const PA_WORDS: Record<Lang, PaWords> = { th, en, zh, ru, my };
+const fr: PaWords = {
+  metaTitle: "PA — Assurance accidents individuelle",
+  metaDescription:
+    "PA Classic, PA Platinum et PA Max : couverture accidents 24 h/24 dans le monde entier. Choisissez une formule et une classe professionnelle et voyez la prime annuelle tout de suite.",
+  kind: "Assurance accidents individuelle",
+  facts: ["Couverture 24 h/24 dans le monde entier", "Contrat annuel renouvelable", "Prime selon la classe professionnelle"],
+  taglines: {
+    classic: "Couverture accidents complète",
+    platinum: "Ajoute une indemnité hebdomadaire",
+    max: "Capital décès le plus élevé, sans frais médicaux",
+  },
+  familyLabel: "Produit",
+  planLabel: "Formule · Capital accident",
+  ageLabel: "Âge",
+  classLabel: "Classe professionnelle",
+  age: (a) => (a === 0 ? "Moins de 1 an" : `${a} an${a === 1 ? "" : "s"}`),
+  ages: (min, max) => `Âges ${min === 0 ? "dès la naissance" : min}–${max} ans`,
+  sum: (n) => (n < 1_000_000 ? `${baht(n / 1_000)}K` : `${baht(n / 1_000_000)}M`),
+  classesTaken: (plan, classes) => `${plan} accepte les classes professionnelles ${classes}`,
+  class4None: "La classe 4 n'est acceptée par aucune formule",
+  ageNotOk: (age, family, min, max) => `À ${age} ans, ${family} ne peut pas être souscrit. Âges acceptés : ${min}–${max} ans`,
+  childHint: (min) => `Pour les enfants de moins de ${min} ans, voir PA Classic`,
+  premiumHead: (plan, code, cls) => `Prime · PA ${plan} (${code}) · Classe ${cls}`,
+  perYear: "THB / an",
+  perDay: ["Environ", "THB par jour"],
+  coverHead: "Couverture accident (THB)",
+  rows: {
+    death: "Décès accidentel, perte de membres ou invalidité totale et permanente",
+    murder: "Meurtre ou agression",
+    motorcycle: "Conduite ou trajet à moto",
+    medical: "Frais médicaux par accident (moto comprise)",
+    weekly: (w) => `Invalidité totale temporaire, par semaine (jusqu'à ${w} semaines)`,
+  },
+  renewal: "Années de renouvellement 2 à 6 : capital +5 % par an · année 6",
+  smallPrint: "Couverture 24 h/24 dans le monde entier · Contrat d'un an, renouvelable chaque année · Prime fixée selon la profession, et non selon l'âge ou le sexe",
+  allPlans: (family) => `Toutes les formules ${family} (THB) · Touchez une colonne pour choisir la formule`,
+  coverColumn: "Couverture",
+  premiumRow: (c) => `Prime annuelle, classe ${c}`,
+  dashNote: "— Formule qui n'accepte pas cette classe · La classe 4 n'est acceptée par aucune formule",
+  watermark: ["À titre d'information uniquement", "Ne fait pas partie de la police"],
+  footer: [
+    "(1) À chaque renouvellement, le capital assuré augmente de 5 % du capital initial par an, de la 2e à la 6e année de contrat, dans la limite de 25 % au total. Un contrat renouvelé dans les 31 jours suivant son échéance conserve l'augmentation de 5 %, mais n'offre aucune couverture pendant cette période ; la nouvelle couverture commence le jour du paiement de la prime de renouvellement. Une prime payée après ce délai est considérée comme un nouveau contrat et ne bénéficie pas de l'augmentation de 5 %.",
+    "Le contrat d'assurance dure 1 an et se renouvelle chaque année. La prime est fixée selon la profession de l'assuré. Le souscripteur doit déclarer les faits avec exactitude ; une dissimulation ou une fausse déclaration peut permettre à la compagnie d'annuler le contrat et de refuser les indemnisations.",
+    "Ces informations sont un résumé destiné uniquement à la présentation. Veuillez étudier et comprendre la couverture et les conditions avant de décider de souscrire une assurance.",
+  ],
+  quote: (f) => {
+    const q = quoteFigures(f);
+    if (!q) return undefined;
+    const { p } = q;
+    return [
+      `🛡️ Assurance accidents individuelle : ${f.family.name}, formule ${p.name}`,
+      `Âge ${f.age} ans · Classe professionnelle ${f.cls}`,
+      `💰 Prime ${baht(q.premium)} THB/an (environ ${baht(q.day)} THB par jour)`,
+      "",
+      "✅ Couverture",
+      `- Décès accidentel, perte de membres ou invalidité totale et permanente ${baht(p.death)} THB`,
+      `- Meurtre ou agression ${baht(p.murder)} THB`,
+      `- Conduite ou trajet à moto ${baht(p.motorcycle)} THB`,
+      ...(p.medical ? [`- Frais médicaux par accident ${baht(p.medical)} THB`] : []),
+      ...(p.weekly ? [`- Invalidité totale temporaire ${baht(p.weekly)} THB par semaine (jusqu'à ${PA_WEEKLY_MAX_WEEKS} semaines)`] : []),
+      `- Années de renouvellement 2 à 6 : capital +5 % par an, jusqu'à ${MAX_PERCENT} % (capital décès en année 6 : ${baht(q.sixth)} THB)`,
+      "",
+      "📌 Couverture 24 h/24 dans le monde entier · Contrat d'un an, renouvelable chaque année",
+      "Prime selon la classe professionnelle",
+    ].join("\n");
+  },
+};
+
+/** a figure as a German reader groups it: 8.000, 2.000.000 */
+const de$ = (n: number) => figure(n, "de");
+
+const de: PaWords = {
+  metaTitle: "PA — Private Unfallversicherung",
+  metaDescription:
+    "PA Classic, PA Platinum und PA Max: weltweiter Unfallschutz rund um die Uhr. Tarif und Berufsklasse wählen und die Jahresprämie sofort sehen.",
+  kind: "Private Unfallversicherung",
+  facts: ["Weltweiter Schutz rund um die Uhr", "Jährlich verlängerbarer Vertrag", "Prämie nach Berufsklasse"],
+  taglines: {
+    classic: "Umfassender Unfallschutz",
+    platinum: "Mit wöchentlicher Entschädigung",
+    max: "Höchste Todesfallsumme, ohne Behandlungskosten",
+  },
+  familyLabel: "Produkt",
+  planLabel: "Tarif · Unfallsumme",
+  ageLabel: "Alter",
+  classLabel: "Berufsklasse",
+  age: (a) => (a === 0 ? "Unter 1 Jahr" : `${a} Jahr${a === 1 ? "" : "e"}`),
+  ages: (min, max) => `Alter ${min === 0 ? "ab Geburt" : min}–${max} Jahre`,
+  sum: (n) => (n < 1_000_000 ? `${de$(n / 1_000)} Tsd.` : `${de$(n / 1_000_000)} Mio.`),
+  classesTaken: (plan, classes) => `${plan} nimmt die Berufsklassen ${classes} an`,
+  class4None: "Klasse 4 wird von keinem Tarif angenommen",
+  ageNotOk: (age, family, min, max) => `Mit ${age} Jahren kann ${family} nicht abgeschlossen werden. Angenommen wird ein Alter von ${min}–${max} Jahren`,
+  childHint: (min) => `Für Kinder unter ${min} Jahren siehe PA Classic`,
+  premiumHead: (plan, code, cls) => `Prämie · PA ${plan} (${code}) · Klasse ${cls}`,
+  perYear: "THB / Jahr",
+  perDay: ["Etwa", "THB pro Tag"],
+  coverHead: "Unfallschutz (THB)",
+  rows: {
+    death: "Unfalltod, Verlust von Gliedmaßen oder dauerhafte Vollinvalidität",
+    murder: "Mord oder Körperverletzung",
+    motorcycle: "Fahren oder Mitfahren auf dem Motorrad",
+    medical: "Behandlungskosten je Unfall (inkl. Motorrad)",
+    weekly: (w) => `Vorübergehende Vollinvalidität, pro Woche (bis zu ${w} Wochen)`,
+  },
+  renewal: "Verlängerungsjahre 2–6: Summe +5 % pro Jahr · Jahr 6",
+  smallPrint: "Weltweiter Schutz rund um die Uhr · Vertrag über 1 Jahr, jährlich verlängerbar · Prämie nach Beruf, nicht nach Alter oder Geschlecht",
+  allPlans: (family) => `Alle Tarife von ${family} (THB) · Tippen Sie auf eine Spalte, um den Tarif zu wählen`,
+  coverColumn: "Leistung",
+  premiumRow: (c) => `Jahresprämie, Klasse ${c}`,
+  dashNote: "— Tarif nimmt diese Klasse nicht an · Klasse 4 wird von keinem Tarif angenommen",
+  watermark: ["Nur zur Information", "Nicht Bestandteil der Police"],
+  footer: [
+    "(1) Bei jeder Verlängerung steigt die Versicherungssumme in den Versicherungsjahren 2–6 um jährlich 5 % der Anfangssumme, insgesamt höchstens um 25 %. Wird die Police innerhalb von 31 Tagen nach Ablauf verlängert, bleibt die Erhöhung um 5 % erhalten, in diesem Zeitraum besteht jedoch kein Versicherungsschutz; der neue Schutz beginnt am Tag der Zahlung der Verlängerungsprämie. Eine spätere Zahlung gilt als Abschluss einer neuen Police ohne die Erhöhung um 5 %.",
+    "Der Versicherungsvertrag läuft 1 Jahr und ist jährlich verlängerbar. Die Prämie richtet sich nach dem Beruf der versicherten Person. Der Antragsteller muss wahrheitsgemäße Angaben machen; Verschweigen oder falsche Angaben können die Gesellschaft berechtigen, den Vertrag aufzuheben und Leistungen abzulehnen.",
+    "Diese Informationen sind eine Zusammenfassung nur zur Präsentation. Bitte lesen und verstehen Sie Leistungen und Bedingungen vollständig, bevor Sie sich für eine Versicherung entscheiden.",
+  ],
+  quote: (f) => {
+    const q = quoteFigures(f);
+    if (!q) return undefined;
+    const { p } = q;
+    return [
+      `🛡️ Private Unfallversicherung: ${f.family.name}, Tarif ${p.name}`,
+      `Alter ${f.age} · Berufsklasse ${f.cls}`,
+      `💰 Prämie ${de$(q.premium)} THB/Jahr (etwa ${de$(q.day)} THB pro Tag)`,
+      "",
+      "✅ Leistungen",
+      `- Unfalltod, Verlust von Gliedmaßen oder dauerhafte Vollinvalidität ${de$(p.death)} THB`,
+      `- Mord oder Körperverletzung ${de$(p.murder)} THB`,
+      `- Fahren oder Mitfahren auf dem Motorrad ${de$(p.motorcycle)} THB`,
+      ...(p.medical ? [`- Behandlungskosten je Unfall ${de$(p.medical)} THB`] : []),
+      ...(p.weekly ? [`- Vorübergehende Vollinvalidität ${de$(p.weekly)} THB pro Woche (bis zu ${PA_WEEKLY_MAX_WEEKS} Wochen)`] : []),
+      `- Verlängerungsjahre 2–6: Summe +5 % pro Jahr, bis zu ${MAX_PERCENT} % (Todesfallsumme im Jahr 6: ${de$(q.sixth)} THB)`,
+      "",
+      "📌 Weltweiter Schutz rund um die Uhr · Vertrag über 1 Jahr, jährlich verlängerbar",
+      "Prämie nach Berufsklasse",
+    ].join("\n");
+  },
+};
+
+export const PA_WORDS: Record<Lang, PaWords> = { th, en, zh, ru, my, fr, de };
 
 /** a cover row's label in the page's language */
 export function paRowLabel(w: PaWords, key: PaRow["key"]): string {

@@ -3,8 +3,8 @@ import { LANGS, type Lang } from "@/lib/ihealthy-lang";
 /**
  * The clip's own words on screen, in the language it is told in (owner, 2026-10-15, mockup
  * https://claude.ai/artifact/H3HkP5iMpLD1rvEiCtdngb, option ก): iHealthy Ultra in the page's
- * five languages. The plan's rows, the instalments and who it is for come from the iHealthy
- * card read in that language (ihealthy-card.ts `l=`); these are the words the clip adds.
+ * five languages, and French and German since 2026-11-16. The plan's rows, the instalments and
+ * who it is for come from the iHealthy card read in that language (ihealthy-card.ts `l=`); these are the words the clip adds.
  *
  * The Thai is what every clip said before, word for word, and stays the words of every other
  * product: only an iHealthy clip carries a language.
@@ -205,7 +205,64 @@ const MY: VideoWords = {
   lineHeight: 1.6,
 };
 
-export const VIDEO_WORDS: Record<VideoLang, VideoWords> = { th: TH, en: EN, zh: ZH, ru: RU, my: MY };
+/** French and German (owner, 2026-11-16, ก on mockup https://claude.ai/artifact/L9eji4qWrFwkANrygUWj8b) */
+const FR: VideoWords = {
+  baht: "bahts",
+  customer: (name) => name,
+  preparedFor: "Préparé pour",
+  contactFor: (name) => `Pour ${name}`,
+  contactMore: "Envie d'en savoir plus ?",
+  contactLines: () => ["Écrivez-moi quand vous voulez", "Je vous aide à choisir"],
+  phone: "Tél.",
+  priceTitle: "Prime de la première année",
+  firstYearMonthly: "Première année, par mois",
+  leadMark: (m) => `Première année ${m} bahts par mois`,
+  firstYearYearly: "Première année, par an",
+  leadMarkYear: (y) => `Première année ${y} bahts par an`,
+  compareYear: "Par an",
+  perYear: "Par an",
+  coverTitle: (plan) => `Ce que couvre la formule ${plan}`,
+  compareHeader: "Trouvez la bonne formule",
+  compareTitle: "Comparer les formules iHealthy Ultra",
+  compareRows: ["Plafond / an", "Chambre / jour", "Ambulatoire / an", "Par mois"],
+  perMonth: "Par mois",
+  renewNote: (age) => `Renouvelable jusqu'à ${age} ans · prime de la première année ; les années suivantes selon l'âge atteint`,
+  asCharged: "Frais réels",
+  lifeRow: (base) => `Assurance vie · ${base}`,
+  careOf: (plan) => `Frais médicaux · ${plan}`,
+  ridersTitle: "Garanties complémentaires",
+  lineHeight: 1.3,
+};
+
+const DE: VideoWords = {
+  baht: "Baht",
+  customer: (name) => name,
+  preparedFor: "Erstellt für",
+  contactFor: (name) => `Für ${name}`,
+  contactMore: "Mehr erfahren?",
+  contactLines: () => ["Schreiben Sie mir jederzeit", "Ich helfe gern bei der Wahl"],
+  phone: "Tel.",
+  priceTitle: "Prämie im ersten Jahr",
+  firstYearMonthly: "Erstes Jahr, pro Monat",
+  leadMark: (m) => `Erstes Jahr ${m} Baht pro Monat`,
+  firstYearYearly: "Erstes Jahr, pro Jahr",
+  leadMarkYear: (y) => `Erstes Jahr ${y} Baht pro Jahr`,
+  compareYear: "Jährlich",
+  perYear: "Pro Jahr",
+  coverTitle: (plan) => `Das deckt der Tarif ${plan}`,
+  compareHeader: "Den passenden Tarif finden",
+  compareTitle: "iHealthy Ultra Tarife im Vergleich",
+  compareRows: ["Limit / Jahr", "Zimmer / Tag", "Ambulant / Jahr", "Monatlich"],
+  perMonth: "Pro Monat",
+  renewNote: (age) => `Verlängerbar bis Alter ${age} · Prämie des ersten Jahres; spätere Jahre nach erreichtem Alter`,
+  asCharged: "Nach Kosten",
+  lifeRow: (base) => `Lebensversicherung · ${base}`,
+  careOf: (plan) => `Behandlungskosten · ${plan}`,
+  ridersTitle: "Zusatzversicherungen",
+  lineHeight: 1.3,
+};
+
+export const VIDEO_WORDS: Record<VideoLang, VideoWords> = { th: TH, en: EN, zh: ZH, ru: RU, my: MY, fr: FR, de: DE };
 
 /**
  * The Google face a language's letters need beyond Plex, which has Thai and Latin: the same

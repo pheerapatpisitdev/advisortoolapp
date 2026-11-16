@@ -1,3 +1,4 @@
+import { figure, type Lang } from "@/lib/ihealthy-lang";
 import { IHEALTHY_PLAN_HUES, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import type { AllPlansFacts } from "./ihealthy-all-plans";
 import { a, abs, box, El, look, type Anim, type MotionContext } from "./motion";
@@ -22,7 +23,8 @@ const INNER = W - SIDE * 2;
 const FAINT = "rgba(255,255,255,0.1)";
 const LINE = "rgba(255,255,255,0.22)";
 const hue = (code: string) => IHEALTHY_PLAN_HUES[code as keyof typeof IHEALTHY_PLAN_HUES] ?? C.motionSky;
-const comma = (n: number) => n.toLocaleString("en-US");
+/** German 8.000, every other language 8,000 */
+const comma = (n: number, lang: Lang = "th") => figure(n, lang);
 
 /** n pieces brought in one after another from `from` over most of the voice */
 function spread(prefix: string, n: number, voiceSec: number, from: number, kind: "left" | "pop" | "up" = "left"): Record<string, Anim> {
@@ -130,7 +132,7 @@ function Price({ c, t, p }: { c: MotionContext; t: number; p: AllPlansFacts }) {
                   <div style={box({ width: 30, height: 30, borderRadius: 8, background: hue(x.code), border: `3px solid ${WHITE}`, marginRight: 20 })} />
                   {x.name}
                 </div>
-                <div style={box({ fontSize: 68, fontWeight: 700, color: GOLD })}>{comma(countAt(x.premium, look(s[`count${i}`], t).p))}</div>
+                <div style={box({ fontSize: 68, fontWeight: 700, color: GOLD })}>{comma(countAt(x.premium, look(s[`count${i}`], t).p), f.lang)}</div>
               </div>
               <div style={box({ marginTop: 14, height: 34, width: INNER, borderRadius: 17, background: FAINT })}>
                 <div style={box({ height: 34, borderRadius: 17, background: GOLD, width: Math.max(34, Math.round((INNER * x.premium * grow) / top)) })} />

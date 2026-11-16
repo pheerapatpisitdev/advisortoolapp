@@ -14,7 +14,7 @@ import { compareCardPath, comparePdfPath } from "@/lib/ihealthy-compare-link";
 import { compareDailyCash, comparePremium } from "@/lib/ihealthy-compare-premiums";
 import { COMPARE_WORDS } from "@/lib/ihealthy-compare-words";
 import { planLabel, type IHealthyFacts } from "@/lib/ihealthy-facts";
-import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
+import { HTML_LANG, figure, type Lang } from "@/lib/ihealthy-lang";
 import { queryFrom } from "@/lib/ihealthy-link";
 import { MODES, plansFor } from "@/lib/ihealthy-quote";
 import { SEND_WORDS } from "@/lib/ihealthy-send-words";
@@ -66,7 +66,10 @@ export function IHealthyCompare(
   const codes = comparePlans(plansFor(table, age).map((p) => p.code));
   const shownLines = visibleLines(lines, codes, age);
   const priced = !table.expired;
-  const amount = (code: string, m: PayMode) => comparePremium(code, sex, age, m)?.toLocaleString("en-US") ?? "-";
+  const amount = (code: string, m: PayMode) => {
+    const premium = comparePremium(code, sex, age, m);
+    return premium === null || premium === undefined ? "-" : figure(premium, lang);
+  };
 
   const standardPlan = compareDailyCash(table.standard.plan[age - table.ageMin], age, table.juvenileBelowAge);
   const big = (baht: number) => {
@@ -220,13 +223,13 @@ export function IHealthyCompare(
             {standardPlan !== null && (
               <tr>
                 <th scope="row" className="ihc-name">{w.dailyCashRow}</th>
-                <td colSpan={codes.length}>{`${standardPlan.toLocaleString("en-US")} ${w.perDay} · ${w.samePlans}`}</td>
+                <td colSpan={codes.length}>{`${figure(standardPlan, lang)} ${w.perDay} · ${w.samePlans}`}</td>
               </tr>
             )}
           </tbody>
         </table>
         <p className="mt-2 text-xs leading-relaxed text-[var(--lg-mute)]">
-          {cw.note(baseName, sumAssured.toLocaleString("en-US"), standardPlan !== null)}
+          {cw.note(baseName, figure(sumAssured, lang), standardPlan !== null)}
         </p>
         {childMarks && <p className="mt-1 text-xs leading-relaxed text-[var(--lg-mute)]">{participationNote}</p>}
       </div>

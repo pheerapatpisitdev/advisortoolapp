@@ -5,7 +5,7 @@ import { compareDailyCash, comparePremium } from "@/lib/ihealthy-compare-premium
 import { compareCells, comparePlans, type CompareLine, visibleLines } from "@/lib/ihealthy-compare";
 import type { CardCell } from "@/lib/ihealthy-card";
 import { initialFrom } from "@/lib/ihealthy-link";
-import type { Lang } from "@/lib/ihealthy-lang";
+import { figure, type Lang } from "@/lib/ihealthy-lang";
 import { MODES, plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { shows } from "@/lib/pay-prefs";
@@ -72,7 +72,7 @@ export function iHealthyCompareCard(query: URLSearchParams, today: Date = new Da
 
   const body: FullTableRow[] = visibleLines(compareLines(card.lang), plans, age).map((line) => {
     if (line.kind === "group") return { label: line.label, cells: [], kind: "group" };
-    const cells = compareCells(line.entry, plans, age).map((c) => ({ text: c.text, dim: false }));
+    const cells = compareCells(line.entry, plans, age, card.lang).map((c) => ({ text: c.text, dim: false }));
     return {
       label: line.label,
       cells,
@@ -94,9 +94,10 @@ export function iHealthyCompareCard(query: URLSearchParams, today: Date = new Da
     ],
     premiumRows: card.premiumRows.map((r, i) => ({
       ...r,
-      cells: plans.map((code) => ({
-        text: comparePremium(code, sex, age, modes[i])?.toLocaleString("en-US") ?? "-", dim: false,
-      })),
+      cells: plans.map((code) => {
+        const premium = comparePremium(code, sex, age, modes[i]);
+        return { text: premium === undefined ? "-" : figure(premium, card.lang), dim: false };
+      }),
     })),
   };
 }

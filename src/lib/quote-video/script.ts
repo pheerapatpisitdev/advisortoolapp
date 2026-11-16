@@ -18,6 +18,7 @@ import type { VideoBrief, WrittenLines } from "./brief";
 import type { RecipeKey } from "./recipes";
 import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
 import { VIDEO_WORDS, type VideoLang } from "./video-words";
+import { figure } from "@/lib/ihealthy-lang";
 import { WORDS } from "@/lib/ihealthy-words";
 import { foreignScript } from "./ihealthy-foreign";
 import type { AllPlansFacts } from "./ihealthy-all-plans";
@@ -514,14 +515,16 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
   if (!col || !col.sold || !card.premium) return undefined;
   // the card settles an age the plan cannot be sold at onto one it can: a clip says what was asked or nothing
   if (!card.insuredWho.endsWith(` ${v.age} ปี`)) return undefined;
-  const price = (label: string, i: number) => card.premiumRows.find((r) => r.label === label)?.cells[i]?.text ?? "";
+  // every figure the clip shows, grouped as its language writes it: the Thai card's 8,000 is 8.000 in German
+  const fig = (text: string) => (lang === "de" ? text.replace(/\d{1,3}(?:,\d{3})+/g, (m) => figure(Number(m.replace(/,/g, "")), lang)) : text);
+  const price = (label: string, i: number) => fig(card.premiumRows.find((r) => r.label === label)?.cells[i]?.text ?? "");
   const monthly = price("รายเดือน", at);
   // the agent hid the monthly instalment (ตั้งค่าส่วนตัว): the first year's yearly price is the one said and shown
   const yearOnly = !shows(hide, "monthly");
   const yearly = price("รายปี", at);
   const PER: Record<string, PriceRow["per"]> = { รายเดือน: "month", รายปี: "year", "ราย 6 เดือน": "half" };
   const prices = card.premiumRows
-    .map((r, k) => ({ label: shown.premiumRows[k]?.label ?? r.label, amount: r.cells[at]?.text ?? "", main: r.label === (yearOnly ? "รายปี" : "รายเดือน"), per: PER[r.label] }))
+    .map((r, k) => ({ label: shown.premiumRows[k]?.label ?? r.label, amount: fig(r.cells[at]?.text ?? ""), main: r.label === (yearOnly ? "รายปี" : "รายเดือน"), per: PER[r.label] }))
     .filter((r) => digits(r.amount) > 0);
   if (!monthly || prices.length === 0 || (yearOnly && !yearly)) return undefined;
   /** a benefit row in Thai, for the voice, and as it is shown */
@@ -533,7 +536,7 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     .map(({ r, k }) => ({
       thai: { label: r.label, amount: amountOf(r) },
       // the card's "as charged" runs long in Russian and Burmese: the clip's row says it shorter
-      shown: { label: shown.rows[k]?.label ?? r.label, amount: amountOf(r) === "ตามที่จ่ายจริง" ? vw.asCharged : shown.rows[k] ? amountOf(shown.rows[k]) : amountOf(r) },
+      shown: { label: shown.rows[k]?.label ?? r.label, amount: fig(amountOf(r) === "ตามที่จ่ายจริง" ? vw.asCharged : shown.rows[k] ? amountOf(shown.rows[k]) : amountOf(r)) },
     }))
     .filter((b) => b.thai.amount && b.thai.amount !== "-");
   const benefits = both.map((b) => b.thai);
@@ -546,7 +549,7 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
   const care = both.filter((b) => !isDaily(b));
   const addOns = [
     ...both.filter(isDaily).map((b) => ({ label: b.shown.label, amount: b.shown.amount, mark: true })),
-    ...shown.riderParts.map((r) => ({ label: r.name, amount: r.sum ?? "", mark: true })),
+    ...shown.riderParts.map((r) => ({ label: r.name, amount: fig(r.sum ?? ""), mark: true })),
   ];
   const wanted = new Set([v.plan, ...v.compare]);
   const codes = iHealthyPlanCodes();
@@ -557,8 +560,8 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     .slice(0, 3)
     .map(({ c, i }) => ({
       name: c.name, ceiling: shown.columns[i]?.ceiling ?? c.ceiling, main: i === at,
-      room: (cellOf(shown.rows, shown.rows[cardRowAt(card.rows, "ค่าห้องและค่าอาหาร")]?.label ?? "", i) ?? "-").replace(perDay, ""),
-      opd: cellOf(shown.rows, shown.rows[cardRowAt(card.rows, "ผู้ป่วยนอก OPD")]?.label ?? "", i) ?? "-",
+      room: fig((cellOf(shown.rows, shown.rows[cardRowAt(card.rows, "ค่าห้องและค่าอาหาร")]?.label ?? "", i) ?? "-").replace(perDay, "")),
+      opd: fig(cellOf(shown.rows, shown.rows[cardRowAt(card.rows, "ผู้ป่วยนอก OPD")]?.label ?? "", i) ?? "-"),
       monthly: yearOnly ? "" : price("รายเดือน", i),
       ...(yearOnly ? { yearly: price("รายปี", i) } : {}),
       ceilingBaht: ceilingBaht(c.ceiling),
@@ -574,7 +577,7 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     sex: v.sex,
     age: v.age,
     planName: col.name,
-    lead: { label: w.annualLimit, amount: ceiling.toLocaleString("en-US"), baht: ceiling },
+    lead: { label: w.annualLimit, amount: figure(ceiling, lang), baht: ceiling },
     leadMark: yearOnly ? vw.leadMarkYear(yearly) : vw.leadMark(monthly),
     ...(yearOnly ? { priceBig: { label: vw.firstYearYearly, amount: yearly, unit: vw.baht } } : {}),
     priceTitle: vw.priceTitle,
@@ -586,7 +589,7 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     cover: both.map((b) => ({ label: b.shown.label, amount: b.shown.amount, mark: true })),
     coverGroups: [
       // the plan's name kept on one line: a long label (Russian) breaks after the "·", not before "2"
-      { title: w.base, rows: [{ label: vw.lifeRow(shown.base.name.replace(/ /g, "\u00a0")), amount: shown.base.sum.toLocaleString("en-US"), mark: true, main: true }] },
+      { title: w.base, rows: [{ label: vw.lifeRow(shown.base.name.replace(/ /g, "\u00a0")), amount: figure(shown.base.sum, lang), mark: true, main: true }] },
       { title: vw.careOf(shown.planLine), rows: care.map((b) => ({ label: b.shown.label, amount: b.shown.amount, mark: true })) },
       ...(addOns.length ? [{ title: vw.ridersTitle, rows: addOns }] : []),
     ],
