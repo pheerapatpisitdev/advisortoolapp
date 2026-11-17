@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Empty } from "../ui";
+import { Group, GroupLabel, Item, ProviderMark, Said, Switch } from "./kit/parts";
 import { setModelEnabled, type ModelRow } from "./actions";
 import { PROVIDER_LABEL } from "./labels";
 
@@ -8,6 +9,7 @@ import { PROVIDER_LABEL } from "./labels";
  * The switch that takes a model out of every lane at once, the "โมเดล" card of /admin/ai until
  * 2026-10-23 (owner chose ก, mockup https://claude.ai/artifact/1MZqF78ZXVU64Pv5wPzh2u): it now sits
  * at the foot of ลำดับหลักและสำรอง, where a lane row that says "ข้าม · ปิดโมเดลอยู่" sends the reader.
+ * Its own section of the page since 2026-11-18 (settings-kit look, owner chose ข), a switch per model.
  * It is not the lane's own ใช้ box: that one skips a model in one lane, this one in all of them.
  */
 
@@ -38,37 +40,31 @@ export function ModelSwitches({ models }: { models: ModelRow[] }) {
   };
 
   if (models.length === 0) return <Empty>ยังไม่มีโมเดลในระบบ</Empty>;
+  const companies = [...new Set(models.map((m) => m.provider))];
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead><tr className="border-b border-[var(--bot-line)] text-left text-[var(--bot-ink-mute)]"><th className="py-2">ค่าย</th><th className="py-2 pl-3">ประเภท</th><th className="py-2 pl-3">โมเดล</th><th className="py-2 pl-3">ใช้งาน</th></tr></thead>
-        <tbody>
-          {models.map((m) => (
-            <tr key={m.id} className="border-b border-[var(--bot-line)]">
-              <td className="py-1.5">{PROVIDER_LABEL[m.provider] ?? m.provider}</td>
-              <td className="py-1.5 pl-3">{KIND_LABEL[m.kind] ?? m.kind}</td>
-              <td className="py-1.5 pl-3">
-                <span className="font-mono text-xs">{m.model_name}</span>
-                {m.quality && <span className="ml-1.5 text-xs text-[var(--bot-ink-mute)]">· {QUALITY_LABEL[m.quality] ?? m.quality}</span>}
-              </td>
-              <td className="py-1.5 pl-3">
-                <input
-                  type="checkbox" id={`model-${m.id}`} checked={m.enabled} disabled={pending || m.kind === "judge"}
-                  aria-label={`ใช้งาน ${m.model_name}`}
-                  title={m.kind === "judge" ? "ยังไม่มีงานไหนเรียกใช้ เปิดปิดด้วยการใส่หรือลบกุญแจ" : undefined}
-                  onChange={(e) => flip(m.id, e.target.checked)}
-                />
-                {busy === m.id && <span className="ml-1.5 text-xs text-[var(--bot-ink-mute)]">กำลังบันทึก…</span>}
-                {note?.id === m.id && (
-                  <span role="status" className={`ml-1.5 text-xs ${note.ok ? "text-[var(--bot-ok)]" : "text-[var(--bot-red-ink)]"}`}>
-                    {note.ok ? "✓ " : ""}{note.text}
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      {companies.map((p) => (
+        <div key={p}>
+          <GroupLabel>{PROVIDER_LABEL[p] ?? p}</GroupLabel>
+          <Group>
+            {models.filter((m) => m.provider === p).map((m) => (
+              <Item
+                key={m.id} muted={!m.enabled}
+                mark={<ProviderMark id={m.provider} size={18} />}
+                title={<span className="font-mono text-sm">{m.model_name}</span>}
+                description={<>{KIND_LABEL[m.kind] ?? m.kind}{m.quality && <> · {QUALITY_LABEL[m.quality] ?? m.quality}</>}
+                  {m.kind === "judge" && " · ยังไม่มีงานไหนเรียกใช้ เปิดปิดด้วยการใส่หรือลบกุญแจ"}</>}
+                control={<>
+                  {busy === m.id && <span className="text-xs text-[var(--bot-ink-mute)]">กำลังบันทึก…</span>}
+                  {note?.id === m.id && <Said ok={note.ok} text={note.text} />}
+                  <Switch id={`model-${m.id}`} checked={m.enabled} disabled={pending || m.kind === "judge"}
+                          label={`ใช้งาน ${m.model_name}`} onChange={(on) => flip(m.id, on)} />
+                </>}
+              />
+            ))}
+          </Group>
+        </div>
+      ))}
+    </>
   );
 }

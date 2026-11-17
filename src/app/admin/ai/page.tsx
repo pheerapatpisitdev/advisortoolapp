@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { loadAiPage } from "./actions";
-import { AiClient } from "./AiClient";
+import { BudgetSection, KeysSection, RatesSection } from "./AiClient";
 import { LanesCard } from "./LanesCard";
 import { ModelSwitches } from "./ModelSwitches";
 import { loadLanes } from "./lanes-actions";
 import { gatePage } from "@/lib/auth/viewer";
 import { tablesMeta } from "@/calc/plans/tables-meta";
 import { daysUntil } from "@/calc/calendar";
-import { Card, PageHead } from "../ui";
+import { PageHead } from "../ui";
+import { SettingsNav } from "./kit/SettingsNav";
+import { SectionHead } from "./kit/parts";
 
 export const dynamic = "force-dynamic";
 
@@ -29,20 +31,30 @@ export default async function AiPage() {
       return null;
     }),
   ]);
-  // the all-lanes model switches live at the foot of the lanes card (owner chose ก, 2026-10-23);
-  // when the lanes cannot be read they stand alone, so a model can still be switched off
-  const { models, ...rest } = data;
-  const switches = <ModelSwitches models={models} />;
-  const lanesCard = lanes
-    ? <LanesCard {...lanes} footer={switches} />
-    : <Card title="ปิดโมเดลทั้งระบบ" hint="ปิดโมเดลที่ไม่ต้องการให้ระบบเลือกใช้">{switches}</Card>;
   const meta = tablesMeta();
   // counted the way the overview's warning counts, so the two never disagree by a day
   const daysLeft = daysUntil(new Date(), meta.expiresOn);
+  const rates = { version: meta.version, expiresOn: meta.expiresOn, daysLeft: Math.max(0, daysLeft), expired: meta.expired };
+  // settings-kit's shape (owner chose ข, 2026-11-18, https://claude.ai/artifact/J3GD1YGtWCU9WTiovgeoDP): a section
+  // per card the page had, down a sidebar; the model switches are their own section again, so they stay
+  // reachable when the lanes cannot be read
   return (
     <>
       <PageHead title="คีย์และโมเดล" hint="กุญแจ โมเดล งบ และบริการอื่นที่ระบบใช้ ยอดใช้จ่ายอยู่ที่หน้าการใช้งานและค่า AI" />
-      <AiClient {...rest} lanesCard={lanesCard} rates={{ version: meta.version, expiresOn: meta.expiresOn, daysLeft: Math.max(0, daysLeft), expired: meta.expired }} />
+      <SettingsNav sections={[
+        { id: "keys", group: "คีย์และโมเดล", title: "กุญแจของค่าย AI", keywords: "key api กุญแจ cloud run",
+          node: <KeysSection keys={data.keys} providers={data.providers} models={data.models} video={data.video} /> },
+        { id: "lanes", group: "คีย์และโมเดล", title: "ลำดับหลักและสำรอง", keywords: "lane สำรอง autobot เขียน รูปภาพ เสียง วิดีโอ",
+          node: lanes
+            ? <LanesCard {...lanes} />
+            : <><SectionHead title="ลำดับหลักและสำรอง" /><p className="text-sm text-[var(--bot-red-ink)]">อ่านลำดับหลักและสำรองไม่สำเร็จ ลองโหลดหน้าใหม่ ระบบยังใช้ลำดับที่บันทึกไว้</p></> },
+        { id: "budget", group: "คีย์และโมเดล", title: "งบต่อเดือน", keywords: "budget งบ รีเซ็ต",
+          node: <BudgetSection settings={data.settings} spentThisMonth={data.spentThisMonth} content={data.content} /> },
+        { id: "models", group: "คีย์และโมเดล", title: "ปิดโมเดลทั้งระบบ", keywords: "model โมเดล",
+          node: <><SectionHead title="ปิดโมเดลทั้งระบบ" hint="ปิดโมเดลที่ไม่ต้องการให้ทุกหมวดข้ามไปพร้อมกัน ต่างจากสวิตช์ในลำดับหลักและสำรองที่ข้ามเฉพาะในหมวดนั้น" /><ModelSwitches models={data.models} /></> },
+        { id: "rates", group: "ข้อมูล", title: "ตารางเบี้ย", keywords: "rates เบี้ย",
+          node: <RatesSection rates={rates} /> },
+      ]} />
     </>
   );
 }

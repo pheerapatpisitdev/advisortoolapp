@@ -1,99 +1,110 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Card } from "../ui";
 import {
   checkKeys, saveApiKey, saveRenderKey, setProviderEnabled, saveSettings, resetSpend,
-  type KeyRow, type VideoKeyRow, type ProviderCheck, type Result, type Settings,
+  type KeyRow, type ModelRow, type VideoKeyRow, type ProviderCheck, type Result, type Settings,
 } from "./actions";
 import { PROVIDER_LABEL } from "./labels";
+import { Button, Group, GroupLabel, Item, ProviderMark, Said, SectionHead, Sheet, Switch, fieldClass } from "./kit/parts";
 
 /**
- * What the last save said, and where on the page it belongs.
+ * /admin/ai's keys, budget and premium-table sections, in settings-kit's look (owner chose ข,
+ * 2026-11-18, mockup https://claude.ai/artifact/J3GD1YGtWCU9WTiovgeoDP). The actions are the ones the
+ * page used before; only how they are laid out changed.
  *
- * There was one banner, at the top of the page. The budget form is at the bottom, so on a
- * phone the owner pressed บันทึก, saw nothing move, and could not tell a saved budget from a
- * refused one. Each message now sits beside the button that caused it.
+ * The keys: each company a chip (those with a key first, a dot saying how it stands), the rest behind
+ * "อีก N รายการ". A chip opens the company's card: paste a key, switch it off, see the last test, and
+ * what the system uses it for.
  */
+
+/** What the last save said, and where on the page it belongs: each message sits beside the button that caused it. */
 type Note = { where: string; ok: boolean; text: string };
 
-function Said({ note, where, className = "" }: { note?: Note; where: string; className?: string }) {
+function NoteAt({ note, where, className = "" }: { note?: Note; where: string; className?: string }) {
   if (!note || note.where !== where) return null;
-  return (
-    <span role="status" className={`text-xs ${note.ok ? "text-[var(--bot-ok)]" : "text-[var(--bot-red-ink)]"} ${className}`}>
-      {note.ok ? "✓ " : ""}{note.text}
-    </span>
-  );
+  return <Said ok={note.ok} text={note.text} className={className} />;
 }
 
 /**
- * The result of the last test, or a space where one has not been run.
- *
- * The reason a failure gives is shown rather than summarised. "ตัวไหนหยุดทำงาน" is only half
- * the question — a key that has expired and a provider that is briefly down want different
- * things done about them, and only the provider's own words tell them apart.
+ * The result of the last test, or "ยังไม่ได้ทดสอบ". The reason a failure gives is shown rather than
+ * summarised: an expired key and a provider briefly down want different things done about them.
  */
 function Status({ check }: { check?: ProviderCheck }) {
-  if (!check) return <span className="w-28 text-xs text-[var(--bot-ink-faint)]">ยังไม่ได้ทดสอบ</span>;
   const chip = "inline-block rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap";
+  if (!check) return <span className="text-xs text-[var(--bot-ink-faint)]">ยังไม่ได้ทดสอบ</span>;
   if (check.state === "ok") {
     return (
-      <span className="flex w-28 flex-wrap items-baseline gap-x-1.5">
+      <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
         <span className={`${chip} bg-[var(--bot-ok-soft)] text-[var(--bot-ok)]`}>ใช้ได้</span>
-        <span className="text-[0.65rem] tabular-nums text-[var(--bot-ink-faint)]">{(check.ms / 1000).toFixed(1)}s</span>
-        {check.note && <span className="basis-full text-[0.65rem] text-[var(--bot-ink-mute)]">{check.note}</span>}
+        <span className="text-xs tabular-nums text-[var(--bot-ink-faint)]">{(check.ms / 1000).toFixed(1)}s</span>
+        {check.note && <span className="basis-full text-xs text-[var(--bot-ink-mute)]">{check.note}</span>}
       </span>
     );
   }
-  if (check.state === "no-key") return <span className="w-28 text-xs text-[var(--bot-ink-faint)]">ยังไม่ได้ตั้งกุญแจ</span>;
-  if (check.state === "no-model") {
-    return <span className={`${chip} w-28 bg-[var(--bot-sand-soft)] text-[var(--bot-sand-ink)]`}>ไม่มีโมเดล</span>;
-  }
+  if (check.state === "no-key") return <span className="text-xs text-[var(--bot-ink-faint)]">ยังไม่ได้ตั้งกุญแจ</span>;
+  if (check.state === "no-model") return <span className={`${chip} bg-[var(--bot-sand-soft)] text-[var(--bot-sand-ink)]`}>ไม่มีโมเดล</span>;
   return (
-    <span className="flex w-28 flex-col gap-0.5">
+    <span className="inline-flex flex-col gap-0.5">
       <span className={`${chip} self-start bg-[var(--bot-red-soft)] text-[var(--bot-red-ink)]`}>หยุดทำงาน</span>
-      {check.error && <span className="break-words text-[0.65rem] leading-tight text-[var(--bot-red-ink)]">{check.error}</span>}
+      {check.error && <span className="break-words text-xs leading-tight text-[var(--bot-red-ink)]">{check.error}</span>}
     </span>
   );
 }
-
 
 /** asked before Google Cloud Run is switched off: its key drives far more than clips (owner chose ข, 2026-11-11) */
 const GCP_OFF_CONFIRM = "ปิด Google Cloud Run ใช่ไหม?\n\nงานเหล่านี้จะหยุดทั้งเว็บจนกว่าจะเปิดอีกครั้ง:\n• ทำวิดีโอทุกแบบ\n• เสียงพากย์ Gemini ทาง Cloud\n• การ์ดสรุป ตาราง และ PDF ใบเสนอ รวมถึงรูปที่บอทส่งให้ลูกค้า";
 
-export function AiClient({ keys, settings, providers, spentThisMonth, content, video, rates, lanesCard }: {
-  keys: KeyRow[]; settings: Settings | null; providers: string[];
-  spentThisMonth: number | null; content: { spent: number | null; cap: number; fallback: number };
-  video: { keys: VideoKeyRow[] };
-  /** ภาพขยับ's keys, fal.ai and Runware (owner, 2026-10-16): their own card, since they have no chat model to test */
-  /** the premium tables in force (src/calc/plans/tables-meta.ts): their own card since 2026-10-15 */
-  rates: { version: string; expiresOn: string; daysLeft: number; expired: boolean };
-  /** ลำดับหลักและสำรอง (./LanesCard.tsx) with the all-lanes model switches at its foot, placed before the budgets */
-  lanesCard?: React.ReactNode;
+const GCP = "gcp";
+const nameOf = (p: string) => (p === GCP ? "Google Cloud Run" : PROVIDER_LABEL[p] ?? p);
+
+/** where each company's keys are made */
+const SITE: Record<string, string> = {
+  anthropic: "console.anthropic.com", openai: "platform.openai.com", google: "aistudio.google.com", zai: "z.ai",
+  elevenlabs: "elevenlabs.io", openrouter: "openrouter.ai", gcp: "console.cloud.google.com",
+};
+
+/** what the system uses a company for beyond its rows in the model table */
+const EXTRA_USES: Record<string, Record<string, string[]>> = {
+  google: { เสียง: ["เสียงพากย์ Gemini (API)"] },
+  elevenlabs: { เสียง: ["เสียงพากย์คลิป (อ้อม / สมชาย)"] },
+  gcp: { วิดีโอ: ["ทำวิดีโอทุกแบบ (Remotion · ตัดต่อคลิป)"], เสียง: ["เสียงพากย์ Gemini ทาง Cloud"], การ์ด: ["การ์ดสรุป ตาราง และ PDF ใบเสนอ"] },
+};
+const KIND_LABEL: Record<string, string> = { text: "ข้อความ", image: "รูปภาพ", judge: "ตัดสิน" };
+
+/** how a chip's dot reads: on and fine, switched off, or failing the last test */
+type Dot = "ok" | "off" | "bad";
+const DOT: Record<Dot, { color: string; label: string }> = {
+  ok: { color: "bg-[var(--bot-ok)]", label: "เชื่อมต่อแล้ว" },
+  off: { color: "bg-[var(--bot-line-strong)]", label: "ปิดอยู่" },
+  bad: { color: "bg-[var(--bot-red)]", label: "ทดสอบล่าสุดไม่ผ่าน" },
+};
+
+export function KeysSection({ keys, providers, models, video }: {
+  keys: KeyRow[]; providers: string[]; models: ModelRow[]; video: { keys: VideoKeyRow[] };
 }) {
   const [pending, start] = useTransition();
-  const [draft, setDraft] = useState<Record<string, string>>({});
   const [note, setNote] = useState<Note>();
-  /** which button is saving, so that one says กำลังบันทึก… and the rest merely wait */
   const [busy, setBusy] = useState<string>();
-  const keyOf = (p: string) => keys.find((k) => k.provider === p);
-  const tailOf = (p: string) => keyOf(p)?.tail;
-  /**
-   * What the last test said, until the page is reloaded. Nothing is shown before one is run:
-   * a key's health is not knowable without asking, and a guess dressed as a status is worse
-   * than an empty column.
-   */
+  const [open, setOpen] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
+  /** What the last test said, until the page is reloaded; nothing is guessed before one is run. */
   const [checks, setChecks] = useState<ProviderCheck[]>();
   const [testing, setTesting] = useState(false);
   const checkOf = (p: string) => checks?.find((c) => c.provider === p);
-  const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const budget = settings?.monthly_budget_thb != null ? Number(settings.monthly_budget_thb) : null;
+  const gcpHeld = video.keys.find((k) => k.provider === GCP);
+  /** every company on the page with what it holds: the AI companies, then Google Cloud Run */
+  const all = [
+    ...providers.map((p) => {
+      const k = keys.find((x) => x.provider === p);
+      return { id: p, held: Boolean(k), shown: k ? `•••• ${k.tail}` : null, on: k?.enabled ?? true };
+    }),
+    { id: GCP, held: Boolean(gcpHeld), shown: gcpHeld?.shown ?? null, on: gcpHeld?.enabled ?? true },
+  ];
+  const dotOf = (p: (typeof all)[number]): Dot => (!p.on ? "off" : checkOf(p.id)?.state === "failed" ? "bad" : "ok");
+  const held = all.filter((p) => p.held);
+  const notHeld = all.filter((p) => !p.held);
 
-  /**
-   * Runs one save and says how it went beside `where`. The action answers {ok, error} rather
-   * than throwing, so the error is the Thai sentence it wrote; a throw here means the request
-   * itself never came back.
-   */
   const run = (where: string, fn: () => Promise<Result>, ok: string, after?: () => void) => {
     setNote(undefined);
     setBusy(where);
@@ -114,212 +125,327 @@ export function AiClient({ keys, settings, providers, spentThisMonth, content, v
     });
   };
 
-  // Google Cloud Run: the service account file is pasted whole; region and job are typed beside it
-  const [gcp, setGcp] = useState({ region: "asia-southeast1", job: "clip-ffmpeg" });
-  const gcpHeld = video.keys.find((k) => k.provider === "gcp");
-  const gcpOn = gcpHeld?.enabled ?? true;
-  const input = "rounded border border-[var(--bot-line-strong)] bg-[var(--bot-surface)] px-2 py-1";
+  const testAll = async () => {
+    setTesting(true);
+    setNote(undefined);
+    try {
+      setChecks(await checkKeys());
+    } catch {
+      setNote({ where: "test", ok: false, text: "ทดสอบไม่สำเร็จ — ลองใหม่อีกครั้ง" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const chip = (p: (typeof all)[number]) => {
+    const dot = DOT[dotOf(p)];
+    return (
+      <button
+        key={p.id} type="button" onClick={() => { setNote(undefined); setOpen(p.id); }}
+        className={`inline-flex h-10 items-center gap-2 rounded-full border bg-[var(--bot-surface)] px-3.5 text-sm transition hover:border-[var(--bot-navy)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bot-navy)] ${
+          p.held ? "border-[var(--bot-line-strong)] text-[var(--bot-ink)]" : "border-[var(--bot-line)] text-[var(--bot-ink-mute)]"
+        }`}
+      >
+        <ProviderMark id={p.id} size={16} />
+        {nameOf(p.id)}
+        {p.held && <span className={`h-2 w-2 rounded-full ${dot.color}`} role="img" aria-label={dot.label} title={dot.label} />}
+      </button>
+    );
+  };
+
+  const shown = all.find((p) => p.id === open) ?? null;
+  const tested = checks ? `ตอบได้ ${checks.filter((c) => c.state === "ok").length} จาก ${checks.length} ค่าย` : null;
 
   return (
     <>
-      <Card title="กุญแจของค่าย AI" hint="เก็บแยกจากระบบอื่น เข้ารหัสไว้ในฐานข้อมูล แสดงเฉพาะ 4 ตัวท้าย ส่วน Google Cloud Run แสดงว่ากุญแจชี้ไปที่โปรเจกต์ไหน">
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <button
-            type="button" disabled={testing}
-            className="rounded border border-[var(--bot-line-strong)] px-3 py-1.5 text-xs font-medium text-[var(--bot-ink-foot)] hover:bg-[var(--bot-band)] disabled:opacity-40"
-            onClick={async () => {
-              setTesting(true);
-              setNote(undefined);
-              try {
-                setChecks(await checkKeys());
-              } catch {
-                setNote({ where: "test", ok: false, text: "ทดสอบไม่สำเร็จ — ลองใหม่อีกครั้ง" });
-              } finally {
-                setTesting(false);
-              }
-            }}
-          >
-            {testing ? "กำลังทดสอบ…" : "ทดสอบกุญแจทั้งหมด"}
+      <SectionHead title="กุญแจของค่าย AI" hint="กดชื่อค่ายเพื่อวางกุญแจ ปิดชั่วคราว หรือดูผลทดสอบ กุญแจเก็บแยกจากระบบอื่น เข้ารหัสไว้ในฐานข้อมูล แสดงเฉพาะ 4 ตัวท้าย" />
+      <div className="mb-8 flex flex-wrap gap-2">
+        {held.map(chip)}
+        {more && notHeld.map(chip)}
+        {notHeld.length > 0 && (
+          <button type="button" aria-expanded={more} onClick={() => setMore(!more)}
+                  className="inline-flex h-10 items-center gap-1 rounded-full px-3 text-sm text-[var(--bot-ink-faint)] hover:text-[var(--bot-ink)]">
+            {more ? "น้อยลง ‹" : `อีก ${notHeld.length} รายการ ›`}
           </button>
-          <span className="text-xs text-[var(--bot-ink-mute)]">
-            {checks
-              ? `ตอบได้ ${checks.filter((c) => c.state === "ok").length} จาก ${checks.length} ค่าย`
-              : "ส่งคำถามสั้นๆ ไปทุกค่ายเพื่อดูว่ากุญแจไหนยังใช้ได้ — ราคาไม่ถึงหนึ่งสตางค์ (Google Cloud Run แค่ถามสิทธิ์ ไม่ได้สั่งงาน)"}
-          </span>
-          <Said note={note} where="test" />
+        )}
+      </div>
+      <Group>
+        <Item
+          title="ทดสอบกุญแจทั้งหมด"
+          description={tested ?? "ส่งคำถามสั้นๆ ไปทุกค่ายเพื่อดูว่ากุญแจไหนยังใช้ได้ ราคาไม่ถึงหนึ่งสตางค์ (Google Cloud Run แค่ถามสิทธิ์ ไม่ได้สั่งงาน)"}
+          control={<><NoteAt note={note} where="test" /><Button disabled={testing} onClick={testAll}>{testing ? "กำลังทดสอบ…" : "ทดสอบ"}</Button></>}
+        />
+        <Item
+          title="ยอดใช้ของแต่ละค่าย"
+          description="ค่าใช้จ่ายและงานที่แต่ละค่ายทำ อยู่ที่หน้าการใช้งานและค่า AI"
+          control={<a href="/admin/stats?tab=provider" className="text-sm text-[var(--bot-navy)] underline-offset-2 hover:underline">ไปที่ตามค่าย AI →</a>}
+        />
+      </Group>
+
+      {shown && (
+        <Sheet label={nameOf(shown.id)} onClose={() => setOpen(null)}>
+          {shown.id === GCP
+            ? <GcpCard held={shown} pending={pending} busy={busy} note={note} check={checkOf(GCP)} run={run} />
+            : <ProviderCard p={shown} models={models} pending={pending} busy={busy} note={note} check={checkOf(shown.id)} run={run} />}
+        </Sheet>
+      )}
+    </>
+  );
+}
+
+type Held = { id: string; held: boolean; shown: string | null; on: boolean };
+type Run = (where: string, fn: () => Promise<Result>, ok: string, after?: () => void) => void;
+
+function Identity({ p, action }: { p: Held; action?: React.ReactNode }) {
+  const site = SITE[p.id];
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--bot-band)]"><ProviderMark id={p.id} size={24} /></span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[17px] font-semibold text-[var(--bot-ink)]">{nameOf(p.id)}</div>
+          {site && <a href={`https://${site}`} target="_blank" rel="noreferrer" className="text-[13px] text-[var(--bot-ink-mute)] hover:text-[var(--bot-navy)]">{site} ↗</a>}
         </div>
-        <div className="space-y-2">
-          {providers.map((p) => {
-            const key = keyOf(p);
-            const on = key?.enabled ?? true;
-            return (
-              <div key={p} className={`flex flex-wrap items-center gap-2 rounded-md border border-[var(--bot-line)] p-2 ${on ? "" : "opacity-60"}`}>
-                <span className="w-44 text-sm">{PROVIDER_LABEL[p] ?? p}</span>
-                <span className="w-24 text-xs text-[var(--bot-ink-mute)]">{key ? `••••${key.tail}` : "ยังไม่ได้ตั้ง"}</span>
-                {/* the switch: off keeps the key and stops every call to this company */}
-                <label className={`flex w-20 items-center gap-1.5 text-xs ${key ? "cursor-pointer" : "invisible"}`} title={on ? "ปิดเพื่อหยุดเรียกค่ายนี้ โดยไม่ต้องลบกุญแจ" : "เปิดเพื่อให้ระบบเรียกค่ายนี้ได้อีก"}>
-                  <input
-                    type="checkbox" role="switch" className="sr-only" checked={on} disabled={pending || !key}
-                    onChange={(e) => run(`key:${p}`, () => setProviderEnabled(p, e.target.checked), `${e.target.checked ? "เปิด" : "ปิด"} ${PROVIDER_LABEL[p] ?? p} แล้ว`)}
-                  />
-                  <span aria-hidden className={`relative inline-block h-4 w-7 rounded-full transition-colors ${on ? "bg-[var(--bot-ok)]" : "bg-[var(--bot-line-strong)]"}`}>
-                    <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-[var(--bot-surface)] transition-all ${on ? "left-3.5" : "left-0.5"}`} />
-                  </span>
-                  <span className={on ? "text-[var(--bot-ok)]" : "text-[var(--bot-ink-mute)]"}>{on ? "เปิด" : "ปิด"}</span>
-                </label>
-                <Status check={checkOf(p)} />
-                <span className="flex min-w-64 flex-1 items-center gap-2">
-                  <input
-                    type="password" placeholder="วางกุญแจใหม่" autoComplete="off"
-                    className={`min-w-0 flex-1 text-sm ${input}`}
-                    value={draft[p] ?? ""} onChange={(e) => setDraft({ ...draft, [p]: e.target.value })}
-                  />
-                  <button
-                    type="button" disabled={pending || !(draft[p] ?? "").trim()}
-                    className="shrink-0 rounded bg-[var(--bot-navy)] px-3 py-1 text-xs text-[var(--bot-surface)] disabled:opacity-40"
-                    onClick={() => run(`key:${p}`, () => saveApiKey(p, draft[p] ?? ""), `บันทึกกุญแจ ${PROVIDER_LABEL[p] ?? p} แล้ว`,
-                      () => setDraft((d) => ({ ...d, [p]: "" })))}
-                  >
-                    {busy === `key:${p}` ? "กำลังบันทึก…" : "บันทึก"}
-                  </button>
-                </span>
-                <Said note={note} where={`key:${p}`} className="basis-full" />
-              </div>
-            );
-          })}
-          {/* Google Cloud Run, moved up from its own card (owner, 2026-11-11, ข): the same switch as the companies' */}
-          <div className={`flex flex-wrap items-start gap-2 rounded-md border border-[var(--bot-line)] p-2 ${gcpOn ? "" : "opacity-60"}`}>
-            <span className="w-44 text-sm">Google Cloud Run (ทำวิดีโอ)</span>
-            <span className="w-24 break-all text-xs text-[var(--bot-ink-mute)]">{gcpHeld ? gcpHeld.shown : "ยังไม่ได้ตั้ง"}</span>
-            <label className={`flex w-20 items-center gap-1.5 text-xs ${gcpHeld ? "cursor-pointer" : "invisible"}`} title={gcpOn ? "ปิดเพื่อหยุดทุกงานที่ใช้ Google Cloud Run โดยไม่ต้องลบกุญแจ" : "เปิดเพื่อให้ระบบเรียก Google Cloud Run ได้อีก"}>
-              <input
-                type="checkbox" role="switch" className="sr-only" checked={gcpOn} disabled={pending || !gcpHeld}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  if (!next && !window.confirm(GCP_OFF_CONFIRM)) return;
-                  run("render:gcp", () => setProviderEnabled("gcp", next), `${next ? "เปิด" : "ปิด"} Google Cloud Run แล้ว`);
-                }}
-              />
-              <span aria-hidden className={`relative inline-block h-4 w-7 rounded-full transition-colors ${gcpOn ? "bg-[var(--bot-ok)]" : "bg-[var(--bot-line-strong)]"}`}>
-                <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-[var(--bot-surface)] transition-all ${gcpOn ? "left-3.5" : "left-0.5"}`} />
-              </span>
-              <span className={gcpOn ? "text-[var(--bot-ok)]" : "text-[var(--bot-ink-mute)]"}>{gcpOn ? "เปิด" : "ปิด"}</span>
+        {action}
+      </div>
+      <p className="text-sm text-[var(--bot-ink-mute)]">
+        {p.held
+          ? <><span className={`mr-1.5 inline-block h-2 w-2 rounded-full align-middle ${p.on ? "bg-[var(--bot-ok)]" : "bg-[var(--bot-line-strong)]"}`} />{p.on ? "เชื่อมต่อแล้ว" : "ปิดอยู่"} · <span className="font-mono text-[13px]">{p.shown}</span></>
+          : <><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[var(--bot-line)] align-middle" />ยังไม่ได้ตั้งกุญแจ</>}
+      </p>
+    </>
+  );
+}
+
+function Uses({ uses }: { uses: Record<string, string[]> }) {
+  const kinds = Object.entries(uses).filter(([, v]) => v.length);
+  if (!kinds.length) return null;
+  return (
+    <div>
+      <GroupLabel>ระบบใช้ค่ายนี้ทำ</GroupLabel>
+      <div className="divide-y divide-[var(--bot-line)] border-y border-[var(--bot-line)]">
+        {kinds.map(([kind, names]) => (
+          <div key={kind} className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2.5">
+            <span className="w-20 shrink-0 text-sm text-[var(--bot-ink)]">{kind}</span>
+            <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+              {names.map((n) => <span key={n} className="rounded-md bg-[var(--bot-band)] px-2 py-0.5 text-[13px] text-[var(--bot-ink-mute)]">{n}</span>)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProviderCard({ p, models, pending, busy, note, check, run }: {
+  p: Held; models: ModelRow[]; pending: boolean; busy?: string; note?: Note; check?: ProviderCheck; run: Run;
+}) {
+  const [adding, setAdding] = useState(!p.held);
+  const [draft, setDraft] = useState("");
+  const where = `key:${p.id}`;
+  const uses: Record<string, string[]> = { ...(EXTRA_USES[p.id] ?? {}) };
+  for (const m of models.filter((x) => x.provider === p.id)) {
+    const k = KIND_LABEL[m.kind] ?? m.kind;
+    uses[k] = [...(uses[k] ?? []), m.model_name];
+  }
+  const save = () => run(where, () => saveApiKey(p.id, draft), `บันทึกกุญแจ ${nameOf(p.id)} แล้ว`, () => { setDraft(""); setAdding(false); });
+
+  return (
+    <>
+      <Identity p={p} action={!adding && <Button variant="quiet" onClick={() => setAdding(true)}>วางกุญแจใหม่</Button>} />
+      {adding && (
+        <form className="flex flex-wrap gap-2 rounded-xl border border-[var(--bot-line)] p-3" onSubmit={(e) => { e.preventDefault(); if (draft.trim() && !pending) save(); }}>
+          <input
+            type="password" autoComplete="off" spellCheck={false} autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+            placeholder={`วางกุญแจ API ของ ${nameOf(p.id)}`} aria-label={`กุญแจ ${nameOf(p.id)}`}
+            className={`min-w-0 flex-1 basis-56 font-mono placeholder:font-sans ${fieldClass}`}
+          />
+          {p.held && <Button variant="quiet" onClick={() => { setAdding(false); setDraft(""); }}>ยกเลิก</Button>}
+          <Button type="submit" variant="primary" disabled={pending || !draft.trim()}>{busy === where ? "กำลังบันทึก…" : "บันทึก"}</Button>
+        </form>
+      )}
+      <NoteAt note={note} where={where} />
+      {p.held && (
+        <Group>
+          <Item
+            title="ใช้งาน" description={p.on ? "ปิดเพื่อหยุดเรียกค่ายนี้ โดยไม่ต้องลบกุญแจ" : "เปิดเพื่อให้ระบบเรียกค่ายนี้ได้อีก"}
+            control={<Switch checked={p.on} disabled={pending} label={`ใช้งาน ${nameOf(p.id)}`}
+                             onChange={(next) => run(where, () => setProviderEnabled(p.id, next), `${next ? "เปิด" : "ปิด"} ${nameOf(p.id)} แล้ว`)} />}
+          />
+          <Item title="ทดสอบล่าสุด" description="กดทดสอบกุญแจทั้งหมดที่หน้ากุญแจเพื่อดูผลใหม่" control={<Status check={check} />} />
+        </Group>
+      )}
+      <Uses uses={uses} />
+      <p className="text-xs text-[var(--bot-ink-faint)]">กุญแจเก็บแยกจากระบบอื่น เข้ารหัสไว้ในฐานข้อมูล แสดงเฉพาะ 4 ตัวท้าย</p>
+    </>
+  );
+}
+
+/** Google Cloud Run: the service account file is pasted whole, region and job typed beside it */
+function GcpCard({ held, pending, busy, note, check, run }: {
+  held: Held; pending: boolean; busy?: string; note?: Note; check?: ProviderCheck; run: Run;
+}) {
+  const [adding, setAdding] = useState(!held.held);
+  const [draft, setDraft] = useState("");
+  const [gcp, setGcp] = useState({ region: "asia-southeast1", job: "clip-ffmpeg" });
+  const where = "render:gcp";
+  const save = () => run(where, async () => {
+    const res = await saveRenderKey("gcp", draft, gcp);
+    setDraft(""); // the pasted key does not stay on screen, saved or refused
+    return res;
+  }, "บันทึกกุญแจ Google Cloud Run แล้ว", () => setAdding(false));
+
+  return (
+    <>
+      <Identity p={held} action={!adding && <Button variant="quiet" onClick={() => setAdding(true)}>วางไฟล์ JSON ใหม่</Button>} />
+      {adding && (
+        <div className="flex flex-col gap-2 rounded-xl border border-[var(--bot-line)] p-3">
+          <textarea
+            placeholder="วางไฟล์ Service Account (JSON)" autoComplete="off" spellCheck={false} rows={4} autoFocus aria-label="ไฟล์ Service Account (JSON)"
+            className="min-w-0 rounded-lg border border-[var(--bot-line)] bg-[var(--bot-band)] p-2.5 font-mono text-xs text-[var(--bot-ink)] outline-none focus:border-[var(--bot-navy)]"
+            value={draft} onChange={(e) => setDraft(e.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5 text-xs text-[var(--bot-ink-mute)]">region
+              <input className={`w-40 ${fieldClass}`} value={gcp.region} onChange={(e) => setGcp({ ...gcp, region: e.target.value })} />
             </label>
-            <Status check={checkOf("gcp")} />
-            <span className="flex min-w-64 flex-1 flex-col gap-2">
-              <textarea
-                placeholder="วางไฟล์ Service Account (JSON)" autoComplete="off" spellCheck={false} rows={2}
-                className={`min-w-0 font-mono text-xs ${input}`}
-                value={draft["render:gcp"] ?? ""} onChange={(e) => setDraft({ ...draft, ["render:gcp"]: e.target.value })}
-              />
-              <span className="flex flex-wrap items-center gap-2">
-                <label className="text-xs text-[var(--bot-ink-mute)]">
-                  region
-                  <input className={`ml-1 w-36 text-sm ${input}`} value={gcp.region} onChange={(e) => setGcp({ ...gcp, region: e.target.value })} />
-                </label>
-                <label className="text-xs text-[var(--bot-ink-mute)]">
-                  job
-                  <input className={`ml-1 w-32 text-sm ${input}`} value={gcp.job} onChange={(e) => setGcp({ ...gcp, job: e.target.value })} />
-                </label>
-                <button
-                  type="button" disabled={pending || !(draft["render:gcp"] ?? "").trim()}
-                  className="ml-auto shrink-0 rounded bg-[var(--bot-navy)] px-3 py-1 text-xs text-[var(--bot-surface)] disabled:opacity-40"
-                  onClick={() => run("render:gcp", async () => {
-                    const res = await saveRenderKey("gcp", draft["render:gcp"] ?? "", gcp);
-                    setDraft((d) => ({ ...d, ["render:gcp"]: "" })); // the pasted key does not stay on screen, saved or refused
-                    return res;
-                  }, "บันทึกกุญแจ Google Cloud Run แล้ว")}
-                >
-                  {busy === "render:gcp" ? "กำลังบันทึก…" : "บันทึก"}
-                </button>
-              </span>
-            </span>
-            <Said note={note} where="render:gcp" className="basis-full" />
+            <label className="flex items-center gap-1.5 text-xs text-[var(--bot-ink-mute)]">job
+              <input className={`w-32 ${fieldClass}`} value={gcp.job} onChange={(e) => setGcp({ ...gcp, job: e.target.value })} />
+            </label>
+            <span className="flex-1" />
+            {held.held && <Button variant="quiet" onClick={() => { setAdding(false); setDraft(""); }}>ยกเลิก</Button>}
+            <Button variant="primary" disabled={pending || !draft.trim()} onClick={save}>{busy === where ? "กำลังบันทึก…" : "บันทึก"}</Button>
           </div>
         </div>
-        <p className="mt-3 text-xs text-[var(--bot-ink-mute)]">
-          ยอดใช้ของแต่ละค่ายและงานที่ใช้ อยู่ที่หน้า{" "}
-          <a href="/admin/stats?tab=provider" className="text-[var(--bot-navy)]">การใช้งานและค่า AI → ตามค่าย AI</a>
-        </p>
-      </Card>
+      )}
+      <NoteAt note={note} where={where} />
+      {held.held && (
+        <Group>
+          <Item
+            title="ใช้งาน"
+            description={held.on ? "ปิดเพื่อหยุดทุกงานที่ใช้ Google Cloud Run โดยไม่ต้องลบกุญแจ" : "เปิดเพื่อให้ระบบเรียก Google Cloud Run ได้อีก"}
+            control={<Switch checked={held.on} disabled={pending} label="ใช้งาน Google Cloud Run" onChange={(next) => {
+              if (!next && !window.confirm(GCP_OFF_CONFIRM)) return;
+              run(where, () => setProviderEnabled("gcp", next), `${next ? "เปิด" : "ปิด"} Google Cloud Run แล้ว`);
+            }} />}
+          />
+          <Item title="ทดสอบล่าสุด" description="ถามสิทธิ์อย่างเดียว ไม่ได้สั่งงาน" control={<Status check={check} />} />
+        </Group>
+      )}
+      <Uses uses={EXTRA_USES.gcp} />
+      <p className="text-xs text-[var(--bot-ink-faint)]">ปิดแล้ว งานทั้งหมดข้างบนหยุดทั้งเว็บจนกว่าจะเปิดอีกครั้ง หน้านี้แสดงแค่โปรเจกต์ region และ job ของกุญแจ</p>
+    </>
+  );
+}
 
-      {lanesCard}
+export function BudgetSection({ settings, spentThisMonth, content }: {
+  settings: Settings | null; spentThisMonth: number | null; content: { spent: number | null; cap: number; fallback: number };
+}) {
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState<Note>();
+  const [busy, setBusy] = useState<string>();
+  const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const budget = settings?.monthly_budget_thb != null ? Number(settings.monthly_budget_thb) : null;
 
-      <Card title="งบ" hint="ตัวหลักและตัวสำรองของแต่ละงาน ตั้งที่ลำดับหลักและสำรองด้านบน">
-        <form
-          className="flex flex-wrap items-end gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            // sent as typed: the server reads the numbers, and says in Thai what it refused
-            run("settings", () => saveSettings(String(f.get("budget") ?? ""), String(f.get("contentBudget") ?? "")),
-                "บันทึกงบแล้ว");
-          }}
-        >
-          <label className="text-sm">
-            <span className="block text-xs text-[var(--bot-ink-mute)]">งบต่อเดือน (บาท)</span>
-            {/* step "any": a step of 50 made the browser refuse ฿120 and block the whole form */}
-            <input name="budget" type="number" inputMode="decimal" min={0} step="any" defaultValue={settings?.monthly_budget_thb ?? ""}
-                   className={`mt-1 w-32 ${input}`} placeholder="ไม่จำกัด" />
-            <span className="mt-1 block text-xs text-[var(--bot-ink-mute)]">เว้นว่าง = ไม่จำกัด</span>
-          </label>
+  const run = (where: string, fn: () => Promise<Result>, ok: string) => {
+    setNote(undefined);
+    setBusy(where);
+    start(async () => {
+      try {
+        const res = await fn();
+        setNote(res.ok ? { where, ok: true, text: ok } : { where, ok: false, text: res.error });
+      } catch {
+        setNote({ where, ok: false, text: "บันทึกไม่สำเร็จ — เน็ตหลุดหรือเซิร์ฟเวอร์ไม่ตอบ ลองใหม่อีกครั้ง" });
+      } finally {
+        setBusy(undefined);
+      }
+    });
+  };
+  const box = `w-32 text-right tabular-nums ${fieldClass}`;
+
+  return (
+    <>
+      <SectionHead title="งบต่อเดือน" hint="เพดานค่า AI ของทั้งระบบ ตัวหลักและตัวสำรองของแต่ละงานตั้งที่ลำดับหลักและสำรอง" />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          // sent as typed: the server reads the numbers, and says in Thai what it refused
+          run("settings", () => saveSettings(String(f.get("budget") ?? ""), String(f.get("contentBudget") ?? "")), "บันทึกงบแล้ว");
+        }}
+      >
+        <Group>
+          <Item
+            title="งบต่อเดือน (บาท)"
+            description={<>
+              {spentThisMonth === null
+                ? <span className="text-[var(--bot-red-ink)]">อ่านยอดใช้ไม่สำเร็จ</span>
+                : <>เดือนนี้ใช้ไป <b className="tabular-nums text-[var(--bot-ink)]">฿{baht(spentThisMonth)}</b></>}
+              {/* `!= null`, not truthiness: a stored 0 is a ฿0 ceiling that stops the bot, not "no budget" */}
+              {budget == null
+                ? " (ไม่จำกัดงบ)"
+                : budget <= 0
+                  ? <span className="text-[var(--bot-red-ink)]"> · งบ ฿{baht(budget)} — ระบบหยุดเรียก AI ทั้งหมด</span>
+                  : <> จากงบ ฿{baht(budget)}{spentThisMonth !== null && <> ({Math.round((spentThisMonth / budget) * 100)}%)</>}</>}
+              {" · "}เว้นว่าง = ไม่จำกัด
+            </>}
+            // step "any": a step of 50 made the browser refuse ฿120 and block the whole form
+            control={<input name="budget" id="ai-budget" aria-label="งบต่อเดือน (บาท)" type="number" inputMode="decimal" min={0} step="any"
+                            defaultValue={settings?.monthly_budget_thb ?? ""} placeholder="ไม่จำกัด" className={box} />}
+          />
           {/* a slice of the budget above: the bot answering leads draws on the rest */}
-          <label className="text-sm">
-            <span className="block text-xs text-[var(--bot-ink-mute)]">งบสร้างคอนเทนต์ต่อเดือน (บาท)</span>
-            <input name="contentBudget" type="number" inputMode="decimal" min={0} step="any" defaultValue={settings?.content_budget_thb ?? ""}
-                   className={`mt-1 w-32 ${input}`} placeholder={`${content.fallback}`} />
-            <span className="mt-1 block text-xs text-[var(--bot-ink-mute)]">
-              เว้นว่าง = ฿{content.fallback.toLocaleString("th-TH")} ·{" "}
-              {content.spent === null
-                ? "อ่านยอดใช้ไม่สำเร็จ"
-                : <>ใช้ไป {baht(content.spent)} จาก {content.cap.toLocaleString("th-TH")} บาท</>}
-            </span>
-          </label>
-          <button disabled={pending} className="rounded bg-[var(--bot-navy)] px-3 py-1.5 text-sm text-[var(--bot-surface)] disabled:opacity-40">
-            {busy === "settings" ? "กำลังบันทึก…" : "บันทึก"}
-          </button>
-          <Said note={note} where="settings" className="basis-full text-sm" />
-        </form>
-        {/* the month's spend against the budget, and the reset that starts it again: beside the
-            budget since 2026-10-15, when the per-company spend moved to การใช้งานและค่า AI */}
-        <div className="mt-3 border-t border-[var(--bot-line)] pt-3">
-          <span className="flex flex-wrap items-center gap-2 text-xs text-[var(--bot-ink-mute)]">
-            <button
-              type="button" disabled={pending}
-              className="rounded border border-[var(--bot-line-strong)] px-2.5 py-1 font-medium text-[var(--bot-ink-foot)] hover:bg-[var(--bot-band)] disabled:opacity-40"
-              title="เริ่มนับยอดใช้ใหม่จากศูนย์ตั้งแต่ตอนนี้ — ประวัติการเรียก AI ไม่ถูกลบ"
-              onClick={() => {
-                if (!window.confirm("รีเซ็ตยอดใช้ AI เป็น ฿0 ใช่ไหม?\n\nยอดเดือนนี้และการเช็กงบจะเริ่มนับใหม่ตั้งแต่ตอนนี้ (ประวัติเดิมยังอยู่ ไม่ถูกลบ) และกลับมาใช้ได้ถ้าเคยหยุดเพราะงบเต็ม")) return;
-                run("reset", resetSpend, "รีเซ็ตยอดแล้ว — เริ่มนับใหม่จาก ฿0");
-              }}
-            >
-              {busy === "reset" ? "กำลังรีเซ็ต…" : "รีเซ็ตยอด"}
-            </button>
-            <Said note={note} where="reset" />
-            <span>
-            {spentThisMonth === null
-              ? <span className="text-[var(--bot-red-ink)]">อ่านยอดใช้ไม่สำเร็จ</span>
-              : <>เดือนนี้ใช้ไป <b className="text-sm tabular-nums text-[var(--bot-ink)]">฿{baht(spentThisMonth)}</b></>}
-            {/* `!= null`, not truthiness: a stored 0 is a ฿0 ceiling that stops the bot, not "no budget" */}
-            {budget == null
-              ? " (ไม่จำกัดงบ)"
-              : budget <= 0
-                ? <span className="text-[var(--bot-red-ink)]"> · งบ ฿{baht(budget)} — ระบบหยุดเรียก AI ทั้งหมด</span>
-                : <> จากงบ ฿{baht(budget)}{spentThisMonth !== null && <> ({Math.round((spentThisMonth / budget) * 100)}%)</>}</>}
-            {settings?.spend_reset_at && <span className="block text-[0.65rem] text-[var(--bot-ink-faint)]">นับตั้งแต่รีเซ็ต {new Date(settings.spend_reset_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" })}</span>}
-            </span>
-          </span>
-        </div>
-      </Card>
-      {/* the premium tables in force: the overview's warning when they near their end leads here */}
-      <div id="rates" className="scroll-mt-20">
-        <Card title="ตารางเบี้ย" hint="ชุดตารางเบี้ยที่หน้าคำนวณและบอทใช้อยู่ เปลี่ยนชุดได้ด้วยการอัปเดตระบบเท่านั้น">
-          <p className={`text-sm ${rates.expired ? "text-[var(--bot-red-ink)]" : rates.daysLeft <= 30 ? "text-[var(--bot-sand-ink)]" : "text-[var(--bot-ink)]"}`}>
-            ชุด {rates.version} · ใช้ได้ถึง {rates.expiresOn}{" "}
-            {rates.expired ? "· หมดอายุแล้ว ขอชุดใหม่จากบริษัท" : `· เหลืออีก ${rates.daysLeft.toLocaleString("th-TH")} วัน`}
-          </p>
-        </Card>
-      </div>
+          <Item
+            title="งบสร้างคอนเทนต์ต่อเดือน (บาท)"
+            description={<>
+              Studio โพสต์ บรีฟคลิป แผนประกัน · เว้นว่าง = ฿{content.fallback.toLocaleString("th-TH")} ·{" "}
+              {content.spent === null ? "อ่านยอดใช้ไม่สำเร็จ" : <>ใช้ไป {baht(content.spent)} จาก {content.cap.toLocaleString("th-TH")} บาท</>}
+            </>}
+            control={<input name="contentBudget" id="ai-content-budget" aria-label="งบสร้างคอนเทนต์ต่อเดือน (บาท)" type="number" inputMode="decimal" min={0} step="any"
+                            defaultValue={settings?.content_budget_thb ?? ""} placeholder={`${content.fallback}`} className={box} />}
+          />
+          <Item
+            title="บันทึกงบ"
+            control={<><NoteAt note={note} where="settings" /><Button type="submit" variant="primary" disabled={pending}>{busy === "settings" ? "กำลังบันทึก…" : "บันทึก"}</Button></>}
+          />
+        </Group>
+      </form>
+
+      <GroupLabel>เริ่มนับใหม่</GroupLabel>
+      <Group>
+        <Item
+          title="รีเซ็ตยอด"
+          description={<>
+            เริ่มนับยอดใช้ใหม่จากศูนย์ตั้งแต่ตอนนี้ ประวัติการเรียก AI ไม่ถูกลบ
+            {settings?.spend_reset_at && <span className="block text-xs text-[var(--bot-ink-faint)]">นับตั้งแต่รีเซ็ต {new Date(settings.spend_reset_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" })}</span>}
+          </>}
+          control={<>
+            <NoteAt note={note} where="reset" />
+            <Button disabled={pending} onClick={() => {
+              if (!window.confirm("รีเซ็ตยอดใช้ AI เป็น ฿0 ใช่ไหม?\n\nยอดเดือนนี้และการเช็กงบจะเริ่มนับใหม่ตั้งแต่ตอนนี้ (ประวัติเดิมยังอยู่ ไม่ถูกลบ) และกลับมาใช้ได้ถ้าเคยหยุดเพราะงบเต็ม")) return;
+              run("reset", resetSpend, "รีเซ็ตยอดแล้ว — เริ่มนับใหม่จาก ฿0");
+            }}>{busy === "reset" ? "กำลังรีเซ็ต…" : "รีเซ็ตยอด"}</Button>
+          </>}
+        />
+      </Group>
+    </>
+  );
+}
+
+/** the premium tables in force: the overview's warning when they near their end leads here (/admin/ai#rates) */
+export function RatesSection({ rates }: { rates: { version: string; expiresOn: string; daysLeft: number; expired: boolean } }) {
+  const tone = rates.expired ? "bg-[var(--bot-red-soft)] text-[var(--bot-red-ink)]" : rates.daysLeft <= 30 ? "bg-[var(--bot-sand-soft)] text-[var(--bot-sand-ink)]" : "bg-[var(--bot-ok-soft)] text-[var(--bot-ok)]";
+  return (
+    <>
+      <SectionHead title="ตารางเบี้ย" hint="ชุดตารางเบี้ยที่หน้าคำนวณและบอทใช้อยู่ เปลี่ยนชุดได้ด้วยการอัปเดตระบบเท่านั้น" />
+      <Group>
+        <Item
+          title={`ชุด ${rates.version}`}
+          description={`ใช้ได้ถึง ${rates.expiresOn}`}
+          control={<span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${tone}`}>
+            {rates.expired ? "หมดอายุแล้ว ขอชุดใหม่จากบริษัท" : `เหลืออีก ${rates.daysLeft.toLocaleString("th-TH")} วัน`}
+          </span>}
+        />
+      </Group>
     </>
   );
 }

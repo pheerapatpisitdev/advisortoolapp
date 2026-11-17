@@ -1,13 +1,15 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Card } from "../ui";
+import { PROVIDER_LABEL } from "./labels";
+import { Button, Group, GroupLabel, Item, ProviderMark, Said, SectionHead, Switch } from "./kit/parts";
 import { LANES, type LaneEntry, type LaneGroup, type LaneKey } from "@/lib/ai/lanes";
 import { saveLanes, type LaneStatus, type LaneView, type VideoInfo, type VideoUse } from "./lanes-actions";
 
 /**
  * ลำดับหลักและสำรอง (owner, 2026-10-21, mockup v3 https://claude.ai/artifact/JmmL9bs2ZBqhBi829bjUey):
  * five groups (วิดีโอ added 2026-10-27, ก, https://claude.ai/artifact/N3J5kgXMb1XQEogq2Lou7M), each with its own lanes; the top row of a lane is its main choice, the rest its
- * backups in order. Saved one group at a time.
+ * backups in order. Saved one group at a time. Its own section of /admin/ai in the settings-kit look since
+ * 2026-11-18 (owner chose ข, https://claude.ai/artifact/J3GD1YGtWCU9WTiovgeoDP): each lane a group of rows.
  */
 
 const GROUPS: { key: LaneGroup; name: string; hint: string; note: string }[] = [
@@ -48,12 +50,16 @@ const UNIT: Record<LaneKey, string> = {
 
 type Draft = Record<LaneKey, LaneEntry[]>;
 
-export function LanesCard({ lanes, savable, video, footer }: {
+/** a lane row's company label (PROVIDER_LABEL, or the voice list's "Google" / "Google Cloud" / "ElevenLabs") → the mark to draw */
+const MARK_OF: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(PROVIDER_LABEL).map(([id, label]) => [label, id])),
+  Google: "google", "Google Cloud": "gcp", ElevenLabs: "elevenlabs",
+};
+
+export function LanesCard({ lanes, savable, video }: {
   lanes: LaneView[]; savable: boolean;
   /** what made clips in the last 30 days (lanes-actions videoInfo); null when the ledger could not be read */
   video?: VideoInfo | null;
-  /** the switches that take a model out of every lane at once (./ModelSwitches.tsx) */
-  footer?: React.ReactNode;
 }) {
   const viewOf = (key: LaneKey) => lanes.find((l) => l.key === key)!;
   const saved = (): Draft => Object.fromEntries(lanes.map((l) => [l.key, l.entries])) as Draft;
@@ -90,31 +96,32 @@ export function LanesCard({ lanes, savable, video, footer }: {
     setNote(undefined);
     setDraft((d) => ({ ...d, ...Object.fromEntries(inGroup.map((l) => [l.key, l.defaults.map((id) => ({ id, on: true }))])) }));
   };
+  const small = "grid h-8 w-8 place-items-center rounded-lg border border-[var(--bot-line)] text-xs text-[var(--bot-ink-mute)] hover:bg-[var(--bot-band)] disabled:opacity-30";
 
   return (
-    <Card
-      title="ลำดับหลักและสำรอง"
-      hint="แต่ละหมวดมีลำดับของตัวเอง แถวบนสุดคือตัวหลัก ถ้าตัวหลักล่ม ช้าเกิน หรือตอบไม่ครบ ระบบจะลองสำรอง 1, 2, 3 ตามลำดับ และใช้เฉพาะแถวที่ติ๊ก “ใช้”"
-    >
-      <div role="tablist" aria-label="หมวด" className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+    <>
+      <SectionHead
+        title="ลำดับหลักและสำรอง"
+        hint={<>แต่ละหมวดมีลำดับของตัวเอง แถวบนสุดคือตัวหลัก ถ้าตัวหลักล่ม ช้าเกิน หรือตอบไม่ครบ ระบบจะลองสำรอง 1, 2, 3 ตามลำดับ และใช้เฉพาะแถวที่เปิดไว้ ปิดโมเดลออกจากทุกหมวดพร้อมกันได้ที่ <a href="#models" className="text-[var(--bot-navy)] underline underline-offset-2">ปิดโมเดลทั้งระบบ</a></>}
+      />
+      <div role="tablist" aria-label="หมวด" className="flex flex-wrap gap-2">
         {GROUPS.map((g) => {
           const on = g.key === group;
           return (
             <button
-              key={g.key} type="button" role="tab" aria-selected={on} id={`lane-group-${g.key}`}
+              key={g.key} type="button" role="tab" aria-selected={on} id={`lane-group-${g.key}`} title={g.hint}
               onClick={() => { setGroup(g.key); setNote(undefined); }}
-              className={`rounded-md border px-3 py-2 text-left ${on ? "border-[var(--bot-navy)] bg-[var(--bot-navy)] text-[var(--bot-surface)]" : "border-[var(--bot-line)] hover:bg-[var(--bot-band)]"}`}
+              className={`inline-flex h-10 items-center rounded-full border px-4 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bot-navy)] ${on ? "border-[var(--bot-navy)] bg-[var(--bot-navy)] font-medium text-[var(--bot-surface)]" : "border-[var(--bot-line)] bg-[var(--bot-surface)] text-[var(--bot-ink-mute)] hover:border-[var(--bot-navy)] hover:text-[var(--bot-ink)]"}`}
             >
-              <span className="block text-sm font-semibold">{g.name}</span>
-              <span className={`block text-xs ${on ? "opacity-80" : "text-[var(--bot-ink-mute)]"}`}>{g.hint}</span>
+              {g.name}
             </button>
           );
         })}
       </div>
-      <p className="mt-3 text-xs text-[var(--bot-ink-mute)]">{GROUPS.find((g) => g.key === group)!.note}</p>
+      <p className="mt-3 text-sm text-[var(--bot-ink-mute)]">{GROUPS.find((g) => g.key === group)!.note}</p>
       {group === "video" && video && <VideoSummary video={video} />}
 
-      <div className="mt-4 grid gap-5">
+      <div className="mt-2">
         {inGroup.map((def, n) => {
           const view = viewOf(def.key);
           const rows = draft[def.key];
@@ -122,103 +129,69 @@ export function LanesCard({ lanes, savable, video, footer }: {
           const addable = view.options.filter((o) => !rows.some((r) => r.id === o.id));
           let rank = 0;
           return (
-            <div key={def.key} className="min-w-0">
-              <h3 className="text-sm font-semibold">{def.group === "video" ? `${n + 1} · ${def.title}` : def.title}</h3>
-              <p className="text-xs text-[var(--bot-ink-mute)]">{def.sub}</p>
-              <div className="mt-2 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[var(--bot-line)] text-left text-xs text-[var(--bot-ink-mute)]">
-                      <th className="py-1.5 pr-2">ลำดับ</th><th className="py-1.5 pr-2">ตัวเลือก</th><th className="py-1.5 pr-2">ค่าย</th>
-                      <th className="py-1.5 pr-2 text-right">{UNIT[def.key]}</th><th className="py-1.5 pr-2">สถานะตอนนี้</th>
-                      <th className="py-1.5 pr-2 text-right">30 วัน</th><th className="py-1.5 pr-2">ใช้</th><th className="py-1.5">ย้าย</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, i) => {
-                      const o = optionOf(r.id);
-                      const label = r.on ? (rank++ === 0 ? "หลัก" : `สำรอง ${rank - 1}`) : "–";
-                      const st = o ? STATUS[o.status] : { text: "ไม่มีในระบบแล้ว", tone: "skip" as const };
-                      return (
-                        <tr key={r.id} className={`border-b border-[var(--bot-line)] ${r.on ? "" : "opacity-50"}`}>
-                          <td className="py-1.5 pr-2 whitespace-nowrap">
-                            {r.on
-                              ? <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${label === "หลัก" ? "bg-[var(--bot-navy)] text-[var(--bot-surface)]" : "border border-[var(--bot-line-strong)] text-[var(--bot-ink-mute)]"}`}>{label}</span>
-                              : label}
-                          </td>
-                          <td className="py-1.5 pr-2">
-                            {o?.name ?? r.id}
-                            {o && o.name !== r.id && def.kind === "text" && <span className="ml-1.5 font-mono text-[0.65rem] text-[var(--bot-ink-faint)]">{r.id}</span>}
-                          </td>
-                          <td className="py-1.5 pr-2 text-xs">{o?.company ?? ""}</td>
-                          <td className="py-1.5 pr-2 text-right text-xs tabular-nums whitespace-nowrap">{o?.price ?? ""}</td>
-                          <td className="py-1.5 pr-2 whitespace-nowrap">
-                            {r.on
-                              ? <span className={`rounded-full px-2 py-0.5 text-xs ${st.tone === "ok" ? "bg-[var(--bot-ok-soft)] text-[var(--bot-ok)]" : "bg-[var(--bot-sand-soft)] text-[var(--bot-sand-ink)]"}`}>{st.text}</span>
-                              : <span className="text-xs text-[var(--bot-ink-faint)]">ไม่ใช้</span>}
-                          </td>
-                          <td className="py-1.5 pr-2 text-right text-xs tabular-nums">{(view.used[r.id] ?? 0).toLocaleString("th-TH")}</td>
-                          <td className="py-1.5 pr-2">
-                            <input
-                              type="checkbox" id={`lane-${def.key}-${r.id}`} checked={r.on} aria-label={`ใช้ ${o?.name ?? r.id}`}
-                              onChange={(e) => change(def.key, rows.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))}
-                            />
-                          </td>
-                          <td className="py-1.5">
-                            <div className="flex gap-1">
-                              <button type="button" aria-label="ย้ายขึ้น" disabled={i === 0} onClick={() => move(def.key, i, -1)}
-                                      className="rounded border border-[var(--bot-line-strong)] px-2 text-xs disabled:opacity-30">↑</button>
-                              <button type="button" aria-label="ย้ายลง" disabled={i === rows.length - 1} onClick={() => move(def.key, i, 1)}
-                                      className="rounded border border-[var(--bot-line-strong)] px-2 text-xs disabled:opacity-30">↓</button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {addable.length > 0 && (
-                <select
-                  id={`lane-add-${def.key}`} value="" aria-label={`เพิ่มเข้าลำดับ ${def.title}`}
-                  onChange={(e) => e.target.value && change(def.key, [...rows, { id: e.target.value, on: true }])}
-                  className="mt-2 max-w-full rounded border border-[var(--bot-line-strong)] bg-[var(--bot-surface)] px-2 py-1 text-xs"
-                >
-                  <option value="">+ เพิ่มเข้าลำดับ…</option>
-                  {addable.map((o) => <option key={o.id} value={o.id}>{o.name} · {o.company}</option>)}
-                </select>
-              )}
+            <div key={def.key} className="mt-6 min-w-0">
+              <GroupLabel>{def.group === "video" ? `${n + 1} · ${def.title}` : def.title}</GroupLabel>
+              <p className="-mt-1 mb-2 text-xs text-[var(--bot-ink-faint)]">{def.sub}{UNIT[def.key] === "ราคา" || def.sub.includes(UNIT[def.key]) ? "" : ` · ราคา${UNIT[def.key]}`}</p>
+              <Group>
+                {rows.map((r, i) => {
+                  const o = optionOf(r.id);
+                  const label = r.on ? (rank++ === 0 ? "หลัก" : `สำรอง ${rank - 1}`) : "–";
+                  const st = o ? STATUS[o.status] : { text: "ไม่มีในระบบแล้ว", tone: "skip" as const };
+                  return (
+                    <Item
+                      key={r.id} muted={!r.on}
+                      mark={<span className="flex items-center gap-2.5">
+                        <span className={`grid h-7 min-w-14 place-items-center rounded-lg px-1.5 text-xs font-semibold ${label === "หลัก" ? "bg-[var(--bot-navy)] text-[var(--bot-surface)]" : "bg-[var(--bot-band)] text-[var(--bot-ink-mute)]"}`}>{label}</span>
+                        <ProviderMark id={MARK_OF[o?.company ?? ""] ?? (o?.company || r.id).toLowerCase()} size={18} />
+                      </span>}
+                      title={<>
+                        {o?.name ?? r.id}
+                        {o && o.name !== r.id && def.kind === "text" && <span className="ml-1.5 font-mono text-[0.68rem] text-[var(--bot-ink-faint)]">{r.id}</span>}
+                      </>}
+                      description={<>
+                        {o?.company ?? ""}{o?.price ? <> · <span className="tabular-nums">{o.price}</span></> : null} · 30 วัน {(view.used[r.id] ?? 0).toLocaleString("th-TH")}
+                      </>}
+                      control={<>
+                        {r.on
+                          ? <span className={`rounded-full px-2 py-0.5 text-xs whitespace-nowrap ${st.tone === "ok" ? "bg-[var(--bot-ok-soft)] text-[var(--bot-ok)]" : "bg-[var(--bot-sand-soft)] text-[var(--bot-sand-ink)]"}`}>{st.text}</span>
+                          : <span className="text-xs text-[var(--bot-ink-faint)]">ไม่ใช้</span>}
+                        <Switch
+                          id={`lane-${def.key}-${r.id}`} checked={r.on} label={`ใช้ ${o?.name ?? r.id}`}
+                          onChange={(on) => change(def.key, rows.map((x, j) => (j === i ? { ...x, on } : x)))}
+                        />
+                        <button type="button" aria-label="ย้ายขึ้น" disabled={i === 0} onClick={() => move(def.key, i, -1)} className={small}>↑</button>
+                        <button type="button" aria-label="ย้ายลง" disabled={i === rows.length - 1} onClick={() => move(def.key, i, 1)} className={small}>↓</button>
+                      </>}
+                    />
+                  );
+                })}
+                {addable.length > 0 && (
+                  <div className="px-4 py-2.5">
+                    <select
+                      id={`lane-add-${def.key}`} value="" aria-label={`เพิ่มเข้าลำดับ ${def.title}`}
+                      onChange={(e) => e.target.value && change(def.key, [...rows, { id: e.target.value, on: true }])}
+                      className="h-9 max-w-full rounded-lg border-0 bg-[var(--bot-band)] px-3 text-sm text-[var(--bot-ink)]"
+                    >
+                      <option value="">+ เพิ่มเข้าลำดับ…</option>
+                      {addable.map((o) => <option key={o.id} value={o.id}>{o.name} · {o.company}</option>)}
+                    </select>
+                  </div>
+                )}
+              </Group>
             </div>
           );
         })}
         {group === "video" && <VideoSteps video={video ?? null} from={inGroup.length + 1} goTo={(g) => { setGroup(g); setNote(undefined); }} />}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {note && (
-          <span role="status" className={`text-xs ${note.ok ? "text-[var(--bot-ok)]" : "text-[var(--bot-red-ink)]"}`}>
-            {note.ok ? "✓ " : ""}{note.text}
-          </span>
-        )}
+      <div className="sticky bottom-0 mt-5 flex flex-wrap items-center gap-2 border-t border-[var(--bot-line)] bg-[var(--bot-band)] py-3">
+        {note && <Said ok={note.ok} text={note.text} />}
         <span className="flex-1" />
-        <button type="button" onClick={reset} disabled={pending}
-                className="rounded border border-[var(--bot-line-strong)] px-3 py-1.5 text-xs text-[var(--bot-ink-foot)] hover:bg-[var(--bot-band)] disabled:opacity-40">
-          กลับเป็นลำดับเดิมของหมวดนี้
-        </button>
-        <button type="button" onClick={save} disabled={pending || !savable || !dirty}
-                className="rounded bg-[var(--bot-navy)] px-3 py-1.5 text-xs text-[var(--bot-surface)] disabled:opacity-40">
-          {pending ? "กำลังบันทึก…" : "บันทึกหมวดนี้"}
-        </button>
+        <Button onClick={reset} disabled={pending}>กลับเป็นลำดับเดิมของหมวดนี้</Button>
+        <Button variant="primary" onClick={save} disabled={pending || !savable || !dirty}>{pending ? "กำลังบันทึก…" : "บันทึกหมวดนี้"}</Button>
       </div>
       {!savable && <p className="mt-2 text-xs text-[var(--bot-sand-ink)]">ยังบันทึกลำดับไม่ได้ ฐานข้อมูลยังไม่พร้อม ระบบใช้ลำดับเดิมไปก่อน</p>}
-      {footer && (
-        <div className="mt-5 border-t border-[var(--bot-line)] pt-4">
-          <h3 className="text-sm font-semibold">ปิดโมเดลทั้งระบบ</h3>
-          <p className="mb-2 text-xs text-[var(--bot-ink-mute)]">ปิดโมเดลที่ไม่ต้องการให้ทุกหมวดข้ามไปพร้อมกัน ต่างจากช่อง “ใช้” ด้านบนที่ข้ามเฉพาะในหมวดนั้น</p>
-          {footer}
-        </div>
-      )}
-    </Card>
+    </>
   );
 }
 
@@ -228,7 +201,7 @@ const thb = (n: number) => `฿${n.toLocaleString("th-TH", { minimumFractionDigi
 export function VideoSummary({ video }: { video: VideoInfo }) {
   const render = video.render.reduce((a, r) => ({ uses: a.uses + r.uses, thb: a.thb + r.thb }), { uses: 0, thb: 0 });
   const dearest = [...video.pictures, ...video.voice, ...video.clipRead].sort((a, b) => b.thb - a.thb)[0];
-  const box = "rounded-md border border-[var(--bot-line)] bg-[var(--bot-band)] px-3 py-2";
+  const box = "rounded-xl border border-[var(--bot-line)] bg-[var(--bot-surface)] px-3.5 py-2.5";
   return (
     <div className="mt-3 grid gap-2 sm:grid-cols-3">
       <div className={box}><b className="block tabular-nums">≈ ฿{Math.round(video.aiThb).toLocaleString("th-TH")}</b><span className="text-xs text-[var(--bot-ink-mute)]">ค่า AI ทำคลิป 30 วัน (ไม่รวมค่ารวมวิดีโอ)</span></div>
@@ -253,9 +226,9 @@ export function VideoSteps({ video, from, goTo }: { video: VideoInfo | null; fro
   return (
     <>
       {steps.map((st, i) => (
-        <div key={st.title} className="min-w-0">
+        <div key={st.title} className="mt-6 min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-            <h3 className="text-sm font-semibold">{from + i} · {st.title}</h3>
+            <h3 className="text-[13px] font-medium text-[var(--bot-ink-mute)]">{from + i} · {st.title}</h3>
             <span className="rounded-full border border-[var(--bot-line-strong)] px-2 text-[0.68rem] text-[var(--bot-ink-mute)]">{st.chip}</span>
             {st.go && (
               <button type="button" onClick={() => goTo(st.go!)} className="text-xs text-[var(--bot-navy)] underline underline-offset-2">
@@ -264,7 +237,7 @@ export function VideoSteps({ video, from, goTo }: { video: VideoInfo | null; fro
             )}
           </div>
           <p className="text-xs text-[var(--bot-ink-mute)]">{st.sub}</p>
-          <div className="mt-2 overflow-x-auto">
+          <div className="mt-2 overflow-x-auto rounded-xl border border-[var(--bot-line)] bg-[var(--bot-surface)] px-3">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--bot-line)] text-left text-xs text-[var(--bot-ink-mute)]">
