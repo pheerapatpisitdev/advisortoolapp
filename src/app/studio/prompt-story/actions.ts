@@ -25,6 +25,21 @@ import type { PromptScene } from "@/lib/prompt-story/types";
 import type { Made } from "@/app/studio/quote-video/actions";
 import { closedFor } from "@/lib/switches/store";
 import { okUploads } from "@/lib/scene-library/uploads";
+import { memberAccess, PASS_EXPIRED, PASS_UNREADABLE, passOpen } from "@/lib/members/access";
+import type { Viewer } from "@/lib/auth/access";
+
+/**
+ * a member whose pass has lapsed is refused the AI steps too, as createVideo refuses the clip (owner
+ * chose ก, 2026-11-18); an agent, the owner and the demo are never gated (memberAccess). null = go on.
+ */
+async function passRefusal(viewer: Viewer): Promise<string | null> {
+  const access = await memberAccess(viewer).catch((e) => {
+    console.error("prompt story refused, pass unreadable:", e instanceof Error ? e.message : "unknown error");
+    return null;
+  });
+  if (!access) return PASS_UNREADABLE;
+  return passOpen(access) ? null : PASS_EXPIRED;
+}
 
 /**
  * คลิปตามโจทย์: the agent's brief written into a script and kept as a draft, the clip made from
@@ -41,10 +56,11 @@ export type WrittenPromptStory =
 
 export async function writePromptStory(v: { brief: string; scenes: SceneCount; figure?: unknown; format?: unknown }): Promise<WrittenPromptStory> {
   const viewer = await requireMember();
-  // the owner's alone since 2026-10-17 (prompt-story/access.ts)
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
   const closed = await closedFor(viewer, "prompt-story");
   if (closed) return { ok: false, error: closed };
+  const lapsed = await passRefusal(viewer);
+  if (lapsed) return { ok: false, error: lapsed };
   const brief = typeof v?.brief === "string" ? v.brief.trim() : "";
   if (!brief) return { ok: false, error: "พิมพ์โจทย์ก่อนนะครับ" };
   if (brief.length > BRIEF_MAX) return { ok: false, error: `โจทย์ยาวเกินไป ใส่ได้ไม่เกิน ${BRIEF_MAX} ตัวอักษร` };
@@ -151,6 +167,8 @@ export async function rewritePromptScene(draftId: string, scene: number): Promis
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
   const closed = await closedFor(viewer, "prompt-story");
   if (closed) return { ok: false, error: closed };
+  const lapsed = await passRefusal(viewer);
+  if (lapsed) return { ok: false, error: lapsed };
   if (typeof draftId !== "string" || !/^[0-9a-f-]{36}$/i.test(draftId) || !Number.isInteger(scene) || scene < 0) return { ok: false, error: "ไม่พบฉากนี้" };
   // once one is taken, every answer says what is left, a throw too
   let left: number | undefined;

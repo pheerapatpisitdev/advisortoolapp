@@ -104,21 +104,24 @@ describe("redrawPromptPicture", () => {
   });
 });
 
-describe("anyone but the owner (owner chose ก, 2026-10-17)", () => {
-  const others = [
-    { kind: "unitos", agentId: "a2", name: "ตัวแทน", staff: null },
-    { kind: "unitos", agentId: "s1", name: "ผู้ช่วย", staff: { owner: false, publish: true, connect: true, admin: true } },
-    { kind: "member", agentId: "m1", name: "สมาชิก", staff: null },
-  ];
-  it("is told the tool is closed at every step, and nothing is written, held or drawn", async () => {
-    for (const v of others) {
-      viewer.as = v;
-      expect(await writePromptStory({ brief: "ทุน 1 ล้าน", scenes: 3 })).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
-      expect(await makePromptStory(form(), "")).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
-      expect(await redrawPromptPicture(DRAFT, 1)).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
-    }
+describe("open to every agent and member (owner chose ก, 2026-11-18)", () => {
+  it("refuses a viewer with no agent id at every step; nothing is written, held or drawn", async () => {
+    viewer.as = { kind: "super", agentId: "", name: "หลังบ้าน", staff: null };
+    expect(await writePromptStory({ brief: "ทุน 1 ล้าน", scenes: 3 })).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
+    expect(await makePromptStory(form(), "")).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
+    expect(await redrawPromptPicture(DRAFT, 1)).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
     expect(made.create).not.toHaveBeenCalled();
     expect(made.redraw).not.toHaveBeenCalled();
     expect(made.after).not.toHaveBeenCalled();
+  });
+  it("lets an agent and an assistant through the gate to the clip", async () => {
+    for (const v of [
+      { kind: "unitos", agentId: "a2", name: "ตัวแทน", staff: null },
+      { kind: "unitos", agentId: "s1", name: "ผู้ช่วย", staff: { owner: false, publish: true, connect: true, admin: true } },
+    ]) {
+      viewer.as = v;
+      expect(await redrawPromptPicture(DRAFT, 1)).toEqual({ ok: true });
+    }
+    expect(made.redraw).toHaveBeenCalledTimes(2);
   });
 });

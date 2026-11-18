@@ -26,8 +26,8 @@ export const metadata = {
 /**
  * คลิปตามโจทย์ (owner, 2026-10-16, mockup https://claude.ai/artifact/4SfQNZjNuNR86jKo83D4Bn):
  * every agent's and every สมาชิกทั่วไป's with a live pass, as คลิปเล่าเรื่อง is. The owner's alone
- * since 2026-10-17; anyone else who opens the address is told it is closed (owner chose ก, mockup
- * https://claude.ai/artifact/LcRWfmRo4opwx7mymfd7fM).
+ * 2026-10-17 to 2026-11-18 (mockup https://claude.ai/artifact/LcRWfmRo4opwx7mymfd7fM); open to all
+ * again since (owner chose ก, mockup https://claude.ai/artifact/NpbKD2nHykvZXRH5dYMbWP).
  */
 export default async function PromptStoryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await gatePage("/studio/prompt-story");

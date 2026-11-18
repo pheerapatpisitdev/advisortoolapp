@@ -425,8 +425,9 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80", logo: "qv" },
     // a cartoon story clip, why insurance at all (owner, 2026-10-15): every agent's, paid like the one above
     { href: "/studio/story-clip", label: "คลิปเล่าเรื่อง", icon: "woman", hue: "#2e5a80", logo: "sc" },
-    // a clip from the agent's own brief, script edited before it is paid for (owner, 2026-10-16): the owner's alone since 2026-10-17
-    ...(who?.owner ? [{ href: "/studio/prompt-story", label: "คลิปตามโจทย์", icon: "quote" as const, hue: "#2e5a80", logo: "pc" as const }] : []),
+    // a clip from the agent's own brief, script edited before it is paid for (owner, 2026-10-16): the owner's
+    // alone 2026-10-17 to 2026-11-18, every agent's and member's again since (owner chose ก)
+    { href: "/studio/prompt-story", label: "คลิปตามโจทย์", icon: "quote", hue: "#2e5a80", logo: "pc" },
     // the writer: Maryjane from 2026-09-27, Organic Studio from 2026-09-28 (owner)
     { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80", logo: "og" },
     // ตัดต่อคลิป (/studio/clip-edit) stood here 2026-10-19 to 2026-11-15; removed with filmed-clip uploads (owner chose ก + 1)

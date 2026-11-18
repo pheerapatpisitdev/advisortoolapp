@@ -92,13 +92,21 @@ describe("the page and the menu", () => {
   const who2 = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
   const linksOf = (w: typeof who2) => studioMenu(w).flatMap((g) => g.links);
 
-  it("lists คลิปตามโจทย์ right after คลิปเล่าเรื่อง for the owner alone (owner, 2026-10-17)", () => {
-    const owner = { ...who2, owner: true };
-    const hrefs = linksOf(owner).map((l) => l.href);
-    expect(hrefs.indexOf(PAGE)).toBe(hrefs.indexOf("/studio/story-clip") + 1);
-    expect(linksOf(owner).find((l) => l.href === PAGE)?.label).toBe("คลิปตามโจทย์");
-    for (const w of [who2, { ...who2, admin: true, publish: true, connect: true }]) {
-      expect(linksOf(w).map((l) => l.href)).not.toContain(PAGE);
+  it("lists คลิปตามโจทย์ right after คลิปเล่าเรื่อง for everyone (owner chose ก, 2026-11-18)", () => {
+    for (const w of [who2, { ...who2, owner: true }, { ...who2, admin: true, publish: true, connect: true }]) {
+      const hrefs = linksOf(w).map((l) => l.href);
+      expect(hrefs.indexOf(PAGE)).toBe(hrefs.indexOf("/studio/story-clip") + 1);
+      expect(linksOf(w).find((l) => l.href === PAGE)?.label).toBe("คลิปตามโจทย์");
+    }
+  });
+
+  it("refuses a lapsed member's AI steps in actions.ts (passRefusal before the writer)", () => {
+    const src = readFileSync(path.resolve(__dirname, "../../src/app/studio/prompt-story/actions.ts"), "utf8");
+    for (const fn of ["writePromptStory", "rewritePromptScene"]) {
+      const body = src.slice(src.indexOf(`export async function ${fn}`));
+      const gate = body.indexOf("await passRefusal(viewer)");
+      expect(gate).toBeGreaterThan(0);
+      expect(gate).toBeLessThan(body.indexOf("\nexport async function") > 0 ? body.indexOf("\nexport async function") : body.length);
     }
   });
 
