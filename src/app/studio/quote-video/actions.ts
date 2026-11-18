@@ -9,7 +9,7 @@ import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
 import { elevenVoice } from "@/lib/voice/elevenlabs";
 import { GEMINI_DEFAULT, geminiVoice } from "@/lib/voice/gemini";
-import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
+import { RIDERS_NOT_SOLD, cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iHealthyCard } from "@/lib/ihealthy-card";
@@ -162,14 +162,18 @@ function checked(v: VideoInput, hide: PayMode[] = [], pen = true): VideoInput | 
   const all = v.product === "IHEALTHY" && isAllPlansMode(v.allPlans);
   const budget = v.budget && !all ? cleanBudget(v.budget) : undefined;
   if (typeof budget === "string") return budget;
-  // a budget works the sum out from the plan alone: the page's riders go with the page's own sum
+  // the stand-in sum is checked without riders: whether they can be bought is the budget's own question, sum by sum
   const asked = !budget || v.product === "IHEALTHY" ? v
     : v.product === "LEGACY" ? { ...v, tier: 1 }
     // Protection Life's stand-in must be one of its page's steps
     : v.product === "PLB" ? { ...v, sumAssured: 300_000 } : { ...v, sumAssured: 500_000, riders: undefined };
   const checkedAsked = checkedQuote(asked);
   if (typeof checkedAsked === "string") return checkedAsked;
-  const worked = budget ? resolveBudget(checkedAsked, budget) : checkedAsked;
+  // Life Protect's riders picked on the form are part of what the budget pays for (owner, 2026-11-18, 1ก)
+  const budgetRiders = budget && productOf(v) === "LIFEPROTECT" && "riders" in v ? currentRiders(cleanRiders(v.riders)) : undefined;
+  const worked = budget
+    ? resolveBudget(budgetRiders ? { ...checkedAsked, riders: budgetRiders } as VideoInput : checkedAsked, budget)
+    : checkedAsked;
   if (typeof worked === "string") return worked;
   // the table notes, read on the server like `hide`; only an agent who switched them off is marked
   const c: VideoInput = { ...worked, ...(hide.length ? { hide } : {}), ...(pen ? {} : { pen: false }) };
@@ -324,7 +328,6 @@ function checkedQuote(v: VideoInput): VideoInput | string {
   return { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured, ...(riders ? { riders } : {}) };
 }
 
-const RIDERS_NOT_SOLD = "สัญญาเพิ่มเติมที่เลือกจากหน้า Life Protect ซื้อไม่ได้ในอายุหรือทุนนี้ กด “ไม่ใส่สัญญาเพิ่มเติม” หรือเปลี่ยนกลับ";
 
 /** riders as the board sent them back: through a link's own writing and reading, so only a shape our links have survives */
 function cleanRiders(raw: unknown): CardRiders | undefined {

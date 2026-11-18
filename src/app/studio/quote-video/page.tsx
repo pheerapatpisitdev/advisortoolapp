@@ -17,6 +17,7 @@ import { walletPrices } from "@/lib/wallet/store";
 import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
 import { fxFor } from "@/lib/quote-video/fx-switch";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
+import { lpRiderMenu } from "@/lib/quote-video/lp-rider-menu";
 import { hiddenFor } from "@/lib/pay-prefs-store";
 import { ToolLogo } from "@/components/shell/ToolLogo";
 import { HelpLink } from "@/components/help/HelpLink";
@@ -91,7 +92,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       </p>
       <p className="mt-1.5"><HelpLink clip="quote-video">ดูคลิปวิธีทำ</HelpLink></p>
       <ClosedNotice viewer={viewer} feature="quote-video" />
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} fx={fx} hide={hide} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} fx={fx} hide={hide} riderMenu={lpRiderMenu()} />
     </div>
   );
 }

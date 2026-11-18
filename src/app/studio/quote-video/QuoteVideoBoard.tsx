@@ -1,4 +1,6 @@
 "use client";
+import { LpRiderPicker } from "./LpRiderPicker";
+import type { LpRiderMenu } from "@/lib/quote-video/lp-rider-menu";
 import Link from "next/link";
 import { useFreshLinks } from "./fresh-links";
 import { useEffect, useRef, useState } from "react";
@@ -194,7 +196,9 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices, fx = false, hide = [] }: {
+export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices, fx = false, hide = [], riderMenu }: {
+  /** Life Protect's riders as its page offers them, for the form's own picker (lp-rider-menu.ts) */
+  riderMenu?: LpRiderMenu;
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
   /** ตั้งค่าส่วนตัว (owner, 2026-11-14): the instalments this agent switched off; the server applies them to the clip, the form only stops offering them */
   hide?: PayMode[];
@@ -426,8 +430,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   }
   // where the clip begins: a sum (or plan), or what the customer can save each month / year
   const [source, setSource] = useState<"sum" | "month" | "year">("sum");
-  // the page's riders go with the page's own sum: a budget prices the plan alone
-  const lpRiders = product === "LIFEPROTECT" && source === "sum" ? riders : undefined;
+  // Life Protect's riders, from its page or picked on this form; a budget pays for them too (owner, 2026-11-18, 1ก)
+  const lpRiders = product === "LIFEPROTECT" ? riders : undefined;
   const [budget, setBudget] = useState("3,000");
   // การเล่า stands only for a portrait Life Protect Motion clip, Thai, without riders or a budget, where the quote on
   // the form fits a recipe; the server says which fit (previewQuote) and makes the standing clip if one stops fitting
@@ -1004,15 +1008,15 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   <p className="mt-1 text-xs text-[var(--ct-mute)]">ใช้กับโบนัสในฉากที่ 4 และเสียง · ส่วนการันตีเท่าเดิมทุกค่า · คลิปบอกว่า “ประมาณ” และ “ไม่การันตี” ทุกครั้ง</p>
                 </div>
               )}
-              {product === "LIFEPROTECT" && source === "sum" && (riders ? (
-                <div className="space-y-1 rounded-lg border-[1.5px] border-[var(--ct-accent)] px-4 py-3 text-sm">
-                  <p className="font-semibold">ใช้สัญญาเพิ่มเติมจากหน้า Life Protect</p>
-                  {ok?.riders && <p>สัญญาเพิ่มเติม: {ok.riders}</p>}
-                  <button type="button" className="text-xs text-[var(--ct-mute)] underline" onClick={() => setRiders(undefined)}>ไม่ใส่สัญญาเพิ่มเติม</button>
+              {product === "LIFEPROTECT" && riderMenu && (
+                <div className="space-y-1">
+                  <LpRiderPicker
+                    menu={riderMenu} age={Number(age)} value={riders} onChange={setRiders}
+                    baseSum={source === "sum" ? Number(sum.replace(/[^\d]/g, "")) || undefined : undefined}
+                  />
+                  {riders && ok?.riders && <p className="text-xs text-[var(--ct-mute)]">ในคลิป: {ok.riders}</p>}
                 </div>
-              ) : (
-                <p className="text-xs text-[var(--ct-mute)]">อยากใส่สัญญาเพิ่มเติม ให้กด “ทำวิดีโอ” จากหน้า Life Protect</p>
-              ))}
+              )}
               {product === "IHEALTHY" && (
                 <>
                   {setup && (

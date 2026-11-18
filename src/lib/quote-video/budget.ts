@@ -6,6 +6,7 @@ import { iShieldModes, termAt as iShieldTermAt, termTakes } from "@/lib/ishield-
 import { iShieldTable } from "@/lib/ishield-table";
 import { lifeProtectModes, termAt as lifeProtectTermAt } from "@/lib/lifeprotect-quote";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
+import { lifeProtectPriced } from "@/lib/lifeprotect-card";
 import { ISHIELD_SUMS, LIFEPROTECT_BUDGET_SUMS } from "@/lib/quote-pdf/pages";
 import { legacyFromBudget } from "./legacy";
 import { pensionFromBudget } from "./pension";
@@ -96,7 +97,26 @@ export function resolveBudget(v: VideoInput, budget: Budget, today: Date = new D
   if (t.expired) return NOT_SOLD;
   const term = lifeProtectTermAt(t, v.variant);
   const sums = LIFEPROTECT_BUDGET_SUMS.filter((s) => s >= 500_000 && s <= 50_000_000);
-  const price = (sum: number) => lifeProtectModes(t, term, { sex: v.sex, age: v.age, sumAssured: sum });
+  const plain = (sum: number) => lifeProtectModes(t, term, { sex: v.sex, age: v.age, sumAssured: sum });
+  /**
+   * With riders picked on the form (owner, 2026-11-18, 1ก) the budget is for the whole premium:
+   * each sum is priced plan and riders together, the way the page and the card price it. A sum
+   * the riders cannot be bought on (AP past 5 times it) has no price and is passed over.
+   */
+  const riders = "riders" in v ? v.riders : undefined;
+  const price = riders
+    ? (sum: number) => lifeProtectPriced({ kind: "plan", planCode: "LIFEPROTECT", variant: v.variant, age: v.age, sex: v.sex, sumAssured: sum, riders }, today)?.paid
+    : plain;
   const fit = budgetFit(sums, price, page);
-  return fit ? { ...v, sumAssured: fit.sum, budget } as VideoInput : tooLow(sums[0], price(sums[0]), budget);
+  if (fit) return { ...v, sumAssured: fit.sum, budget } as VideoInput;
+  if (!riders) return tooLow(sums[0], plain(sums[0]), budget);
+  // which it is: the riders cannot be bought at all here, or the budget is short of plan and riders together
+  const first = sums.find((s) => price(s));
+  const at = first === undefined ? undefined : pick(price(first), budget.per);
+  return first === undefined || !at
+    ? RIDERS_NOT_SOLD
+    : `งบนี้ยังไม่พอสำหรับทุนต่ำสุด ${first.toLocaleString("en-US")} รวมสัญญาเพิ่มเติม (เริ่มที่${word(budget.per)} ${formatBaht(at.total)} บาท) ลดสัญญาเพิ่มเติมหรือเพิ่มงบ`;
 }
+
+/** said by the form's check too (actions.ts): riders picked that this insured cannot buy */
+export const RIDERS_NOT_SOLD = "สัญญาเพิ่มเติมที่เลือกซื้อไม่ได้ในอายุหรือทุนนี้ เอาสัญญานั้นออก หรือเปลี่ยนอายุ / ทุน";
