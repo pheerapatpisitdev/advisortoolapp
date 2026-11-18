@@ -3,7 +3,7 @@ import { quote } from "@/calc/quote";
 import { formatSatang } from "@/calc/money";
 import { cardInputFrom, cardPath, quoteCard, valueTableCard, type PlanCardInput } from "@/lib/quote-card";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
-import { illnessModes, illnessOf, illnessWhyNot, riderDueByYear, termAt } from "@/lib/lifeprotect-quote";
+import { accidentOverCap, illnessModes, illnessOf, illnessSaMax, illnessWhyNot, riderDueByYear, termAt } from "@/lib/lifeprotect-quote";
 import type { PayMode, Sex } from "@/calc/types";
 
 /**
@@ -34,7 +34,11 @@ describe("the critical-illness riders the page offers", () => {
     expect(table.illness.map((r) => [r.code, r.short, r.ageMin, r.ageMax, r.saMin, r.saMax, r.coverToAge])).toEqual([
       ["DCI", "DCI", 20, 65, 200_000, 10_000_000, 75],
       ["CI123", "CI 123", 0, 75, 100_000, 10_000_000, undefined],
+      // the accident riders (owner, 2026-11-18): the handbook's cover to 65
+      ["AP", "AP", 0, 60, 100_000, 10_000_000, 65],
+      ["ECARE", "ECARE", 16, 60, 100_000, 10_000_000, 65],
     ]);
+    expect(table.illness.map((r) => r.group)).toEqual(["illness", "illness", "accident", "accident"]);
   });
 
   /** the page offers them side by side because the company does not exclude one by the other */
@@ -62,7 +66,7 @@ describe("illnessModes", () => {
       }, WHILE_CURRENT);
       const items = r.items.filter((i) => i.code === rider.code || i.code.startsWith(`${rider.code}:`));
       const engine = items.length > 0 && items.every((i) => i.eligible) ? items.reduce((s, i) => s + i.modal, 0) : undefined;
-      const page = illnessModes(table, rider, { sex, age, sumAssured })?.find((m) => m.mode === mode)?.total;
+      const page = illnessModes(table, rider, { sex, age, sumAssured }, 1_000_000)?.find((m) => m.mode === mode)?.total;
       expect(page, `${rider.code} ${sex} ${age} ${sumAssured} ${mode}`).toBe(engine);
     }
   });
@@ -130,5 +134,71 @@ describe("the card and the value table", () => {
 
   it("refuses a rider at an age it is not sold at", () => {
     expect(quoteCard({ ...WITH_CI, age: 10 }, WHILE_CURRENT)).toBeUndefined();
+  });
+});
+
+describe("the accident riders", () => {
+  const ap = illnessOf(table, "AP")!;
+  const ecare = illnessOf(table, "ECARE")!;
+
+  it("are priced at occupation class 1, the same at every age: AP 3, ECARE 6.50 a thousand", () => {
+    const at = (r: typeof ap, age: number) =>
+      illnessModes(table, r, { sex: "M", age, sumAssured: 1_000_000 }, 1_000_000)?.find((m) => m.mode === "annual")?.total;
+    expect(at(ap, 35)).toBe(300_000);
+    expect(at(ap, 5)).toBe(300_000);
+    expect(at(ecare, 35)).toBe(650_000);
+    expect(at(ecare, 15)).toBeUndefined();
+  });
+
+  it("are held to 5 times the plan's sum, a child's AP to 2 times and 3 million", () => {
+    expect(illnessSaMax(ap, 35, 1_000_000)).toBe(5_000_000);
+    expect(illnessSaMax(ap, 35, 3_000_000)).toBe(10_000_000);
+    expect(illnessSaMax(ap, 10, 1_000_000)).toBe(2_000_000);
+    expect(illnessSaMax(ap, 10, 2_000_000)).toBe(3_000_000);
+    expect(illnessModes(table, ap, { sex: "M", age: 35, sumAssured: 6_000_000 }, 1_000_000)).toBeUndefined();
+    expect(illnessWhyNot(table, ap, { sex: "M", age: 35, sumAssured: 6_000_000 }, 1_000_000))
+      .toBe("AP ทุน 100,000 – 5,000,000 บาท (ไม่เกิน 5 เท่าของทุนหลัก)");
+  });
+
+  it("together are held to 5 times the plan's sum, as the engine says", () => {
+    const picks = [{ code: "AP", sumAssured: 3_000_000 }, { code: "ECARE", sumAssured: 3_000_000 }];
+    expect(accidentOverCap(table, picks, 1_000_000))
+      .toBe("ทุน AP + ECARE รวม 6,000,000 บาท เกินที่ซื้อได้รวมกัน 5,000,000 บาท (5 เท่าของทุนหลัก) · ลดทุนเพื่อรวมในราคา");
+    expect(accidentOverCap(table, picks, 2_000_000)).toBeUndefined();
+    const engine = quote({
+      planCode: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", mode: "annual", sumAssured: 1_000_000,
+      riders: [{ code: "AP", sumAssured: 3_000_000 }, { code: "ECARE", sumAssured: 3_000_000 }],
+    }, WHILE_CURRENT);
+    expect(engine.warnings.map((w) => w.code)).toContain("AP_ECARE");
+  });
+
+  it("renew yearly in the value table until cover stops at 65", () => {
+    const term = table.terms.find((t) => t.variant === "WLF19H")!;
+    const due = riderDueByYear(table, term, 60, 7, undefined, undefined, { sex: "F", picks: [{ code: "AP", sumAssured: 1_000_000 }] });
+    expect(due).toEqual([300_000, 300_000, 300_000, 300_000, 300_000, 0, 0]);
+  });
+
+  it("ride the card link and the card's split, and a pair past the shared limit gets no card", () => {
+    const withAccident: PlanCardInput = {
+      kind: "plan", planCode: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000, mode: "annual",
+      riders: { illness: [{ code: "AP", sumAssured: 1_000_000 }, { code: "ECARE", sumAssured: 1_000_000 }] },
+    };
+    const path = cardPath(withAccident);
+    expect(path).toContain("ap=1000000");
+    expect(path).toContain("ecare=1000000");
+    const back = cardInputFrom(new URLSearchParams(path.split("?")[1]));
+    expect(back?.kind === "plan" ? back.riders : undefined).toEqual(withAccident.riders);
+    const card = quoteCard(withAccident, WHILE_CURRENT)!;
+    const mode = card.summary!.split!.title.endsWith("รายเดือน") ? "monthly" : "annual";
+    const own = (r: typeof ap) => formatSatang(illnessModes(table, r, { sex: "M", age: 35, sumAssured: 1_000_000 }, 1_000_000)!
+      .find((m) => m.mode === mode)!.total);
+    expect(card.summary!.split!.rows.slice(1)).toEqual([
+      { label: "AP ทุน 1,000,000", amount: `+${own(ap)}` },
+      { label: "ECARE ทุน 1,000,000", amount: `+${own(ecare)}` },
+    ]);
+    expect(quoteCard({
+      ...withAccident,
+      riders: { illness: [{ code: "AP", sumAssured: 3_000_000 }, { code: "ECARE", sumAssured: 3_000_000 }] },
+    }, WHILE_CURRENT)).toBeUndefined();
   });
 });

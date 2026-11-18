@@ -27,7 +27,7 @@ export interface CardRiders {
 }
 
 /** The query key each critical-illness rider is written under, e.g. dci=1000000. */
-const ILLNESS_KEYS: Record<string, string> = { DCI: "dci", CI123: "ci123" };
+const ILLNESS_KEYS: Record<string, string> = { DCI: "dci", CI123: "ci123", AP: "ap", ECARE: "ecare" };
 
 /**
  * What a card can be asked for. It is the quote's own input minus what a customer never picks

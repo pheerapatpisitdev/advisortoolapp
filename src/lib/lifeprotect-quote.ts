@@ -201,9 +201,10 @@ function illnessAt(
  * the company accepts (CI 123 is then void as a whole, as composite-ci.ts says).
  */
 export function illnessModes(
-  table: LifeProtectTable, rider: LifeProtectIllness, who: Insured,
+  table: LifeProtectTable, rider: LifeProtectIllness, who: Insured, baseSum?: number,
 ): ModePremium[] | undefined {
-  if (!illnessSoldAt(rider, who.age) || who.sumAssured < rider.saMin || who.sumAssured > rider.saMax) return undefined;
+  if (!illnessSoldAt(rider, who.age) || who.sumAssured < rider.saMin
+    || who.sumAssured > illnessSaMax(rider, who.age, baseSum)) return undefined;
   const modes = illnessAt(table, rider, who.sex, who.age, who.sumAssured);
   const annual = modes?.find((m) => m.mode === "annual");
   if (!annual || (rider.minAnnual !== undefined && annual.total < rider.minAnnual * 100)) return undefined;
@@ -211,15 +212,59 @@ export function illnessModes(
 }
 
 /** Why a picked rider is not in the price at this age and sum, in the page's words; undefined when it is. */
-export function illnessWhyNot(table: LifeProtectTable, rider: LifeProtectIllness, who: Insured): string | undefined {
+export function illnessWhyNot(
+  table: LifeProtectTable, rider: LifeProtectIllness, who: Insured, baseSum?: number,
+): string | undefined {
   if (!illnessSoldAt(rider, who.age)) {
     return `${rider.short} รับอายุ ${rider.ageMin === 0 ? "แรกเกิด" : rider.ageMin}–${rider.ageMax} ปี · อายุนี้จึงยังไม่ได้รวมอยู่ในราคา`;
   }
-  if (illnessModes(table, rider, who)) return undefined;
-  if (rider.minAnnual !== undefined && who.sumAssured >= rider.saMin && who.sumAssured <= rider.saMax) {
+  if (illnessModes(table, rider, who, baseSum)) return undefined;
+  const max = illnessSaMax(rider, who.age, baseSum);
+  if (rider.minAnnual !== undefined && who.sumAssured >= rider.saMin && who.sumAssured <= max) {
     return `${rider.short} เบี้ยต้องไม่ต่ำกว่า ${rider.minAnnual.toLocaleString("en-US")} บาทต่อปี · เพิ่มทุนเพื่อรวมในราคา`;
   }
-  return `${rider.short} ทุน ${rider.saMin.toLocaleString("en-US")} – ${rider.saMax.toLocaleString("en-US")} บาท`;
+  if (max < rider.saMin) {
+    return `${rider.short} ทุนขั้นต่ำ ${rider.saMin.toLocaleString("en-US")} บาท · ทุนหลักนี้ซื้อได้ไม่เกิน ${max.toLocaleString("en-US")} บาท`;
+  }
+  return `${rider.short} ทุน ${rider.saMin.toLocaleString("en-US")} – ${max.toLocaleString("en-US")} บาท`
+    + (max < rider.saMax ? ` (${baseLimitWords(rider, who.age)})` : "");
+}
+
+/**
+ * The most the rider may be written for on this insured: its own cap, and for AP and ECARE
+ * a multiple of the plan's sum (a child's AP at 2 times, 3 million). Without a plan's sum it
+ * is the rider's own cap, which only a caller that has none would ask for.
+ */
+export function illnessSaMax(rider: LifeProtectIllness, age: number, baseSum?: number): number {
+  const limit = rider.baseLimit;
+  if (!limit || baseSum === undefined) return rider.saMax;
+  const juvenile = limit.juvenile && age <= limit.juvenile.ageMax ? limit.juvenile : undefined;
+  return juvenile
+    ? Math.min(rider.saMax, juvenile.cap, juvenile.multiple * baseSum)
+    : Math.min(rider.saMax, limit.multiple * baseSum);
+}
+
+/** "ไม่เกิน 5 เท่าของทุนหลัก", said where the plan's sum holds a rider below its own cap */
+function baseLimitWords(rider: LifeProtectIllness, age: number): string {
+  const limit = rider.baseLimit!;
+  const juvenile = limit.juvenile && age <= limit.juvenile.ageMax ? limit.juvenile : undefined;
+  return `ไม่เกิน ${(juvenile ?? limit).multiple} เท่าของทุนหลัก`;
+}
+
+/**
+ * Why the accident riders picked together are over what they may come to together — AP and
+ * ECARE at 5 times the plan's sum and 10 million — or undefined when they are not.
+ */
+export function accidentOverCap(table: LifeProtectTable, picks: IllnessPick[], baseSum: number): string | undefined {
+  const cap = table.accidentCap;
+  if (!cap) return undefined;
+  const together = picks.filter((p) => cap.codes.includes(p.code));
+  if (together.length < 2) return undefined;
+  const total = together.reduce((s, p) => s + p.sumAssured, 0);
+  const limit = Math.min(cap.multiple * baseSum, cap.cap);
+  if (total <= limit) return undefined;
+  return `ทุน ${together.map((p) => illnessOf(table, p.code)?.short ?? p.code).join(" + ")} รวม ${total.toLocaleString("en-US")} บาท`
+    + ` เกินที่ซื้อได้รวมกัน ${limit.toLocaleString("en-US")} บาท (${cap.multiple} เท่าของทุนหลัก) · ลดทุนเพื่อรวมในราคา`;
 }
 
 /**

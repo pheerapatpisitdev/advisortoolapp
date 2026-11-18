@@ -5,6 +5,7 @@ import { baseAgeRange, riderAvailability } from "@/calc/rules";
 import { fixedPremiumByAgePlan } from "@/calc/lookup";
 import { PARENT_MAX_INSURED_AGE, premiumBasedRate } from "@/calc/riders/premium-based";
 import { waiverBenefit } from "@/calc/riders/waivers";
+import { OCCUPATION_CLASS } from "@/calc/riders/rate-per-thousand";
 import { cashValueSchedule, maturityValue } from "@/calc/cash-value";
 import type { CoverTopUp, PayMode, Sex } from "@/calc/types";
 
@@ -138,6 +139,12 @@ export interface LifeProtectIllnessPart {
  */
 export interface LifeProtectIllness {
   code: string;
+  /**
+   * The group the page lists it under: the critical-illness riders, or the accident riders
+   * AP and ECARE (owner, 2026-11-18, ก ก). Both are priced the same way — a sum of their own,
+   * renewed yearly — so they share this shape and every picture and link that carries it.
+   */
+  group: "illness" | "accident";
   /** the contract's own name, e.g. "สัญญาเพิ่มเติมโรคร้ายแรง (DCI)" */
   name: string;
   /** the name a button and a split row carry, e.g. "CI 123" */
@@ -165,6 +172,18 @@ export interface LifeProtectIllness {
   rateAgeMin: number;
   /** the smallest yearly premium the company accepts for it, in baht; below it the rider is void */
   minAnnual?: number;
+  /**
+   * Its sum held to a multiple of the plan's own sum, on top of `saMax` — AP and ECARE at 5
+   * times, a child's AP at 2 times and 3 million.
+   */
+  baseLimit?: { multiple: number; juvenile?: { ageMax: number; multiple: number; cap: number } };
+}
+
+/** Riders whose sums together are held to a multiple of the plan's sum: AP + ECARE at 5 times, 10 million. */
+export interface LifeProtectSharedCap {
+  codes: string[];
+  multiple: number;
+  cap: number;
 }
 
 export interface LifeProtectTable {
@@ -193,8 +212,10 @@ export interface LifeProtectTable {
   riders: LifeProtectRider[];
   /** the medical-expense rider, when the plan carries it */
   medical?: LifeProtectMedical;
-  /** the critical-illness riders, in the order the page offers them */
+  /** the critical-illness riders, then the accident riders, in the order the page offers them */
   illness: LifeProtectIllness[];
+  /** the accident riders' shared limit, when the plan carries both */
+  accidentCap?: LifeProtectSharedCap;
 }
 
 const PLAN_CODE = "LIFEPROTECT";
@@ -222,6 +243,18 @@ const ILLNESS: { code: string; short: string; what: string }[] = [
   { code: "DCI", short: "DCI", what: "จ่ายเมื่อเสียชีวิต หรือเป็นโรคร้ายแรง 31 โรค" },
   { code: "CI123", short: "CI 123", what: "122 โรค จ่ายตั้งแต่ระยะเริ่มต้นถึงระยะรุนแรง เคลมได้หลายครั้ง" },
 ];
+
+/**
+ * The accident riders the page offers (owner, 2026-11-18, ก ก), priced at one occupation class
+ * as everywhere else in this app. The rate sheet carries no age they stop at; the company's
+ * handbook (data/qa/quickquote-2023.json) says both cover to 65 and renew yearly.
+ */
+const ACCIDENT: { code: string; short: string; what: string }[] = [
+  { code: "AP", short: "AP", what: "เสียชีวิต สูญเสียอวัยวะหรือสายตาจากอุบัติเหตุ" },
+  { code: "ECARE", short: "ECARE", what: "อุบัติเหตุ พร้อมทุพพลภาพ นอนโรงพยาบาล และค่ารักษาไม่เกิน 5% ของทุน" },
+];
+const ACCIDENT_COVER_TO_AGE = 65;
+const ACCIDENT_CAP = "AP_ECARE";
 
 /** A term as a page offers it: the variant, and what it is called in prose and on a button. */
 export interface WTermWords { variant: string; label: string; short: string }
@@ -392,7 +425,7 @@ export function wPlanTable(PLAN_CODE: string, TERMS: WTermWords[], today: Date =
     const rider = rates.riders[code];
     if (!rule || rule.saMin === undefined || rule.saMaxCap === undefined) return [];
     const sold = {
-      code, name: rule.name, short, what,
+      code, group: "illness" as const, name: rule.name, short, what,
       ageMin: Math.max(ageMin, rule.ageMin), ageMax: Math.min(ageMax, rule.ageMax),
       saMin: rule.saMin, saMax: rule.saMaxCap,
       ...(rule.coverToAge !== undefined ? { coverToAge: rule.coverToAge } : {}),
@@ -411,6 +444,37 @@ export function wPlanTable(PLAN_CODE: string, TERMS: WTermWords[], today: Date =
     }
     return [];
   });
+  // a flat rate a thousand at every age, the same for both sexes, through the last year of cover
+  const accident: LifeProtectIllness[] = ACCIDENT.flatMap(({ code, short, what }): LifeProtectIllness[] => {
+    const rule = rules.riders[code];
+    const rider = rates.riders[code];
+    if (!rule || rule.saMin === undefined || rule.saMaxCap === undefined || rider?.kind !== "flatRateByClass") return [];
+    const rate = rider.rates[OCCUPATION_CLASS - 1];
+    if (rate === undefined) return [];
+    const flat = Array.from({ length: ACCIDENT_COVER_TO_AGE - rule.ageMin }, () => rate);
+    return [{
+      code, group: "accident", name: rule.name, short, what,
+      ageMin: Math.max(ageMin, rule.ageMin), ageMax: Math.min(ageMax, rule.ageMax),
+      saMin: rule.saMin, saMax: rule.saMaxCap, coverToAge: ACCIDENT_COVER_TO_AGE,
+      paysOnDeath: false, rounding: "perThousand", rateAgeMin: rule.ageMin,
+      parts: [{ share: 1, cap: null, rates: { M: flat, F: [...flat] } }],
+      ...(rule.saMaxMultipleOfBase !== undefined
+        ? {
+            baseLimit: {
+              multiple: rule.saMaxMultipleOfBase,
+              ...(rule.juvenile
+                ? { juvenile: { ageMax: rule.juvenile.ageMax, multiple: rule.juvenile.saMaxMultipleOfBase, cap: rule.juvenile.saMaxCap } }
+                : {}),
+            },
+          }
+        : {}),
+    }];
+  });
+  const shared = rules.combined.find((c) => c.code === ACCIDENT_CAP);
+  const accidentCap: LifeProtectSharedCap | undefined = shared && shared.maxMultipleOfBase !== undefined
+    && accident.length > 1
+    ? { codes: [...shared.riders], multiple: shared.maxMultipleOfBase, cap: shared.cap }
+    : undefined;
 
   const built: Omit<LifeProtectTable, "expired"> = {
     planCode: PLAN_CODE,
@@ -426,7 +490,8 @@ export function wPlanTable(PLAN_CODE: string, TERMS: WTermWords[], today: Date =
     terms,
     riders,
     ...(medical ? { medical } : {}),
-    illness,
+    illness: [...illness, ...accident],
+    ...(accidentCap ? { accidentCap } : {}),
   };
   cached.set(PLAN_CODE, built);
   return { ...built, expired };

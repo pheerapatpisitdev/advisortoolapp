@@ -85,7 +85,7 @@ describe("12 พีแอล benefit table (ตารางแสดงผลป
   it("offers the riders the Life Protect page offers", () => {
     expect(t.riders.map((r) => r.code)).toEqual(["WP"]);
     expect(t.medical?.code).toBe("MEB");
-    expect(t.illness.map((i) => i.code)).toEqual(["DCI", "CI123"]);
+    expect(t.illness.map((i) => i.code)).toEqual(["DCI", "CI123", "AP", "ECARE"]);
     expect(t.coverToAge).toBe(85);
     expect(t.ageMax).toBe(60);
   });

@@ -10,7 +10,7 @@ import { formatBaht, formatSatang } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import type { LifeProtectIllness, LifeProtectRider, LifeProtectTable } from "@/lib/lifeprotect-table";
 import {
-  addModes, cashAt, deathBenefitOf, illnessModes, illnessWhyNot, riderDueByYear, lifeProtectModes, lifeProtectSumFor, medicalModes, medicalPlansAt, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
+  accidentOverCap, addModes, cashAt, deathBenefitOf, illnessModes, illnessSaMax, illnessWhyNot, riderDueByYear, lifeProtectModes, lifeProtectSumFor, medicalModes, medicalPlansAt, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
   riderWaiveYears, termAt, totalModes, type Payer, type RiderPick,
 } from "@/lib/lifeprotect-quote";
 import { cashProjection } from "@/lib/cash-projection";
@@ -26,6 +26,7 @@ import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
 import { LIFEPROTECT_BUDGET_STEP, LIFEPROTECT_BUDGET_SUMS, LIFEPROTECT_SUMS, lifeProtectLinkSum, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
+import { OCCUPATION_NOTE } from "@/calc/riders/rate-per-thousand";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
@@ -61,8 +62,17 @@ const PAYER_START: Payer = { sex: "M", age: AGE_START };
 const ILLNESS_SUMS = [500_000, 1_000_000, 2_000_000];
 /** A typed critical-illness sum lands on a step of this size, inside what the rider is written for. */
 const ILLNESS_STEP = 10_000;
-const illnessTypedSum = (r: LifeProtectIllness, n: number) =>
-  Math.min(r.saMax, Math.max(r.saMin, Math.round(n / ILLNESS_STEP) * ILLNESS_STEP));
+const illnessTypedSum = (r: LifeProtectIllness, max: number, n: number) =>
+  Math.min(max, Math.max(r.saMin, Math.round(n / ILLNESS_STEP) * ILLNESS_STEP));
+/**
+ * The two groups of riders with a sum of their own, as the page lists them: critical illness,
+ * then accident (owner, 2026-11-18, ก ก). AP and ECARE are priced at occupation class 1, said
+ * under them as the calculators elsewhere say it.
+ */
+const ILLNESS_GROUPS: { group: LifeProtectIllness["group"]; title: string; renew: string }[] = [
+  { group: "illness", title: "โรคร้ายแรง", renew: "เป็นเบี้ยปีนี้ ปรับตามอายุเมื่อต่อสัญญา" },
+  { group: "accident", title: "อุบัติเหตุ", renew: `${OCCUPATION_NOTE} · ต่ออายุปีต่อปี คุ้มครองถึงอายุ 65 · ทุนรวมกันไม่เกิน 5 เท่าของทุนหลัก` },
+];
 /** "5 แสน", "1 ล้าน" on a quarter of a phone screen */
 const sumWord = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000} ล้าน` : `${n / 100_000} แสน`);
 
@@ -254,14 +264,23 @@ export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = 
    * inside what the rider is written for, until one is picked. One switched on at an age or
    * sum it cannot be bought at stays switched on, unquoted, with the reason said under it.
    */
-  const illness = table.illness.map((rider) => {
+  const illnessEach = table.illness.map((rider) => {
     const on = illnessOn[rider.code] === true;
-    const sum = illnessSum[rider.code] ?? Math.min(rider.saMax, Math.max(rider.saMin, sumAssured));
+    // AP and ECARE are held to a multiple of the plan's sum as well as their own cap
+    const max = illnessSaMax(rider, ageNum ?? AGE_START, sumAssured);
+    const sum = illnessSum[rider.code] ?? Math.min(max, Math.max(rider.saMin, sumAssured));
     const insured = who ? { sex, age: who.age, sumAssured: sum } : undefined;
-    const price = on && insured && !table.expired ? illnessModes(table, rider, insured) : undefined;
-    const whyNot = on && insured ? illnessWhyNot(table, rider, insured) : undefined;
-    return { rider, on, sum, price, whyNot };
+    const price = on && insured && !table.expired ? illnessModes(table, rider, insured, sumAssured) : undefined;
+    const whyNot = on && insured ? illnessWhyNot(table, rider, insured, sumAssured) : undefined;
+    return { rider, on, sum, max, price, whyNot };
   });
+  /** AP and ECARE together past 5 times the plan's sum: both stay picked, neither is priced, and it is said why */
+  const accidentOver = accidentOverCap(
+    table, illnessEach.filter((i) => i.price).map((i) => ({ code: i.rider.code, sumAssured: i.sum })), sumAssured,
+  );
+  const illness = accidentOver
+    ? illnessEach.map((i) => (i.rider.group === "accident" && i.price ? { ...i, price: undefined, whyNot: accidentOver } : i))
+    : illnessEach;
   const illnessPriced = illness.filter((i) => i.price);
   /** the riders whose premium renews with age, as the small print names them */
   const renewing = [...(medicalPrice && medical ? [medical.code] : []), ...illnessPriced.map((i) => i.rider.short)];
@@ -745,16 +764,19 @@ export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = 
             </div>
           )}
 
-          {illness.length > 0 && (
-            <div>
-              <span className="block text-sm text-[var(--lg-mute)]">โรคร้ายแรง · เลือกได้ทั้ง {illness.length} สัญญา</span>
+          {ILLNESS_GROUPS.map(({ group, title, renew }) => {
+            const list = illness.filter((i) => i.rider.group === group);
+            const listPriced = list.filter((i) => i.price);
+            return list.length > 0 && (
+            <div key={group}>
+              <span className="block text-sm text-[var(--lg-mute)]">{title} · เลือกได้ทั้ง {list.length} สัญญา</span>
               <div className="mt-1.5 space-y-4">
-                {illness.map(({ rider, on, sum, whyNot }) => {
+                {list.map(({ rider, on, sum, max, whyNot }) => {
                   const sold = ageNum === undefined || (ageNum >= rider.ageMin && ageNum <= rider.ageMax);
                   const typed = illnessTyped[rider.code];
                   const settle = () => {
                     const digits = typed?.replace(/\D/g, "") ?? "";
-                    if (digits !== "") setIllnessSum((o) => ({ ...o, [rider.code]: illnessTypedSum(rider, Number(digits)) }));
+                    if (digits !== "") setIllnessSum((o) => ({ ...o, [rider.code]: illnessTypedSum(rider, max, Number(digits)) }));
                     setIllnessTyped((t) => Object.fromEntries(Object.entries(t).filter(([code]) => code !== rider.code)));
                   };
                   const choice = (label: string, active: boolean, onClick: () => void, disabled = false) => (
@@ -778,7 +800,7 @@ export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = 
                       </div>
                       {on && sold && (
                         <div className="mt-2 grid grid-cols-4 gap-2">
-                          {ILLNESS_SUMS.filter((s) => s >= rider.saMin && s <= rider.saMax).map((s) => (
+                          {ILLNESS_SUMS.filter((s) => s >= rider.saMin && s <= max).map((s) => (
                             <button
                               key={s} type="button" onClick={() => setIllnessSum((o) => ({ ...o, [rider.code]: s }))}
                               aria-pressed={sum === s}
@@ -815,20 +837,21 @@ export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = 
                         <p className="mt-1.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
                           {rider.what} · รับอายุ {rider.ageMin === 0 ? "แรกเกิด" : rider.ageMin}–{rider.ageMax} ปี
                           {rider.coverToAge !== undefined ? ` · คุ้มครองถึงอายุ ${rider.coverToAge}` : ""}
-                          {` · ทุน ${sumWord(rider.saMin)} – ${sumWord(rider.saMax)}`}
+                          {` · ทุน ${sumWord(rider.saMin)} – ${sumWord(max)}`}
                         </p>
                       )}
                     </div>
                   );
                 })}
               </div>
-              {illnessPriced.length > 0 && (
+              {listPriced.length > 0 && (
                 <p className="mt-2 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
-                  เบี้ย {illnessPriced.map((i) => i.rider.short).join(" และ ")} เป็นเบี้ยปีนี้ ปรับตามอายุเมื่อต่อสัญญา
+                  เบี้ย {listPriced.map((i) => i.rider.short).join(" และ ")} {renew}
                 </p>
               )}
             </div>
-          )}
+            );
+          })}
         </div>
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">

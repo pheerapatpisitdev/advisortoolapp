@@ -264,9 +264,15 @@ export const planInput = (v: Extract<VideoInput, { variant: string }>): PlanCard
 const WAIVER_SAID: Record<string, string> = { WP: "สัญญายกเว้นเบี้ย", PB: "สัญญาผู้ชำระเบี้ย" };
 const MEDICAL_SAID = "ค่าชดเชยรายวัน";
 /** the critical-illness riders the Life Protect page adds (owner, 2026-10-28), and what each pays, said the owner's way */
-const ILLNESS_SAID: Record<string, string> = { DCI: "สัญญาโรคร้ายแรง DCI", CI123: "สัญญาโรคร้ายแรง CI 123" };
+const ILLNESS_SAID: Record<string, string> = {
+  DCI: "สัญญาโรคร้ายแรง DCI", CI123: "สัญญาโรคร้ายแรง CI 123",
+  // the accident riders (owner, 2026-11-18)
+  AP: "สัญญาอุบัติเหตุ AP", ECARE: "สัญญาอุบัติเหตุ ECARE",
+};
 const illnessWhat = (code: string, sum: number): string => {
   const baht = sum.toLocaleString("en-US");
+  if (code === "AP") return `ถ้าเป็นอะไรไปหรือสูญเสียอวัยวะจากอุบัติเหตุ รับสูงสุด ${baht} บาท`;
+  if (code === "ECARE") return `อุบัติเหตุ ทุน ${baht} บาท รวมทุพพลภาพ นอนโรงพยาบาล และค่ารักษาไม่เกิน 5% ของทุน`;
   return code === "DCI"
     ? `ถ้าเป็นอะไรไป หรือเป็นโรคร้ายแรง รับเงินก้อน ${baht} บาท`
     : `เป็นโรคร้ายแรง จ่ายตั้งแต่ระยะเริ่มต้นตามระยะของโรค ทุน ${baht} บาท`;

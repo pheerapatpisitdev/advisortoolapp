@@ -8,7 +8,7 @@ import { childPriceNote, illnessDeathLine, illnessLabel, lifeProtectFootnote, pa
 import { lifeProtectTable, type LifeProtectIllness, type LifeProtectTable } from "@/lib/lifeprotect-table";
 import { TWELVEPL_PLAN, twelvePlTable } from "@/lib/twelvepl-table";
 import {
-  addModes, illnessModes, illnessOf, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, pickedRider,
+  accidentOverCap, addModes, illnessModes, illnessOf, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, pickedRider,
   riderDueByYear, riderModes, riderSoldAt, totalModes, type Payer,
 } from "@/lib/lifeprotect-quote";
 
@@ -108,10 +108,12 @@ export function lifeProtectPriced(input: PlanCardInput, today: Date): LifeProtec
   for (const pick of asked?.illness ?? []) {
     const rider = illnessOf(table, pick.code);
     if (!rider || illness.some((i) => i.rider.code === pick.code)) return undefined;
-    const price = illnessModes(table, rider, { sex: input.sex, age: input.age, sumAssured: pick.sumAssured });
+    const price = illnessModes(table, rider, { sex: input.sex, age: input.age, sumAssured: pick.sumAssured }, input.sumAssured);
     if (!price) return undefined;
     illness.push({ rider, sumAssured: pick.sumAssured, price: table.expired ? undefined : price });
   }
+  // AP and ECARE together are held to 5 times the plan's sum; the page never links past it
+  if (accidentOverCap(table, asked?.illness ?? [], input.sumAssured)) return undefined;
 
   // without the instalments the agent switched off (src/lib/pay-prefs.ts), before the headline
   // and its "แยกตามสัญญา · …" box are chosen from it
