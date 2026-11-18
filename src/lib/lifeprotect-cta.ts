@@ -187,7 +187,7 @@ const INSTALMENT_ORDER: PayMode[] = ["monthly", "semi", "annual"];
 export { FIRST_MONTHLY_INSTALMENTS, firstMonthlyPayment } from "@/lib/first-payment";
 
 /** One instalment a line, smallest first, and by default what paying monthly takes up front under it. */
-function instalmentLines(modes: ModePremium[], withFirstPayment = true): string[] {
+export function instalmentLines(modes: ModePremium[], withFirstPayment = true): string[] {
   return INSTALMENT_ORDER.flatMap((mode) => {
     const m = modes.find((x) => x.mode === mode);
     return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`, ...(withFirstPayment ? firstPaymentLines(m) : [])] : [];

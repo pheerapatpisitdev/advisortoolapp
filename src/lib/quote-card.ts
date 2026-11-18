@@ -21,7 +21,9 @@ import { lifeTreasureTable } from "@/lib/lifetreasure-table";
 import { easyProtectTable } from "@/lib/easyprotect-table";
 import { displayPremium, perDayText } from "@/lib/legacy-cta";
 import { FIRST_MONTHLY_INSTALMENTS, firstMonthlyPayment } from "@/lib/first-payment";
-import { LIFEPROTECT_PLAN, lifeProtectPriced, type SplitRow } from "@/lib/lifeprotect-card";
+import { LIFEPROTECT_PLAN, lifeProtectPriced, sellsRiders, type SplitRow } from "@/lib/lifeprotect-card";
+import { twelvePlTable } from "@/lib/twelvepl-table";
+import { twelvePlTotals, twelvePlYears } from "@/lib/twelvepl-benefits";
 import { HIDE_KEY, readHide, showModes } from "@/lib/pay-prefs";
 import { iShieldFootnote, levelPremiumFootnote, plbFootnote, priceLockNote } from "@/lib/plan-notes";
 import { legacyFromDeath, legacyLevel, type Legacy } from "@/lib/legacy-headline";
@@ -201,7 +203,7 @@ function planInputFrom(params: URLSearchParams): PlanCardInput | undefined {
   const sumAssured = Number(params.get("sum"));
   if (!Number.isInteger(sumAssured) || sumAssured <= 0) return undefined;
   const riders = readRiders((k) => params.get(k));
-  if (riders === null || (riders && planCode !== LIFEPROTECT_PLAN)) return undefined;
+  if (riders === null || (riders && !sellsRiders(planCode))) return undefined;
   return { kind: "plan", planCode, variant, ...who, sumAssured, mode: modeFrom(params), ...(riders ? { riders } : {}), ...hideFrom(params) };
 }
 
@@ -230,7 +232,7 @@ function quoteInput(input: PlanCardInput, mode: PayMode): QuoteInput {
 
 const CASH_TITLE = "มูลค่าเงินสดสะสม (หากเวนคืน)";
 /** the plans whose page and value-table picture show every year, so no milestone list */
-const TABLE_PLANS = new Set([LIFEPROTECT_PLAN, "LIFETREASURE", "EASYPROTECT", "ISHIELD"]);
+const TABLE_PLANS = new Set([LIFEPROTECT_PLAN, "LIFETREASURE", "EASYPROTECT", "ISHIELD", "12PL"]);
 
 /**
  * The death benefit as a card block. Shared rather than written per card, because the bands
@@ -438,6 +440,15 @@ function chartFor(
  * specific policy, and a plan whose benefit sheet has not been read gets no sentence put in
  * its mouth.
  */
+/** 12 พีแอล's guaranteed cash backs and maturity, as its benefit sheet totals them. */
+function maturityOf(input: PlanCardInput): { cashBacks: number; maturity: number } | undefined {
+  const table = twelvePlTable();
+  if (input.age < table.ageMin || input.age > table.ageMax) return undefined;
+  const rows = twelvePlYears(table.benefits, input.age, table.ageMin, input.sumAssured);
+  const t = twelvePlTotals(rows, table.benefits.maturityPer1000, input.sumAssured);
+  return { cashBacks: Math.round(t.cashBacks), maturity: Math.round(t.maturity) };
+}
+
 function planBenefitSection(input: PlanCardInput): CardSection | undefined {
   if (input.planCode === "ISHIELD") {
     const table = iShieldTable();
@@ -464,6 +475,20 @@ function planBenefitSection(input: PlanCardInput): CardSection | undefined {
     return {
       title: "ครอบครัวได้รับเมื่อเสียชีวิต",
       rows: [{ label: `ทุกช่วงอายุ ถึงอายุ ${table.coverToAge}`, amount: money(input.sumAssured) }],
+    };
+  }
+  if (input.planCode === "12PL") {
+    const table = twelvePlTable();
+    const m = maturityOf(input);
+    return {
+      title: "ผลประโยชน์ตามกรมธรรม์",
+      rows: [
+        { label: `เสียชีวิต ทุกช่วงอายุ ถึงอายุ ${table.coverToAge}`, amount: money(input.sumAssured) },
+        ...(m ? [
+          { label: "เงินคืนรายปีรวม (รับรอง)", amount: money(m.cashBacks) },
+          { label: `ครบสัญญาอายุ ${table.coverToAge} ปี`, amount: money(m.maturity) },
+        ] : []),
+      ],
     };
   }
   if (input.planCode === "PLB") {
@@ -511,6 +536,8 @@ function planLegacy(input: PlanCardInput, result: QuoteResult): Legacy | undefin
       return legacyLevel(sum, `ทุกช่วงอายุ ถึงอายุ ${lifeTreasureTable().coverToAge}`);
     case "ISHIELD":
       return legacyLevel(sum);
+    case "12PL":
+      return legacyLevel(sum, `ทุกช่วงอายุ ถึงอายุ ${twelvePlTable().coverToAge}`);
     case "PLB": {
       const term = plbTable().terms.find((t) => t.variant === input.variant);
       return term ? legacyLevel(sum, `เสียชีวิตภายใน ${term.years} ปี`) : undefined;
@@ -561,8 +588,8 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
   if (result.warnings.some((w) => w.level === "error")) return undefined;
 
   // Life Protect is priced as its page prices it, so its riders are in the figures too
-  const lifeProtect = input.planCode === LIFEPROTECT_PLAN ? lifeProtectPriced(input, today) : undefined;
-  if (input.planCode === LIFEPROTECT_PLAN && !lifeProtect) return undefined;
+  const lifeProtect = sellsRiders(input.planCode) ? lifeProtectPriced(input, today) : undefined;
+  if (sellsRiders(input.planCode) && !lifeProtect) return undefined;
   // the instalments the agent switched off go before the headline is chosen, so with monthly
   // off the card leads with the year (lifeProtectPriced has filtered its own already)
   const modes = showModes(quoteModePremiums(quoteInput(input, "annual"), today), input.hide ?? []);
@@ -744,8 +771,8 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
   if (!base?.eligible || result.sumAssured <= 0) return undefined;
   if (result.warnings.some((w) => w.level === "error")) return undefined;
 
-  const lifeProtect = input.planCode === LIFEPROTECT_PLAN ? lifeProtectPriced(input, today) : undefined;
-  if (input.planCode === LIFEPROTECT_PLAN && !lifeProtect) return undefined;
+  const lifeProtect = sellsRiders(input.planCode) ? lifeProtectPriced(input, today) : undefined;
+  if (sellsRiders(input.planCode) && !lifeProtect) return undefined;
   const factors = cashValueSchedule(input.planCode, input.variant, input.sex, input.age, 1000).map((r) => r.amount);
   if (!plan.coverTopUp || factors.length < 2) return coverTableCard(plan, input, result, today);
 
@@ -787,7 +814,9 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
       cash: baht(r.cashValue),
       cover: baht(r.cover),
       // a dash in the last year: what maturity pays is the surrender column's own last figure
-      ...(payout?.length ? { payout: r.payout ? baht(r.payout) : "—" } : {}),
+      // the picture has room for seven columns: with riders (12 พีแอล's) the riders' column
+      // takes the payout's place, as the column headings above already say
+      ...(payout?.length && !riderDue ? { payout: r.payout ? baht(r.payout) : "—" } : {}),
       ...(p.breakEven?.policyYear === r.policyYear ? { breakEven: true } : {}),
       ...(p.breakEven && r.policyYear > p.breakEven.policyYear ? { pastBreakEven: true } : {}),
       ...(r.cashValue === 0 ? { empty: true } : {}),
@@ -817,8 +846,8 @@ export function valueTableChart(
   const result = quote(quoteInput(input, "annual"), today);
   if (!result.items[0]?.eligible || result.sumAssured <= 0) return undefined;
   if (result.warnings.some((w) => w.level === "error")) return undefined;
-  const lifeProtect = input.planCode === LIFEPROTECT_PLAN ? lifeProtectPriced(input, today) : undefined;
-  if (input.planCode === LIFEPROTECT_PLAN && !lifeProtect) return undefined;
+  const lifeProtect = sellsRiders(input.planCode) ? lifeProtectPriced(input, today) : undefined;
+  if (sellsRiders(input.planCode) && !lifeProtect) return undefined;
   const annual = quoteModePremiums(quoteInput(input, "annual"), today)?.find((m) => m.mode === "annual");
   const death = result.deathBenefit
     ?? { beforeAge: 0, sumBefore: result.sumAssured, sumFrom: result.sumAssured, alreadyPastAge: true };

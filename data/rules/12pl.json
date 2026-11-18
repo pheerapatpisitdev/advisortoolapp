@@ -1,0 +1,261 @@
+{
+  "planCode": "12PL",
+  "base": {
+    "ageMin": 0,
+    "ageMax": 60,
+    "saMin": 100000,
+    "saZeroWhenIneligible": true,
+    "maturity": {
+      "age": 85,
+      "percentOfSumAssured": 116,
+      "survivalPayout": [
+        {
+          "throughPolicyYear": 1,
+          "percentOfSumAssured": 0
+        },
+        {
+          "throughPolicyYear": 2,
+          "percentOfSumAssured": 0.25
+        },
+        {
+          "throughPolicyYear": 3,
+          "percentOfSumAssured": 0.3
+        },
+        {
+          "throughPolicyYear": 4,
+          "percentOfSumAssured": 0.35
+        },
+        {
+          "throughPolicyYear": 5,
+          "percentOfSumAssured": 0.4
+        },
+        {
+          "throughPolicyYear": 6,
+          "percentOfSumAssured": 0.45
+        },
+        {
+          "throughPolicyYear": 7,
+          "percentOfSumAssured": 0.5
+        },
+        {
+          "throughPolicyYear": 8,
+          "percentOfSumAssured": 0.55
+        },
+        {
+          "throughPolicyYear": 9,
+          "percentOfSumAssured": 0.6
+        },
+        {
+          "throughPolicyYear": 10,
+          "percentOfSumAssured": 0.65
+        },
+        {
+          "throughPolicyYear": 11,
+          "percentOfSumAssured": 0.7
+        },
+        {
+          "throughPolicyYear": 12,
+          "percentOfSumAssured": 0.75
+        },
+        {
+          "throughPolicyYear": 13,
+          "percentOfSumAssured": 0.8
+        },
+        {
+          "throughPolicyYear": 14,
+          "percentOfSumAssured": 0.85
+        },
+        {
+          "throughPolicyYear": 15,
+          "percentOfSumAssured": 0.9
+        },
+        {
+          "throughPolicyYear": 16,
+          "percentOfSumAssured": 0.95
+        },
+        {
+          "percentOfSumAssured": 1
+        }
+      ]
+    }
+  },
+  "minMonthlyTotal": 1000,
+  "riders": {
+    "PB": {
+      "name": "สัญญาเพิ่มเติมพีบี (ผู้ชำระเบี้ย)",
+      "ageMin": 0,
+      "ageMax": 70,
+      "payer": {
+        "ageMin": 20,
+        "ageMax": 70
+      }
+    },
+    "WP": {
+      "name": "สัญญาเพิ่มเติมดับบลิวพี (ยกเว้นเบี้ย)",
+      "ageMin": 16,
+      "ageMax": 70
+    },
+    "AP": {
+      "name": "สัญญาเพิ่มเติมอุบัติเหตุ (AP)",
+      "ageMin": 0,
+      "ageMax": 60,
+      "saMin": 100000,
+      "saMaxMultipleOfBase": 5,
+      "saMaxCap": 10000000,
+      "juvenile": {
+        "ageMax": 15,
+        "saMaxMultipleOfBase": 2,
+        "saMaxCap": 3000000
+      }
+    },
+    "ECARE": {
+      "name": "สัญญาเพิ่มเติมอุบัติเหตุ (ECARE)",
+      "ageMin": 16,
+      "ageMax": 60,
+      "saMin": 100000,
+      "saMaxMultipleOfBase": 5,
+      "saMaxCap": 10000000
+    },
+    "MEX": {
+      "name": "สัญญาเพิ่มเติมค่ารักษาพยาบาลพิเศษ (MEX)",
+      "ageMin": 0,
+      "ageMax": 70,
+      "planMaxByAge": [
+        {
+          "ageMax": 10,
+          "planMax": 3200
+        },
+        {
+          "ageMax": 70,
+          "planMax": 6200
+        }
+      ]
+    },
+    "MEB": {
+      "name": "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)",
+      "ageMin": 6,
+      "ageMax": 65,
+      "planMaxByAge": [
+        {
+          "ageMax": 10,
+          "planMax": 500
+        },
+        {
+          "ageMax": 15,
+          "planMax": 1000
+        },
+        {
+          "ageMax": 65,
+          "planMax": 5000
+        }
+      ]
+    },
+    "DCI": {
+      "name": "สัญญาเพิ่มเติมโรคร้ายแรง (DCI)",
+      "ageMin": 20,
+      "ageMax": 65,
+      "saMin": 200000,
+      "saMaxCap": 10000000,
+      "coverToAge": 75,
+      "paysOnDeath": true
+    },
+    "PLS": {
+      "name": "สัญญาเพิ่มเติม PLS",
+      "ageMin": 20,
+      "ageMax": 59,
+      "saMin": 300000,
+      "saMaxMultipleOfBase": 5
+    },
+    "CPR": {
+      "name": "สัญญาเพิ่มเติมคุ้มครองโรคมะเร็ง (CPR)",
+      "ageMin": 0,
+      "ageMax": 65,
+      "saMin": 300000,
+      "saMaxMultipleOfBase": 5,
+      "saMaxCap": 5000000
+    },
+    "HIC": {
+      "name": "สัญญาเพิ่มเติมค่าชดเชยรายวันเนื่องจากโรคมะเร็ง (HIC)",
+      "ageMin": 0,
+      "ageMax": 65,
+      "saMin": 1000,
+      "saMaxCap": 10000
+    },
+    "IHU": {
+      "name": "ไอเฮลท์ตี้ อัลตร้า",
+      "ageMin": 6,
+      "ageMax": 80
+    },
+    "RRSS": {
+      "name": "โรคร้ายโซชิลด์",
+      "ageMin": 0,
+      "ageMax": 65
+    },
+    "CI123": {
+      "name": "สัญญาเพิ่มเติมคุ้มครองโรคร้ายแรง (CI 123)",
+      "ageMin": 0,
+      "ageMax": 75,
+      "saMin": 100000,
+      "saMaxCap": 10000000
+    }
+  },
+  "combined": [
+    {
+      "code": "AP_ECARE",
+      "riders": [
+        "AP",
+        "ECARE"
+      ],
+      "maxMultipleOfBase": 5,
+      "cap": 10000000,
+      "message": "AP+ECARE เกินกว่าที่กำหนด"
+    },
+    {
+      "code": "DCI_CPR",
+      "riders": [
+        "DCI",
+        "CPR"
+      ],
+      "cap": 10000000,
+      "message": "DCI+CPR เกินกว่าที่กำหนด"
+    }
+  ],
+  "exclusive": [
+    {
+      "code": "PB_WP",
+      "riders": [
+        "PB",
+        "WP"
+      ],
+      "message": "กรุณาเลือก WP หรือ PB อย่างใดอย่างหนึ่ง"
+    }
+  ],
+  "requires": [
+    {
+      "rider": "HIC",
+      "needs": [
+        "CPR"
+      ],
+      "message": "ต้องซื้อคู่กับ CPR"
+    }
+  ],
+  "conflicts": [
+    {
+      "rider": "HIC",
+      "with": [
+        "MEX",
+        "MEB",
+        "IHU"
+      ],
+      "message": "ไม่สามารถซื้อคู่กับ MEX, MEB หรือ iHealthy Ultra"
+    },
+    {
+      "rider": "CPR",
+      "with": [
+        "DCI"
+      ],
+      "message": "ไม่สามารถซื้อคู่กับ DCI ได้"
+    }
+  ],
+  "packages": []
+}

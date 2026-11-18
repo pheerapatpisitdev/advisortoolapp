@@ -11,6 +11,8 @@ import lifeprotectRates from "../../../data/rates/lifeprotect.json";
 import lifeprotectRules from "../../../data/rules/lifeprotect.json";
 import easyprotectRates from "../../../data/rates/easyprotect.json";
 import easyprotectRules from "../../../data/rules/easyprotect.json";
+import twelvePlRates from "../../../data/rates/12pl.json";
+import twelvePlRules from "../../../data/rules/12pl.json";
 
 export interface PlanBundle {
   rates: PlanRates;
@@ -120,10 +122,14 @@ const PLANS: Record<string, PlanBundle> = {
   // ตารางแสดงผลประโยชน์ H: MAX(multiple × sumAssured, 101% × premiums paid, surrender value)
   ...wFamily("LIFEPROTECT", lifeprotectRates, lifeprotectRules, "Life Protect x 1.5 / x 2", "WLF99H",
     { premiumPercent: 101, includeCashValue: true }),
+  // 12 พีแอล: ตารางแสดงผลประโยชน์ R = MAX(มูลค่าเวนคืน, จำนวนเงินเอาประกันภัย) — no premium floor.
+  // Its riders are the W family's own sheets, so it takes the same rider order.
+  ...wFamily("12PL", twelvePlRates, twelvePlRules, "12 พีแอล (12PL)", undefined,
+    { premiumPercent: 0, includeCashValue: true }),
 };
 
 /** Display order for the plan picker; anything not listed follows in definition order. */
-const PLAN_ORDER = ["LIFEPROTECT", "ISMART", "EASYPROTECT", "LIFETREASURE", "ISHIELD", "PLB"];
+const PLAN_ORDER = ["LIFEPROTECT", "ISMART", "EASYPROTECT", "LIFETREASURE", "12PL", "ISHIELD", "PLB"];
 
 export function listPlans(): { code: string; name: string }[] {
   const entries = Object.entries(PLANS).map(([code, p]) => ({ code, name: p.planLabel ?? p.rates.planName }));
@@ -132,6 +138,18 @@ export function listPlans(): { code: string; name: string }[] {
     const ib = PLAN_ORDER.indexOf(b.code);
     return (ia < 0 ? PLAN_ORDER.length : ia) - (ib < 0 ? PLAN_ORDER.length : ib);
   });
+}
+
+/**
+ * Plans the calculators sell that the chat does not know yet. 12 พีแอล came in as a page
+ * (owner, 2026-11-18); teaching the bots it is its own decision, so it stays out of their
+ * knowledge, their plan list and their price buttons until then.
+ */
+const NOT_IN_CHAT = new Set(["12PL"]);
+
+/** listPlans without the plans the chat has not been taught. */
+export function listChatPlans(): { code: string; name: string }[] {
+  return listPlans().filter((p) => !NOT_IN_CHAT.has(p.code));
 }
 
 export function getPlan(code: string): PlanBundle | undefined {

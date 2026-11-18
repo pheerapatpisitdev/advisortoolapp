@@ -223,13 +223,26 @@ const ILLNESS: { code: string; short: string; what: string }[] = [
   { code: "CI123", short: "CI 123", what: "122 โรค จ่ายตั้งแต่ระยะเริ่มต้นถึงระยะรุนแรง เคลมได้หลายครั้ง" },
 ];
 
-/** Built once per process; `expired` is asked again on every call, as in legacy-table.ts. */
-let cached: Omit<LifeProtectTable, "expired"> | undefined;
+/** A term as a page offers it: the variant, and what it is called in prose and on a button. */
+export interface WTermWords { variant: string; label: string; short: string }
+
+/** Built once per process and plan; `expired` is asked again on every call, as in legacy-table.ts. */
+const cached = new Map<string, Omit<LifeProtectTable, "expired">>();
 
 export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
+  return wPlanTable(PLAN_CODE, TERMS, today);
+}
+
+/**
+ * The same table for any plan that sells the W family's riders off the W family's rate sheets —
+ * Life Protect, and 12 พีแอล (owner, 2026-11-18: the same riders as Life Protect). A plan with
+ * no booster gets 0 for both booster fields, which deathBenefitOf reads as "the sum at every age".
+ */
+export function wPlanTable(PLAN_CODE: string, TERMS: WTermWords[], today: Date = new Date()): LifeProtectTable {
   const plan = getPlan(PLAN_CODE)!;
   const expired = hasExpired(today, plan.rates.expiresOn);
-  if (cached) return { ...cached, expired };
+  const hit = cached.get(PLAN_CODE);
+  if (hit) return { ...hit, expired };
 
   const { rates, rules } = plan;
   const packages = TERMS.map((t) => rates.base.packages!.find((p) => p.code === t.variant)!);
@@ -238,7 +251,7 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
   const ageMax = Math.min(...packages.map((p) => baseAgeRange(rules, p.code, rates).max));
   const ages = Array.from({ length: ageMax - ageMin + 1 }, (_, i) => ageMin + i);
   // the company's cash-value table stops the year before cover ends
-  const coverToAge = maturityValue(cashValueSchedule(PLAN_CODE, TERMS[2].variant, "M", ageMin, 1000))!.age;
+  const coverToAge = maturityValue(cashValueSchedule(PLAN_CODE, TERMS[TERMS.length - 1].variant, "M", ageMin, 1000))!.age;
 
   const scheduleFor = (variant: string, sex: Sex, age: number): number[] | null => {
     // priced on a sum of 1,000 so each row's amount is the factor itself
@@ -399,13 +412,13 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
     return [];
   });
 
-  cached = {
+  const built: Omit<LifeProtectTable, "expired"> = {
     planCode: PLAN_CODE,
     ageMin,
     ageMax,
     rateVersion: rates.version,
     minMonthly: rules.minMonthlyTotal,
-    boosterBeforeAge: rules.base.extraDeathBenefitBeforeAge!,
+    boosterBeforeAge: rules.base.extraDeathBenefitBeforeAge ?? 0,
     booster: packages[0].booster ?? 0,
     coverToAge,
     topUp: plan.coverTopUp!,
@@ -415,5 +428,6 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
     ...(medical ? { medical } : {}),
     illness,
   };
-  return { ...cached, expired };
+  cached.set(PLAN_CODE, built);
+  return { ...built, expired };
 }

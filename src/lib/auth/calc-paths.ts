@@ -6,7 +6,7 @@
  */
 export const CALC_PATHS = [
   "/lifeprotect", "/ihealthy-ultra", "/ihealthy-ultra/compare", "/ishield", "/bumnan95", "/global-saving", "/global-saving-25-5", "/legacy", "/plb",
-  "/cancer", "/ci123", "/easyprotect", "/lifetreasure", "/pa", "/group-insurance", "/fhc", "/tax",
+  "/cancer", "/ci123", "/easyprotect", "/lifetreasure", "/12pl", "/pa", "/group-insurance", "/fhc", "/tax",
 ] as const;
 
 export type CalcPath = (typeof CALC_PATHS)[number];

@@ -169,6 +169,8 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     links: [
       { href: "/global-saving", label: "Global Savings 15/8", icon: "coins", hue: "#1f4f8a" },
       { href: "/global-saving-25-5", label: "Global Savings 25/5", icon: "coins", hue: "#2b6a7a" },
+      // pays a cash back every year and 115% at 85, so it sits with the savings plans (owner, ก, 2026-11-18)
+      { href: "/12pl", label: "12PL", icon: "coins", hue: "#2b5a8a" },
     ],
   },
   {

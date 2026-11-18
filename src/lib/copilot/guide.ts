@@ -1,4 +1,4 @@
-import { getPlan, listPlans } from "@/calc/plans/registry";
+import { getPlan, listChatPlans } from "@/calc/plans/registry";
 import { baseSumAssuredLimits } from "@/calc/rules";
 
 /**
@@ -113,7 +113,7 @@ const CLAIMS: GuideItem[] = [
  */
 export function openingGuide(): GuideGroup[] {
   const priceItems: GuideItem[] = [];
-  for (const { code, name } of listPlans()) {
+  for (const { code, name } of listChatPlans()) {
     const plan = getPlan(code);
     if (!plan) continue;
     // already the first open button, asked as ประกันชีวิต

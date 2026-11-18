@@ -100,6 +100,27 @@ export const PLB_SUMS = [
   ...Array.from({ length: 8 }, (_, i) => 1_500_000 + 500_000 * i),
 ];
 
+/**
+ * 12 พีแอล: every hundred thousand from the plan's floor to three million, every half million
+ * to ten, every million to fifty. Any other sum to the thousand is typed beside the slider.
+ */
+export const TWELVEPL_SUMS = [
+  ...Array.from({ length: 30 }, (_, i) => 100_000 * (i + 1)),
+  ...Array.from({ length: 14 }, (_, i) => 3_500_000 + 500_000 * i),
+  ...Array.from({ length: 40 }, (_, i) => 11_000_000 + 1_000_000 * i),
+];
+const TWELVEPL_MIN = 100_000;
+
+/** A typed 12 พีแอล sum, to the thousand, inside 100,000 – 50 million. */
+export function twelvePlTypedSum(typed: number): number {
+  return Math.min(PAGE_MAX_SUM, Math.max(TWELVEPL_MIN, Math.round(typed / TYPED_STEP) * TYPED_STEP));
+}
+
+/** Whether a link may open the 12 พีแอล page on a sum: any whole baht it sells. */
+export function twelvePlLinkSum(sum: number): boolean {
+  return Number.isInteger(sum) && sum >= TWELVEPL_MIN && sum <= PAGE_MAX_SUM;
+}
+
 /** The sums a page opens a link on: a list of them, or a test of one. */
 export type OfferedSums = readonly number[] | ((sum: number) => boolean);
 

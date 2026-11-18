@@ -1,5 +1,5 @@
 import type { ChatMessage } from "@/lib/ai/types";
-import { listPlans } from "@/calc/plans/registry";
+import { listChatPlans } from "@/calc/plans/registry";
 import { businessDate } from "@/calc/calendar";
 import { INSURER } from "@/lib/insurer";
 
@@ -725,7 +725,7 @@ const THAI_PLAN_NAMES = [
 let planNames: RegExp | undefined;
 function planNamePattern(): RegExp {
   if (!planNames) {
-    const fromRegistry = listPlans().map(({ name }) => {
+    const fromRegistry = listChatPlans().map(({ name }) => {
       // the registry's own name, with its model number turned back into a pattern so that
       // "Life Protect x 2" is recognised as well as the full "x 1.5 / x 2"
       const word = name.replace(/[\d.\s/()x]+$/i, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

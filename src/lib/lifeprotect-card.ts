@@ -5,13 +5,28 @@ import type { CardRiders, PlanCardInput } from "@/lib/card-link";
 import { displayPremium } from "@/lib/legacy-cta";
 import { showModes } from "@/lib/pay-prefs";
 import { childPriceNote, illnessDeathLine, illnessLabel, lifeProtectFootnote, payerWords, waiverNote } from "@/lib/lifeprotect-cta";
-import { lifeProtectTable, type LifeProtectIllness } from "@/lib/lifeprotect-table";
+import { lifeProtectTable, type LifeProtectIllness, type LifeProtectTable } from "@/lib/lifeprotect-table";
+import { TWELVEPL_PLAN, twelvePlTable } from "@/lib/twelvepl-table";
 import {
   addModes, illnessModes, illnessOf, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, pickedRider,
   riderDueByYear, riderModes, riderSoldAt, totalModes, type Payer,
 } from "@/lib/lifeprotect-quote";
 
 export const LIFEPROTECT_PLAN = "LIFEPROTECT";
+
+/**
+ * The plans whose pages sell Life Protect's riders from Life Protect's kind of table, so their
+ * cards are priced here, riders and all: Life Protect and 12 พีแอล (owner, 2026-11-18).
+ */
+const RIDER_TABLES: Record<string, (today: Date) => LifeProtectTable> = {
+  [LIFEPROTECT_PLAN]: lifeProtectTable,
+  [TWELVEPL_PLAN]: twelvePlTable,
+};
+
+/** whether a plan's card links may carry riders */
+export function sellsRiders(planCode: string): boolean {
+  return planCode in RIDER_TABLES;
+}
 
 /** One contract's share of the headline instalment, as the page's box lists it. */
 export interface SplitRow {
@@ -43,9 +58,11 @@ export interface LifeProtectPriced {
  * every quote since 2026-11-02) is dropped with the parent it was priced off, so a card link or
  * clip made before then opens on the plan and its other riders. Undefined when none are left.
  */
-export function currentRiders(riders: CardRiders | undefined, today: Date = new Date()): CardRiders | undefined {
+export function currentRiders(
+  riders: CardRiders | undefined, today: Date = new Date(), planCode: string = LIFEPROTECT_PLAN,
+): CardRiders | undefined {
   const code = riders?.waiver?.code;
-  if (!riders || !code || lifeProtectTable(today).riders.some((r) => r.code === code)) return riders;
+  if (!riders || !code || (RIDER_TABLES[planCode] ?? lifeProtectTable)(today).riders.some((r) => r.code === code)) return riders;
   const rest: CardRiders = { ...riders };
   delete rest.waiver;
   delete rest.payer;
@@ -58,15 +75,16 @@ export function currentRiders(riders: CardRiders | undefined, today: Date = new 
  * never writes such a link, so one that arrives was edited by hand and gets no picture.
  */
 export function lifeProtectPriced(input: PlanCardInput, today: Date): LifeProtectPriced | undefined {
-  if (input.planCode !== LIFEPROTECT_PLAN) return undefined;
-  const table = lifeProtectTable(today);
+  const tableFor = RIDER_TABLES[input.planCode];
+  if (!tableFor) return undefined;
+  const table = tableFor(today);
   const term = table.terms.find((t) => t.variant === input.variant);
   if (!term || input.age < table.ageMin || input.age > table.ageMax) return undefined;
   const who = { sex: input.sex, age: input.age, sumAssured: input.sumAssured };
   const modes = lifeProtectModes(table, term, who);
   const annual = modes?.find((m) => m.mode === "annual");
   const priced = Boolean(annual) && !table.expired;
-  const asked = currentRiders(input.riders, today);
+  const asked = currentRiders(input.riders, today, input.planCode);
 
   const picked = asked?.waiver ? pickedRider(table, asked.waiver) : undefined;
   if (asked?.waiver && (!picked || !riderSoldAt(picked.rider, input.age))) return undefined;

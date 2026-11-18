@@ -10,10 +10,11 @@ describe("the products the generator offers", () => {
   // /survey is the agent's call script, not a product; /ihealthy-ultra/compare is iHealthy Ultra again;
   // /global-saving-25-5 went in the same way (owner, 2026-11-16: the calculator on a page of its own);
   // /pa went in as page + table + copied text (owner, 2026-11-14, ก) — Studio posts come in a later round;
-  // /tax is the tax estimate, not a product
-  it("are every sales page but group insurance, the planner, the survey, Global Savings, the iHealthy comparison, PA and the tax estimate", () => {
+  // /tax is the tax estimate, not a product;
+  // /12pl went in as a calculator (owner, 2026-11-18, ก ก ก) — Studio posts for it are not built yet
+  it("are every sales page but group insurance, the planner, the survey, Global Savings, the iHealthy comparison, PA, the tax estimate and 12PL", () => {
     const pages = SALES_PAGES.map((p) => p.href)
-      .filter((h) => h !== "/group-insurance" && h !== "/fhc" && h !== "/survey" && h !== "/global-saving" && h !== "/global-saving-25-5" && h !== "/ihealthy-ultra/compare" && h !== "/pa" && h !== "/tax").sort();
+      .filter((h) => h !== "/group-insurance" && h !== "/fhc" && h !== "/survey" && h !== "/global-saving" && h !== "/global-saving-25-5" && h !== "/ihealthy-ultra/compare" && h !== "/pa" && h !== "/tax" && h !== "/12pl").sort();
     expect(CONTENT_PRODUCTS.map((p) => p.href).sort()).toEqual(pages);
   });
 });

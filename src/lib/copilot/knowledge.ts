@@ -1,4 +1,4 @@
-import { getPlan, listPlans, trimSuffix } from "@/calc/plans/registry";
+import { getPlan, listChatPlans, trimSuffix } from "@/calc/plans/registry";
 import { riderDiseases } from "@/calc/riders/diseases";
 import ishieldDiseases from "../../../data/riders/ishield-diseases.json";
 import ci123Diseases from "../../../data/riders/ci123-diseases.json";
@@ -428,7 +428,7 @@ function priceableNames(): string[] {
 
 /** Which plans the assistant may speak about, newest question first in the caller's hands. */
 export function knowledgePlans(): { code: string; name: string }[] {
-  return listPlans().filter((p) => getPlan(p.code)?.rules);
+  return listChatPlans().filter((p) => getPlan(p.code)?.rules);
 }
 
 /**
