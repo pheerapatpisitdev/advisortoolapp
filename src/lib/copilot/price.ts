@@ -9,6 +9,8 @@ import { PLAN_PAGES, pageForPlan } from "@/lib/quote-pdf/pages";
 import { firstPaymentLines } from "@/lib/first-payment";
 import { coverIn, peopleIn } from "@/lib/assistant/common";
 import { priceFollowUps, type GuideItem, type PriceGap } from "./guide";
+import { TWELVEPL_PLAN, twelvePlTable } from "@/lib/twelvepl-table";
+import { excelRound, twelvePlTotals, twelvePlYears } from "@/lib/twelvepl-benefits";
 
 /**
  * Premiums for the plans the Messenger brains never learned.
@@ -34,6 +36,8 @@ const PLANS: [code: string, label: string, re: RegExp][] = [
   ["LIFETREASURE", "Life Treasure", /life\s*treasure|ไลฟ์\s*(?:เทรเชอร์|ทรีเชอร์|เทรชเชอร์)/i],
   ["ISHIELD", "iShield", /i\s*-?\s*shield|ไอ\s*ชิลด์/i],
   ["EASYPROTECT", "อีซี่ โพรเทค 6", /easy\s*protect|อีซี่\s*โพรเทค|อีซี่\s*โปรเทค/i],
+  // the number is part of the name: withoutPlanName takes it out before the age is read
+  ["12PL", "12 พีแอล (12PL)", /(?<!\d)(?:12|สิบสอง)\s*-?\s*(?:pl\b|พีแอล)/i],
 ];
 
 /**
@@ -73,6 +77,26 @@ function withoutPlanName(text: string): string {
     out = out.replace(new RegExp(re.source, "gi"), " ");
   }
   return out;
+}
+
+/**
+ * 12 พีแอล's cash backs, maturity and the company's dividend example 2, from the same sheets the
+ * page reads. The dividend is said to be unguaranteed in the same line as its figure.
+ */
+function twelvePlLines(age: number, sum: number): string[] {
+  const table = twelvePlTable();
+  const rows = twelvePlYears(table.benefits, age, table.ageMin, sum);
+  const t = twelvePlTotals(rows, table.benefits.maturityPer1000, sum);
+  const baht = (n: number) => excelRound(n).toLocaleString("en-US");
+  return [
+    "",
+    "🎁 ผลประโยชน์รับรอง",
+    `- เงินคืนทุกปี ตั้งแต่ปีที่ 2 รวม ${baht(t.cashBacks)} บาท`,
+    `- ครบสัญญาอายุ ${table.coverToAge} รับ ${baht(t.maturity)} บาท`,
+    `- รวมรับรอง ${baht(t.guaranteed)} บาท`,
+    ...(t.dividends[1] > 0 ? [`- มีเงินปันผลเพิ่ม (ไม่รับรอง) ตัวอย่างที่ 2 รวม ${baht(t.dividends[1])} บาท`] : []),
+    `👪 เสียชีวิตก่อนอายุ ${table.coverToAge} รับ ${sum.toLocaleString("en-US")} บาท (หรือมูลค่าเวนคืน หากมากกว่า)`,
+  ];
 }
 
 export interface PriceReply {
@@ -284,7 +308,9 @@ export function pricePlan(code: string, label: string, { people, sum, variant }:
     // what paying monthly takes up front, as the card's box and every sales page say it
     lines.push(`รายเดือน ${money(monthly.total)} บาท`, ...firstPaymentLines(monthly));
   }
-  if (result.deathBenefit) lines.push("", "👪 ความคุ้มครองชีวิตเป็นไปตามตารางผลประโยชน์ของแบบนี้");
+  // 12 พีแอล is bought for what it hands back, so its reply says it (owner chose ก, 2026-11-18)
+  if (code === TWELVEPL_PLAN) lines.push(...twelvePlLines(who.age, result.sumAssured));
+  else if (result.deathBenefit) lines.push("", "👪 ความคุ้มครองชีวิตเป็นไปตามตารางผลประโยชน์ของแบบนี้");
   if (result.meta.expired) {
     lines.push("", `⚠️ ตารางเบี้ยชุดนี้ (${result.meta.version}) หมดอายุ ${result.meta.expiresOn} แล้ว — ขอราคาปัจจุบันจากบริษัทก่อนใช้`);
   } else {

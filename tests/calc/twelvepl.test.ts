@@ -124,3 +124,28 @@ describe("12 พีแอล pictures", () => {
     expect(valueTablePath(plain)).toContain("plan=12PL");
   });
 });
+
+import { planNamedIn, priceNamedPlan } from "@/lib/copilot/price";
+import { openingGuide } from "@/lib/copilot/guide";
+
+describe("the chat knows 12 พีแอล (owner chose ก ก ก, 2026-11-18)", () => {
+  it("reads the name without taking 12 for an age", () => {
+    expect(planNamedIn("12PL หญิง 44 ทุน 3 ล้าน")?.code).toBe("12PL");
+    expect(planNamedIn("สิบสองพีแอล ชาย 35")?.code).toBe("12PL");
+    expect(planNamedIn("ทุน 12 ล้าน ชาย 40 life treasure")?.code).toBe("LIFETREASURE");
+  });
+
+  it("prices it with the cash backs, maturity and an unguaranteed dividend", () => {
+    const r = priceNamedPlan("12PL หญิง 44 ทุน 3 ล้าน", "12PL", "12 พีแอล (12PL)");
+    expect(r.priced).toBe(true);
+    expect(r.text).toContain("เบี้ยปีละ **200,040 บาท**");
+    expect(r.text).toContain("เงินคืนทุกปี ตั้งแต่ปีที่ 2 รวม 990,000 บาท");
+    expect(r.text).toContain("ครบสัญญาอายุ 85 รับ 3,480,000 บาท");
+    expect(r.text).toContain("(ไม่รับรอง) ตัวอย่างที่ 2 รวม 827,393 บาท");
+  });
+
+  it("offers it as a start button", () => {
+    const items = openingGuide().flatMap((g) => g.items);
+    expect(items.map((i) => i.label)).toContain("12PL · หญิง 44 ทุน 3 ล้าน");
+  });
+});

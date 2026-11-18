@@ -720,6 +720,8 @@ const THAI_PLAN_NAMES = [
   String.raw`ไอ\s*ชิลด์?`,
   String.raw`โพรเทคชั่น\s*ไลฟ์`,
   String.raw`ไอเฮลท์ตี้(?:\s*อัลตร้า)?`,
+  // 12 พีแอล: the number is the name, so "12PL ชาย 35" must never read as a twelve-year-old
+  String.raw`(?:12|สิบสอง)\s*-?\s*(?:pl|พีแอล)`,
 ];
 
 let planNames: RegExp | undefined;

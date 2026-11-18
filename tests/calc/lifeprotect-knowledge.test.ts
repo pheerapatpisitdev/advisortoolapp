@@ -61,6 +61,7 @@ describe("which questions open it", () => {
   it("keeps the whole library inside its size budget", async () => {
     const text = await assembleKnowledge();
     expect(text).toContain(HEADING);
-    expect(text.length).toBeLessThan(40_000);
+    // 41,000 since 12 พีแอล joined the chat (2026-11-18): its section is about 700 characters
+    expect(text.length).toBeLessThan(41_000);
   });
 });

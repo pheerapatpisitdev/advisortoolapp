@@ -109,7 +109,8 @@ describe("what it must never carry", () => {
   it("holds no premium figures — those come from the engine, never from a prompt", async () => {
     const text = await assembleKnowledge();
     // the rate tables are 2.7MB; anything near that size has leaked in
-    expect(text.length).toBeLessThan(40_000);
+    // 41,000 since 12 พีแอล joined the chat (2026-11-18): its section is about 700 characters
+    expect(text.length).toBeLessThan(41_000);
     expect(text).not.toContain("rateTable");
     expect(text).not.toContain("premiums");
   });

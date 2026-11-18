@@ -141,11 +141,11 @@ export function listPlans(): { code: string; name: string }[] {
 }
 
 /**
- * Plans the calculators sell that the chat does not know yet. 12 พีแอล came in as a page
- * (owner, 2026-11-18); teaching the bots it is its own decision, so it stays out of their
- * knowledge, their plan list and their price buttons until then.
+ * Plans the calculators sell that the chat does not know yet. 12 พีแอล came in as a page on
+ * 2026-11-18 and the bots were taught it the same day (owner chose ก ก ก), so none are held
+ * back now; a plan added as a page only goes here until its bots are taught.
  */
-const NOT_IN_CHAT = new Set(["12PL"]);
+const NOT_IN_CHAT = new Set<string>([]);
 
 /** listPlans without the plans the chat has not been taught. */
 export function listChatPlans(): { code: string; name: string }[] {

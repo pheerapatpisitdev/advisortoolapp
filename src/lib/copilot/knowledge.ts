@@ -172,6 +172,19 @@ function planSection(code: string, name: string, rules: PlanRules): string {
     lines.push(`- ยอดชำระขั้นต่ำต่อเดือน รวมทุกสัญญา (เป็นข้อจำกัดการชำระ ไม่ใช่ราคาของแบบนี้): ${money(rules.minMonthlyTotal)} บาท`);
   }
 
+  // 12 พีแอล: what it hands back, which its rules alone do not say (owner chose ก, 2026-11-18).
+  // Its riders and their combinations are Life Protect's own, said once rather than twice.
+  if (code === "12PL") {
+    lines.push(
+      "- ชำระ 12 ปี คุ้มครองถึงอายุ 85 มีเงินปันผล",
+      "- เงินคืนทุกปีจากปีที่ 2: 0.25% ของทุน เพิ่มปีละ 0.05% ถึง 1% จากปีที่ 17 · ครบอายุ 85 รับ 115% ของทุน",
+      "- เสียชีวิตรับทุน หรือมูลค่าเวนคืนถ้ามากกว่า",
+      "- ปันผล**ไม่รับรอง** ห้ามบอกเป็นยอดที่ได้แน่นอน",
+      "- สัญญาเพิ่มเติมและกฎซื้อคู่เหมือน Life Protect",
+    );
+    return lines.join("\n");
+  }
+
   const riders = Object.entries(rules.riders ?? {});
   if (riders.length) {
     lines.push("", "### สัญญาเพิ่มเติมที่ซื้อกับแบบนี้ได้");

@@ -139,6 +139,11 @@ export function openingGuide(): GuideGroup[] {
     /** the age the example is for; inside every plan's range, and the one agents quote most */
     const age = code === "LIFETREASURE" ? 40 : 35;
     const years = variants.length > 1 ? yearsOf(plan.variantLabels[variant]) : undefined;
+    // 12 พีแอล opens on the company's own sample, as its page does: a woman of 44, 3 million
+    if (code === "12PL") {
+      priceItems.push({ label: "12PL · หญิง 44 ทุน 3 ล้าน", ask: priceAsk(code, name, 44, "F", 3_000_000, undefined) });
+      continue;
+    }
     priceItems.push({
       label: `${name} · ชาย ${age} ทุน ${millions(sum)}`,
       ask: priceAsk(code, name, age, "M", sum, years),
