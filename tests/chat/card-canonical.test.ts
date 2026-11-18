@@ -22,6 +22,13 @@ describe("the links the app writes", () => {
     // the chat's table, which carries the characters, is the same address in the same order
     expect(canonicalCardUrl(at(valueTablePath(plan, { characters: true })), QUOTE_CARD_KEYS)).toBeNull();
     expect(canonicalCardUrl(at(diseaseCardPath("CI123")), DISEASE_CARD_KEYS)).toBeNull();
+    // with every rider the Life Protect page writes: waiver, payer, MEB, DCI, CI 123, AP, ECARE
+    const riders = {
+      waiver: { code: "WP", option: "FIT" }, medical: 1000,
+      illness: ["DCI", "CI123", "AP", "ECARE"].map((code) => ({ code, sumAssured: 1_000_000 })),
+    };
+    expect(canonicalCardUrl(at(cardPath({ ...plan, riders })), QUOTE_CARD_KEYS)).toBeNull();
+    expect(canonicalCardUrl(at(valueTablePath({ ...plan, riders })), QUOTE_CARD_KEYS)).toBeNull();
   });
 
   it("keeps a health link's riders, empty fields and language as they are", () => {
