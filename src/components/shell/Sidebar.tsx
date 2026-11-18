@@ -32,7 +32,7 @@ export type Brand = { href: string; label: string };
 function Mark() {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src="/mark.png" alt="" width={22} height={28} className="h-7 w-auto shrink-0" />
+    <img src="/mark.png" alt="" width={28} height={28} className="h-7 w-7 shrink-0" />
   );
 }
 

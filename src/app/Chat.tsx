@@ -209,9 +209,9 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
         <div className="flex items-start gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/mark.png" alt="" width={32} height={40}
+            src="/mark.png" alt="" width={40} height={40}
             // not on a phone, where every answer already carries it and the heading needs the width
-            className="mt-0.5 h-10 w-auto shrink-0 max-lg:hidden"
+            className="mt-0.5 h-10 w-10 shrink-0 max-lg:hidden"
           />
         <div>
           {/* Smaller on a phone once there is a conversation: at full size, with the button
@@ -311,8 +311,8 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
             {t.role === "assistant" && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src="/mark.png" alt="" width={22} height={28}
-                className="mt-1 h-7 w-auto shrink-0"
+                src="/mark.png" alt="" width={28} height={28}
+                className="mt-1 h-7 w-7 shrink-0"
               />
             )}
             <div
@@ -399,7 +399,7 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
         {busy && (
           <div className="flex items-start gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/mark.png" alt="" width={22} height={28} className="mt-1 h-7 w-auto shrink-0" />
+            <img src="/mark.png" alt="" width={28} height={28} className="mt-1 h-7 w-7 shrink-0" />
             <div className="flex items-center gap-2.5 rounded-2xl rounded-bl-sm border border-[var(--hm-line)] bg-[var(--hm-panel)] px-4 py-3">
               <span className="flex gap-1" aria-hidden>
                 {[0, 150, 300].map((delay) => (
