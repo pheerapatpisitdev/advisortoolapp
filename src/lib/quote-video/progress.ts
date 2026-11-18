@@ -147,3 +147,23 @@ export function readNote(v: unknown): ProgressNote | null {
   const of = Number(o.of);
   return { step: o.step, done: Number.isFinite(done) ? done : 0, of: Number.isFinite(of) ? of : 0 };
 }
+
+/** one row of the step list on a clip being made (owner chose ก, 2026-11-18, mockup https://claude.ai/artifact/9myAYjr7t5gxKQYicUEcsz) */
+export interface ClipStep { label: string; state: "ok" | "now" | "wait"; count?: string }
+
+const STEP_LABELS = ["ทำเสียงพากย์", "เตรียมไฟล์", "วาดภาพฉาก", "รวมเป็นวิดีโอ"] as const;
+const STEP_AT: Record<ProgressStep, number> = { pictures: 0, voice: 0, files: 1, draw: 2, submit: 3 };
+
+/** The four steps of a clip being made: done, in hand (with its count), or still to come. */
+export function clipSteps(s: ProgressState, later = 0): ClipStep[] {
+  const n = s.status === "rendering" ? null : s.note;
+  const at = s.status === "rendering" ? 3 : n ? STEP_AT[n.step] : 0;
+  let count: string | undefined;
+  if (s.status === "rendering") count = (s.sinceRender ?? 0) + later >= s.est.render ? "ใกล้เสร็จแล้ว" : undefined;
+  else if (n && n.of > 0) count = n.step === "voice" ? `${n.done}/${n.of} ประโยค` : n.step === "draw" ? `${n.done}/${n.of} ฉาก` : n.step === "pictures" ? `${n.done}/${n.of} รูป` : undefined;
+  return STEP_LABELS.map((label, i) => {
+    if (i < at) return { label, state: "ok" };
+    if (i > at) return { label, state: "wait" };
+    return { label: n?.step === "pictures" && n.of > 0 ? "วาดรูปประกอบ" : label, state: "now", count };
+  });
+}

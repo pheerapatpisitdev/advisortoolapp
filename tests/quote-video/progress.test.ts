@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  clipKind, DEFAULT_ESTIMATES, estimatesFrom, HOLD, leftWords, preShare, progressView, readNote, type ProgressState,
+  clipKind, clipSteps, DEFAULT_ESTIMATES, estimatesFrom, HOLD, leftWords, preShare, progressView, readNote, type ProgressState,
 } from "@/lib/quote-video/progress";
 
 const est = { pre: 90, render: 270 };
@@ -116,5 +116,36 @@ describe("readNote", () => {
     expect(readNote({ step: "draw", done: 2, of: 5 })).toEqual({ step: "draw", done: 2, of: 5 });
     expect(readNote({ step: "nope" })).toBeNull();
     expect(readNote(null)).toBeNull();
+  });
+});
+
+describe("clipSteps", () => {
+  const rendering = (sinceRender: number): ProgressState => ({ status: "rendering", note: null, sinceStart: 200, sinceRender, est });
+  const marks = (s: ProgressState, later = 0) => clipSteps(s, later).map((x) => x.state).join(" ");
+
+  it("lists the four steps, the first in hand before anything is written", () => {
+    const s = clipSteps(drawing(null));
+    expect(s.map((x) => x.label)).toEqual(["ทำเสียงพากย์", "เตรียมไฟล์", "วาดภาพฉาก", "รวมเป็นวิดีโอ"]);
+    expect(s.map((x) => x.state).join(" ")).toBe("now wait wait wait");
+  });
+
+  it("ticks off the steps behind and counts the one in hand", () => {
+    const v = clipSteps(drawing({ step: "voice", done: 3, of: 12 }));
+    expect(v[0]).toEqual({ label: "ทำเสียงพากย์", state: "now", count: "3/12 ประโยค" });
+    expect(marks(drawing({ step: "files", done: 0, of: 0 }))).toBe("ok now wait wait");
+    const d = clipSteps(drawing({ step: "draw", done: 4, of: 8 }));
+    expect(d.map((x) => x.state).join(" ")).toBe("ok ok now wait");
+    expect(d[2].count).toBe("4/8 ฉาก");
+    expect(d[0].count).toBeUndefined();
+  });
+
+  it("names a คลิปตามโจทย์'s pictures as the first step while they are painted", () => {
+    expect(clipSteps(drawing({ step: "pictures", done: 2, of: 6 }))[0]).toEqual({ label: "วาดรูปประกอบ", state: "now", count: "2/6 รูป" });
+  });
+
+  it("puts the hand-off and the render on the last step", () => {
+    expect(marks(drawing({ step: "submit", done: 0, of: 0 }))).toBe("ok ok ok now");
+    expect(clipSteps(rendering(10))[3]).toEqual({ label: "รวมเป็นวิดีโอ", state: "now", count: undefined });
+    expect(clipSteps(rendering(est.render + 5))[3].count).toBe("ใกล้เสร็จแล้ว");
   });
 });
