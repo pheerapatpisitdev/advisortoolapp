@@ -3,6 +3,7 @@ import { bearerMatches } from "@/lib/cron-auth";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { initialFrom, queryFrom } from "@/lib/ihealthy-link";
 import { iHealthyTable } from "@/lib/ihealthy-table";
+import { ROOM_KEY, roomShown } from "@/lib/ihealthy-real-room";
 import { HIDE_KEY } from "@/lib/pay-prefs";
 import { PLAN_PAGES, type PlanPage } from "@/lib/quote-pdf/pages";
 import { PRINTED_LANGS, type PrintedLang } from "@/lib/quote-pdf/langs";
@@ -28,7 +29,7 @@ const allow = limiter(6, 60_000);
 
 const PLAN_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "age", "sex", "sum", "variant"]);
 /** every key `queryFrom` writes; `r` is the one a link repeats, once per rider */
-const IHEALTHY_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "l", "age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r", HIDE_KEY]);
+const IHEALTHY_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "l", "age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r", HIDE_KEY, ROOM_KEY]);
 
 function html(status: number, body: string): Response {
   return new Response(
@@ -80,10 +81,12 @@ export async function GET(req: Request): Promise<Response> {
     const written = queryFrom(table, initial);
     // the page snaps what it is given to something it sells; a link that was not already that
     // would print a page other than the one it asked for
-    const skip = ["page", "v", EXTERNAL_BROWSER, "l"];
+    const skip = ["page", "v", EXTERNAL_BROWSER, "l", ROOM_KEY];
     if (pairs(new URLSearchParams(written), skip).join("&") !== pairs(params, skip).join("&")) return invalid();
-    target = `${siteOrigin()}/ihealthy-ultra${isCompare ? "/compare" : ""}?${written}`;
-    name = `${page}-${lang ? `${lang}-` : ""}${initial.sex}${initial.age}`;
+    // the real-room line left out where the agent switched it off (src/lib/ihealthy-real-room.ts)
+    const room = roomShown(params.get(ROOM_KEY)) ? "" : `&${ROOM_KEY}=0`;
+    target = `${siteOrigin()}/ihealthy-ultra${isCompare ? "/compare" : ""}?${written}${room}`;
+    name = `${page}-${lang ? `${lang}-` : ""}${initial.sex}${initial.age}${room ? "-noroom" : ""}`;
   } else {
     const plan = page as PlanPage;
     const initial = planInitialFrom(plan, Object.fromEntries(params));

@@ -14,6 +14,7 @@ import { initialFrom, type IHealthyQuery } from "@/lib/ihealthy-link";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { translateFacts } from "@/lib/ihealthy-translate";
 import { WORDS } from "@/lib/ihealthy-words";
+import { ROOM_KEY, roomShown } from "@/lib/ihealthy-real-room";
 
 /** The language the reader picked on either iHealthy page; the cookie covers both addresses. */
 async function readerLang(): Promise<Lang> {
@@ -64,6 +65,7 @@ export default async function IHealthyComparePage(
         table={table} lines={compareLines(lang)} plans={facts.plans}
         participationNote={facts.terms.participationNote}
         initial={initialFrom(table, { ...query, [HIDE_KEY]: hideParam(hide) })} lang={lang}
+        roomShown={roomShown(query[ROOM_KEY])}
       />
       <div className="print:hidden">
         <TermsSection facts={facts} w={w} />

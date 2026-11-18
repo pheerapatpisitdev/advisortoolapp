@@ -19,6 +19,7 @@ import { WORDS } from "@/lib/ihealthy-words";
 import { compareLines } from "@/lib/ihealthy-compare-card";
 import { shareRows } from "@/lib/ihealthy-share-lines";
 import { dciDiseases, translateFacts } from "@/lib/ihealthy-translate";
+import { ROOM_KEY, roomShown } from "@/lib/ihealthy-real-room";
 
 /** The language the reader picked with the switch; Thai for everyone who has not. */
 async function readerLang(): Promise<Lang> {
@@ -152,6 +153,7 @@ export default async function IHealthyPage(
           initial={initial} initialAttached={initialAttached} sticky
           lang={lang} dciDiseases={dciDiseases(lang)}
           shareRows={shareRows(compareLines(lang))}
+          roomShown={roomShown(query[ROOM_KEY])}
         />
       </section>
       <TermsSection facts={facts} w={w} />

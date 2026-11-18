@@ -21,6 +21,8 @@ import {
 import { cardPath, queryFrom } from "@/lib/ihealthy-link";
 import { fullCardPath } from "@/lib/ihealthy-full-link";
 import { PdfButton } from "@/components/ihealthy/PdfButton";
+import { RealRoomSwitch, useRealRoom } from "@/components/ihealthy/RealRoomSwitch";
+import { REAL_ROOM_WORDS, ROOM_KEY } from "@/lib/ihealthy-real-room";
 import { shows } from "@/lib/pay-prefs";
 import { SEND_WORDS } from "@/lib/ihealthy-send-words";
 import { arrangementKey } from "@/components/ihealthy/rider-request";
@@ -70,6 +72,8 @@ export interface IHealthyCalculatorProps {
   shareTemplate?: string;
   /** the thirty-one illnesses DCI names, in the reader's language */
   dciDiseases: string[];
+  /** false where the address said `room=0`: the PDF printer's way of leaving the real-room line out */
+  roomShown?: boolean;
 }
 
 /**
@@ -82,10 +86,13 @@ export interface IHealthyCalculatorProps {
 export function IHealthyCalculator(
   {
     table, data, sharedLimit, participationNote, initial, initialAttached, sticky = false,
-    lang = "th", dciDiseases, shareRows, shareTemplate,
+    lang = "th", dciDiseases, shareRows, shareTemplate, roomShown = true,
   }: IHealthyCalculatorProps,
 ) {
   const w = WORDS[lang];
+  /** the real-room line under หมวด 1, and the switch that hides it (src/lib/ihealthy-real-room.ts) */
+  const [realRoom, setRealRoom] = useRealRoom(roomShown);
+  const roomOff = realRoom ? "" : `&${ROOM_KEY}=0`;
   /** a figure, and a premium held in satang, grouped as the reader's language groups digits */
   const fig = (x: number) => figure(x, lang);
   const bahtOf = (satang: number) => fig(Math.floor(satang / 100));
@@ -319,13 +326,13 @@ export function IHealthyCalculator(
     : undefined;
   const picture = drawn ? cardPath(table, drawn, lang) : undefined;
   /** the same arrangement as the whole table, every category (owner, 2026-10-25) */
-  const fullPicture = drawn ? fullCardPath(table, drawn, lang) : undefined;
+  const fullPicture = drawn ? `${fullCardPath(table, drawn, lang)}${roomOff}` : undefined;
   /**
    * The phone's PDF, made by our server from this arrangement (src/components/ihealthy/PdfButton.tsx).
    * No `v`: the route sends any other to the current one, which is the address it caches.
    */
   const pdfPath = drawn
-    ? `/api/quote-pdf?page=ihealthy-ultra&${queryFrom(table, drawn)}${lang === "th" ? "" : `&l=${lang}`}`
+    ? `/api/quote-pdf?page=ihealthy-ultra&${queryFrom(table, drawn)}${lang === "th" ? "" : `&l=${lang}`}${roomOff}`
     : undefined;
 
   /**
@@ -756,7 +763,9 @@ export function IHealthyCalculator(
           scrolls. The arithmetic is `.ihu-bleed`, which has the menu's width to subtract and
           so cannot be written as a utility here. */}
       <div className="ihu-bleed">
+        <RealRoomSwitch on={realRoom} onChange={setRealRoom} label={REAL_ROOM_WORDS[lang].toggle} />
         <BenefitTable
+          realRoom={realRoom}
           data={data} selected={plan?.code ?? ""} age={age} sharedLimit={sharedLimit}
           participationNote={participationNote}
           sellable={plans.map((p) => p.code)} premiums={premiums} w={w} lang={lang}

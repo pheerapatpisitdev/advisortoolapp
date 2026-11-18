@@ -2,6 +2,7 @@ import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/cus
 import { pngResponse } from "@/lib/draw-png";
 import type { iHealthyFullCard } from "@/lib/ihealthy-full-card";
 import { WORDS } from "@/lib/ihealthy-words";
+import { ROOM_KEY } from "@/lib/ihealthy-real-room";
 import type { NextRequest } from "next/server";
 import { HEALTH_QUOTE_KEYS, HEALTH_REPEATABLE, toCanonical } from "../card/canonical";
 import { insuredWho, whoRowHeight, type WhoStyle } from "../card/insured-who";
@@ -34,7 +35,8 @@ export async function wholeTablePicture(
   heading: (card: WholeCard) => string,
 ) {
   // one address per picture, so the CDN's copy is the one served (src/app/api/card/canonical.ts)
-  const moved = toCanonical(req, HEALTH_QUOTE_KEYS, HEALTH_REPEATABLE);
+  // `room=0`: the agent switched the real-room line off (src/lib/ihealthy-real-room.ts)
+  const moved = toCanonical(req, [...HEALTH_QUOTE_KEYS, ROOM_KEY], HEALTH_REPEATABLE);
   if (moved) return moved;
   let card = make(req.nextUrl.searchParams);
   /** the customer's name the send panel added, over the insured — see the quote card */

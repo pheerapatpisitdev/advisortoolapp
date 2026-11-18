@@ -10,6 +10,7 @@ import { MODES, plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { shows } from "@/lib/pay-prefs";
 import { translateFacts } from "@/lib/ihealthy-translate";
+import { REAL_ROOM_WORDS, realRoomText, ROOM_KEY, roomShown } from "@/lib/ihealthy-real-room";
 
 /**
  * The compare table's lines in a language: the sheet's categories under their short names.
@@ -70,16 +71,24 @@ export function iHealthyCompareCard(query: URLSearchParams, today: Date = new Da
   const kept = every.flatMap((code, i) => (plans.includes(code) ? [i] : []));
   const cut = (cells: CardCell[]) => kept.map((i) => cells[i]);
 
-  const body: FullTableRow[] = visibleLines(compareLines(card.lang), plans, age).map((line) => {
-    if (line.kind === "group") return { label: line.label, cells: [], kind: "group" };
+  const room = roomShown(query.get(ROOM_KEY));
+  const body: FullTableRow[] = visibleLines(compareLines(card.lang), plans, age).flatMap((line): FullTableRow[] => {
+    if (line.kind === "group") return [{ label: line.label, cells: [], kind: "group" }];
     const cells = compareCells(line.entry, plans, age, card.lang).map((c) => ({ text: c.text, dim: false }));
-    return {
+    const row: FullTableRow = {
       label: line.label,
       cells,
       ...(line.pair ? { pair: line.pair } : {}),
       // the child's doctor's fee, the one row that says a limit and "as charged" in one cell
       ...(cells.some((c) => c.text.includes("*")) ? { tall: true } : {}),
     };
+    // the room a customer can really stay in, under the room row (src/lib/ihealthy-real-room.ts)
+    if (!room || !("no" in line.entry) || line.entry.no !== 1) return [row];
+    return [row, {
+      label: REAL_ROOM_WORDS[card.lang].label,
+      cells: plans.map((code) => ({ text: realRoomText(code, card.lang), dim: false })),
+      kind: "sub",
+    }];
   });
   const [ceiling] = card.rows;
   return {

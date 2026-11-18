@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PayMode, Sex } from "@/calc/types";
 import { cellRuns } from "@/components/ihealthy/BenefitTable";
 import { PdfButton } from "@/components/ihealthy/PdfButton";
+import { RealRoomSwitch, useRealRoom } from "@/components/ihealthy/RealRoomSwitch";
+import { REAL_ROOM_WORDS, realRoomText, ROOM_KEY } from "@/lib/ihealthy-real-room";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { VIDEO_LABEL } from "@/components/sales/video-label";
 import { IHEALTHY_OPENING, resolveArrangement, type IHealthyInitial } from "@/lib/ihealthy-choice";
@@ -40,17 +42,22 @@ const planWash = (code: string) => `var(--ihu-${code.toLowerCase()}-wash)`;
  * Thailand on full cover, which is what the page's own premiums are for.
  */
 export function IHealthyCompare(
-  { table, lines, plans: sheetPlans, participationNote, initial, lang }: {
+  { table, lines, plans: sheetPlans, participationNote, initial, lang, roomShown = true }: {
     table: IHealthyTable;
     lines: CompareLine[];
     plans: IHealthyFacts["plans"];
     participationNote: string;
     initial: IHealthyInitial;
     lang: Lang;
+    /** false where the address said `room=0`: the PDF printer leaving the real-room line out */
+    roomShown?: boolean;
   },
 ) {
   const w = WORDS[lang];
   const cw = COMPARE_WORDS[lang];
+  /** the real-room line under the room row, and its switch (src/lib/ihealthy-real-room.ts) */
+  const [realRoom, setRealRoom] = useRealRoom(roomShown);
+  const roomOff = realRoom ? "" : `&${ROOM_KEY}=0`;
   const ages = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
@@ -167,6 +174,7 @@ export function IHealthyCompare(
           {`${w.sex[sex]} ${w.years(age)} · ${w.mode[mode]}`}
           {codes.length < 4 && <small>{cw.agePlans(codes.length)}</small>}
         </p>
+        <RealRoomSwitch on={realRoom} onChange={setRealRoom} label={REAL_ROOM_WORDS[lang].toggle} />
         <table className={`ihc-table ${codes.length <= 2 ? "ihc-two" : ""}`}>
           <colgroup>
             <col className="ihc-col-name" />
@@ -195,7 +203,8 @@ export function IHealthyCompare(
               }
               const cells = compareCells(line.entry, codes, age);
               const dashed = (text: string) => (text === "-" ? "ihc-dash" : undefined);
-              return (
+              const roomRow = realRoom && "no" in line.entry && line.entry.no === 1;
+              return [
                 <tr key={`${line.label}-${i}`}>
                   <th scope="row" className="ihc-name">{line.pair ? line.pair.lines.join(" · ") : line.label}</th>
                   {line.pair
@@ -217,8 +226,23 @@ export function IHealthyCompare(
                           </td>
                         );
                       })}
-                </tr>
-              );
+                </tr>,
+                ...(roomRow
+                  ? [
+                      <tr key="real-room" className="ihc-room">
+                        <th scope="row" className="ihc-name">
+                          {REAL_ROOM_WORDS[lang].label}
+                          <small>{REAL_ROOM_WORDS[lang].note}</small>
+                        </th>
+                        {codes.map((code) => (
+                          <td key={code} style={{ background: planWash(code) }}>
+                            <strong>{realRoomText(code, lang)}</strong>
+                          </td>
+                        ))}
+                      </tr>,
+                    ]
+                  : []),
+              ];
             })}
             {standardPlan !== null && (
               <tr>
@@ -241,13 +265,13 @@ export function IHealthyCompare(
       {priced && (
         <div className="space-y-5 print:hidden">
           <PdfButton
-            path={comparePdfPath(table, drawn, lang)} filename={`iHealthy-Ultra-compare-${sex}${age}.pdf`}
+            path={`${comparePdfPath(table, drawn, lang)}${roomOff}`} filename={`iHealthy-Ultra-compare-${sex}${age}.pdf`}
             className="w-full rounded-sm border border-[var(--lg-panel-line)] px-3 py-3 text-center text-sm text-[var(--lg-mute)]"
             words={{ idle: w.printOrPdf, making: SEND_WORDS[lang].pdfMaking, ready: SEND_WORDS[lang].pdfReady, failed: SEND_WORDS[lang].pdfFailed }}
           />
           {/* วิดีโอเทียบ 4 แผน (owner chose ข, 2026-11-11): the Studio form open on this table, for a signed-in agent only */}
           <ContactButtons
-            copyText={quoteText} tableCardPath={compareCardPath(table, drawn, lang)} tableLabel={cw.picture} words={w.contact}
+            copyText={quoteText} tableCardPath={`${compareCardPath(table, drawn, lang)}${roomOff}`} tableLabel={cw.picture} words={w.contact}
             videoHref={videoStartHref({ product: "IHEALTHY", sex, age, plan: drawn.plan, allPlans: mode, lang })} videoLabel={VIDEO_LABEL[lang]}
           />
         </div>

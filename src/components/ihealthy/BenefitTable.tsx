@@ -4,6 +4,8 @@ import {
   benefitValue, categoryNumbers, isHeading, planLabel, type BenefitEntry, type IHealthyFacts,
 } from "@/lib/ihealthy-facts";
 import { WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
+import { realRoomText, REAL_ROOM_WORDS } from "@/lib/ihealthy-real-room";
+import { Fragment } from "react";
 
 /**
  * The half of the benefit data the browser needs. `terms` and `disclaimer` are three of the
@@ -48,6 +50,11 @@ export interface BenefitTableProps {
   w?: IHealthyWords;
   /** the reader's language, for how figures are grouped; Thai where not given */
   lang?: Lang;
+  /**
+   * The room a customer can really stay in, a line under หมวด 1 (src/lib/ihealthy-real-room.ts).
+   * Off where not given, so the clips' drawing of this table is unchanged.
+   */
+  realRoom?: boolean;
 }
 
 
@@ -226,6 +233,7 @@ function runAttrs(run: CellRun, selected: string): { "data-plan"?: string; "data
 export function BenefitTable(
   {
     data, selected, age, sellable, sharedLimit, participationNote, premiums, dailyCash, w = WORDS.th, lang = "th",
+    realRoom = false,
   }: BenefitTableProps,
 ) {
   const plans = data.plans;
@@ -354,8 +362,8 @@ export function BenefitTable(
                   </th>
                 </tr>
               ) : (
+                <Fragment key={entry.title}>
                 <tr
-                  key={entry.title}
                   className={`border-t border-[var(--lg-panel-line)] align-top ${
                     entry.no !== null && entry.no in PHONE_ROW_LABEL ? "" : WIDE_ONLY_ROW
                   }`}
@@ -412,6 +420,39 @@ export function BenefitTable(
                     </td>
                   ))}
                 </tr>
+                {realRoom && entry.no === 1 && (
+                  // The owner's line under the room row: the room a customer can really stay in
+                  // on each plan. Every plan its own cell, on a phone the phone's columns.
+                  <tr className="border-t border-[var(--lg-panel-line)] align-top">
+                    <th
+                      scope="row"
+                      className={`${PIN} z-10 py-2 text-[0.7rem] font-medium leading-relaxed text-[var(--lg-white)]`}
+                    >
+                      <span className={PHONE_ONLY}>
+                        <Icon mark="🏨" />
+                        {REAL_ROOM_WORDS[lang].phone}
+                      </span>
+                      <span className="hidden sm:inline print:inline!">{REAL_ROOM_WORDS[lang].label}</span>
+                      <span className="mt-0.5 hidden text-[0.65rem] font-normal text-[var(--lg-gold)] sm:block print:block!">
+                        {REAL_ROOM_WORDS[lang].note}
+                      </span>
+                    </th>
+                    {plans.map((p) => {
+                      const sold = sellable.includes(p.code);
+                      return (
+                        <td
+                          key={p.code}
+                          data-plan={p.code}
+                          data-picked={p.code === selected ? "" : undefined}
+                          className={`${COLUMN_RULE} ${onPhone(p.code) ? "" : WIDE_ONLY_CELL} px-1.5 py-2 text-center font-semibold tabular-nums text-[var(--lg-white)] sm:px-3${sold ? "" : " opacity-75"}`}
+                        >
+                          {sold ? realRoomText(p.code, lang) : DASH}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                )}
+                </Fragment>
               ),
             )}
             {/* Last, and outside the company's own twenty-eight categories: a second

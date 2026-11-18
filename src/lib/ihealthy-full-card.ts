@@ -6,6 +6,7 @@ import { initialFrom } from "@/lib/ihealthy-link";
 import { plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { translateFacts } from "@/lib/ihealthy-translate";
+import { REAL_ROOM_WORDS, realRoomText, ROOM_KEY, roomShown } from "@/lib/ihealthy-real-room";
 
 /**
  * A line of the whole table: a benefit group drawn across every column, a category whose
@@ -67,6 +68,15 @@ export function iHealthyFullCard(query: URLSearchParams, today: Date = new Date(
       cells: cellsOf((code) => benefitCell(entry, code, v.age, sellable, card.lang).text),
       ...(entry.no === null ? { kind: "sub" as const } : {}),
     });
+    // the room a customer can really stay in, under the contract's room row, unless the agent
+    // switched it off on the page (src/lib/ihealthy-real-room.ts)
+    if (entry.no === 1 && roomShown(query.get(ROOM_KEY))) {
+      rows.push({
+        label: REAL_ROOM_WORDS[card.lang].label,
+        cells: cellsOf((code) => (sellable.includes(code) ? realRoomText(code, card.lang) : "-")),
+        kind: "sub",
+      });
+    }
   });
 
   // 18 and 19 are one yearly limit: one row, the figure once — only while the sheet agrees

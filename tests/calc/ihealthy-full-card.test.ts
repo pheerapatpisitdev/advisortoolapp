@@ -84,6 +84,6 @@ describe("the whole table as a picture", () => {
     expect(path).toMatch(/^\/api\/ihealthy-card\/full\?age=/);
     expect(path).toMatch(/&l=zh$/);
     // its own revision on the card's, so the old whole table is not served from a cache
-    expect(path).toMatch(/&cv=\d+-f2&/);
+    expect(path).toMatch(/&cv=\d+-f3&/);
   });
 });
