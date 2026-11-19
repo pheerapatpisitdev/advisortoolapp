@@ -2,10 +2,8 @@ import { siteUrl } from "@/lib/site-url";
 import { hashUserId } from "@/lib/line/verify";
 import { claimEvent, loadSession, saveTurn } from "@/lib/chat/session";
 import { push, reply, showLoading, toBatches, toMessages, MAX_MESSAGES, type LineMessage, type Said } from "@/lib/line/client";
-import { showQuotedMenu } from "@/lib/line/menu-link";
 import { lineBotEnabled } from "@/lib/line/settings";
 import { tryLink } from "@/lib/line/owner-alert";
-import { wantsQuotedMenu } from "@/lib/line/rich-menu";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { countLessonHit, loadLessons } from "@/lib/chat/lessons-store";
 import { loadIntroPictures } from "@/lib/chat/intro-store";
@@ -201,11 +199,6 @@ export async function handle(event: LineEvent, destination = "", opts: { started
     let said = saidWith(true);
     if (said.length > MAX_MESSAGES) said = saidWith(false);
     await sayAll(replyToken, userId, toBatches(said, answer.replies));
-    // after a Life Protect price the menu offers the table and the file instead of the plans
-    // a menu that will not switch is not worth an apology after a whole answer
-    if (wantsQuotedMenu({ priced: answer.priced, product: productOf(answer.slots) })) {
-      await showQuotedMenu(userId).catch((e) => console.error("[line] quoted menu not shown:", e));
-    }
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
 
     const spoken = answer.messages.map((m) => m.text).join("\n\n");

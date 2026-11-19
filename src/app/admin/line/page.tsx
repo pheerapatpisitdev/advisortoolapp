@@ -64,8 +64,8 @@ export default async function LinePage() {
     hook, friends: f, quota: q, chats: c, botOn, owner, broadcasts: list, health,
     replyChoices: REPLY_CHOICES, maxParts: MAX_PARTS,
     menus: Object.values(MENUS).map((m) => ({
-      name: m.name, alias: m.alias, bar: m.chatBarText, columns: m.columns,
-      buttons: m.buttons.map((b) => ({ title: b.title, sub: b.sub })),
+      name: m.name, alias: m.alias, tab: m.tab, bar: m.chatBarText, columns: m.columns,
+      buttons: m.buttons.map((b) => ({ title: b.title, sub: b.sub, href: b.href })),
     })),
   };
 

@@ -4,10 +4,10 @@ import { drawMenu } from "@/lib/line/rich-menu-image";
 
 export const runtime = "nodejs";
 
-/** A menu's picture, for looking at before it is uploaded: /api/line/menu-image?menu=start */
+/** A menu's picture, for looking at before it is uploaded: /api/line/menu-image?menu=calc */
 export async function GET(req: NextRequest) {
   const name = req.nextUrl.searchParams.get("menu") as MenuName | null;
   const menu = name ? MENUS[name] : undefined;
-  if (!menu) return Response.json({ error: "menu=start หรือ menu=quoted" }, { status: 400 });
+  if (!menu) return Response.json({ error: "menu=calc หรือ menu=studio" }, { status: 400 });
   return drawMenu(menu);
 }

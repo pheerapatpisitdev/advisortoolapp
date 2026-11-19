@@ -1,101 +1,155 @@
-import { CHOOSE_ISHIELD, CHOOSE_LEGACY, CHOOSE_LIFE } from "@/lib/assistant/choose";
-import { ASK_FOR_TABLE, WANTS_IN } from "@/lib/assistant/common";
-import { PDF_YES } from "@/lib/assistant/pdf";
+import { siteUrl } from "@/lib/site-url";
 
 /**
- * The menu pinned under the LINE chat: a picture cut into buttons, each of which types a
- * message for the customer.
+ * The menu pinned under the LINE chat: a picture cut into buttons.
  *
- * Every button is a message action, so the webhook needs nothing new — a tap arrives as the
- * words on the button, which is exactly how the bot's own buttons already arrive. The words are
- * the bot's own constants, so a button cannot drift from what the bot reads.
+ * The account's friends are the agents who use this app, not their customers (owner,
+ * 2026-11-19), so every button opens a page of the app: the calculators an agent prices with,
+ * and Studio and the rest. Owner chose ค: two tabs on one picture, คำนวณเบี้ย and
+ * Studio และอื่น ๆ, each six buttons under a strip of two tabs.
  *
- * There are two menus. The first is everyone's, the way into the three plans the bot offers a
- * stranger (the health plan is left off on purpose, as it is from the bot's own first question).
- * The second replaces it once a Life Protect price has been given: the table, the file and the
- * way on. Only that brain reads "ขอตารางมูลค่า", so only that customer is moved. A menu is
- * linked to a customer through the API, which costs nothing against the month's pushes.
+ * A tab is LINE's own switch between two menus found by alias: it moves the menu without
+ * writing anything in the chat. LINE does send the webhook a postback for it, which the
+ * conversation ignores, as it ignores everything that is not typed text.
+ *
+ * A page opens in the phone's own browser (`openExternalBrowser=1`), not in LINE's: Google
+ * refuses to sign anybody in inside an app's browser, and a member signed in once in the phone's
+ * browser stays signed in there.
  */
 
-export type MenuName = "start" | "quoted";
+export type MenuName = "calc" | "studio";
+
+export type MenuIcon =
+  | "life" | "health" | "shield" | "legacy" | "pa" | "grid"
+  | "video" | "story" | "spark" | "bell" | "play" | "wallet";
 
 export interface MenuButton {
-  /** the words the button types for the customer: what the bot reads */
-  text: string;
+  /** the page the button opens, as a path of this app */
+  href: string;
   /** the label, at most twenty characters, which LINE reads out for the button */
   title: string;
   /** a line under the title, drawn on the picture only */
   sub: string;
+  icon: MenuIcon;
+  /** the one button of the tab drawn in terracotta: where most agents are going */
+  lead?: true;
 }
 
 export interface MenuSpec {
   name: MenuName;
-  /** the name LINE keeps for this menu's current build, so the bot can find it after a rebuild */
+  /** the name LINE keeps for this menu's current build; a tab switches to a menu by it */
   alias: string;
+  /** the words on this menu's own tab, at most twenty characters (they are its tab's label) */
+  tab: string;
   width: 2500;
-  height: 843 | 1686;
-  columns: number;
+  height: 1686;
+  columns: 3;
   /** the bar's own words where the menu is folded, at most fourteen characters */
   chatBarText: string;
   buttons: MenuButton[];
 }
 
+/** The strip of tabs along the top of each picture, in the picture's own pixels. */
+export const TAB_HEIGHT = 275;
+
 export const MENUS: Record<MenuName, MenuSpec> = {
-  start: {
-    name: "start",
-    alias: "advisor-start",
+  calc: {
+    name: "calc",
+    alias: "advisor-calc",
+    tab: "คำนวณเบี้ย",
     width: 2500,
     height: 1686,
-    columns: 2,
-    chatBarText: "เลือกแบบประกัน",
+    columns: 3,
+    chatBarText: "advisortool",
     buttons: [
-      { text: CHOOSE_LIFE, title: "Life Protect", sub: "ประกันชีวิต เบี้ยไม่ทิ้ง ขายคืนได้" },
-      { text: CHOOSE_LEGACY, title: "มรดกเพื่อครอบครัว", sub: "วงเงินใหญ่ เบี้ยเบา" },
-      { text: CHOOSE_ISHIELD, title: "iShield", sub: "ประกันโรคร้าย เบี้ยไม่ทิ้ง" },
-      { text: WANTS_IN, title: "สนใจสมัคร", sub: "รับแบบฟอร์ม คุยกับตัวแทน" },
+      { href: "/lifeprotect", title: "Life Protect", sub: "ชีวิต x 2", icon: "life" },
+      { href: "/ihealthy-ultra", title: "iHealthy Ultra", sub: "สุขภาพ", icon: "health" },
+      { href: "/ishield", title: "iShield", sub: "โรคร้ายแรง", icon: "shield" },
+      { href: "/legacy", title: "Family Legacy", sub: "มรดก", icon: "legacy" },
+      { href: "/pa", title: "PA", sub: "อุบัติเหตุ", icon: "pa" },
+      { href: "/home", title: "ทุกแบบประกัน", sub: "หน้าหลัก", icon: "grid", lead: true },
     ],
   },
-  quoted: {
-    name: "quoted",
-    alias: "advisor-quoted",
+  studio: {
+    name: "studio",
+    alias: "advisor-studio",
+    tab: "Studio และอื่น ๆ",
     width: 2500,
-    height: 843,
+    height: 1686,
     columns: 3,
-    chatBarText: "ตาราง · PDF",
+    chatBarText: "advisortool",
     buttons: [
-      { text: ASK_FOR_TABLE, title: "ตารางมูลค่า", sub: "เงินคืนทุกปี" },
-      { text: PDF_YES, title: "ไฟล์ PDF", sub: "เก็บไว้ ส่งต่อครอบครัว" },
-      { text: WANTS_IN, title: "สนใจสมัคร", sub: "รับแบบฟอร์ม" },
+      { href: "/studio/quote-video", title: "วิดีโอนำเสนอ", sub: "คลิปจากใบเสนอ", icon: "video" },
+      { href: "/studio/story-clip", title: "คลิปเล่าเรื่อง", sub: "Studio", icon: "story" },
+      { href: "/ask", title: "ถาม AI", sub: "เงื่อนไข แบบประกัน", icon: "spark" },
+      { href: "/whats-new", title: "มีอะไรใหม่", sub: "อัปเดตล่าสุด", icon: "bell" },
+      { href: "/help", title: "วิธีใช้งาน", sub: "คลิปสอน", icon: "play" },
+      { href: "/studio/wallet", title: "เติมเงิน", sub: "กระเป๋า Studio", icon: "wallet", lead: true },
     ],
   },
 };
 
-export interface MenuArea {
-  bounds: { x: number; y: number; width: number; height: number };
-  action: { type: "message"; label: string; text: string };
+/** The tabs in the order they sit, left to right: the same on both pictures. */
+export const TAB_ORDER: MenuName[] = ["calc", "studio"];
+
+/** The menu every friend sees until they press the other tab. */
+export const FIRST_MENU: MenuName = "calc";
+
+/** The address a button opens: absolute, and in the phone's own browser. */
+export function menuLink(href: string): string {
+  const url = new URL(siteUrl(href));
+  url.searchParams.set("openExternalBrowser", "1");
+  return url.toString();
+}
+
+type Bounds = { x: number; y: number; width: number; height: number };
+
+export type MenuArea =
+  | { bounds: Bounds; action: { type: "richmenuswitch"; label: string; richMenuAliasId: string; data: string } }
+  | { bounds: Bounds; action: { type: "uri"; label: string; uri: string } };
+
+/** Where each tab sits along the top strip. The last takes what the division left over. */
+export function tabBounds(menu: MenuSpec): Bounds[] {
+  const w = Math.floor(menu.width / TAB_ORDER.length);
+  return TAB_ORDER.map((_, i) => ({
+    x: i * w, y: 0, width: i === TAB_ORDER.length - 1 ? menu.width - i * w : w, height: TAB_HEIGHT,
+  }));
 }
 
 /**
- * Where each button sits, left to right and top to bottom. The last column and the last row take
- * whatever the division left over, so the buttons cover the picture to its edge.
+ * Where each button sits under the tabs, left to right and top to bottom. The last column and
+ * the last row take whatever the division left over, so the buttons cover the picture to its edge.
  */
-export function menuAreas(menu: MenuSpec): MenuArea[] {
+export function buttonBounds(menu: MenuSpec): Bounds[] {
   const rows = Math.ceil(menu.buttons.length / menu.columns);
   const cellW = Math.floor(menu.width / menu.columns);
-  const cellH = Math.floor(menu.height / rows);
-  return menu.buttons.map((b, i) => {
+  const cellH = Math.floor((menu.height - TAB_HEIGHT) / rows);
+  return menu.buttons.map((_, i) => {
     const col = i % menu.columns;
     const row = Math.floor(i / menu.columns);
     return {
-      bounds: {
-        x: col * cellW,
-        y: row * cellH,
-        width: col === menu.columns - 1 ? menu.width - col * cellW : cellW,
-        height: row === rows - 1 ? menu.height - row * cellH : cellH,
-      },
-      action: { type: "message", label: b.title, text: b.text },
+      x: col * cellW,
+      y: TAB_HEIGHT + row * cellH,
+      width: col === menu.columns - 1 ? menu.width - col * cellW : cellW,
+      height: row === rows - 1 ? menu.height - TAB_HEIGHT - row * cellH : cellH,
     };
   });
+}
+
+/** Every tappable area of a menu: the two tabs, then its buttons. */
+export function menuAreas(menu: MenuSpec): MenuArea[] {
+  const tabs: MenuArea[] = tabBounds(menu).map((bounds, i) => {
+    const to = MENUS[TAB_ORDER[i]];
+    return {
+      bounds,
+      action: { type: "richmenuswitch", label: to.tab, richMenuAliasId: to.alias, data: `tab=${to.name}` },
+    };
+  });
+  const buttons: MenuArea[] = buttonBounds(menu).map((bounds, i) => {
+    const b = menu.buttons[i];
+    return { bounds, action: { type: "uri", label: b.title, uri: menuLink(b.href) } };
+  });
+  return [...tabs, ...buttons];
 }
 
 /** The body LINE's create-menu call takes. */
@@ -107,12 +161,4 @@ export function richMenuBody(menu: MenuSpec) {
     chatBarText: menu.chatBarText,
     areas: menuAreas(menu),
   };
-}
-
-/**
- * Whether this answer moves the customer to the menu for after a price: a Life Protect
- * quotation has just been given.
- */
-export function wantsQuotedMenu(answer: { priced?: boolean; product: string | null }): boolean {
-  return answer.priced === true && answer.product === "lifeprotect";
 }

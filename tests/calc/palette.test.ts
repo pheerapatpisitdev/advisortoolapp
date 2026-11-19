@@ -59,6 +59,7 @@ const MAY_HOLD_LITERALS = [
   "src/app/manifest.ts", // the PWA manifest takes colours, not variables
   "src/lib/story/figure.tsx", // มินิมอล's people and grounds: drawn into a clip's frames, and the clothes' colours are the clip's own input
   "src/lib/shotstack/looks.ts", // ดีไซน์พิเศษ's three looks: Shotstack's timeline takes colours, not variables, and the form's thumbnails show the same
+  "src/lib/line/rich-menu-image.tsx", // the LINE menu's picture: uploaded to LINE as a PNG, the app's navy and the logo's terracotta written down for a drawing that cannot read them
   "src/app/api/card/gsaving-card/draw.tsx", // Global Savings' whole page as a picture (15/8's and 25/5's routes both draw it): the page's own tokens, written down for a drawing that cannot read them (card-theme.ts is bundled into the video image)
 ];
 
