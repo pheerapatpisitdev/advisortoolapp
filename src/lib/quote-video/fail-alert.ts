@@ -1,4 +1,5 @@
 import { bluewealthNames } from "@/lib/auth/bluewealth";
+import { tellAgentClipDone, tellAgentClipFailed } from "@/lib/line/agent-line";
 import { alertClipFailed } from "@/lib/line/owner-alert";
 import { isPromptStory } from "@/lib/prompt-story/types";
 import { siteUrl } from "@/lib/site-url";
@@ -52,7 +53,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("th-TH", {
 });
 
 /** what was given back, in a line */
-function refund(c: FailedClip): string {
+export function refund(c: FailedClip): string {
   if (c.recut) return c.recut.satang > 0 ? `คลิปเดิมยังอยู่ · คืนค่าวาดฉาก ${baht(c.recut.satang)} แล้ว` : "คลิปเดิมยังอยู่";
   const held = Number(c.heldSatang ?? 0);
   if (c.paidBy === "staff") return "ทำในชื่อแอดมิน ไม่ได้ตัดเงิน";
@@ -117,4 +118,20 @@ export async function tellOwnerClipFailed(row: {
   } catch (e) {
     console.error(`[line] clip ${row.id} failed alert not sent:`, e);
   }
+}
+
+/**
+ * The maker's own LINE, if they linked it (เชื่อม LINE ของฉัน, owner chose ข, 2026-11-19): their clip
+ * failed, and what was given back. Never throws, as tellOwnerClipFailed.
+ */
+export async function tellMakerClipFailed(row: {
+  agent_id: string; input: unknown; customer_name: string | null; paid_by: FailedClip["paidBy"]; held_satang: number | null;
+}): Promise<void> {
+  const back = refund({ what: "", who: "", at: "", reason: "", paidBy: row.paid_by, heldSatang: row.held_satang, link: "" });
+  await tellAgentClipFailed(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "", back);
+}
+
+/** The maker's own LINE: their clip is done. Never throws. */
+export async function tellMakerClipDone(row: { agent_id: string; input: unknown; customer_name: string | null }): Promise<void> {
+  await tellAgentClipDone(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "");
 }

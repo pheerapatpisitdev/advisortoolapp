@@ -8,8 +8,9 @@ import { videosFrom } from "@/lib/members/pass";
 import { releaseDraft } from "@/lib/prompt-story/drafts";
 import { isPromptStory, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { releaseWallet, settleWallet } from "@/lib/wallet/store";
-import { tellOwnerClipFailed } from "./fail-alert";
+import { checkMoneyLow } from "@/lib/line/agent-line";
+import { releaseWallet, settleWallet, walletStatus } from "@/lib/wallet/store";
+import { tellMakerClipDone, tellMakerClipFailed, tellOwnerClipFailed } from "./fail-alert";
 import type { FhcVideoInput } from "./fhc";
 import { failReason, renderThbFor, secondsBetween, type ClipEngine, type CostParts } from "./run-record";
 import type { VideoInput } from "./script";
@@ -149,15 +150,17 @@ export async function fail(id: string, why: unknown): Promise<void> {
   const { data: was } = await rows().select("status").eq("id", id).maybeSingle();
   const fail_reason = failReason(why, (was as Pick<VideoRow, "status"> | null)?.status);
   const { data } = await rows().update({ status: "failed", error, fail_reason, updated_at: new Date().toISOString() })
-    .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by, input, agent_id, held_satang").maybeSingle();
+    .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by, input, agent_id, held_satang, customer_name").maybeSingle();
   if (data) {
     await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
     // a คลิปตามโจทย์ that failed gives its draft back, to be made again
     const input = (data as Pick<VideoRow, "input">).input;
     if (input && isPromptStory(input) && input.draftId) await releaseDraft(input.draftId, id);
     // the owner's LINE told, every failed clip (owner chose ก ก, 2026-10-19)
-    const d = data as Pick<VideoRow, "agent_id" | "paid_by" | "held_satang">;
+    const d = data as Pick<VideoRow, "agent_id" | "paid_by" | "held_satang" | "customer_name">;
     await tellOwnerClipFailed({ id, agent_id: d.agent_id, input, paid_by: d.paid_by, held_satang: d.held_satang, fail_reason, error });
+    // and the maker's own LINE, if they linked it (owner chose ข, 2026-11-19)
+    await tellMakerClipFailed({ agent_id: d.agent_id, input, customer_name: d.customer_name, paid_by: d.paid_by, held_satang: d.held_satang });
     await clearInputs(id).catch(() => undefined);
     return;
   }
@@ -242,6 +245,16 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
     const cost_parts: CostParts = { ...(row.cost_parts ?? {}), engine, ...(renderSec !== null ? { renderSec, renderThb } : {}) };
     await setRow(row.id, { cost_thb: cost, cost_parts, ...(charged !== null ? { charged_satang: charged } : {}), ...(input ? { input } : {}) }).catch(() => undefined);
     await clearInputs(row.id, isPromptStory(row.input));
+    // the maker's own LINE, if they linked it (owner chose ข, 2026-11-19): the clip is done, and the
+    // wallet running low after what it took
+    await tellMakerClipDone({ agent_id: row.agent_id, input: row.input, customer_name: row.customer_name });
+    if (charged) {
+      try {
+        await checkMoneyLow(row.agent_id, (await walletStatus(row.agent_id)).satang);
+      } catch (e) {
+        console.error("money-low check failed:", e);
+      }
+    }
   } else {
     await fail(row.id, new Error(jobError ? `render failed: ${jobError}` : "render failed"));
   }

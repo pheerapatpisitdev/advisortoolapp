@@ -234,6 +234,23 @@ export async function quota(): Promise<{ limit: number | null; used: number } | 
   }
 }
 
+/**
+ * Whether this person has the account as a friend, which a push needs: LINE gives a profile only
+ * for a friend. Null when LINE could not be asked. Not a message, so it costs nothing.
+ */
+export async function isFriend(userId: string): Promise<boolean | null> {
+  try {
+    const res = await menuCall("GET", `${API}/profile/${encodeURIComponent(userId)}`);
+    if (res.ok) return true;
+    if (res.status === 404) return false;
+    console.error(`[line] friendship not read: ${res.status}`);
+    return null;
+  } catch (e) {
+    console.error("[line] friendship not read:", e);
+    return null;
+  }
+}
+
 export interface Friends {
   followers: number;
   /** the friends a broadcast reaches: those who have not blocked the account */

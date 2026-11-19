@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { tryAgentLink } from "@/lib/line/agent-line";
 import { push, reply } from "@/lib/line/client";
 import { siteUrl } from "@/lib/site-url";
 
@@ -106,8 +107,8 @@ export function linkCodeIn(text: string): string | null {
 }
 
 /**
- * Called by the webhook with every text before the bot sees it. True when it was the owner's
- * code — right or wrong — so the bot does not answer it as a customer's question.
+ * Called by the webhook with every text before the bot sees it. True when it was a link code — the
+ * owner's or an agent's, right or wrong — so the bot does not answer it as a customer's question.
  */
 export async function tryLink(text: string, userId: string, replyToken: string): Promise<boolean> {
   const code = linkCodeIn(text);
@@ -118,7 +119,9 @@ export async function tryLink(text: string, userId: string, replyToken: string):
     && r.owner_line_link_code.length === code.length
     && crypto.timingSafeEqual(Buffer.from(r.owner_line_link_code), Buffer.from(code));
   if (!good) {
-    await reply(replyToken, [{ type: "text", text: "รหัสไม่ถูกหรือหมดเวลาแล้วครับ กดขอรหัสใหม่ที่หลังบ้าน หน้า LINE OA" }]).catch(() => {});
+    // an agent's own code from ตั้งค่าส่วนตัว (agent-line.ts, owner chose ข, 2026-11-19)
+    if (await tryAgentLink(code, userId, replyToken)) return true;
+    await reply(replyToken, [{ type: "text", text: "รหัสไม่ถูกหรือหมดเวลาแล้วครับ ขอรหัสใหม่ได้ที่หน้า ตั้งค่าส่วนตัว ใน advisortool" }]).catch(() => {});
     return true;
   }
   await save({ owner_line_user_id: userId, owner_line_linked_at: new Date().toISOString(), owner_line_link_code: null, owner_line_link_expires: null });
