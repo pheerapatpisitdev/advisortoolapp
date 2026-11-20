@@ -1,12 +1,17 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { PrintQuote } from "@/lib/group-insurance/print-link";
 import type { QuoteSheet } from "@/lib/group-insurance/sheet";
 import { preparePrint } from "@/lib/quote-pdf/prepare";
 import { Icon } from "./Icon";
 import { useLang } from "./lang";
 import { QuoteSheetDoc } from "./QuoteSheetDoc";
+import { SharePdfButton } from "./SharePdfButton";
 
 const SHEET_WIDTH = 794;
+
+/** a finger rather than a mouse: a phone or a tablet */
+const onPhone = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 
 /**
  * The quotation, before it is handed over.
@@ -35,8 +40,26 @@ export function QuoteDialog({
   quoteDate: string;
   onClose: () => void;
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [customerName, setCustomerName] = useState("");
+  // the dialog opens on a tap, never in the server's render, so the device can be asked here
+  const [phone] = useState(onPhone);
+  /** the quotation as the server's printer needs it, for the phone's "แชร์ PDF" */
+  const printQuote = useMemo<PrintQuote>(() => ({
+    product: sheet.result.product,
+    lang,
+    customerName: customerName.trim(),
+    quoteNo,
+    quoteDate,
+    groups: sheet.result.groups.map((g) => ({
+      name: g.name,
+      bizType: g.bizType,
+      planIdx: g.planIdx,
+      includeRider: g.includeRider,
+      riderIdx: g.riderIdx,
+      count: String(g.count),
+    })),
+  }), [sheet, lang, customerName, quoteNo, quoteDate]);
   const [scale, setScale] = useState(1);
   const [sheetHeight, setSheetHeight] = useState(0);
   const frame = useRef<HTMLDivElement>(null);
@@ -165,15 +188,26 @@ export function QuoteDialog({
           >
             {t("close")}
           </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-            style={{ background: "var(--gi-navy)" }}
-          >
-            <Icon name="printer" className="h-4 w-4" />
-            {t("quotePrintBtn")}
-          </button>
+          {/* A phone's print sheet is missing from a home-screen icon, LINE and Facebook, so a
+              phone has the server make the file and shares it (owner, 2026-11-20); a computer
+              keeps the browser's own print dialog. */}
+          {phone ? (
+            <SharePdfButton
+              quote={printQuote}
+              className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-90"
+              style={{ background: "var(--gi-navy)" }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+              style={{ background: "var(--gi-navy)" }}
+            >
+              <Icon name="printer" className="h-4 w-4" />
+              {t("quotePrintBtn")}
+            </button>
+          )}
         </div>
       </div>
     </div>
