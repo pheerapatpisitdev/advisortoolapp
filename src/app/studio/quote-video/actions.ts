@@ -49,7 +49,7 @@ import { readVideoLang } from "@/lib/quote-video/video-words";
 import { LANG_NAME } from "@/lib/ihealthy-lang";
 import { readLength } from "@/lib/quote-video/told";
 import { DEFAULT_THEME, readTheme, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
-import { FESTIVALS, festivalOn, readFestival, type FestivalKey } from "@/lib/quote-video/festival";
+import { FESTIVALS, readFestival } from "@/lib/quote-video/festival";
 import { MY_COLORS, type MyColor } from "@/lib/card-theme";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
@@ -212,27 +212,23 @@ function checked(v: VideoInput, hide: PayMode[] = [], pen = true): VideoInput | 
 }
 
 /**
- * A clip's look as it is kept: none for ไวท์บอร์ด, the default (theme-keys.ts); ธีมเทศกาล with the festival on today
- * (festival.ts), or the default when the festival's days ended while the form stood open.
+ * A clip's look as it is kept: none for ไวท์บอร์ด, the default (theme-keys.ts). ธีมเทศกาล left the form (owner chose ก,
+ * 2026-11-20): readTheme reads it as the default, so a form left open from before asks for ไวท์บอร์ด.
  */
-function lookOf(asked: unknown, color?: unknown): { theme?: ThemeKey; festival?: FestivalKey; myColor?: MyColor } {
+function lookOf(asked: unknown, color?: unknown): { theme?: ThemeKey; myColor?: MyColor } {
   const theme = readTheme(asked);
   // สีของฉัน left the form (owner, 2026-11-17): readTheme reads it as the default, so this stays for nothing older
   if (theme === "mine") return MY_COLORS.includes(color as MyColor) ? { theme, myColor: color as MyColor } : {};
-  if (theme === "festival") {
-    const on = festivalOn();
-    return on ? { theme, festival: on.key } : {};
-  }
   return theme !== DEFAULT_THEME ? { theme } : {};
 }
 
-/** the look a clip's title names: ธีมเทศกาล by its festival; none for the default or a look taken away */
+/** the look a clip's title names: a clip made in ธีมเทศกาล before it left (2026-11-20) by its festival; none for the default or a look taken away */
 function lookName(input: { theme?: unknown; festival?: unknown }): string | null {
-  const theme = readTheme(input.theme);
-  if (theme === "festival") {
+  if (input.theme === "festival") {
     const festival = readFestival(input.festival);
     return festival ? `ธีม${FESTIVALS[festival].name}` : null;
   }
+  const theme = readTheme(input.theme);
   return theme !== DEFAULT_THEME ? THEME_LABELS[theme].name : null;
 }
 

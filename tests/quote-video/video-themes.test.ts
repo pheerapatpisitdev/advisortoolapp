@@ -12,14 +12,13 @@ type El = ReactElement<{ style?: Record<string, unknown>; children?: ReactNode }
 const kids = (e: El) => [e.props.children].flat().filter(isValidElement) as El[];
 
 describe("วิดีโอนำเสนอ themes (owner, 2026-10-17)", () => {
-  it("offers ไวท์บอร์ด first, then โน้ตแปะ and ตัวหนังสือเด้ง, ธีมเทศกาล in its days, and reads any other look as ไวท์บอร์ด (owner chose ก, 2026-11-17)", () => {
+  it("offers ไวท์บอร์ด first, then โน้ตแปะ and ตัวหนังสือเด้ง, and reads any other look as ไวท์บอร์ด (owner chose ก, 2026-11-17; ธีมเทศกาล out 2026-11-20)", () => {
     expect(STANDING_THEMES).toEqual(["board", "sticky", "kinetic"]);
-    expect(THEME_KEYS).toEqual(["board", "kinetic", "festival", "sticky"]);
+    expect(THEME_KEYS).toEqual(["board", "kinetic", "sticky"]);
     expect(DEFAULT_THEME).toBe("board");
     // the four taken away 2026-11-17, and every look taken away before
-    for (const gone of ["navy", "paper", "glass", "mine", "editorial", "collage", "clean", "gold", undefined]) expect(readTheme(gone)).toBe("board");
+    for (const gone of ["navy", "paper", "glass", "mine", "festival", "editorial", "collage", "clean", "gold", undefined]) expect(readTheme(gone)).toBe("board");
     expect(readTheme("sticky")).toBe("sticky");
-    expect(readTheme("festival")).toBe("festival");
   });
 
   it("leaves a navy frame as it was", () => {

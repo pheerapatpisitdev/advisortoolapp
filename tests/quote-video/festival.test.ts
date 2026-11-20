@@ -53,6 +53,7 @@ describe("ธีมเทศกาล's days (owner, 2026-10-20)", () => {
     for (const k of FESTIVAL_KEYS) expect(VIDEO_FESTIVAL_COLORS[k].ground).toMatch(/^#/);
     expect(readFestival("cny")).toBe("cny");
     expect(readFestival("halloween")).toBeUndefined();
-    expect(readTheme("festival")).toBe("festival");
+    // ธีมเทศกาล left the form and the requests (owner chose ก, 2026-11-20): asked for, it is drawn in ไวท์บอร์ด
+    expect(readTheme("festival")).toBe("board");
   });
 });

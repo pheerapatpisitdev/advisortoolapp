@@ -10,8 +10,7 @@ import { GS_PLANS, gsPlanName, gsPlanPage, gsPlanTerms, type GsPlan } from "@/li
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { PlbVariant } from "@/lib/quote-video/plb";
 import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
-import { festivalOn } from "@/lib/quote-video/festival";
-import { QUOTE_VIDEO_COLORS, RECIPE_COLORS, VIDEO_FESTIVAL_COLORS } from "@/lib/card-theme";
+import { QUOTE_VIDEO_COLORS, RECIPE_COLORS } from "@/lib/card-theme";
 import { nextRecipe, readRecipe, RECIPE_NAMES, type RecipeKey } from "@/lib/quote-video/recipe-keys";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
@@ -103,8 +102,6 @@ const LENGTH_KEY = "quote-video-length";
 const LANG_KEY = "quote-video-lang";
 const STYLE_KEY = "quote-video-style";
 const THEME_KEY = "quote-video-theme";
-/** the festival the agent turned ธีมเทศกาล off for, by its first day, so it is not picked again until the next one */
-const FESTIVAL_OFF_KEY = "quote-video-festival-off";
 /** สีของฉัน's colour, kept in this browser (owner, 2026-10-20) */
 /** น้องโล่ and the carried figures, kept in this browser (owner, 2026-10-20); on unless turned off here */
 const MASCOT_KEY = "quote-video-mascot";
@@ -332,8 +329,6 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const style: VideoStyle = allOn ? "motion" : pickedStyle;
   // ธีม (owner, 2026-10-17): the Motion Graphic look, remembered in this browser
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_THEME);
-  // ธีมเทศกาล (owner, 2026-10-20): offered in a festival's seven days, and picked by itself unless turned off for it
-  const [festival, setFestival] = useState<ReturnType<typeof festivalOn>>(null);
   // สีของฉัน (owner, 2026-10-20): the agent's colour, chosen once and kept
   // น้องโล่ and ตัวเลขลอยต่อ (owner, 2026-10-20): on for every Motion clip unless turned off
   const [mascot, setMascot] = useState(true);
@@ -380,11 +375,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       if (localStorage.getItem(MASCOT_KEY) === "off") setMascot(false);
       if (localStorage.getItem(CARRY_KEY) === "off") setCarry(false);
       if (localStorage.getItem(MUSIC_KEY) === "off") setMusic(false);
-      const on = festivalOn();
-      setFestival(on);
-      const kept = readTheme(localStorage.getItem(THEME_KEY));
-      const off = localStorage.getItem(FESTIVAL_OFF_KEY) === on?.first;
-      setTheme(on && !off ? "festival" : kept === "festival" ? DEFAULT_THEME : kept);
+      // ธีมเทศกาล left the form (owner chose ก, 2026-11-20): readTheme reads a kept "festival" as the default
+      setTheme(readTheme(localStorage.getItem(THEME_KEY)));
       const l = localStorage.getItem(LENGTH_KEY);
       if (l === "short" || l === "long" || l === "max") setLength(l);
       const b = JSON.parse(localStorage.getItem(BRIEF_KEY) ?? "null") as Partial<VideoBrief> | null;
@@ -411,14 +403,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   }
   function pickTheme(v: ThemeKey) {
     setTheme(v);
-    try {
-      localStorage.setItem(THEME_KEY, v);
-      // another look picked in a festival's days turns ธีมเทศกาล off until the next festival
-      if (festival) {
-        if (v === "festival") localStorage.removeItem(FESTIVAL_OFF_KEY);
-        else localStorage.setItem(FESTIVAL_OFF_KEY, festival.first);
-      }
-    } catch { /* not remembered, still used */ }
+    try { localStorage.setItem(THEME_KEY, v); } catch { /* not remembered, still used */ }
   }
   function pickTell(v: Tell) {
     setTell(v);
@@ -609,8 +594,6 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const named = geminiOf({ narrator, gemini });
   const voiceWord = voice && !foreign ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs"
     : named.name !== GEMINI_DEFAULT[named.sex] ? `เสียง ${named.name}` : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
-  /** a look's name: ธีมเทศกาล by the festival on */
-  const themeName = (k: ThemeKey) => (k === "festival" && festival ? `ธีม${festival.name}` : THEME_LABELS[k].name);
   // the Motion Graphic look: วิดีโอนำเสนอ's in Motion, and สรุป FHC's (owner, 2026-10-17)
   // ลูกเล่นคลิปใหม่ (fx.ts): every look gets the music, so its switch stands apart from the Motion Graphic's chips
   const musicChips = fx ? (
@@ -627,14 +610,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     <div>
       <span className={label}>ธีม</span>
       <div className="flex flex-wrap gap-2">
-        {[...STANDING_THEMES, ...(festival ? ["festival" as const] : [])].map((k) => (
+        {STANDING_THEMES.map((k) => (
           <button key={k} type="button" className={chip(theme === k)} onClick={() => pickTheme(k)}>
-            <span aria-hidden className="inline-block h-3.5 w-5 shrink-0 rounded-[3px] border border-black/15" style={{ background: k === "festival" && festival ? VIDEO_FESTIVAL_COLORS[festival.key].ground : THEME_LABELS[k].swatch }} />
-            {themeName(k)}
+            <span aria-hidden className="inline-block h-3.5 w-5 shrink-0 rounded-[3px] border border-black/15" style={{ background: THEME_LABELS[k].swatch }} />
+            {THEME_LABELS[k].name}
           </button>
         ))}
       </div>
-      <p className="mt-1 text-xs text-[var(--ct-mute)]">{theme === "festival" && festival ? `สีและของประดับ${festival.name} คำอวยพร “${festival.greeting}” ด้านบน · กดธีมอื่นเพื่อปิด` : THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
+      <p className="mt-1 text-xs text-[var(--ct-mute)]">{THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
       <div className="mt-2">
         <span className={label}>น้องโล่</span>
         <div className="flex flex-wrap gap-2">
@@ -700,7 +683,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
       kind === "quote" && !recipeOn ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
-      kind === "quote" ? (style === "motion" ? "Motion" : style === "chat" && !foreign ? "แชท" : "ปกติ") : themeName(theme),
+      kind === "quote" ? (style === "motion" ? "Motion" : style === "chat" && !foreign ? "แชท" : "ปกติ") : THEME_LABELS[theme].name,
       // the recipe, as the finished clip's card names it
       recipeOn ? (chosen ? RECIPE_NAMES[chosen] : "สุ่มสูตร") : "",
       SIZE_CHOICES.find((c) => c.size === shownSize)?.name.split(" ")[0] ?? "",

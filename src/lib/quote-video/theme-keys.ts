@@ -9,6 +9,9 @@
  * Owner 2026-11-17 (mockup https://claude.ai/artifact/6rxmSDSGKu94YqnXQxZRcP, ก): น้ำเงินทอง, วาดมือบนกระดาษ, กระจกใส and
  * สีของฉัน left the form; ไวท์บอร์ด is what a clip is drawn in when it asks for none, or for a look taken away. Their
  * drawing stays: every look repaints น้ำเงินทอง's frame, and ธีมเทศกาล is drawn on it.
+ * Owner 2026-11-20 (mockup https://claude.ai/artifact/XMn5dKPZ9jxJpN2muvYBqG, ก): ธีมเทศกาล left too, the form and the
+ * requests both; a request for it is read as ไวท์บอร์ด. Its drawing stays for the clips made in it. The เทศกาล topic of
+ * คลิปเล่าเรื่อง (story/topics.ts) is another thing and stays.
  */
 
 import { VIDEO_THEME_EXTRA } from "@/lib/card-theme";
@@ -16,8 +19,8 @@ import { VIDEO_THEME_EXTRA } from "@/lib/card-theme";
 /** "chat": แชทถาม-ตอบ's drawing (chat.tsx), set by the style, never picked as a look nor read from a request */
 export type ThemeKey = "navy" | "paper" | "board" | "kinetic" | "mine" | "festival" | "chat" | "glass" | "sticky";
 /** the looks a request may ask for; any other (a look taken away, or none) is read as DEFAULT_THEME */
-export const THEME_KEYS: ThemeKey[] = ["board", "kinetic", "festival", "sticky"];
-/** the looks the form always offers; ธีมเทศกาล joins them in a festival's days */
+export const THEME_KEYS: ThemeKey[] = ["board", "kinetic", "sticky"];
+/** the looks the form offers */
 export const STANDING_THEMES: ThemeKey[] = ["board", "sticky", "kinetic"];
 export const DEFAULT_THEME: ThemeKey = "board";
 export const readTheme = (v: unknown): ThemeKey => (THEME_KEYS.includes(v as ThemeKey) ? (v as ThemeKey) : DEFAULT_THEME);
