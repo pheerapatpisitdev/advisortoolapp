@@ -442,7 +442,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
     // plan for everyone else (2026-09-30)
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a", logo: "ca" },
-    { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79", logo: "hk" },
+    // the formula library: the owner's alone since 2026-11-20 (owner chose ก); the AI still uses the formulas for everyone
+    ...(who?.owner ? [{ href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote" as const, hue: "#302f79", logo: "hk" as const }] : []),
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80", logo: "pe" },
     // every clip building block, made and planned, with a way into its form (owner, mockup v5 2026-11-14):
     // the owner's alone since the same day (spec 2026-11-14-library-owner-only-design.md)

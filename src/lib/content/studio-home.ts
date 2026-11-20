@@ -105,10 +105,11 @@ export function homeCards(input: HomeInput): HomeCard[] {
       status: c === null ? "เปิดดู" : c.campaigns === 0 ? "ยังไม่มีแคมเปญ" : c.launched > 0 ? `${c.campaigns} แคมเปญ · ยิงแล้ว ${c.launched}` : `${c.campaigns} แคมเปญ`,
     };
   };
-  const hooks: HomeTile = {
+  // the formula library is the owner's alone since 2026-11-20 (owner chose ก): no tile for anyone else
+  const hooks: HomeTile[] = input.owner ? [{
     key: "hooks", href: "/studio/hooks", label: "คลังสูตรประโยคเปิด",
     status: count(input.hooks, (n) => `${n} สูตร`, "ยังไม่มีสูตร"),
-  };
+  }] : [];
   const people = (pageId?: string): HomeTile => ({
     key: "people", href: pageId ? `/studio/people?page=${encodeURIComponent(pageId)}` : "/studio/people", label: "คลังบุคคล",
     status: count(
@@ -131,7 +132,7 @@ export function homeCards(input: HomeInput): HomeCard[] {
           key: "calendar", href: `/studio/calendar?page=${encodeURIComponent(p.pageId)}`, label: "ปฏิทินโพสต์",
           status: count(input.scheduled.get(p.pageId) ?? 0, (n) => `ตั้งเวลาไว้ ${n} โพสต์`, "ยังไม่มีรายการตั้งเวลา"),
         },
-        hooks,
+        ...hooks,
         people(p.pageId),
         // the การตั้งค่า tile (/admin/posting) went with the back office to the Super Admin (2026-10-15)
       ],
@@ -144,7 +145,7 @@ export function homeCards(input: HomeInput): HomeCard[] {
     subtitle: `Studio ของ ${input.name}`,
     initials: initials(input.room),
     picture: null,
-    tiles: [write(), hooks, people()],
+    tiles: [write(), ...hooks, people()],
   };
   // posting staff with nothing to show: the way to connect a Page, or word that the list failed
   // posting staff with no Page of their own: the owner ties Pages to them on /admin/team

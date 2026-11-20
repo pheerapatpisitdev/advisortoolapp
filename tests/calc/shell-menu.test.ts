@@ -300,7 +300,7 @@ describe("Studio's own menu", () => {
     expect(groups.map((g) => g.links.map((l) => l.href))).toEqual([
       ["/home", "/studio"],
       ["/studio/quote-video", "/studio/story-clip", "/studio/prompt-story", "/studio/write", "/studio/thumbnail", "/studio/describe"],
-      ["/studio/calendar", "/studio/hooks", "/studio/people"],
+      ["/studio/calendar", "/studio/people"],
     ]);
     expect(groups[0].links[0]).toMatchObject({ label: "ระบบหลัก", icon: "back" });
   });
@@ -314,6 +314,8 @@ describe("Studio's own menu", () => {
     // an admin who is not the owner, an assistant, a plain agent, a member and a signed-out reader
     for (const w of [{ ...who, admin: true, publish: true, connect: true }, { ...who, publish: true }, who, { ...who, member: true } as typeof who, undefined]) {
       expect(keep(w).map((l) => l.href)).not.toContain("/studio/library");
+      // คลังสูตรประโยคเปิด too, since 2026-11-20 (owner chose ก)
+      expect(keep(w).map((l) => l.href)).not.toContain("/studio/hooks");
     }
   });
 
