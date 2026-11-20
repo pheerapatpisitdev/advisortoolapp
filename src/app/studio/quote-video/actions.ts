@@ -34,6 +34,7 @@ import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { cleanCustomerName, pageCaption, planInput, productOf, quoteVideoFacts, riderShort, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
 import { currentRiders, lifeProtectPriced } from "@/lib/lifeprotect-card";
+import { lifeProtectLinkSum } from "@/lib/quote-pdf/pages";
 import { quoteCard } from "@/lib/quote-card";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
 import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, previewHealth, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
@@ -126,12 +127,10 @@ const clipPost = (raw: unknown): ClipPost | null => {
 };
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
-function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
-  if (product === "ISHIELD") {
-    const t = iShieldTable();
-    return { min: t.saMin, max: t.saMax };
-  }
-  return { min: 500_000, max: 50_000_000 };
+/** iShield's sums; Life Protect's are the page's own (lifeProtectLinkSum) */
+function iShieldSums() {
+  const t = iShieldTable();
+  return { min: t.saMin, max: t.saMax };
 }
 
 /** how a clip's voice reads in the list of clips; a voice no longer listed reads as ElevenLabs */
@@ -314,9 +313,15 @@ function checkedQuote(v: VideoInput): VideoInput | string {
   if (product !== "LIFEPROTECT" && product !== "ISHIELD") return "เลือกแบบประกัน";
   const term = TERMS[product].find((x) => x.variant === v.variant);
   if (!term) return "เลือกระยะชำระเบี้ย";
-  const { min, max } = sumLimits(product);
-  if (!Number.isInteger(v.sumAssured) || v.sumAssured < min || v.sumAssured > max || v.sumAssured % SUM_STEP) {
-    return `ทุนประกัน ${min.toLocaleString("en-US")} – ${max.toLocaleString("en-US")} บาท ทีละ 50,000`;
+  // Life Protect takes the page's sums, any whole baht (owner, 2026-11-20, ก): a sum typed or bought by a budget on
+  // /lifeprotect came over to the form and was refused for not being a fifty-thousand step
+  if (product === "LIFEPROTECT") {
+    if (!lifeProtectLinkSum(v.sumAssured)) return "ทุนประกัน 150,000 – 50,000,000 บาท";
+  } else {
+    const { min, max } = iShieldSums();
+    if (!Number.isInteger(v.sumAssured) || v.sumAssured < min || v.sumAssured > max || v.sumAssured % SUM_STEP) {
+      return `ทุนประกัน ${min.toLocaleString("en-US")} – ${max.toLocaleString("en-US")} บาท ทีละ 50,000`;
+    }
   }
   // a waiver no longer sold (พีบี, 2026-11-02) comes off rather than refusing the clip
   const riders = product === "LIFEPROTECT" && "riders" in v ? currentRiders(cleanRiders(v.riders)) : undefined;

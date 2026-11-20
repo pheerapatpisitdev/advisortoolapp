@@ -72,3 +72,22 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
     for (const n of tableNotes(f)) for (const l of n.labels) expect(l.x).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("Life Protect clip on the page's own sum, to the baht (owner, 2026-11-20, ก)", () => {
+  // the iPad case: a budget on /lifeprotect bought 579,710 with ECARE at the same sum, and the form refused it
+  const odd = { ...base, sumAssured: 579_710, riders: { illness: [{ code: "ECARE", sumAssured: 579_710 }] } };
+
+  it("comes over from the page's button with the sum as it is", () => {
+    const back = videoStartFrom(Object.fromEntries(new URL(videoStartHref(odd), "https://x").searchParams));
+    expect(back?.sumAssured).toBe(579_710);
+    expect(back?.riders?.illness).toEqual([{ code: "ECARE", sumAssured: 579_710 }]);
+  });
+
+  it("is priced and written like any other sum", () => {
+    const f = facts(odd);
+    expect(f).toBeDefined();
+    expect(f.prices.find((p) => p.main)?.amount).toMatch(/^[\d,]+$/);
+    expect(f.priceNotes.join("\n")).toContain("ECARE");
+    expect(quoteVideoScript(facts(odd), undefined, "F").find((s) => s.key === "lead")!.voice).toContain("ทำทุน 579,710 ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง 1,159,420 บาท");
+  });
+});

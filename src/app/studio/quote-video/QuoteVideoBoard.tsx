@@ -978,7 +978,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                     <div>
                       <label htmlFor="qv-sum" className={label}>ทุนประกัน (บาท)</label>
                       <input id="qv-sum" inputMode="numeric" className={field} value={sum} onChange={(e) => setSum(money(e))} />
-                      <p className="mt-1 text-xs text-[var(--ct-mute)]">ทีละ 50,000</p>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "LIFEPROTECT" ? "150,000 – 50,000,000 ใส่ได้ทุกบาท เหมือนหน้า Life Protect" : "ทีละ 50,000"}</p>
                     </div>
                   )}
                   {termed(product) && (
@@ -1126,6 +1126,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               {error.text}{" "}
               {error.contact && <Link href="/studio/account" className="font-medium underline">ไปที่บัญชีของฉัน</Link>}
             </p>
+          )}
+          {/* why the button is off, beside it: the price box that also says so may be scrolled away (owner, 2026-11-20) */}
+          {kind === "quote" && !error && preview && "error" in preview && (
+            <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">{preview.error}</p>
           )}
           {notice && (
             <p role="status" className={notice.ok ? "rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm text-[var(--ct-accent)]" : "rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]"}>
