@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { quoteVideoFacts, type VideoInput } from "@/lib/quote-video/script";
+import { lineProblem } from "@/lib/quote-video/brief";
 import { adInputOk, allowedNote, bodiesFor, cleanAdPlan, ctasFor, fixedBody, fixedCta, fixedPhoto, fixedPlan, nextYear } from "@/lib/ad-video/plan";
 
 const TODAY = new Date("2026-11-22T00:00:00+07:00");
@@ -30,7 +31,7 @@ describe("ad video plan", () => {
     expect(ctasFor(undefined)).not.toContain("nextyear");
     expect(allowedNote(next)).toBe("อายุถัดไป วันละ 81 บาท");
     expect(allowedNote(undefined)).toBe("");
-    expect(fixedCta("nextyear", next!)).toBe("ถ้ารอปีหน้า เบี้ยขึ้นเป็นวันละ 81 บาท ทักมาคุยวันนี้เลยนะคะ");
+    expect(fixedCta("nextyear", next!)).toBe("ถ้ารอปีหน้า ยอดออมขึ้นเป็นวันละ 81 บาท ทักมาคุยวันนี้เลยนะคะ");
   });
 
   it("always has a fixed body and cta line", () => {
@@ -58,12 +59,22 @@ describe("ad video plan", () => {
   });
 
   it("keeps a next-year cta that says the quote's figure and replaces one that does not", () => {
-    const ok = "ถ้ารอปีหน้า เบี้ยขึ้นเป็นวันละ 81 บาท ทักมาเลยค่ะ";
+    const ok = "ถ้ารอปีหน้า ยอดออมขึ้นเป็นวันละ 81 บาท ทักมาเลยค่ะ";
     const a = cleanAdPlan(raw({ cta: { key: "nextyear", voice: ok } }), lp, next, TODAY);
     expect(a.plan.cta.voice).toBe(ok);
-    const b = cleanAdPlan(raw({ cta: { key: "nextyear", voice: "ถ้ารอปีหน้า เบี้ยขึ้นเป็นวันละ 90 บาท ทักมาเลยค่ะ" } }), lp, next, TODAY);
+    const b = cleanAdPlan(raw({ cta: { key: "nextyear", voice: "ถ้ารอปีหน้า ยอดออมขึ้นเป็นวันละ 90 บาท ทักมาเลยค่ะ" } }), lp, next, TODAY);
     expect(b.plan.cta.voice).toBe(fixedCta("nextyear", next!));
     expect(b.fixed).toContain("cta");
+  });
+
+  it("replaces a cta voice that says เบี้ย", () => {
+    const r = cleanAdPlan(raw({ cta: { key: "chat", voice: "ทักมาดูเบี้ยของคุณได้เลยค่ะ" } }), lp, next, TODAY);
+    expect(r.fixed).toContain("cta");
+    expect(r.plan.cta.voice).toBe(fixedCta("chat", next));
+  });
+
+  it("never fixes a line with one the checker refuses", () => {
+    for (const k of ctasFor(next)) expect(lineProblem(fixedCta(k, next), lp, 150, allowedNote(next))).toBeNull();
   });
 
   it("de-duplicates and cuts bodies to three", () => {

@@ -75,10 +75,10 @@ export function fixedBody(f: QuoteVideoFacts, key: AdBodyKey): string {
 
 export function fixedCta(key: AdCtaKey, next: Next): string {
   switch (key) {
-    case "line": return "แอด LINE รับตารางเบี้ยตามอายุของคุณได้เลยนะคะ";
+    case "line": return "แอด LINE รับใบเสนอตามอายุของคุณได้เลยนะคะ";
     case "comment": return "คอมเมนต์คำว่า สนใจ เดี๋ยวส่งรายละเอียดให้ทางแชทนะคะ";
     case "meet": return "ทักมานัดคุย 15 นาที ช่วยดูแผนให้ฟรีค่ะ";
-    case "nextyear": return next ? `ถ้ารอปีหน้า เบี้ยขึ้นเป็น${next.per} ${next.said} บาท ทักมาคุยวันนี้เลยนะคะ` : fixedCta("chat", next);
+    case "nextyear": return next ? `ถ้ารอปีหน้า ยอดออมขึ้นเป็น${next.per} ${next.said} บาท ทักมาคุยวันนี้เลยนะคะ` : fixedCta("chat", next);
     default: return "บอกแค่อายุ ทักมาขอใบเสนอของคุณได้เลยนะคะ";
   }
 }
@@ -177,9 +177,7 @@ export function cleanAdPlan(
   const c = isObj(r.cta) ? r.cta : {};
   const ctaKey = ctasFor(next).includes(c.key as AdCtaKey) ? (c.key as AdCtaKey) : "chat";
   let ctaVoice = str(c.voice);
-  // the fixed "รอปีหน้า" line itself says เบี้ย (owner's wording), so that one word is let pass here only
-  const checked = ctaKey === "nextyear" ? ctaVoice.replace(/เบี้ย/g, "ราคา") : ctaVoice;
-  const ctaWhy = ctaKey !== c.key ? "ไม่มีแบบนี้" : lineProblem(checked, f, VOICE_MAX, note);
+  const ctaWhy = ctaKey !== c.key ? "ไม่มีแบบนี้" : lineProblem(ctaVoice, f, VOICE_MAX, note);
   if (ctaWhy) { ctaVoice = fixedCta(ctaKey, next); fix("cta", ctaWhy); }
 
   // photo prompts: English only, no digits
