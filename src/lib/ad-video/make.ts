@@ -61,7 +61,7 @@ export function adPhotoIdeas(v: VideoInput & { ad: AdPlan }): ({ idea: string; s
 }
 
 /** an ad is drawn in ไวท์บอร์ด or แบบเดิม only (globals): any other look asked for, a festival's too, is ไวท์บอร์ด */
-const adTheme = (v: unknown): "board" | "navy" => (readTheme(v) === "navy" ? "navy" : "board");
+export const adTheme = (v: unknown): "board" | "navy" => (readTheme(v) === "navy" ? "navy" : "board");
 
 /**
  * An ad clip's parts: always portrait Motion, the plan's lines on the standing clip's scenes (so each moves as it
