@@ -115,7 +115,7 @@ export async function counted<T>(ip: string, check: (left: number) => Promise<Ch
  * (signing in: yes; linking a LINE: no, the account is shared).
  */
 export async function checkAgentCode(code: string, ip: string, opts: { demo: boolean }): Promise<Checked<Viewer>> {
-  if (!/^\d{6}$/.test(code)) return { ok: false, error: "กรุณากรอกรหัสตัวแทน 6 หลัก" };
+  if (!/^\d{6}$/.test(code)) return { ok: false, error: "กรุณากรอกรหัส 6 หลัก" };
   return counted(ip, async (left) => {
     let demo = false;
     // the บัญชีสาธิต customers try the system with (owner, 2026-11-11, ./demo.ts): ours, not UnitOS's

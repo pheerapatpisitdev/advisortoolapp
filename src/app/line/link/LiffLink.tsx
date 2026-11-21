@@ -97,7 +97,7 @@ export function LiffLink({ liffId, oa }: { liffId: string; oa: string }) {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{6}$/.test(code)) {
-      setErr("กรอกรหัสตัวแทนให้ครบ 6 หลัก");
+      setErr("กรอกรหัสให้ครบ 6 หลัก");
       return;
     }
     void link({ code });
@@ -120,7 +120,7 @@ export function LiffLink({ liffId, oa }: { liffId: string; oa: string }) {
                 : "ทำครั้งแรกครั้งเดียว แล้ว advisortool จะแจ้งเตือนเรื่องของคุณใน LINE นี้"}
             </p>
             <label className="block space-y-1.5">
-              <span className="text-sm font-medium">รหัสตัวแทน 6 หลัก</span>
+              <span className="text-sm font-medium">รหัส 6 หลัก</span>
               <input
                 id="agent-code" className={`${INPUT} text-center text-xl tracking-[0.4em]`} inputMode="numeric" autoComplete="off" maxLength={6}
                 value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setErr(""); }}

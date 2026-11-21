@@ -13,7 +13,7 @@ type Tab = "member" | "unitos";
 /** who each tab is for, said under the tabs: a first visitor cannot tell from the names alone */
 const FOR: Record<Tab, string> = {
   member: "เข้าด้วยบัญชี Google (Gmail) ของคุณ",
-  unitos: "รหัสตัวแทน 6 หลัก — รหัสเดียวกับที่ใช้เข้า UnitOS",
+  unitos: "รหัส 6 หลัก — รหัสเดียวกับที่ใช้เข้า UnitOS",
 };
 
 /**
@@ -122,7 +122,7 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
       ) : (
         <form method="post" className="mt-5 space-y-4" onSubmit={submit(signIn)}>
           <input type="hidden" name="next" value={next} />
-          <Field id="login-code" label="รหัสตัวแทน 6 หลัก">
+          <Field id="login-code" label="รหัส 6 หลัก">
             {/* dots, not the digits, so a person beside them cannot read the code; the eye shows
                 it to check a typo (owner chose ข, 2026-11-12). inputMode keeps the number pad */}
             <div className="relative">

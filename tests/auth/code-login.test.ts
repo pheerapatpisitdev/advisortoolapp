@@ -178,7 +178,7 @@ describe("signIn with the agent code", () => {
   });
 
   it("asks for six digits before writing or counting anything", async () => {
-    expect(await signIn(form("12345"))).toEqual({ error: "กรุณากรอกรหัสตัวแทน 6 หลัก" });
+    expect(await signIn(form("12345"))).toEqual({ error: "กรุณากรอกรหัส 6 หลัก" });
     expect(db.log).toHaveLength(0);
   });
 });

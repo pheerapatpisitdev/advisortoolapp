@@ -209,7 +209,7 @@ export function LineLinkForm({ initial, locked }: { initial: LineView | null; lo
         </div>
       ) : view.team ? (
         <div className="space-y-3">
-          <p className={`text-sm ${MUTE}`}>ยังไม่ได้เชื่อม · สแกน QR ด้วยมือถือ แล้วกรอกรหัสตัวแทน 6 หลักของคุณ</p>
+          <p className={`text-sm ${MUTE}`}>ยังไม่ได้เชื่อม · สแกน QR ด้วยมือถือ แล้วกรอกรหัส 6 หลักของคุณ</p>
           <div className="flex flex-wrap items-start gap-4">
             <div className="hidden sm:block"><LinkQr url={view.team} /></div>
             <div className="min-w-0 flex-1 space-y-1.5 text-sm">
