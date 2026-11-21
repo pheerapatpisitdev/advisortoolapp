@@ -29,6 +29,7 @@ const BUSY = "ลองใหม่อีกครั้งในอีกสั
 const NOT_PRICED = "แผนนี้คิดราคาไม่ได้ในอายุนี้ ลองเปลี่ยนอายุ ทุน หรือแผน";
 const OWN_HOOK = "ประโยคที่เขียนเองแก้ในช่องได้เลย";
 const NO_PLAN = "ให้ AI เขียนบทก่อนสร้างวิดีโอ";
+const REPLACED = "มีบางประโยคใช้ไม่ได้ ระบบแก้ให้แล้ว ตรวจอีกครั้งแล้วกดสร้าง";
 /** what the form says of a part the checker replaced with the standard line */
 const STANDARD = "ใช้ประโยคมาตรฐานแทน";
 /** the agent's own opening is a spoken line: the checker's 150, cut on the server before any prompt (R13) */
@@ -42,7 +43,12 @@ const CTA_KEYS: AdCtaKey[] = ["chat", "line", "comment", "nextyear", "meet"];
  */
 const draftsPerHour = limiter(60, 60 * 60_000);
 
-export type AdMade = { ok: true; id: string; fixed?: string[]; reasons?: Record<string, string> } | { ok: false; error: string; needContact?: boolean };
+/**
+ * `fixed`, `reasons` and `plan` come with a refusal when the checker replaced part of the plan: the form shows the
+ * cleaned plan and the agent presses สร้าง again (R14)
+ */
+export type AdMade = { ok: true; id: string }
+  | { ok: false; error: string; needContact?: boolean; fixed?: string[]; reasons?: Record<string, string>; plan?: AdPlan };
 export interface AdDraft {
   plan: AdPlan;
   /** the quote in one line, as the form shows it above the plan */
@@ -185,8 +191,8 @@ export async function previewAd(v: VideoInput, art: AdArt, bodies: number): Prom
 
 /**
  * สร้างวิดีโอ: gated as วิดีโอนำเสนอ's makeVideo (member, switch, contact, voice). The clip stores only the plan as
- * cleaned here, never the object the form sent (R13); a part the agent edited into a figure the quote has not got
- * is made with its standard line, and `fixed` names it so the form can show what changed.
+ * cleaned here, never the object the form sent (R13); when the checker replaced any part (a figure the quote has
+ * not got, a photo idea in Thai) nothing is made and the cleaned plan goes back to the form to be seen (R14).
  */
 export async function makeAdVideo(v: VideoInput, plan: AdPlan): Promise<AdMade> {
   const viewer = await requireMember();
@@ -203,13 +209,16 @@ export async function makeAdVideo(v: VideoInput, plan: AdPlan): Promise<AdMade> 
   const full = await voiceRefusal(q.c.voice, true);
   if (full) return { ok: false, error: full };
   const { plan: ad, fixed, reasons } = cleanAdPlan(plan, q.f, q.next);
+  // a paid clip never speaks a line the agent did not see (R14, 2026-11-22): any part replaced — photos too — is
+  // shown back first, and nothing is made or held. The cleaned plan passes the checker as it is, so sent again it is made
+  if (fixed.length) return { ok: false, error: REPLACED, fixed, reasons, plan: ad };
   try {
     // no customer's name: an ad goes to a Page or to anyone
     const made = await createVideo(viewer, { ...q.c, ad }, "");
     if ("refusal" in made) return { ok: false, error: made.refusal };
     const { id } = made;
     runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
-    return { ok: true, id, ...(fixed.length ? { fixed, reasons } : {}) };
+    return { ok: true, id };
   } catch (e) {
     console.error("ad video not started:", e instanceof Error ? e.message : "unknown error");
     return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };

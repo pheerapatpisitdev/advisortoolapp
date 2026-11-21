@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 
 describe("the switches as stored (features.ts)", () => {
-  it("lists the eight tools of the mockup, each once", () => {
+  it("lists the nine tools, each once", () => {
     expect(FEATURES.map((f) => f.label)).toEqual(["วิดีโอนำเสนอ", "วิดีโอโฆษณา", "คลิปเล่าเรื่อง", "คลิปตามโจทย์", "Organic Studio", "ภาพปกคลิป", "ถอดรูปเป็น prompt", "Ads Studio", "ถาม AI"]);
     expect(new Set(FEATURES.map((f) => f.key)).size).toBe(FEATURES.length);
   });

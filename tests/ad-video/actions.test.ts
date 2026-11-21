@@ -185,16 +185,40 @@ describe("makeAdVideo", () => {
     await makeAdVideo({ ...LP, theme: "navy" } as VideoInput, plan());
     expect(stored().theme).toBe("navy");
   });
-  it("stores the fixed line in place of an edited body with a figure the quote does not have, and says so", async () => {
+  it("refuses a plan the checker had to mend, makes and holds nothing, and hands back the mended plan (R14)", async () => {
     const edited = plan();
     edited.body[0] = { key: edited.body[0].key, voice: "ออมแค่วันละ 59 บาท ค่ะ" };
     const got = await makeAdVideo(LP, edited);
-    expect(got).toMatchObject({ ok: true, id: "v1", fixed: ["body1"] });
-    expect(stored().ad.body[0].voice).toBe(fixedBody(lp, edited.body[0].key));
+    expect(got).toMatchObject({ ok: false, error: "มีบางประโยคใช้ไม่ได้ ระบบแก้ให้แล้ว ตรวจอีกครั้งแล้วกดสร้าง", fixed: ["body1"] });
+    if (got.ok) throw new Error("made");
+    expect(got.reasons?.body1).toBeTruthy();
+    expect(got.plan).toEqual(cleanAdPlan(edited, lp, next).plan);
+    expect(got.plan?.body[0].voice).toBe(fixedBody(lp, edited.body[0].key));
+    expect(s.create).not.toHaveBeenCalled();
+    expect(s.later).not.toHaveBeenCalled();
+  });
+  it("makes the mended plan when it is sent back: no refusal loop", async () => {
+    const edited = plan();
+    edited.body[0] = { key: edited.body[0].key, voice: "ออมแค่วันละ 59 บาท ค่ะ" };
+    const first = await makeAdVideo(LP, edited);
+    if (first.ok || !first.plan) throw new Error("not refused");
+    expect(await makeAdVideo(LP, first.plan)).toEqual({ ok: true, id: "v1" });
+    expect(stored().ad).toEqual(first.plan);
+    expect(s.later).toHaveBeenCalledTimes(1);
+  });
+  it("refuses when only a photo idea was mended, then makes the mended plan", async () => {
+    const sent = { ...plan(), photos: { hook: "ภาพครอบครัว 3 คน", close: "a family at home" } } as AdPlan;
+    const first = await makeAdVideo(LP, sent);
+    expect(first).toMatchObject({ ok: false, fixed: ["photos"] });
+    expect(s.create).not.toHaveBeenCalled();
+    if (first.ok || !first.plan) throw new Error("not refused");
+    expect(await makeAdVideo(LP, first.plan)).toEqual({ ok: true, id: "v1" });
+    expect(stored().ad.photos.close).toBe("a family at home");
+    expect(stored().ad.photos.hook).not.toMatch(/[ก-๙0-9]/);
   });
   it("stores only the server's cleaned plan, never the object as sent (R13)", async () => {
-    const sent = { ...plan(), evil: "x", photos: { hook: "ภาพครอบครัว 3 คน", close: "a family at home" } } as AdPlan;
-    await makeAdVideo(LP, sent);
+    const sent = { ...plan(), evil: "x", photos: { hook: "a father with his child", close: "a family at home" } } as AdPlan;
+    expect(await makeAdVideo(LP, sent)).toEqual({ ok: true, id: "v1" });
     expect(stored().ad).toEqual(cleanAdPlan(sent, lp, next).plan);
     expect(stored().ad).not.toHaveProperty("evil");
   });
