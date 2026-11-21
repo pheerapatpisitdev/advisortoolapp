@@ -329,7 +329,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   /** an ElevenLabs voice instead, of the narrator's sex where there is one */
   const elevenInstead = eleven.find((v) => v.sex === narrator) ?? eleven[0];
   const [pickedStyle, setStyle] = useState<VideoStyle>("classic");
-  const style: VideoStyle = allOn ? "motion" : pickedStyle;
+  // แชทถาม-ตอบ is off the form (owner, 2026-11-21, ก): a choice of it kept from before is แบบปกติ
+  const style: VideoStyle = allOn ? "motion" : pickedStyle === "chat" ? "classic" : pickedStyle;
   // ธีม (owner, 2026-10-17): the Motion Graphic look, remembered in this browser
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_THEME);
   // ธีมเทศกาล (owner, 2026-10-20): offered in a festival's seven days, and picked by itself unless turned off for it
@@ -376,7 +377,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   useEffect(() => {
     try {
       const keptStyle = localStorage.getItem(STYLE_KEY);
-      if (keptStyle === "motion" || keptStyle === "chat") setStyle(keptStyle);
+      if (keptStyle === "motion") setStyle(keptStyle);
       if (localStorage.getItem(MASCOT_KEY) === "off") setMascot(false);
       if (localStorage.getItem(CARRY_KEY) === "off") setCarry(false);
       if (localStorage.getItem(MUSIC_KEY) === "off") setMusic(false);
@@ -700,7 +701,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
       kind === "quote" && !recipeOn ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
-      kind === "quote" ? (style === "motion" ? "Motion" : style === "chat" && !foreign ? "แชท" : "ปกติ") : themeName(theme),
+      kind === "quote" ? (style === "motion" ? "Motion" : "ปกติ") : themeName(theme),
       // the recipe, as the finished clip's card names it
       recipeOn ? (chosen ? RECIPE_NAMES[chosen] : "สุ่มสูตร") : "",
       SIZE_CHOICES.find((c) => c.size === shownSize)?.name.split(" ")[0] ?? "",
@@ -742,12 +743,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             <div>
               <span className={label}>สไตล์</span>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={chip(style === "classic" || (style === "chat" && foreign))} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", baseLength)])} บาท</button>
+                <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", baseLength)])} บาท</button>
                 <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices[videoPriceKey("motion", length)])} บาท</button>
-                {/* แชทถาม-ตอบ (owner, 2026-10-20): the customer asks in Thai, so Thai clips only */}
-                {!foreign && <button type="button" className={chip(style === "chat")} onClick={() => pickStyle("chat")}>แชทถาม-ตอบ · {priceBaht(prices[videoPriceKey("chat", baseLength)])} บาท</button>}
               </div>
-              <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : style === "chat" && !foreign ? "หน้าจอแชท ลูกค้าถาม ตัวแทนตอบ พร้อมส่งการ์ดราคา ตาราง และนามบัตรในแชท" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
+              <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
             </div>
             {/* one cell, so on a wide screen the fold line stays under the tiles, beside สไตล์ */}
             {tellRow && (

@@ -183,8 +183,9 @@ function checked(v: VideoInput, hide: PayMode[] = [], pen = true): VideoInput | 
   // one of Gemini's 30 voices (owner, 2026-10-17), in every language; its sex sets the endings
   const gemini = eleven ? undefined : geminiVoice(v.gemini);
   const narrator = eleven ? eleven.sex : gemini ? gemini.sex : v.narrator === "M" ? "M" : "F";
-  // แชทถาม-ตอบ (owner, 2026-10-20): its customer asks in Thai, so a clip in another language is แบบปกติ
-  const style = all || v.style === "motion" ? "motion" : v.style === "chat" && !foreign ? "chat" : "classic";
+  // แชทถาม-ตอบ came off the form (owner, 2026-11-21, ก): a request for it — an older tab — is made แบบปกติ.
+  // Its drawing (chat.tsx) stays, so a chat clip already queued still finishes.
+  const style = all || v.style === "motion" ? "motion" : "classic";
   // a Motion Graphic clip's look (owner, 2026-10-17); น้ำเงินทอง is kept as no theme at all
   const look = lookOf(style === "motion" ? v.theme : undefined, v.myColor);
   const askedLength = readLength(v.length);
