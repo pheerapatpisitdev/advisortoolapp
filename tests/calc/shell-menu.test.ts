@@ -305,7 +305,7 @@ describe("Studio's own menu", () => {
     expect(groups.map((g) => g.title ?? null)).toEqual([null, "สร้างงาน", "วางแผนและคลัง"]);
     expect(groups.map((g) => g.links.map((l) => l.href))).toEqual([
       ["/home", "/studio"],
-      ["/studio/quote-video", "/studio/story-clip", "/studio/prompt-story", "/studio/write", "/studio/thumbnail", "/studio/describe"],
+      ["/studio/quote-video", "/studio/ad-video", "/studio/story-clip", "/studio/prompt-story", "/studio/write", "/studio/thumbnail", "/studio/describe"],
       ["/studio/calendar", "/studio/people"],
     ]);
     expect(groups[0].links[0]).toMatchObject({ label: "ระบบหลัก", icon: "back" });
@@ -381,6 +381,14 @@ describe("Studio's own menu", () => {
     expect(hrefs({ ...base, owner: true })).toContain("/studio/quote-video");
   });
 
+
+  it("gives every agent วิดีโอโฆษณา, with its own logo, right after วิดีโอนำเสนอ (owner, 2026-11-22)", () => {
+    const base = { name: "ก", room: "r", publish: false, connect: false, admin: false, owner: false };
+    const links = studioMenu(base).flatMap((g) => g.links);
+    const at = links.findIndex((l) => l.href === "/studio/ad-video");
+    expect(at).toBe(links.findIndex((l) => l.href === "/studio/quote-video") + 1);
+    expect(links[at]).toMatchObject({ label: "วิดีโอโฆษณา", logo: "av", hue: "#7a3db8" });
+  });
 
   it("lights the front page only on /studio itself, not on the pages beside it", () => {
     expect(isCurrent("/studio", "/studio")).toBe(true);

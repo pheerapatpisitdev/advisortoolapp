@@ -62,6 +62,11 @@ describe("the failed-clip alert", () => {
     expect(clipWhat({ product: "FREESTORY", title: "เงินก้อนสุดท้าย" })).toBe("คลิปตามโจทย์ · เงินก้อนสุดท้าย");
   });
 
+  it("names an ad clip วิดีโอโฆษณา with its plan (owner, 2026-11-22)", () => {
+    expect(clipWhat({ product: "ISHIELD", style: "motion", ad: { mode: "ai" } })).toBe("วิดีโอโฆษณา · iShield");
+    expect(clipWhat({ style: "motion", ad: { mode: "pick" } })).toBe("วิดีโอโฆษณา · Life Protect");
+  });
+
   it("names a สูตรคลิป Motion clip's recipe, and only a Motion clip's", () => {
     expect(clipWhat({ product: "LIFEPROTECT", style: "motion", recipe: "ask" })).toBe("วิดีโอนำเสนอ · Life Protect (Motion · เปิดด้วยคำถาม)");
     expect(clipWhat({ product: "LIFEPROTECT", style: "motion", recipe: "versus" })).toBe("วิดีโอนำเสนอ · Life Protect (Motion · เทียบให้เห็น)");

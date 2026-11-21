@@ -3,6 +3,7 @@ import { ClosedNotice, LockedPage } from "@/components/ClosedNotice";
 import { closedFor } from "@/lib/switches/store";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 import { gatePage } from "@/lib/auth/viewer";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
@@ -54,7 +55,7 @@ export default async function AdVideoPage() {
   });
   return (
     <div>
-      <h1 className="text-xl font-semibold">วิดีโอโฆษณา</h1>
+      <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="av" size="lg" />วิดีโอโฆษณา</h1>
       <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         เลือกแบบประกัน ใส่อายุและทุน ระบบดึงตัวเลขจริงจากตารางเบี้ย แล้วต่อคลิป 9:16 เป็น 3 ท่อน: Hook (3 วินาทีแรก) · เนื้อหา (1–3 ฉาก) · ปิดท้าย
       </p>

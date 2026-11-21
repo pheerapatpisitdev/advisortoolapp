@@ -84,6 +84,14 @@ describe("clipKind", () => {
   });
 });
 
+describe("clipKind of an ad clip (วิดีโอโฆษณา, owner, 2026-11-22)", () => {
+  it("is the Motion kind: the ad is a Motion short clip, drawn by Remotion once made", () => {
+    const ad = { hook: { kind: "question" } };
+    expect(clipKind({ style: "motion", length: "short", ad } as never)).toBe("motion-short");
+    expect(clipKind({ style: "motion", length: "short", engine: "remotion", ad } as never)).toBe("remotion-short");
+  });
+});
+
 describe("leftWords", () => {
   it("says the time in plain Thai", () => {
     expect(leftWords(null)).toBe("");

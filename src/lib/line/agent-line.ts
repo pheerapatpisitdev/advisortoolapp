@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { friendProfile, isFriend, push, reply } from "@/lib/line/client";
 import { isPromptStory } from "@/lib/prompt-story/types";
+import { boardOf } from "@/lib/quote-video/board";
 import { isStoryInput } from "@/lib/quote-video/story";
 import { siteUrl } from "@/lib/site-url";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -229,7 +230,8 @@ async function tell(agentId: string, which: AgentNotify, text: string): Promise<
 
 /** where the agent finds the clip: the board it was made on */
 export function clipBoard(input: unknown): string {
-  const v = (input && typeof input === "object" ? input : {}) as { product?: string };
+  const v = (input && typeof input === "object" ? input : {}) as { product?: string; ad?: unknown };
+  if (boardOf(v) === "ad") return "/studio/ad-video";
   if (isPromptStory(v)) return "/studio/prompt-story";
   if (isStoryInput(v)) return "/studio/story-clip";
   return "/studio/quote-video";

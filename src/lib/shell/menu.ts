@@ -431,6 +431,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
   const make: MenuLink[] = [
     // a narrated clip of a quote (owner, 2026-10-11): every agent's, two free then the wallet
     { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80", logo: "qv" },
+    // an ad clip the AI writes from the agent's own quote (owner chose ก ×6 on the mockup, 2026-11-22): every agent's, paid like the one above
+    { href: "/studio/ad-video", label: "วิดีโอโฆษณา", icon: "spark", hue: "#7a3db8", logo: "av" },
     // a cartoon story clip, why insurance at all (owner, 2026-10-15): every agent's, paid like the one above
     { href: "/studio/story-clip", label: "คลิปเล่าเรื่อง", icon: "woman", hue: "#2e5a80", logo: "sc" },
     // a clip from the agent's own brief, script edited before it is paid for (owner, 2026-10-16): the owner's

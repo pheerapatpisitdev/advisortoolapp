@@ -44,6 +44,8 @@ import { FESTIVALS, readFestival } from "@/lib/quote-video/festival";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
 import { readRecipe, RECIPE_NAMES, recipeOf, recipeScript, recipesFor, type RecipeKey } from "@/lib/quote-video/recipes";
+import { adBasis, adCaption } from "@/lib/ad-video/caption";
+import type { AdPlan } from "@/lib/ad-video/keys";
 import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
 import { POST_TRIES, readTone, readVoice } from "@/lib/quote-video/post-tones";
 import { closedFor } from "@/lib/switches/store";
@@ -430,6 +432,8 @@ export async function calendarCaption(id: string): Promise<{ ok: true; caption: 
   if (post?.kind === "post") return { ok: true, caption: post.text };
   if (isStoryInput(row.input)) return { ok: true, caption: storyCaption(row.input) };
   if (isPromptStory(row.input)) return { ok: true, caption: promptStoryCaption(row.input) };
+  // an ad clip's post says what the clip says, then the disclaimer (owner, 2026-11-22)
+  if (boardOf(row.input) === "ad") return { ok: true, caption: adCaption((row.input as VideoInput & { ad: AdPlan }).ad) };
   const f = quoteVideoFacts(row.input);
   return { ok: true, caption: f ? pageCaption(f) : "" };
 }
@@ -622,6 +626,7 @@ function postBasis(row: VideoRow): PostBasis | null {
   }
   const f = quoteVideoFacts(input);
   if (!f) return null;
+  if (boardOf(input) === "ad") return adBasis(f, (input as VideoInput & { ad: AdPlan }).ad);
   const lang = input.product === "IHEALTHY" && readVideoLang(input.lang) !== "th" ? LANG_NAME[readVideoLang(input.lang)] : undefined;
   return quoteBasis(f, row.customer_name, lang);
 }

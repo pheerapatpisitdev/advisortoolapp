@@ -164,6 +164,7 @@ describe("words and places", () => {
   });
   it("sends each clip to the board it was made on", () => {
     expect(line.clipBoard({ product: "LIFEPROTECT" })).toBe("/studio/quote-video");
+    expect(line.clipBoard({ product: "ISHIELD", ad: { mode: "ai" } })).toBe("/studio/ad-video");
   });
 });
 

@@ -58,6 +58,7 @@ describe("the switches as stored (features.ts)", () => {
   it("marks the menu items of the tools that are off", () => {
     const s = cleanSwitches({ "quote-video": { off: true }, ask: { off: true }, write: { off: false } });
     expect(closedHrefs(s)).toEqual(["/studio/quote-video", "/ask"]);
+    expect(closedHrefs(cleanSwitches({ "ad-video": { off: true } }))).toEqual(["/studio/ad-video"]);
     expect(isFeature("ask")).toBe(true);
     expect(isFeature("voice")).toBe(false);
   });

@@ -810,6 +810,7 @@ body:has(.theme-legacy) {
   font-size: 0.95rem;
 }
 .tool-logo-qv { background: #00005b; color: #9999ff; } /* วิดีโอนำเสนอ */
+.tool-logo-av { background: #2a0a4d; color: #c58cff; } /* วิดีโอโฆษณา */
 .tool-logo-sc { background: #1f0040; color: #d291ff; } /* คลิปเล่าเรื่อง */
 .tool-logo-pc { background: #2b0a3d; color: #f08cff; } /* คลิปตามโจทย์ */
 .tool-logo-og { background: #001e36; color: #31a8ff; } /* Organic Studio */

@@ -3,6 +3,7 @@ import { myPages } from "@/lib/auth/pages";
 import { modeName } from "@/lib/content/modes";
 import { contentProduct } from "@/lib/content/products";
 import { isGap } from "@/lib/fhc/gaps";
+import { boardOf } from "@/lib/quote-video/board";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { WalletEntry } from "@/lib/wallet/store";
 import { buildHistory, POST_ACTIONS, type HistItem, type HistSources } from "./history";
@@ -113,7 +114,7 @@ export async function readHistoryOf(
       const input = (r.input ?? {}) as Row;
       return {
         id: str(r.id), createdAt: str(r.created_at), product: str(input.product) || null,
-        fhc: Boolean(input.fhc), motion: input.style === "motion", customer: str(r.customer_name), status: str(r.status),
+        fhc: Boolean(input.fhc), ad: boardOf(input) === "ad", motion: input.style === "motion", customer: str(r.customer_name), status: str(r.status),
         ...(input.product === "FREESTORY" ? { brief: str(input.brief) } : {}),
       };
     }),
