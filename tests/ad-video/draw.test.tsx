@@ -99,6 +99,42 @@ describe("the closing photo's รายละเอียดเพิ่มเ�
   });
 });
 
+describe("the closing photo's foot note (R16)", () => {
+  const T = new Date("2026-11-22T00:00:00+07:00");
+  const facts = [
+    quoteVideoFacts(lp(), T)!,
+    quoteVideoFacts({ product: "ISHIELD", variant: "WLCI20", age: 30, sex: "F", sumAssured: 1_000_000, style: "motion" } as VideoInput, T)!,
+  ];
+  const close = (footNote?: string, more?: string) => renderToStaticMarkup(AdPhotoScene({
+    src: "a.png", t: 3, dur: 4, w: W, h: H, kind: "close", cta: CTAS[3],
+    contact: { ...CONTACT, name: "ก".repeat(40), ...(more ? { more } : {}) }, ...(footNote ? { footNote } : {}),
+  }));
+  const MORE = "ตัวแทนประกันชีวิต ใบอนุญาตเลขที่ 6501234567 สังกัดสำนักงานตัวอย่างที่มีชื่อยาวมากจริงๆ\nบรรทัดที่สอง";
+  it("draws the underwriting caveat under the card and the agent's more, small and inside 1080", () => {
+    for (const f of facts) {
+      expect(f.footNote).toMatch(/อาจต่างไปตามผลพิจารณา/);
+      for (const more of [undefined, MORE]) {
+        const html = close(f.footNote, more);
+        const parts = f.footNote!.split("·").map((x) => x.trim());
+        for (const part of parts) expect(html).toContain(part);
+        expect(html.indexOf("LINE @unitclub")).toBeLessThan(html.indexOf(parts[0]));
+        if (more) expect(html.indexOf("บรรทัดที่สอง")).toBeLessThan(html.indexOf(parts[0]));
+        expect(nowrapOverflows(html), f.product).toEqual([]);
+        // small: no part drawn above 30 px, nor below 20 so it can still be read on a phone
+        const sizes = [...html.matchAll(/font-size:([\d.]+)px[^"]*">([^<]*)</g)].filter((m) => parts.includes(m[2])).map((m) => Number(m[1]));
+        expect(sizes).toHaveLength(parts.length);
+        for (const size of sizes) {
+          expect(size).toBeLessThanOrEqual(30);
+          expect(size).toBeGreaterThanOrEqual(20);
+        }
+      }
+    }
+  });
+  it("draws nothing when the quote has no foot note", () => {
+    expect(close(undefined)).toBe(close(""));
+  });
+});
+
 describe("ctaTitle on a Motion contact card (fix round 1)", () => {
   const f = quoteVideoFacts(lp(), new Date("2026-10-17T12:00:00+07:00"))!;
   const ctx = (extra: Partial<MotionContext> = {}): MotionContext => ({ facts: f, customer: "", narrator: "F", contact: CONTACT, words: ["x"], voiceSec: 4, ...extra });

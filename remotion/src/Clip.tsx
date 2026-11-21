@@ -250,7 +250,7 @@ export function Clip(p: ClipProps) {
         <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
           <KeepWords>{AdPhotoScene({
             src: photo, t, dur: sc.dur, w, h, kind,
-            ...(kind === "hook" ? { headline: p.shown.headline } : kind === "body" ? { line: bodyFigure(p.facts, sc.key as AdBodyKey) } : { cta: ad.cta, contact }),
+            ...(kind === "hook" ? { headline: p.shown.headline } : kind === "body" ? { line: bodyFigure(p.facts, sc.key as AdBodyKey) } : { cta: ad.cta, contact, footNote: p.facts.footNote }),
           })}</KeepWords>
           {note}
         </AbsoluteFill>

@@ -139,6 +139,25 @@ function moreLines(k: Contact, room: number): ReactNode {
   );
 }
 
+/**
+ * The quote's foot note (QuoteVideoFacts.footNote: "อาจต่างไปตามผลพิจารณารับประกัน" and the like) under the card on
+ * the closing photo, as the Motion close shows it (motion.tsx Contact; R16, 2026-11-22): small, in the frame's white
+ * at the note's 0.75, each " · " part fitted on its own line — iShield's runs to 165 letters, which on one line would
+ * be drawn at 9 px. It sits inside the closing block, so it ends at CLOSE_BOTTOM, clear of the regulator's line.
+ */
+function footLines(note: string | undefined, room: number): ReactNode {
+  const parts = (note ?? "").split("·").map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const u = room / (1080 - SIDE * 2);
+  return (
+    <div style={flex({ flexDirection: "column", alignItems: "center", width: room, marginTop: 18 * u, opacity: 0.75 })}>
+      {parts.map((x, i) => (
+        <div key={i} style={line({ fontSize: fitSize(x, room, 30 * u), lineHeight: 1.4, color: A.ink, textShadow: A.shadow })}>{x}</div>
+      ))}
+    </div>
+  );
+}
+
 export interface AdPhotoProps {
   src: string;
   /** the scene's time and length, for the push */
@@ -154,14 +173,16 @@ export interface AdPhotoProps {
   /** close: the closing words and the agent */
   cta?: string;
   contact?: Contact;
+  /** close: the quote's foot note (QuoteVideoFacts.footNote), under the agent */
+  footNote?: string;
 }
 
 /**
  * A scene drawn on its photo (spec, Rendering): the photo filling the frame and pushed in 1.00 → 1.12, darkened over
- * its lower half, with the hook's headline, a body's figure on a band, or the closing words and the agent's card;
- * the credit line every clip keeps at its foot (motion.tsx).
+ * its lower half, with the hook's headline, a body's figure on a band, or the closing words, the agent's card and the
+ * quote's foot note; the credit line every clip keeps at its foot (motion.tsx).
  */
-export function AdPhotoScene({ src, t, dur, w, h, kind, headline, line: figure, cta, contact }: AdPhotoProps): ReactNode {
+export function AdPhotoScene({ src, t, dur, w, h, kind, headline, line: figure, cta, contact, footNote }: AdPhotoProps): ReactNode {
   const u = w / 1080;
   const room = (1080 - SIDE * 2) * u;
   const push = 1 + PUSH * Math.min(1, Math.max(0, t / dur));
@@ -191,6 +212,7 @@ export function AdPhotoScene({ src, t, dur, w, h, kind, headline, line: figure, 
           {cta ? adCtaBlock(cta, w) : null}
           {contact ? contactCard(contact, u) : null}
           {contact ? moreLines(contact, room) : null}
+          {footLines(footNote, room)}
         </div>
       ) : null}
       <div style={flex({ position: "absolute", left: 0, width: w, bottom: 34 * u, justifyContent: "center", fontSize: 26 * u, color: A.ink, opacity: 0.6 })}>Application by www.advisortool.app</div>
@@ -201,8 +223,9 @@ export function AdPhotoScene({ src, t, dur, w, h, kind, headline, line: figure, 
 /**
  * The closing words as a Motion contact card's title (motion.tsx Contact, MotionContext.ctaTitle): in the slot above
  * the card that the standing "ทักมาคุยกันได้เลย" takes on other clips (controller ruling, 2026-11-22), so the words
- * sit above the agent as on the closing photo, and the subtitle under the card is no longer a copy of them. The slot
- * runs from 260 to the card at 620: up to 84, as small as it takes for every line at 1.3 to fit those 360 px.
+ * sit above the agent as on the closing photo. The subtitle under the card still runs the spoken closing, so the
+ * same words show twice on this scene (title without the polite ending, subtitle with it). The slot runs from 260 to
+ * the card at 620: up to 84, as small as it takes for every line at 1.3 to fit those 360 px.
  */
 export function ctaTitle(cta: string, w: number): { size: number; lines: string[] } {
   const u = w / 1080;
