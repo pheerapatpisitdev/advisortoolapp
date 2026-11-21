@@ -31,10 +31,17 @@ export const adCta = (voice: string): string => voice.trim().replace(/\s*(นะ
 /** one photo's price: the painter's, or Gemini's own key should the painter list ever drop it (R4) */
 export const adPhotoSatang = (prices: Prices): number => pictureSatang(prices, AD_PAINTER) ?? prices.drawGemini;
 
+/**
+ * the photos alone: what a free clip still holds, since a free clip covers the Motion clip only and its photos are
+ * paid from the wallet as a คลิปตามโจทย์'s pictures are (R11, 2026-11-22)
+ */
+export function adPhotosPrice(v: VideoInput & { ad: AdPlan }, prices: Prices): number {
+  return photoScenes(readArt(v.ad.art), v.ad.body.length).filter(Boolean).length * adPhotoSatang(prices);
+}
+
 /** what an ad clip costs: the Motion clip, an ElevenLabs voice on top, and every photo its art draws */
 export function adPrice(v: VideoInput & { ad: AdPlan }, prices: Prices): number {
-  const photos = photoScenes(readArt(v.ad.art), v.ad.body.length).filter(Boolean).length;
-  return prices.videoMotion + (v.voice ? prices.elevenExtra : 0) + photos * adPhotoSatang(prices);
+  return prices.videoMotion + (v.voice ? prices.elevenExtra : 0) + adPhotosPrice(v, prices);
 }
 
 /**
@@ -53,6 +60,9 @@ export function adPhotoIdeas(v: VideoInput & { ad: AdPlan }): ({ idea: string; s
   });
 }
 
+/** an ad is drawn in ไวท์บอร์ด or แบบเดิม only (globals): any other look asked for, a festival's too, is ไวท์บอร์ด */
+const adTheme = (v: unknown): "board" | "navy" => (readTheme(v) === "navy" ? "navy" : "board");
+
 /**
  * An ad clip's parts: always portrait Motion, the plan's lines on the standing clip's scenes (so each moves as it
  * does there), no customer's name, the hook's headline on screen, and none of the loop, piggy jar, road of life or
@@ -69,7 +79,7 @@ export function adParts(
   return {
     size: "portrait", script, motion: true, plans,
     motion$: {
-      theme: readTheme(input.theme), sex: input.sex, facts: f, customer: "", narrator, contact,
+      theme: adTheme(input.theme), sex: input.sex, facts: f, customer: "", narrator, contact,
       shown: { headline: plan.hook.headline, loop: false, extra: extraOf(f, {}) },
       ad: { photos: script.map((_, i) => input.pictures?.[i] ?? null), cta: adCta(plan.cta.voice) },
     },

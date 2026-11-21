@@ -4,6 +4,7 @@ import { DEFAULT_PRICES } from "@/lib/wallet/prices";
 import { quoteVideoFacts, type VideoInput } from "@/lib/quote-video/script";
 import { fixedPlan } from "@/lib/ad-video/plan";
 import type { AdPlan } from "@/lib/ad-video/keys";
+import type { Viewer } from "@/lib/auth/access";
 
 /**
  * วิดีโอโฆษณา through the clip pipeline (make.ts): an ad clip is a Motion quote clip whose input carries
@@ -12,30 +13,56 @@ import type { AdPlan } from "@/lib/ad-video/keys";
  */
 
 type Row = Record<string, unknown> & { id: string };
-const db = vi.hoisted(() => ({ rows: [] as Row[], files: new Map<string, Buffer>(), notes: [] as { step: string; done: number; of: number }[] }));
+const db = vi.hoisted(() => ({ tick: 0, rows: [] as Row[], files: new Map<string, Buffer>(), notes: [] as { step: string; done: number; of: number }[] }));
 
-/** a small in-memory stand-in for the clip rows the pipeline reads and writes */
+/** a small in-memory stand-in for the clip rows the pipeline reads and writes (as tests/prompt-story/make.test.ts) */
 function table() {
   const list = db.rows;
-  let op: "select" | "update" = "select";
+  let op: "select" | "insert" | "update" | "delete" = "select";
   let patch: Record<string, unknown> = {};
+  let head = false;
   const filters: ((r: Row) => boolean)[] = [];
+  const val = (r: Row, k: string) => {
+    const m = /^(\w+)->>(\w+)$/.exec(k);
+    return m ? (r[m[1]] as Record<string, unknown> | null)?.[m[2]] : r[k];
+  };
   const run = () => {
+    if (op === "insert") {
+      const now = new Date(Date.now() + ++db.tick).toISOString();
+      const row: Row = {
+        id: randomUUID(), created_at: now, updated_at: now, status: "drawing", deleted_at: null, video_path: null, job: null,
+        error: null, hold_id: null, paid_by: null, held_satang: null, multiplier: null, cost_thb: 0, progress: null, ...patch,
+      };
+      list.push(row);
+      return [row];
+    }
     const hit = list.filter((r) => filters.every((f) => f(r)));
+    if (op === "delete") { for (const r of hit) list.splice(list.indexOf(r), 1); return []; }
     if (op === "update") for (const r of hit) Object.assign(r, structuredClone(patch));
     if (op === "update" && hit.length && patch.progress) db.notes.push(patch.progress as never);
     return hit.map((r) => structuredClone(r));
   };
   const b = {
-    select: () => b,
+    select: (_c?: string, o?: { head?: boolean }) => { head = Boolean(o?.head); return b; },
+    insert: (v: Record<string, unknown>) => { op = "insert"; patch = structuredClone(v); return b; },
     update: (v: Record<string, unknown>) => { op = "update"; patch = v; return b; },
-    eq: (k: string, v: unknown) => { filters.push((r) => r[k] === v); return b; },
-    in: (k: string, vs: unknown[]) => { filters.push((r) => vs.includes(r[k])); return b; },
-    is: (k: string, v: unknown) => { filters.push((r) => (r[k] ?? null) === v); return b; },
+    delete: () => { op = "delete"; return b; },
+    eq: (k: string, v: unknown) => { filters.push((r) => val(r, k) === v); return b; },
+    neq: (k: string, v: unknown) => { filters.push((r) => val(r, k) !== v); return b; },
+    in: (k: string, vs: unknown[]) => { filters.push((r) => vs.includes(val(r, k))); return b; },
+    is: (k: string, v: unknown) => { filters.push((r) => (val(r, k) ?? null) === v); return b; },
+    not: (k: string, _op: string, v: unknown) => { filters.push((r) => (val(r, k) ?? null) !== v); return b; },
+    lt: (k: string, v: string) => { filters.push((r) => String(val(r, k)) < v); return b; },
+    lte: (k: string, v: string) => { filters.push((r) => String(val(r, k)) <= v); return b; },
+    gte: (k: string, v: unknown) => { if (typeof v === "string") filters.push((r) => String(val(r, k)) >= v); return b; },
+    like: (k: string, pat: string) => { filters.push((r) => String(val(r, k) ?? "").startsWith(pat.replace(/%$/, ""))); return b; },
     order: () => b, limit: () => b,
     single: async () => { const d = run(); return { data: d[0] ?? null, error: d[0] ? null : { message: "no row" } }; },
     maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
-    then: (ok: (v: unknown) => unknown, no?: (e: unknown) => unknown) => Promise.resolve({ data: run(), error: null }).then(ok, no),
+    then: (ok: (v: unknown) => unknown, no?: (e: unknown) => unknown) => {
+      const d = run();
+      return Promise.resolve({ data: d, error: null, count: head ? d.length : null }).then(ok, no);
+    },
   };
   return b;
 }
@@ -53,6 +80,22 @@ const wallet = vi.hoisted(() => ({
   balanceSatang: vi.fn(), releaseWallet: vi.fn(), settleWallet: vi.fn(),
 }));
 vi.mock("@/lib/wallet/store", () => wallet);
+vi.mock("@/lib/members/access", async (orig) => ({
+  ...(await orig<typeof import("@/lib/members/access")>()),
+  memberAccess: async () => ({ gated: false }),
+  passOpen: () => true,
+}));
+// the clip's reader as speak.ts has it, unless a test says the chosen ElevenLabs voice could not speak (then Google read it)
+const voice = vi.hoisted(() => ({ google: false }));
+vi.mock("@/lib/quote-video/speak", async (orig) => {
+  const real = await orig<typeof import("@/lib/quote-video/speak")>();
+  return {
+    ...real,
+    speakClip: async (lines: string[], o: Parameters<typeof real.speakClip>[1]) => (voice.google
+      ? { spoken: lines.map(() => ({ pcm: Buffer.alloc(24000 * 2), costThb: 0.01 })), fellBackTo: null, google: o.narrator === "M" ? "Orus" : "Kore" }
+      : real.speakClip(lines, o)),
+  };
+});
 
 const ai = vi.hoisted(() => ({ draw: vi.fn(), speak: vi.fn(), submit: vi.fn() }));
 vi.mock("@/lib/ai/client", async (orig) => ({
@@ -69,7 +112,7 @@ vi.mock("@/lib/video/engines/cloudrun", () => ({ cloudRunEngine: () => ({ submit
 vi.mock("@/lib/google-font", () => ({ googleFontSubset: async () => undefined }));
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: "0812345678" }), photoDataUri: async () => null }));
 
-const { produce, videoPrice, clipRound } = await import("@/lib/quote-video/make");
+const { createVideo, produce, videoPrice, clipRound } = await import("@/lib/quote-video/make");
 const { adCta, adParts, adPrice, adScript } = await import("@/lib/ad-video/make");
 const { boardOf } = await import("@/lib/quote-video/board");
 const { clipProps } = await import("@/lib/quote-video/remotion");
@@ -87,6 +130,7 @@ const pcm = () => Buffer.alloc(24000 * 2);
 let drawn = 0;
 
 beforeEach(() => {
+  voice.google = false;
   db.rows.length = 0;
   db.files.clear();
   db.notes.length = 0;
@@ -95,6 +139,8 @@ beforeEach(() => {
   wallet.walletSettings.mockResolvedValue({ enabled: true, multiplier: 1 });
   wallet.walletPrices.mockResolvedValue({ ...DEFAULT_PRICES });
   wallet.releaseWallet.mockResolvedValue(undefined);
+  wallet.holdWallet.mockImplementation(async () => `hold-${randomUUID()}`);
+  wallet.walletFrozen.mockResolvedValue(false);
   ai.draw.mockReset();
   ai.draw.mockImplementation(async () => ({ bytes: Buffer.from(`photo-${++drawn}`) }));
   ai.speak.mockReset();
@@ -148,6 +194,14 @@ describe("ad script and parts", () => {
     expect(lines[0].voice).toBe(plan().hook.voice.replace(/นะคะ/g, "นะครับ").replace(/ค่ะ/g, "ครับ").replace(/คะ(?=\s|$)/g, "ครับ"));
   });
 
+  it("a man's voice turns endings that punctuation follows, as the AI writes them (R12)", () => {
+    const p: AdPlan = { ...plan(), hook: { ...plan().hook, voice: "อายุ 35 ออมวันละเท่าไหร่ดีคะ? รู้ไหมคะ?" }, cta: { key: "chat", voice: "ทักมาขอใบเสนอได้เลยนะคะ!" } };
+    const lines = adScript(lp, p, "M");
+    for (const l of lines) expect(l.voice).not.toMatch(/ค่ะ|คะ(?!แนน)/);
+    expect(lines[0].voice).toBe("อายุ 35 ออมวันละเท่าไหร่ดีครับ? รู้ไหมครับ?");
+    expect(lines[3].voice).toBe("ทักมาขอใบเสนอได้เลยนะครับ!");
+  });
+
   it("shows the closing words without the particle", () => {
     expect(adCta("บอกแค่อายุ ทักมาขอใบเสนอของคุณได้เลยนะคะ")).toBe("บอกแค่อายุ ทักมาขอใบเสนอของคุณได้เลย");
     expect(adCta("ทักมานัดคุย 15 นาที ช่วยดูแผนให้ฟรีค่ะ")).toBe("ทักมานัดคุย 15 นาที ช่วยดูแผนให้ฟรี");
@@ -171,6 +225,11 @@ describe("ad script and parts", () => {
     expect(parts.motion$?.ad?.cta).toBe(adCta(plan().cta.voice));
     // no photos yet: still one place a scene
     expect(adParts(lp, adInput(), plan(), contact, "M", [3, 4, 4, 3]).motion$?.ad?.photos).toEqual([null, null, null, null]);
+    // ไวท์บอร์ด or แบบเดิม only: a festival or any other look is drawn as ไวท์บอร์ด
+    expect(adParts(lp, adInput({ theme: "navy" }), plan(), contact, "M", [3, 4, 4, 3]).motion$?.theme).toBe("navy");
+    for (const theme of ["festival", "glass", "chat"] as const) {
+      expect(adParts(lp, adInput({ theme }), plan(), contact, "M", [3, 4, 4, 3]).motion$?.theme).toBe("board");
+    }
     expect(() => adParts(lp, input, input.ad, contact, "M", [3, 4])).toThrow();
   });
 
@@ -233,5 +292,46 @@ describe("produce, ad clip", () => {
     expect(prompts).toHaveLength(4);
     expect(prompts.some((x) => x.includes("a calm beach at dawn"))).toBe(true);
     for (const x of prompts) expect(x).not.toMatch(/[ก-๙]/);
+  });
+});
+
+describe("paying for an ad clip", () => {
+  // a member's pass with free clips left: the free clip covers the Motion clip only (R11)
+  const taster = { kind: "member", agentId: "a1", name: "ตัวแทน", staff: null } as unknown as Viewer;
+
+  it("a free ad clip still holds its photos from the wallet", async () => {
+    const made = await createVideo(taster, adInput(), "");
+    expect("id" in made).toBe(true);
+    const row = rowOf((made as { id: string }).id);
+    expect(row.paid_by).toBe("free");
+    expect(row.held_satang).toBe(2 * 500);
+    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", 1000, "quote-video");
+  });
+
+  it("a free motion-only ad holds nothing", async () => {
+    const made = await createVideo(taster, adInput({}, "motion"), "");
+    const row = rowOf((made as { id: string }).id);
+    expect(row.paid_by).toBe("free");
+    expect(row.hold_id).toBeNull();
+    expect(wallet.holdWallet).not.toHaveBeenCalled();
+  });
+
+  it("a free ad clip's photos are refused in words about the photos when the wallet is shut", async () => {
+    wallet.walletSettings.mockResolvedValue({ enabled: false, multiplier: 1 });
+    const made = await createVideo(taster, adInput(), "");
+    expect("refusal" in made && made.refusal).toMatch(/ค่าภาพประกอบ/);
+  });
+
+  it("photos not drawn and the voice switched both come off the hold", async () => {
+    ai.draw.mockRejectedValue(new Error("painter down"));
+    voice.google = true;
+    const input = adInput({ voice: "el-voice" });
+    const id = adRow(input);
+    const start = videoPrice(input, DEFAULT_PRICES);
+    expect(start).toBe(1000 + 2 * 500 + 200);
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect(row.status).toBe("rendering");
+    expect(row.held_satang).toBe(start - 2 * 500 - 200);
   });
 });

@@ -36,7 +36,7 @@ import { okUploads, uploadFile } from "@/lib/scene-library/uploads";
 import type { ReferenceImage } from "@/lib/ai/images";
 import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
-import { adParts, adPhotoIdeas, adPhotoSatang, adPrice, adScript } from "@/lib/ad-video/make";
+import { adParts, adPhotoIdeas, adPhotosPrice, adPhotoSatang, adPrice, adScript } from "@/lib/ad-video/make";
 import { AD_PAINTER, drawAdPhoto } from "@/lib/ad-video/photo";
 import type { AdPlan } from "@/lib/ad-video/keys";
 import { contactSpec } from "./story-motion";
@@ -163,8 +163,10 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     const { limit, from } = await freeClips(viewer, access);
     freeWindow = { limit, from };
     if ((await freeUsed(viewer.agentId, from)) < limit) {
-      // a คลิปตามโจทย์'s free clip covers the clip only: its pictures, and ดีไซน์พิเศษ's extra, are still paid from the wallet (spec, Money)
-      const pictures = isPromptStory(input) ? promptFreePrice(input, await walletPrices()) : 0;
+      // a คลิปตามโจทย์'s free clip covers the clip only: its pictures, and ดีไซน์พิเศษ's extra, are still paid from the wallet (spec, Money);
+      // a วิดีโอโฆษณา's the same: the free clip is the Motion clip, its photos are paid from the wallet (R11, 2026-11-22)
+      const pictures = isPromptStory(input) ? promptFreePrice(input, await walletPrices())
+        : isQuoteInput(input) && input.ad ? adPhotosPrice(input as VideoInput & { ad: AdPlan }, await walletPrices()) : 0;
       if (pictures > 0) {
         const s = await walletSettings().catch(() => null);
         if (!s?.enabled) return { refusal: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" };
@@ -620,6 +622,8 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
   const patch: Partial<VideoRow> = { input: next };
   if (missing && row.hold_id && row.held_satang) {
     patch.held_satang = Math.max(0, Number(row.held_satang) - missing * promptPicturePrice(input, await walletPrices()));
+    // kept on the row in hand too, so a later change to the hold (the voice's switch in produce) starts from it
+    row.held_satang = patch.held_satang;
   }
   await setRow(id, patch);
   return { input: next, costThb: (of - missing) * pictureThb(input.painter) };
@@ -649,6 +653,8 @@ async function drawAdPhotos(row: VideoRow & { input: VideoInput & { ad: AdPlan }
   const patch: Partial<VideoRow> = { input: next };
   if (missing && row.hold_id && row.held_satang) {
     patch.held_satang = Math.max(0, Number(row.held_satang) - missing * adPhotoSatang(await walletPrices()));
+    // kept on the row in hand too, so a later change to the hold (the voice's switch in produce) starts from it
+    row.held_satang = patch.held_satang;
   }
   await setRow(id, patch);
   return { input: next, costThb: (of - missing) * pictureThb(AD_PAINTER) };

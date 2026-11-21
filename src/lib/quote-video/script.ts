@@ -197,8 +197,8 @@ export type VideoStyle = "classic" | "motion" | "chat";
 
 /** A man ends his sentences with ครับ, a woman with ค่ะ / นะคะ (owner, 2026-10-11). */
 export function spokenBy(line: string, narrator: "F" | "M" = "F"): string {
-  // a question's คะ too, where it ends a word (not คะแนน)
-  return narrator === "M" ? line.replace(/นะคะ/g, "นะครับ").replace(/ค่ะ/g, "ครับ").replace(/คะ(?=\s|$)/g, "ครับ") : line;
+  // a question's คะ too, where it ends a word (not คะแนน): before a space, the end, or punctuation ("ไหมคะ?", R12 2026-11-22)
+  return narrator === "M" ? line.replace(/นะคะ/g, "นะครับ").replace(/ค่ะ/g, "ครับ").replace(/คะ(?=[\s?!.,…]|$)/g, "ครับ") : line;
 }
 
 export const productOf = (v: VideoInput): Product => v.product ?? "LIFEPROTECT";
