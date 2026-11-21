@@ -598,3 +598,42 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the สูตรคลิป 
   writeFileSync(join(OUT, "prepare-recipes.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 });
+
+/**
+ * วิดีโอโฆษณา's sample (owner chose ก ×6 on the mockup, 2026-11-22; src/lib/ad-video): the Life Protect quote above
+ * (ชาย 35, ทุน 1 ล้าน) as an ad in ผสม, on ไวท์บอร์ด, bodies ราคา and เงินไม่หาย, closing ทักแชทขอใบเสนอ, as
+ * props/ad-lp.json, made as the app makes one (quotePartsFor on an input that carries the plan). Its two photos are
+ * stand-ins drawn here (ad/stand-0.png, ad/stand-1.png): no picture AI is called. The voice is the Mac's Narisa.
+ */
+it.skipIf(Boolean(process.env.IHEALTHY))("prepares the วิดีโอโฆษณา sample", async () => {
+  const { quotePartsFor } = await import("@/lib/quote-video/make");
+  const { mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
+  const { quoteVideoFacts } = await import("@/lib/quote-video/script");
+  const { clipLength } = await import("@/lib/quote-video/timeline");
+  const { clipProps } = await import("@/lib/quote-video/remotion");
+  const { fixedPlan } = await import("@/lib/ad-video/plan");
+  const { adScript } = await import("@/lib/ad-video/make");
+  for (const d of ["audio", "props", "ad"]) mkdirSync(join(PUB, d), { recursive: true });
+  // two stand-in photos, 9:16: a sky and a dusk, each with a few soft shapes so the slow push shows
+  const stand = (top: string, foot: string, spot: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${foot}"/></linearGradient></defs>
+    <rect width="1080" height="1920" fill="url(#g)"/>
+    <circle cx="760" cy="520" r="210" fill="${spot}" opacity="0.55"/><circle cx="300" cy="980" r="150" fill="${spot}" opacity="0.35"/>
+    <rect x="140" y="1180" width="800" height="420" rx="60" fill="#ffffff" opacity="0.18"/></svg>`;
+  const pictures = ["ad/stand-0.png", null, null, "ad/stand-1.png"];
+  await sharp(Buffer.from(stand("#7fb4e6", "#f3d9b1", "#fff3c4"))).png().toFile(join(PUB, pictures[0]!));
+  await sharp(Buffer.from(stand("#3b2f63", "#e58a5b", "#ffd18a"))).png().toFile(join(PUB, pictures[3]!));
+  const base = { product: "LIFEPROTECT" as const, variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000, style: "motion" as const, size: "portrait" as const, length: "short" as const, narrator: "F" as const, theme: "board" as const };
+  const facts = quoteVideoFacts(base, TODAY)!;
+  const ad = fixedPlan(facts, { art: "mixed", mode: "pick", body: ["price", "value"], cta: "chat" });
+  const input = { ...base, ad, pictures };
+  const pcms = narisa(join(OUT, "voice-ad-lp"), adScript(facts, ad, "F"));
+  const secs = pcms.map((p) => pcmSeconds(p, 24000));
+  const parts = quotePartsFor({ input, customer_name: "" }, CONTACT, secs);
+  if (!parts.motion$?.ad) throw new Error("ad-lp: the app did not make it an ad clip");
+  if (parts.motion$.ad.photos.join() !== pictures.join()) throw new Error(`ad-lp: photos ${JSON.stringify(parts.motion$.ad.photos)}`);
+  const total = clipLength(parts.plans);
+  writeFileSync(join(PUB, "audio/ad-lp.wav"), mixNarration(pcms.map((pcm, i) => ({ pcm, at: parts.plans[i].voiceAt })), total, 24000));
+  writeFileSync(join(PUB, "props/ad-lp.json"), JSON.stringify(clipProps(parts.motion$, parts.plans as never, parts.script, secs, total, "audio/ad-lp.wav")));
+  console.log(JSON.stringify({ "ad-lp": { total, cta: parts.motion$.ad.cta, scenes: parts.plans.map((p, i) => ({ key: p.key, start: p.start, dur: p.dur, voice: parts.script[i].voice })) } }, null, 2));
+});

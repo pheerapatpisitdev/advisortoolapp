@@ -568,6 +568,25 @@ export const RECIPE_COLORS = {
   versus: { sheet: "#fbfaf7", ink: "#1b2a4a", blue: "#1e56d6", onBlue: "#fff", grey: "#c9d2e3", pale: "#e9edf5", pill: "#ff5a3c", onPill: "#fff", foot: "rgba(27,42,74,0.6)", footOnBlue: "rgba(255,255,255,0.7)" },
 } as const;
 
+/**
+ * วิดีโอโฆษณา's photo scenes (owner, 2026-11-22; ad-video/draw.tsx): the photo darkened toward the foot so the white
+ * words and the Motion clip's gold read over any picture, the figure's band, the agent's white card in the clip's
+ * navy, and the regulator's line on a dark pill that reads over a photo, the navy ground and the white board alike
+ */
+export const AD_COLORS = {
+  ground: "#000000",
+  scrimClear: "rgba(0,0,0,0)",
+  scrim: "rgba(0,0,0,0.82)",
+  shadow: "0 4px 18px rgba(0,0,0,0.6)",
+  band: "rgba(0,0,0,0.58)",
+  ink: QUOTE_VIDEO_COLORS.paper,
+  gold: QUOTE_VIDEO_COLORS.motionGold,
+  card: QUOTE_VIDEO_COLORS.paper,
+  onCard: QUOTE_VIDEO_COLORS.motionNavy,
+  noPhoto: QUOTE_VIDEO_COLORS.noPhoto,
+  note: "rgba(0,0,0,0.55)",
+} as const;
+
 /** แชทถาม-ตอบ (owner, 2026-10-20; quote-video/chat.tsx): a plain chat, nobody's brand */
 export const CHAT_COLORS = {
   ground: "#eef1f6", head: "#022162", headInk: "#ffffff", online: "#4ade80", avatar: "#f5e6c8",

@@ -9,7 +9,7 @@
 #   2. the image, :drawing-<fingerprint> (skipped when a stopped run built it already)
 #   3. smoke renders of it on the trial job remotion-port (a paper วิดีโอนำเสนอ, กองกลาง 48 คน, a คลิปตามโจทย์, a แบบปกติ,
 #      a สูตรคลิป Motion เปิดด้วยคำถาม, ประกันสุขภาพ ค่าห้องเกิน ใครจ่าย, นีออน's waiting episode, ทุนชีวิตเท่าไหร่ถึงพอ,
-#      “ซื้อประกันเหมือนแช่งตัวเอง”, เก็บเงินไว้ใช้ตอนเกษียณ, ผู้ป่วยใน ผู้ป่วยนอก ต่างกันยังไง), which must end in clips
+#      “ซื้อประกันเหมือนแช่งตัวเอง”, เก็บเงินไว้ใช้ตอนเกษียณ, ผู้ป่วยใน ผู้ป่วยนอก ต่างกันยังไง, a วิดีโอโฆษณา), which must end in clips
 #   4. the job remotion-<fingerprint> (8 vCPU / 8 GiB, as clip-runner), startable by clip-render
 #   5. the drawing jobs past the newest three deleted (no app still deployed names them)
 set -euo pipefail
@@ -49,10 +49,10 @@ fi
 #    สูตรคลิป Motion (เปิดด้วยคำถาม), ประกันสุขภาพ's ค่าห้องเกิน ใครจ่าย (its room and bill devices), the นีออน
 #    look's waiting episode (its glow and Sriracha in the image's Chrome), ทุนชีวิตเท่าไหร่ถึงพอ (round 2's
 #    lifeneed, beneficiary and moneysplit on typed figures), “ซื้อประกันเหมือนแช่งตัวเอง” (round 3's umbrella
-#    metaphor as its opener) and เก็บเงินไว้ใช้ตอนเกษียณ (round 4's pricerise, savejar and paidgot on the pension's own figures) and ผู้ป่วยใน ผู้ป่วยนอก ต่างกันยังไง (round 5's ipdopd, renew98 and hospitals on iHealthy Gold's sheet and the hospital list), at once
+#    metaphor as its opener) and เก็บเงินไว้ใช้ตอนเกษียณ (round 4's pricerise, savejar and paidgot on the pension's own figures) and ผู้ป่วยใน ผู้ป่วยนอก ต่างกันยังไง (round 5's ipdopd, renew98 and hospitals on iHealthy Gold's sheet and the hospital list) and a วิดีโอโฆษณา (its two photos, the closing words and the regulator's line), at once
 g run jobs update remotion-port --region "$REGION" --image "$IMAGE"
 pids=()
-for theme in paper st-pool48 st-free c-lp r-ask st-health-roomcost st-neon-health st-money-lifeneed st-meta-mythjinx st-save-retiresave st-health2-ipdopd; do
+for theme in paper st-pool48 st-free c-lp r-ask st-health-roomcost st-neon-health st-money-lifeneed st-meta-mythjinx st-save-retiresave st-health2-ipdopd ad-lp; do
   g run jobs execute remotion-port --region "$REGION" --wait --args=node,cloudrun/smoke.mjs \
     --update-env-vars "THEME=$theme,PUBLIC=build/public,PREFIX=ship" >/dev/null 2>&1 &
   pids+=("$!:$theme")

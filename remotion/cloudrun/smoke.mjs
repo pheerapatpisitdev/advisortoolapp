@@ -28,6 +28,8 @@ if (process.env.DRAWING) props.drawing = process.env.DRAWING;
 props.audio = `${base}/${props.audio}`;
 // a story sample (THEME=st-pool48, st-free): its pictures as links too
 for (const sc of props.scenes) if (sc.picture) sc.picture = `${base}/${sc.picture}`;
+// a วิดีโอโฆษณา sample (THEME=ad-lp): its photos as links, as make.ts sends them
+if (props.ad) props.ad.photos = props.ad.photos.map((ph) => (ph ? `${base}/${ph}` : null));
 for (const f of props.scriptFont ?? []) f.url = `${base}/${f.url}`;
 const payload = { id: "smoke", remotion: { props }, uploads: { out_1: { uploadUrl: `${base}/upload`, path: "smoke/quote.mp4" } }, callbackUrl: `${base}/callback`, token: "t" };
 writeFileSync(`${pub}/smoke-payload.json`, JSON.stringify(payload));

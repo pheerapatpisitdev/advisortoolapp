@@ -20,6 +20,8 @@ import { fxIcon, iconFor } from "@/lib/quote-video/fx-icons";
 import { recipeFigures } from "@/lib/quote-video/recipes";
 import { recipeFrame, recipeJoin } from "@/lib/quote-video/recipes-draw";
 import type { RecipeClip } from "@/lib/quote-video/recipe-blocks";
+import { AdDisclaimer, adCtaOver, AdPhotoScene, bodyFigure } from "@/lib/ad-video/draw";
+import type { AdBodyKey } from "@/lib/ad-video/keys";
 
 /**
  * วิดีโอนำเสนอ's Motion Graphic clip drawn by Remotion (owner 2026-10-17; src/lib/quote-video/remotion.ts). The frames are
@@ -80,7 +82,36 @@ export async function loadScriptFonts(scriptFont?: { url: string; weight: number
   })));
 }
 
-interface Loaded { ground: ReactNode }
+/** วิดีโอโฆษณา's photos, each as a link or the bundle's file, and null where the scene has none or it would not load */
+interface Loaded { ground: ReactNode; photos: (string | null)[] }
+
+const asUrl = (at: string) => (/^https?:\/\//.test(at) ? at : staticFile(at));
+
+/** pictures already decoded, held so the page keeps them: the frames' plain <img>s then draw at once (as StoryClip's) */
+const held: HTMLImageElement[] = [];
+async function decoded(src: string): Promise<boolean> {
+  try {
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    held.push(img);
+    return true;
+  } catch (e) {
+    console.error(`picture ${src} did not load`, e);
+    return false;
+  }
+}
+
+/**
+ * วิดีโอโฆษณา's photos, and the agent's own photo its closing card shows, decoded before the first frame (the frames
+ * draw plain <img>s, which Remotion does not wait for). A photo that will not load leaves its scene on the theme's
+ * frame, as a photo that failed to draw does (spec, Photos).
+ */
+async function adPhotos(p: ClipProps): Promise<(string | null)[]> {
+  if (!p.ad) return [];
+  if (p.contact.photo) await decoded(p.contact.photo);
+  return Promise.all(p.ad.photos.map(async (at) => (at && (await decoded(asUrl(at))) ? asUrl(at) : null)));
+}
 
 function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
   const [handle] = useState(() => delayRender("fonts and pictures"));
@@ -91,14 +122,15 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
       await loadScriptFonts(p.scriptFont);
       // a recipe clip draws its own ground (recipes-draw.tsx): no theme background to fetch
       if (p.recipe) {
-        setGot({ ground: null });
+        setGot({ ground: null, photos: [] });
         continueRender(handle);
         return;
       }
       const bgH = motionBgHeight({ h });
       // วาดมือบนกระดาษ's opening of hand-drawn faces left with the faces (owner chose ก, 2026-11-17): every theme opens on the shield and the family
       const ground = await themeBackground(p.theme, { w, h }, bgH, lookOf(p));
-      setGot({ ground: ground ?? motionBackground({ w, h }) });
+      const photos = await adPhotos(p);
+      setGot({ ground: ground ?? motionBackground({ w, h }), photos });
       continueRender(handle);
     })().catch((e) => { console.error(e); throw e; });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -200,17 +232,39 @@ export function Clip(p: ClipProps) {
         </AbsoluteFill>
       );
     }
+    // วิดีโอโฆษณา (ad-video/draw.tsx): a scene with its photo draws on it in place of the theme's frame; the regulator's
+    // line on the last scene, outside KeepWords so its one long Thai run can break
+    const ad = p.ad;
+    const note = ad && s === p.scenes.length - 1 ? AdDisclaimer({ w }) : null;
+    const photo = ad ? got.photos[s] : null;
+    if (ad && photo) {
+      const kind = sc.key === "lead" ? "hook" : sc.key === "contact" ? "close" : "body";
+      return (
+        <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
+          <KeepWords>{AdPhotoScene({
+            src: photo, t, dur: sc.dur, w, h, kind,
+            ...(kind === "hook" ? { headline: p.shown.headline } : kind === "body" ? { line: bodyFigure(p.facts, sc.key as AdBodyKey) } : { cta: ad.cta, contact: p.contact }),
+          })}</KeepWords>
+          {note}
+        </AbsoluteFill>
+      );
+    }
     const portrait = !p.size || p.size === "portrait";
     // ลูกเล่นคลิปใหม่'s icon, in the frame so the theme repaints it with the rest (fx-icons.tsx)
     const icon = p.fx && portrait ? iconFor(p.facts.product, sc.key) : null;
     const frameOf = portrait ? motionFrame(sc.key, c, t) : wideQuoteFrame(sc.key, c, t, p.size as "square" | "landscape");
+    // an ad's closing words over its Motion contact card, in the frame so the theme repaints them with the card
+    const cta = ad && sc.key === "contact" ? adCtaOver(ad.cta, w) : null;
+    const drawn = cta ? <div style={{ display: "flex", position: "relative", width: w, height: h }}>{frameOf}{icon ? fxIcon(icon, t) : null}{cta}</div>
+      : icon ? <div style={{ display: "flex", position: "relative", width: w, height: h }}>{frameOf}{fxIcon(icon, t)}</div> : frameOf;
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
         {themeBack(p.theme, w, h, lookOf(p))}
         {fest ? festivalBack(fest.key, T, w, h) : null}
         {/* Thai lines break at spaces only, as satori breaks them (KeepWords; owner chose ก, 2026-10-19) */}
-        <KeepWords>{themed(icon ? <div style={{ display: "flex", position: "relative", width: w, height: h }}>{frameOf}{fxIcon(icon, t)}</div> : frameOf, p.theme, lookOf(p))}</KeepWords>
+        <KeepWords>{themed(drawn, p.theme, lookOf(p))}</KeepWords>
+        {note}
       </AbsoluteFill>
     );
   });
