@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
 import type { AdPlan } from "@/lib/ad-video/keys";
 import type { CostView } from "@/lib/quote-video/make";
+import type { VideoInput } from "@/lib/quote-video/script";
+import { adPhotosPrice, adPrice } from "@/lib/ad-video/make";
+import { formatBaht } from "@/lib/wallet/money";
 
 /**
  * The วิดีโอโฆษณา form (studio/ad-video, owner chose ก ×6 on mockup v4, 2026-11-22). The suite has no DOM, so a
@@ -232,5 +235,84 @@ describe("the วิดีโอโฆษณา form", () => {
     const s2 = F.reduce(s1, await F.redraftStep(s1, "cta", a.redraftAdPart));
     expect(a.redraftAdPart).toHaveBeenCalledWith(expect.objectContaining({ product: "LIFEPROTECT" }), plan2, "cta");
     expect(draw(s2)).toContain("แอด LINE รับใบเสนอตามอายุของคุณ");
+  });
+});
+
+describe("the วิดีโอโฆษณา form, fix round 1", () => {
+  /** what the server charges for this input with n scenes in this art (ad-video/make.ts), as previewAd answers */
+  const stub = (art: AdPlan["art"], n: number): AdPlan => ({
+    mode: "ai", hook: { kind: "question", voice: "", headline: [] }, body: Array.from({ length: n }, () => ({ key: "price" as const, voice: "" })),
+    cta: { key: "chat", voice: "" }, photos: {}, art, written: false,
+  });
+  const charged = (v: VideoInput, art: AdPlan["art"], n: number) => adPrice({ ...v, ad: stub(art, n) }, DEFAULT_PRICES);
+  const photosOnly = (v: VideoInput, art: AdPlan["art"], n: number) => adPhotosPrice({ ...v, ad: stub(art, n) }, DEFAULT_PRICES);
+  const answer = () => a.previewAd.mockImplementation(async (v: VideoInput, art: AdPlan["art"], n: number) => ({ line: LINE, satang: charged(v, art, n), bodies: ["price", "cover", "value", "versus"], ctas: ["chat"] }));
+
+  it("AI mode, ข, nothing written yet: the price is a range from 1 to 3 scenes, each end what the server would charge", async () => {
+    answer();
+    const s0 = apply(start(), { type: "set", patch: { art: "photo" } });
+    const s1 = F.reduce(s0, await F.previewStep(s0, a.previewAd));
+    expect(a.previewAd.mock.calls.map((c) => c[2]).sort()).toEqual([1, 3]);
+    const v = F.adInput(s0);
+    const html = text(draw(s1));
+    expect(html).toContain(`${formatBaht(charged(v, "photo", 1))}–${formatBaht(charged(v, "photo", 3))} ตามจำนวนฉากที่ AI เลือก`);
+    expect(html).not.toContain(formatBaht(charged(v, "photo", 2)));
+    const free = text(draw(s1, { kind: "free", left: 1, of: 3 }));
+    expect(free).toContain(`ค่าภาพ 3–5 × ฿5 = ${formatBaht(photosOnly(v, "photo", 1))}–${formatBaht(photosOnly(v, "photo", 3))} ตามจำนวนฉากที่ AI เลือก`);
+    // a balance between the two ends is not shut, and says the top may not fit
+    const thin: CostView = { ...wallet, kind: "wallet", satang: charged(v, "photo", 2), balance: "฿x" } as CostView;
+    expect(text(draw(s1, thin))).toContain("ถ้า AI เลือก 3 ฉากอาจไม่พอ");
+  });
+
+  it("once the AI has written, ข is priced at the plan's own number of scenes; ค is never a range", async () => {
+    answer();
+    a.draftAdPlan.mockResolvedValue({ ...drafted, plan: { ...plan2, art: "photo" } });
+    const s0 = apply(start(), { type: "set", patch: { art: "photo" } });
+    const s1 = F.reduce(s0, await F.draftStep(s0, a.draftAdPlan));
+    const s2 = F.reduce(s1, await F.previewStep(s1, a.previewAd));
+    expect(a.previewAd).toHaveBeenLastCalledWith(expect.anything(), "photo", 2);
+    expect(text(draw(s2))).toContain(formatBaht(charged(F.adInput(s0), "photo", 2)));
+    expect(text(draw(s2))).not.toContain("ตามจำนวนฉากที่ AI เลือก");
+    a.previewAd.mockClear();
+    await F.previewStep(start(), a.previewAd);
+    expect(a.previewAd.mock.calls.map((c) => c[2])).toEqual([2]);
+  });
+
+  it("an R14 plan for a quote the form has left is not put up under the new one", async () => {
+    a.draftAdPlan.mockResolvedValue(drafted);
+    a.makeAdVideo.mockResolvedValue({ ok: false, error: "มีบางประโยคใช้ไม่ได้", fixed: ["body1"], reasons: { body1: "x" }, plan: plan2 });
+    const s0 = start();
+    const acts = await F.makeStep(s0, a.draftAdPlan, a.makeAdVideo);
+    const moved = apply(s0, { type: "set", patch: { age: 41 } });
+    const after = acts.reduce(F.reduce, moved);
+    expect(after.shown).toBeNull();
+    expect(after.error?.text).toContain("ยังไม่ได้สร้างวิดีโอ");
+  });
+
+  it("a clip that started stays started when the desk cannot be read again: no try-again", async () => {
+    const act = await F.refreshAfter(true, async () => { throw new Error("offline"); });
+    expect(act).toEqual({ type: "notice", text: F.STARTED });
+    const html = draw(apply(start(), { type: "made" }, act!));
+    expect(html).toContain(F.STARTED);
+    expect(html).not.toContain("ลองใหม่");
+    expect(await F.refreshAfter(false, async () => { throw new Error("offline"); })).toBeNull();
+    expect(await F.refreshAfter(true, async () => undefined)).toBeNull();
+  });
+
+  it("says ใช้ประโยคมาตรฐาน over a เลือกเอง plan too", async () => {
+    a.draftAdPlan.mockResolvedValue({ ...drafted, plan: { ...plan2, mode: "pick", written: false } });
+    a.makeAdVideo.mockResolvedValue({ ok: false, error: "x" });
+    const pick = apply(start(), { type: "set", patch: { mode: "pick" } });
+    const html = draw((await F.makeStep(pick, a.draftAdPlan, a.makeAdVideo)).reduce(F.reduce, pick));
+    expect(rows(html)).toHaveLength(4);
+    expect(html).toContain("ใช้ประโยคมาตรฐาน");
+  });
+
+  it("แก้คำ is shut while a เปลี่ยน or a make is pending", async () => {
+    a.draftAdPlan.mockResolvedValue(drafted);
+    const s1 = F.reduce(start(), await F.draftStep(start(), a.draftAdPlan));
+    const edits = (h: string) => [...h.matchAll(/<button([^>]*)>แก้คำ<\/button>/g)].map((m) => / disabled=""/.test(m[1]));
+    expect(edits(draw(s1))).toEqual([false, false, false, false]);
+    for (const what of ["make", "body1"] as const) expect(edits(draw(apply(s1, { type: "busy", what })))).toEqual([true, true, true, true]);
   });
 });

@@ -17,6 +17,11 @@ import { costLine } from "../quote-video/QuoteVideoBoard";
 export const LINE_MAX = 150;
 const MAX_BODIES = 3;
 const OFFLINE = "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง";
+const MOVED = "ยังไม่ได้สร้างวิดีโอ ข้อมูลแบบประกันเปลี่ยนระหว่างตรวจบท กดสร้างวิดีโออีกครั้ง";
+/** the clip was started; only the desk's list could not be read again (no "try again": a second press is a second clip) */
+export const STARTED = "เริ่มสร้างวิดีโอแล้ว คลิปจะขึ้นบนโต๊ะเมื่อเปิดหน้านี้ใหม่";
+/** the words after a price range */
+const BY_AI = "ตามจำนวนฉากที่ AI เลือก";
 /** an own opening the checker turned down: shown with its reason, nothing made (R14's rule, a line the agent saw) */
 const OWN_REPLACED = "ประโยคเปิดที่เขียนเองใช้ไม่ได้ ระบบใช้ประโยคมาตรฐานแทน ตรวจแล้วกดสร้างวิดีโออีกครั้ง";
 
@@ -41,7 +46,11 @@ const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10" } as const;
 const bodiesOf = (p: AdProduct): AdBodyKey[] => (p === "IHEALTHY" ? ["price", "cover"] : p === "ISHIELD" ? ["price", "cover", "versus"] : ["price", "cover", "value", "versus"]);
 const CTAS: AdCtaKey[] = ["chat", "line", "comment", "nextyear", "meet"];
 
-export interface AdPreview { line: string; satang: number; bodies: AdBodyKey[]; ctas: AdCtaKey[] }
+/**
+ * `upTo`: AI mode, art ข, before the AI has written: the price at three scenes, `satang` being the price at one,
+ * since the AI picks how many and every scene is a photo (a range is said, not a guess)
+ */
+export interface AdPreview { line: string; satang: number; upTo?: number; bodies: AdBodyKey[]; ctas: AdCtaKey[] }
 /** the plan on screen: the quote line it was written for, why the checker replaced any part, a part the AI kept */
 export interface AdShown { plan: AdPlan; line: string; reasons: Record<string, string>; kept?: string }
 
@@ -74,6 +83,7 @@ export interface AdState {
   editing: string | null;
   busy: "draft" | "make" | AdPart | null;
   error: { text: string; contact?: boolean } | null;
+  notice: string | null;
 }
 
 type Patch = Partial<Pick<AdState, "mode" | "sex" | "age" | "variant" | "sum" | "plan" | "brief" | "hook" | "ownHook" | "cta" | "art" | "theme" | "narrator" | "voice" | "gemini">>;
@@ -86,7 +96,9 @@ export type AdAction =
   | { type: "redrafted"; stamp: number; part: AdPart; plan: AdPlan; kept?: true }
   | { type: "edit"; part: string; text: string }
   | { type: "editing"; part: string | null }
-  | { type: "refused"; error: string; contact?: boolean; reasons?: Record<string, string>; plan?: AdPlan }
+  | { type: "refused"; stamp: number; error: string; contact?: boolean; reasons?: Record<string, string>; plan?: AdPlan }
+  /** a line that is neither an error nor the price: the clip started though the desk could not be read again */
+  | { type: "notice"; text: string }
   | { type: "error"; text: string; contact?: boolean }
   | { type: "made" }
   | { type: "busy"; what: AdState["busy"] };
@@ -98,7 +110,7 @@ export function startState({ ihuPlans }: { ihuPlans: { code: string }[] }): AdSt
     plan: ihuPlans.some((p) => p.code === "GOLD") ? "GOLD" : ihuPlans[0]?.code ?? "GOLD",
     brief: "", hook: "shock", ownHook: "", bodies: ["price", "cover"], cta: "chat", art: DEFAULT_ART, theme: "board",
     narrator: "F", voice: "", gemini: "",
-    stamp: 0, seed: 0, preview: null, shown: null, editing: null, busy: null, error: null,
+    stamp: 0, seed: 0, preview: null, shown: null, editing: null, busy: null, error: null, notice: null,
   };
 }
 
@@ -167,6 +179,8 @@ export function reduce(s: AdState, a: AdAction): AdState {
       return { ...s, editing: a.part };
     case "refused":
       // R14: the server mended the plan and made nothing; its plan goes up with what it mended, to press again
+      // a plan mended for a quote the form has since left is not put up under the new one
+      if (a.plan && a.stamp !== s.stamp) return { ...s, error: { text: MOVED } };
       if (a.plan) {
         const line = s.shown?.line ?? (s.preview && !("error" in s.preview) ? s.preview.line : "");
         return { ...s, shown: { plan: a.plan, line, reasons: a.reasons ?? {} }, editing: null, error: { text: a.error } };
@@ -176,7 +190,9 @@ export function reduce(s: AdState, a: AdAction): AdState {
       return { ...s, error: { text: a.text, ...(a.contact ? { contact: true } : {}) } };
     case "made":
       // the plan leaves the form once its clip is on the desk: the next press is a new clip
-      return { ...s, shown: null, editing: null, error: null };
+      return { ...s, shown: null, editing: null, error: null, notice: null };
+    case "notice":
+      return { ...s, notice: a.text };
     case "busy":
       return { ...s, busy: a.what };
   }
@@ -194,6 +210,9 @@ export function adInput(s: AdState): VideoInput {
 }
 
 /** the bodies the clip will have as the form stands: the picks, the AI's plan, or the AI's usual two before it writes */
+/** AI mode before the AI has written, with a photo on every scene: the price is a range over 1–3 scenes */
+export const ranged = (s: AdState): boolean => s.mode === "ai" && s.art === "photo" && !shownFor(s);
+
 export const sceneCount = (s: AdState): number =>
   s.mode === "pick" ? s.bodies.length : shownFor(s)?.plan.body.length ?? 2;
 
@@ -233,6 +252,13 @@ export async function redraftStep(s: AdState, part: AdPart, redraft: typeof redr
 /** the quote line and the clip's price for the art and the scenes as they stand */
 export async function previewStep(s: AdState, preview: typeof previewAd): Promise<AdAction> {
   try {
+    if (ranged(s)) {
+      // the price at one scene and at three, each from the server, so either end is what would be charged
+      const [lo, hi] = await Promise.all([preview(adInput(s), s.art, 1), preview(adInput(s), s.art, 3)]);
+      if ("error" in lo) return { type: "preview", stamp: s.stamp, preview: lo };
+      if ("error" in hi) return { type: "preview", stamp: s.stamp, preview: hi };
+      return { type: "preview", stamp: s.stamp, preview: { ...lo, upTo: hi.satang } };
+    }
     return { type: "preview", stamp: s.stamp, preview: await preview(adInput(s), s.art, sceneCount(s)) };
   } catch {
     return { type: "preview", stamp: s.stamp, preview: { error: OFFLINE } };
@@ -257,9 +283,22 @@ export async function makeStep(s: AdState, draft: typeof draftAdPlan, make: type
   try {
     const r = await make(adInput(s), { ...plan, art: s.art });
     if (r.ok) return [...out, { type: "made" }];
-    return [...out, { type: "refused", error: r.error, ...(r.needContact ? { contact: true } : {}), ...(r.plan ? { plan: r.plan, reasons: r.reasons ?? {} } : {}) }];
+    return [...out, { type: "refused", stamp: s.stamp, error: r.error, ...(r.needContact ? { contact: true } : {}), ...(r.plan ? { plan: r.plan, reasons: r.reasons ?? {} } : {}) }];
   } catch {
     return [...out, { type: "error", text: OFFLINE }];
+  }
+}
+
+/**
+ * After a press: the desk and the money read again. A clip that started stays started whatever the reading does
+ * (a second press would make and charge a second clip), so a failed reading says the clip started instead.
+ */
+export async function refreshAfter(made: boolean, refresh: () => Promise<void>): Promise<AdAction | null> {
+  try {
+    await refresh();
+    return null;
+  } catch {
+    return made ? { type: "notice", text: STARTED } : null;
   }
 }
 
@@ -271,14 +310,36 @@ export const photoSatang = (prices: Prices): number => pictureSatang(prices, "ge
  * photos, whose photos are still paid from the wallet (R11, 2026-11-22) and are said so before the press.
  */
 export function adCostLine(cost: CostView | null, prices: Prices, s: AdState): { text: string; blocked: boolean; topUp: boolean } | null {
-  const total = s.preview && !("error" in s.preview) ? s.preview.satang : undefined;
-  const photos = photoScenes(s.art, sceneCount(s)).filter(Boolean).length;
+  const p = s.preview && !("error" in s.preview) ? s.preview : null;
+  const range = ranged(s);
+  const photosAt = (bodies: number) => photoScenes(s.art, bodies).filter(Boolean).length;
+  const photos = photosAt(range ? 1 : sceneCount(s));
   if (cost?.kind === "free" && photos > 0) {
     if (cost.walletOff) return { text: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้ เลือกภาพแบบ ก · Motion Graphic ได้", blocked: true, topUp: false };
     const each = photoSatang(prices);
-    return { text: `ใช้วิดีโอฟรี 1 ครั้ง · เหลือ ${cost.left}/${cost.of} ครั้ง · ค่าภาพ ${photos} × ${formatBaht(each).replace(/\.00$/, "")} = ${formatBaht(photos * each)} หักจากกระเป๋า`, blocked: false, topUp: false };
+    const head = `ใช้วิดีโอฟรี 1 ครั้ง · เหลือ ${cost.left}/${cost.of} ครั้ง · ค่าภาพ`;
+    const eachWord = formatBaht(each).replace(/\.00$/, "");
+    if (range) {
+      const most = photosAt(MAX_BODIES);
+      return { text: `${head} ${photos}–${most} × ${eachWord} = ${formatBaht(photos * each)}–${formatBaht(most * each)} ${BY_AI} หักจากกระเป๋า`, blocked: false, topUp: false };
+    }
+    return { text: `${head} ${photos} × ${eachWord} = ${formatBaht(photos * each)} หักจากกระเป๋า`, blocked: false, topUp: false };
   }
-  return costLine(cost, "videoMotion", total);
+  if (range && p?.upTo !== undefined && cost?.kind === "wallet") return rangeLine(cost, p.satang, p.upTo);
+  return costLine(cost, "videoMotion", p?.satang);
+}
+
+/** a wallet's line for a price between `lo` and `hi`: shut only when even the lower end is more than the balance */
+function rangeLine(c: Extract<CostView, { kind: "wallet" }>, lo: number, hi: number): { text: string; blocked: boolean; topUp: boolean } {
+  const price = `${formatBaht(lo)}–${formatBaht(hi)} ${BY_AI}`;
+  if (c.satang < lo) {
+    return { text: `${c.credit ? "เครดิตและเงินในกระเป๋าไม่พอ" : "ยอดในกระเป๋าไม่พอ"} (คลิปนี้ ${price} · ยอดคงเหลือ ${c.balance})`, blocked: true, topUp: true };
+  }
+  const short = c.satang < hi;
+  return {
+    text: `${c.credit ? "หักจากเครดิตและกระเป๋า" : "ใช้วิดีโอฟรีครบแล้ว · หักจากกระเป๋า"} ${price} (ยอดคงเหลือ ${c.balance})${short ? " · ถ้า AI เลือก 3 ฉากอาจไม่พอ" : ""}`,
+    blocked: false, topUp: short,
+  };
 }
 
 /**

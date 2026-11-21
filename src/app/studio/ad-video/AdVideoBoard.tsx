@@ -20,7 +20,7 @@ import { myCost, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-vi
 import { draftAdPlan, makeAdVideo, myAdVideos, previewAd, redraftAdPart } from "./actions";
 import {
   AD_HOOKS, AD_TERMS, adCostLine, draftStep, figureParts, hookName, LINE_MAX, makeStep, offeredBodies, offeredCtas,
-  photoSatang, previewStep, reduce, redraftStep, sceneCount, shownFor, startState,
+  photoSatang, previewStep, ranged, reduce, refreshAfter, redraftStep, sceneCount, shownFor, startState,
   type AdAction, type AdShown, type AdState, type AdTheme, type Ages,
 } from "./form";
 
@@ -104,6 +104,9 @@ function PlanRows({ shown, s, dispatch, redraft }: { shown: AdShown; s: AdState;
     { part: "cta", name: `ปิดท้าย · ${CTA_NAMES[plan.cta.key]}`, voice: plan.cta.voice },
   ];
   return (
+    <>
+    {/* AI down: the whole plan is the standard lines, in either mode */}
+    {!plan.written && <p className={`mb-1.5 ${warn}`}>ใช้ประโยคมาตรฐานที่เขียนไว้ในระบบ (AI ไม่ว่างตอนนี้) ตัวเลขทุกตัวจากใบเสนอ กดเขียนใหม่ได้</p>}
     <ol className="space-y-1.5">
       {parts.map((p) => {
         const editing = s.editing === p.part;
@@ -123,7 +126,7 @@ function PlanRows({ shown, s, dispatch, redraft }: { shown: AdShown; s: AdState;
                 {p.part === "hook" && plan.hook.headline.length > 0 && <p className={`mt-0.5 ${note}`}>บนจอ: {plan.hook.headline.join(" / ")}</p>}
               </div>
               <div className="flex shrink-0 gap-1.5">
-                <button type="button" className={small} onClick={() => dispatch({ type: "editing", part: editing ? null : p.part })}>{editing ? "เสร็จ" : "แก้คำ"}</button>
+                <button type="button" className={small} disabled={s.busy !== null} onClick={() => dispatch({ type: "editing", part: editing ? null : p.part })}>{editing ? "เสร็จ" : "แก้คำ"}</button>
                 {!own && (
                   <button type="button" className={small} disabled={s.busy !== null} onClick={() => redraft(p.part)}>
                     {s.busy === p.part ? "กำลังเขียน…" : "เปลี่ยน"}
@@ -138,6 +141,7 @@ function PlanRows({ shown, s, dispatch, redraft }: { shown: AdShown; s: AdState;
       })}
       {reasons.photos && <li className={`${warn} text-xs`}>ภาพประกอบ: ระบบแก้ให้ · {reasons.photos}</li>}
     </ol>
+    </>
   );
 }
 
@@ -268,9 +272,6 @@ export function AdVideoForm({ s, dispatch, on, ages, ihuPlans, prices, cost, ele
             </button>
             {shown && <span className={note}>เทคนิค: {hookName(shown.plan.hook.kind)} · {shown.plan.body.map((b) => bodyName(b.key, s.product)).join(" + ")}</span>}
           </div>
-          {shown && !shown.plan.written && (
-            <p className={warn}>ใช้ประโยคมาตรฐานที่เขียนไว้ในระบบ (AI ไม่ว่างตอนนี้) ตัวเลขทุกตัวจากใบเสนอ กดเขียนใหม่ได้</p>
-          )}
           {shown && <PlanRows shown={shown} s={s} dispatch={dispatch} redraft={on.redraft} />}
           <p className={note}>ตัวเลขที่ไฮไลต์ในคลิปมาจากสูตรแบบประกันในระบบทั้งหมด AI แค่เลือกว่าจะพูดตัวไหน กด “เปลี่ยน” ทีละท่อนได้ หรือแก้คำเองก่อนสร้าง</p>
         </Part>
@@ -378,6 +379,7 @@ export function AdVideoForm({ s, dispatch, on, ages, ihuPlans, prices, cost, ele
         {!s.error && s.preview && "error" in s.preview && (
           <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">{s.preview.error}</p>
         )}
+        {s.notice && <p role="status" className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm text-[var(--ct-accent)]">{s.notice}</p>}
         {notice && <p role="status" className={notice.ok ? "rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm text-[var(--ct-accent)]" : warn}>{notice.text}</p>}
         {line && (
           <p className={`rounded-lg px-3 py-2 text-sm ${line.blocked ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-soft)]"}`}>
@@ -442,6 +444,7 @@ export function AdVideoBoard({ ages, ihuPlans, prices, cost: firstCost, eleven, 
   // the quote line and the price follow the form, a moment after typing stops; a late answer is dropped
   const seq = useRef(0);
   const count = sceneCount(s);
+  const range = ranged(s);
   useEffect(() => {
     const n = ++seq.current;
     const t = setTimeout(() => {
@@ -450,7 +453,7 @@ export function AdVideoBoard({ ages, ihuPlans, prices, cost: firstCost, eleven, 
     return () => clearTimeout(t);
     // only what the quote line and the price read: the quote, the art, the number of scenes, the voice
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.stamp, s.product, s.art, count, s.voice]);
+  }, [s.stamp, s.product, s.art, count, s.voice, range]);
 
   useFreshLinks(() => { myAdVideos().then(setItems).catch(() => undefined); });
   // a clip still being made is asked after every few seconds (board "ad"); when it ends, the money and the voice
@@ -473,11 +476,14 @@ export function AdVideoBoard({ ages, ihuPlans, prices, cost: firstCost, eleven, 
     try {
       const acts = await makeStep(s, draftAdPlan, makeAdVideo);
       acts.forEach(dispatch);
-      if (acts.some((a) => a.type === "made")) setItems(await myAdVideos());
-      else refreshQuota();
-      setCost(await myCost());
-    } catch {
-      dispatch({ type: "error", text: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" });
+      const made = acts.some((a) => a.type === "made");
+      // the desk and the money read again apart from the press: a failed read never says "try again" over a started clip
+      const after = await refreshAfter(made, async () => {
+        if (made) setItems(await myAdVideos());
+        else void refreshQuota();
+        setCost(await myCost());
+      });
+      if (after) dispatch(after);
     } finally {
       dispatch({ type: "busy", what: null });
     }
