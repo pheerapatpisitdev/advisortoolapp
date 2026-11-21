@@ -29,8 +29,9 @@ describe("ad video plan", () => {
     expect(next).toEqual({ said: "81", per: "วันละ" });
     expect(ctasFor(next)).toContain("nextyear");
     expect(ctasFor(undefined)).not.toContain("nextyear");
-    expect(allowedNote(next)).toBe("อายุถัดไป วันละ 81 บาท");
-    expect(allowedNote(undefined)).toBe("");
+    expect(allowedNote(lp, next)).toBe("อายุถัดไป วันละ 81 บาท");
+    expect(allowedNote(lp, undefined)).toBe("");
+    expect(allowedNote(is, undefined)).toBe("คุ้มครองหลัง 90 วัน");
     expect(fixedCta("nextyear", next!)).toBe("ถ้ารอปีหน้า ยอดออมขึ้นเป็นวันละ 81 บาท ทักมาคุยวันนี้เลยนะคะ");
   });
 
@@ -74,7 +75,7 @@ describe("ad video plan", () => {
   });
 
   it("never fixes a line with one the checker refuses", () => {
-    for (const k of ctasFor(next)) expect(lineProblem(fixedCta(k, next), lp, 150, allowedNote(next))).toBeNull();
+    for (const k of ctasFor(next)) expect(lineProblem(fixedCta(k, next), lp, 150, allowedNote(lp, next))).toBeNull();
   });
 
   it("de-duplicates and cuts bodies to three", () => {
@@ -89,6 +90,32 @@ describe("ad video plan", () => {
     expect(a.fixed).toContain("photos");
     const b = cleanAdPlan(raw({ photos: { close: "father, 2 kids" } }), lp, next, TODAY);
     expect(b.plan.photos.close).toBe(fixedPhoto("LIFEPROTECT", "close"));
+  });
+
+  it("caps the client's photo ideas at 300 and the model name at 80 characters", () => {
+    const long = "a Thai family at home ".repeat(30);
+    const r = cleanAdPlan(raw({ photos: { hook: long, close: long, body: [long, long] }, model: "m".repeat(200) }), lp, next, TODAY);
+    expect(long.length).toBeGreaterThan(300);
+    expect(r.plan.photos.hook!.length).toBeLessThanOrEqual(300);
+    expect(r.plan.photos.close!.length).toBeLessThanOrEqual(300);
+    for (const b of r.plan.photos.body ?? []) expect(b.length).toBeLessThanOrEqual(300);
+    expect(r.plan.photos.hook).toBe(long.slice(0, 300).trim());
+    expect(r.plan.model).toBe("m".repeat(80));
+    expect(cleanAdPlan(raw({ model: "  " }), lp, next, TODAY).plan.model).toBeUndefined();
+  });
+
+  it("lets an iShield line say the 90-day wait, and no other product (R17)", () => {
+    const isPlan = (over: Record<string, unknown>) => ({ ...fixedPlan(is, { art: "mixed", mode: "ai" }), ...over });
+    const hook = { kind: "question", voice: "รู้ไหมคะ โรคร้ายแรงคุ้มครองหลัง 90 วันแรก วางแผนไว้ก่อนดีกว่าค่ะ", headline: ["คุ้มครองหลัง 90 วัน"] };
+    const body = [{ key: "cover", voice: "โรคร้ายแรงคุ้มครองหลัง 90 วัน รับเงินก้อนตั้งแต่ระยะเริ่มต้นค่ะ" }];
+    const r = cleanAdPlan(isPlan({ hook, body }), is, undefined, TODAY);
+    expect(r.fixed).toEqual([]);
+    expect(r.plan.hook.voice).toBe(hook.voice);
+    expect(r.plan.body[0].voice).toBe(body[0].voice);
+    // a Life Protect line with 90 still fails
+    const lpr = cleanAdPlan(raw({ hook: { ...hook, headline: ["ครอบครัวพร้อมไหม"] } }), lp, next, TODAY);
+    expect(lpr.fixed).toContain("hook");
+    expect(lpr.reasons.hook).toMatch(/90/);
   });
 
   it("refuses what the ad cannot carry", () => {
@@ -114,7 +141,7 @@ describe("ad video plan", () => {
       if (!f) continue;
       checked++;
       const nx = nextYear(v, TODAY);
-      const note = allowedNote(nx);
+      const note = allowedNote(f, nx);
       const tag = JSON.stringify(v);
       const check = (what: string, line: string, max = 150) => {
         const why = lineProblem(line, f, max, note);

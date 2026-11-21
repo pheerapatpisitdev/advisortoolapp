@@ -16,6 +16,9 @@ const CTA_KEYS: AdCtaKey[] = ["chat", "line", "comment", "nextyear", "meet"];
 const BODY_KEYS: AdBodyKey[] = ["price", "cover", "value", "versus"];
 const VOICE_MAX = 150;
 const MAX_BODIES = 3;
+/** a plan comes back from the client: its free-text fields are capped before they are stored or sent to a painter */
+const PHOTO_MAX = 300;
+const MODEL_MAX = 80;
 
 /** a clip the ad can carry: one of the three plans, Thai, plain (no riders, budget, compare or setup) */
 export function adInputOk(v: VideoInput): boolean {
@@ -62,8 +65,13 @@ export function ctasFor(next: Next): AdCtaKey[] {
   return CTA_KEYS.filter((k) => k !== "nextyear" || next);
 }
 
-/** the sentence the checker may let through besides the quote's own figures */
-export const allowedNote = (next: Next): string => (next ? `อายุถัดไป ${next.per} ${next.said} บาท` : "");
+/**
+ * The sentence the checker may let through besides the quote's own figures: next year's price, and for iShield
+ * the 90-day wait the rules tell the model to mention (R17, 2026-11-22 — brief.ts's allowedNumbers is in the
+ * Remotion bundle and stays as it is).
+ */
+export const allowedNote = (f: QuoteVideoFacts, next: Next): string =>
+  [next ? `อายุถัดไป ${next.per} ${next.said} บาท` : "", f.product === "ISHIELD" ? "คุ้มครองหลัง 90 วัน" : ""].filter(Boolean).join(" ");
 
 /**
  * The quote video's own line for that scene when the checker lets it through; otherwise a compact ad line
@@ -162,7 +170,7 @@ export function cleanAdPlan(
   // why each part was replaced, for the form (lineProblem's text); `fixed` itself holds the plain part names
   const reasons: Record<string, string> = {};
   const fix = (part: string, why: string) => { if (!fixed.includes(part)) fixed.push(part); reasons[part] ??= why; };
-  const note = allowedNote(next);
+  const note = allowedNote(f, next);
   const product = productOf(f);
   const art = readArt(r.art);
 
@@ -211,7 +219,7 @@ export function cleanAdPlan(
   const p = isObj(r.photos) ? r.photos : {};
   let photosFixed = false;
   const photo = (x: unknown, scene: "hook" | "close" | "body"): string | undefined => {
-    const t = str(x);
+    const t = str(x).slice(0, PHOTO_MAX).trim();
     if (!t) return undefined;
     if (/[ก-๙0-9]/.test(t)) { photosFixed = true; return fixedPhoto(product, scene); }
     return t;
@@ -237,7 +245,7 @@ export function cleanAdPlan(
     art,
     ...(brief ? { brief } : {}),
     written: r.written === true,
-    ...(typeof r.model === "string" && r.model ? { model: r.model } : {}),
+    ...(str(r.model) ? { model: str(r.model).slice(0, MODEL_MAX) } : {}),
   };
   return { plan, fixed, reasons };
 }

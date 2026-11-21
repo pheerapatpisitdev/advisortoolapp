@@ -280,7 +280,7 @@ export async function writeAdPlan(f: QuoteVideoFacts, opts: AdWriteOpts): Promis
   const own = locked?.hook === "own";
   const ownHook = own ? str(opts.ownHook) : undefined;
   // a broken own line is replaced by the fixed hook whole (voice and headline); the model cannot mend the agent's words
-  const ownOk = own && !lineProblem(ownHook ?? "", f, VOICE_MAX, allowedNote(next));
+  const ownOk = own && !lineProblem(ownHook ?? "", f, VOICE_MAX, allowedNote(f, next));
   const suggest = WRITTEN_HOOKS[Math.abs((opts.seed ?? 0) + f.age) % WRITTEN_HOOKS.length];
 
   const fallback = (): AdPlan => {

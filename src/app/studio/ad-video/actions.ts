@@ -105,7 +105,7 @@ function standIns(q: AdQuote, plan: AdPlan, ownHook?: string): { fixed?: string[
   const reasons: Record<string, string> = {};
   if (plan.hook.kind === "own") {
     if (ownHook !== undefined && plan.hook.voice !== ownHook) {
-      reasons.hook = lineProblem(ownHook, q.f, OWN_MAX, allowedNote(q.next)) ?? STANDARD;
+      reasons.hook = lineProblem(ownHook, q.f, OWN_MAX, allowedNote(q.f, q.next)) ?? STANDARD;
     }
   } else if (plan.written && plan.hook.voice === fallbackLines(q.f, { hook: plan.hook.kind }).hook) reasons.hook = STANDARD;
   if (plan.written) {
