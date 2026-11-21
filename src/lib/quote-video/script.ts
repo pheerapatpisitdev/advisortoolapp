@@ -17,6 +17,7 @@ import { gsavingVideoFacts, gsIndexLine, gsLeadLine, gsMoney, rateLabel, type Gs
 import type { SceneMotion, VideoSize } from "./timeline";
 import type { VideoBrief, WrittenLines } from "./brief";
 import type { RecipeKey } from "./recipes";
+import type { AdPlan } from "@/lib/ad-video/keys";
 import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
 import { VIDEO_WORDS, type VideoLang } from "./video-words";
 import { figure } from "@/lib/ihealthy-lang";
@@ -170,6 +171,13 @@ export type VideoInput = (
    * switched the table's pen notes off, kept with the job. Absent (every clip before it) = notes drawn
    */
   pen?: boolean;
+  /**
+   * วิดีโอโฆษณา (owner chose ก ×6 on the mockup, 2026-11-22; src/lib/ad-video): the ad's plan, told in place of the
+   * standing clip's lines. Absent on every other clip
+   */
+  ad?: AdPlan;
+  /** an ad's photos as filed, one a scene (lead, bodies…, contact): null for a scene drawn without one, or whose photo failed */
+  pictures?: (string | null)[];
 };
 
 /** what a job's input hides; anything unreadable, and every clip made before the setting, hides nothing */
