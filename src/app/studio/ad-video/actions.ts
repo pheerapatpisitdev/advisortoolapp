@@ -216,7 +216,8 @@ export async function makeAdVideo(v: VideoInput, plan: AdPlan): Promise<AdMade> 
   }
 }
 
-/** the agent's ad clips, as วิดีโอนำเสนอ lists its own (myVideos, board "ad") */
+/** the agent's ad clips, as วิดีโอนำเสนอ lists its own (myVideos, board "ad"); who is calling is asked first, as every action asks */
 export async function myAdVideos(): Promise<VideoItem[]> {
+  await requireMember();
   return myVideos("ad");
 }
