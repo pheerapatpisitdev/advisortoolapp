@@ -99,4 +99,36 @@ describe("ad video plan", () => {
     expect(adInputOk({ ...IH, compare: ["SILVER"] } as VideoInput)).toBe(false);
     expect(adInputOk({ product: "LEGACY", age: 40, sex: "M", tier: 3 })).toBe(false);
   });
+
+  it("every fixed line passes the checker, for every plan, age and sex", () => {
+    const inputs: VideoInput[] = [];
+    for (const age of [1, 20, 35, 50, 55]) for (const sex of ["M", "F"] as const) {
+      for (const variant of ["WLF09H", "WLF19H", "WLF99H"]) inputs.push({ variant, age, sex, sumAssured: 1_000_000 });
+      for (const variant of ["WLCI05", "WLCI10", "WLCI15", "WLCI20"]) inputs.push({ product: "ISHIELD", variant, age, sex, sumAssured: 1_000_000 });
+      for (const plan of ["SILVER", "GOLD", "PLATINUM"]) inputs.push({ product: "IHEALTHY", age, sex, plan, compare: [] });
+    }
+    let checked = 0;
+    const bad: string[] = [];
+    for (const v of inputs) {
+      const f = quoteVideoFacts(v, TODAY);
+      if (!f) continue;
+      checked++;
+      const nx = nextYear(v, TODAY);
+      const note = allowedNote(nx);
+      const tag = JSON.stringify(v);
+      const check = (what: string, line: string, max = 150) => {
+        const why = lineProblem(line, f, max, note);
+        if (why) bad.push(`${tag} ${what}: ${why} :: ${line}`);
+      };
+      for (const k of bodiesFor(f)) check(`body ${k}`, fixedBody(f, k));
+      for (const k of ctasFor(nx)) check(`cta ${k}`, fixedCta(k, nx));
+      const p = fixedPlan(f, { art: "mixed", mode: "pick", next: nx });
+      check("hook", p.hook.voice);
+      for (const l of p.hook.headline) check("headline", l, 28);
+      const r = cleanAdPlan(p, f, nx, TODAY);
+      if (r.fixed.length) bad.push(`${tag} fixedPlan reports ${r.fixed.join(",")}`);
+    }
+    expect(checked).toBeGreaterThan(30);
+    expect(bad).toEqual([]);
+  });
 });

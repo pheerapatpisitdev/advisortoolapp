@@ -3,14 +3,13 @@
  * (quoteVideoFacts), so an AI line that carries any other number is replaced by a fixed line built from the
  * same facts. Owner chose ก ×6 on the mockup, 2026-11-22.
  */
-import { allowedNumbers, fallbackLines, HEADLINE_MAX, lineProblem, NOTE_MAX } from "@/lib/quote-video/brief";
-import { quoteVideoFacts, quoteVideoScript, type QuoteVideoFacts, type VideoInput } from "@/lib/quote-video/script";
+import { fallbackLines, HEADLINE_MAX, lineProblem, NOTE_MAX } from "@/lib/quote-video/brief";
+import { quoteVideoFacts, quoteVideoScript, spokenBaht, type QuoteVideoFacts, type VideoInput } from "@/lib/quote-video/script";
 import {
   AD_PRODUCTS, readArt,
   type AdArt, type AdBodyKey, type AdCtaKey, type AdHookKind, type AdPlan, type AdProduct,
 } from "./keys";
 
-void allowedNumbers; // the checker lives inside lineProblem; imported so the rule's source stays visible here
 
 const HOOK_KINDS: AdHookKind[] = ["question", "shock", "myth", "story", "list", "own"];
 const CTA_KEYS: AdCtaKey[] = ["chat", "line", "comment", "nextyear", "meet"];
@@ -66,11 +65,37 @@ export function ctasFor(next: Next): AdCtaKey[] {
 /** the sentence the checker may let through besides the quote's own figures */
 export const allowedNote = (next: Next): string => (next ? `อายุถัดไป ${next.per} ${next.said} บาท` : "");
 
-/** the quote video's own line for that scene; a product without that scene says its price line instead */
+/**
+ * The quote video's own line for that scene when the checker lets it through; otherwise a compact ad line
+ * built from the same facts (R10, 2026-11-22: the "max" script says เบี้ย for iShield's price and runs past
+ * 150 characters on iShield's cover and Life Protect's value). Female endings, never เบี้ย.
+ */
 export function fixedBody(f: QuoteVideoFacts, key: AdBodyKey): string {
   const script = quoteVideoScript(f, "", "F", "max");
   const find = (k: string) => script.find((s) => s.key === k)?.voice;
-  return find(key) ?? find("price") ?? "";
+  const own = find(key) ?? find("price");
+  if (own && !lineProblem(own, f, VOICE_MAX, "")) return own;
+  return compactBody(f, find(key) ? key : "price");
+}
+
+function compactBody(f: QuoteVideoFacts, key: AdBodyKey): string {
+  const lead = spokenBaht(f.lead.baht);
+  const shield = f.product === "ISHIELD";
+  if (key === "cover") {
+    if (shield) return `คุ้มครองโรคร้ายแรง ${f.illness?.total ?? 70} โรค รับเงินก้อนสูงสุด ${lead} ตั้งแต่ระยะเริ่มต้นค่ะ`;
+    if (f.product === "IHEALTHY") return `เหมาจ่ายค่ารักษาสูงสุด ${lead} ต่อปีค่ะ`;
+    return `ครอบครัวได้เงินก้อนสูงสุด ${lead} ดูแลยาวถึงอายุ ${f.coverToAge} ค่ะ`;
+  }
+  if (key === "value" && f.breakEven) {
+    return `ออมครบตอนอายุ ${f.lastPayAge} พออายุ ${f.breakEven.age} ขอคืนได้ ${f.breakEven.cash} บาท มากกว่าที่ออมไปค่ะ`;
+  }
+  if (key === "versus" && f.totalPaid) {
+    return `เก็บเงินเองได้ ${f.totalPaid} บาท แต่แผนนี้ ${shield ? "รับเงินก้อนสูงสุด" : "ครอบครัวได้ถึง"} ${lead} ค่ะ`;
+  }
+  if (f.product === "IHEALTHY") return `ปีแรก${f.spokenPrice.per} ${f.spokenPrice.amount} บาท ค่ะ`;
+  const [per, amount] = f.perDayAmount ? ["วันละ", f.perDayAmount] : [f.spokenPrice.per, f.spokenPrice.amount];
+  const years = f.payToEnd || !f.payYears ? `ออมถึงอายุ ${f.coverToAge}` : `ออมเพียง ${f.payYears} ปี`;
+  return `ออมแค่${per} ${amount} บาท ${years} คุ้มครองถึงอายุ ${f.coverToAge} ค่ะ`;
 }
 
 export function fixedCta(key: AdCtaKey, next: Next): string {
@@ -146,12 +171,14 @@ export function cleanAdPlan(
   const kind = HOOK_KINDS.includes(h.kind as AdHookKind) ? (h.kind as AdHookKind) : "question";
   const fixedHook = fallbackLines(f, { hook: kind === "own" ? "question" : kind });
   let voice = str(h.voice);
-  let headline = (Array.isArray(h.headline) ? h.headline : []).map(str).filter(Boolean).slice(0, 2);
+  const headRaw = (Array.isArray(h.headline) ? h.headline : []).map(str).filter(Boolean);
+  let headline = headRaw.slice(0, 2);
   const voiceWhy = lineProblem(voice, f, VOICE_MAX, note);
   const headWhy = !headline.length ? "ว่าง"
     : headline.map((l) => (l.length > HEADLINE_MAX ? `ยาวเกิน ${HEADLINE_MAX} ตัวอักษร` : lineProblem(l, f, HEADLINE_MAX, note))).find(Boolean) ?? null;
   if (voiceWhy) { voice = fixedHook.hook; fix("hook", voiceWhy); }
   if (headWhy) { headline = fixedHook.headline; if (!voiceWhy) fix("hook", headWhy); }
+  else if (headRaw.length > 2) fix("hook", "หัวข้อเกิน 2 บรรทัด");
 
   // bodies: only this quote's, once each, three at most
   const allowed = bodiesFor(f);
@@ -170,7 +197,7 @@ export function cleanAdPlan(
   }
   if (!body.length) {
     for (const key of allowed.slice(0, 2)) body.push({ key, voice: fixedBody(f, key) });
-    fix("body1", "ว่าง");
+    fix("body1", rawBody.length ? "ไม่ตรงกับแบบประกันนี้" : "ว่าง");
   }
 
   // cta
@@ -192,7 +219,12 @@ export function cleanAdPlan(
   const photos: AdPlan["photos"] = {};
   const ph = photo(p.hook, "hook"); if (ph) photos.hook = ph;
   const pc = photo(p.close, "close"); if (pc) photos.close = pc;
-  if (Array.isArray(p.body)) photos.body = p.body.map((x) => photo(x, "body") ?? fixedPhoto(product, "body"));
+  if (Array.isArray(p.body)) {
+    // one prompt per body scene: a missing one is filled, an extra one dropped, and either is said
+    const given: unknown[] = p.body;
+    photos.body = body.map((_, i) => photo(given[i], "body") ?? fixedPhoto(product, "body"));
+    if (given.length !== body.length || given.some((x) => !str(x))) photosFixed = true;
+  }
   if (photosFixed) fix("photos", "ภาพต้องเป็นภาษาอังกฤษ ไม่มีตัวเลข");
 
   const brief = str(r.brief).slice(0, NOTE_MAX);
