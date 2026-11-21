@@ -20,7 +20,7 @@ import { fxIcon, iconFor } from "@/lib/quote-video/fx-icons";
 import { recipeFigures } from "@/lib/quote-video/recipes";
 import { recipeFrame, recipeJoin } from "@/lib/quote-video/recipes-draw";
 import type { RecipeClip } from "@/lib/quote-video/recipe-blocks";
-import { AdDisclaimer, adCtaOver, AdPhotoScene, bodyFigure } from "@/lib/ad-video/draw";
+import { AdDisclaimer, AdPhotoScene, bodyFigure, ctaTitle } from "@/lib/ad-video/draw";
 import type { AdBodyKey } from "@/lib/ad-video/keys";
 
 /**
@@ -82,8 +82,11 @@ export async function loadScriptFonts(scriptFont?: { url: string; weight: number
   })));
 }
 
-/** วิดีโอโฆษณา's photos, each as a link or the bundle's file, and null where the scene has none or it would not load */
-interface Loaded { ground: ReactNode; photos: (string | null)[] }
+/**
+ * วิดีโอโฆษณา's photos, each as a link or the bundle's file, and null where the scene has none or it would not load;
+ * faceless: the agent's own photo would not load, so the ad's cards show their initial instead
+ */
+interface Loaded { ground: ReactNode; photos: (string | null)[]; faceless?: boolean }
 
 const asUrl = (at: string) => (/^https?:\/\//.test(at) ? at : staticFile(at));
 
@@ -107,10 +110,11 @@ async function decoded(src: string): Promise<boolean> {
  * draw plain <img>s, which Remotion does not wait for). A photo that will not load leaves its scene on the theme's
  * frame, as a photo that failed to draw does (spec, Photos).
  */
-async function adPhotos(p: ClipProps): Promise<(string | null)[]> {
-  if (!p.ad) return [];
-  if (p.contact.photo) await decoded(p.contact.photo);
-  return Promise.all(p.ad.photos.map(async (at) => (at && (await decoded(asUrl(at))) ? asUrl(at) : null)));
+async function adPhotos(p: ClipProps): Promise<{ photos: (string | null)[]; faceless?: boolean }> {
+  if (!p.ad) return { photos: [] };
+  const faceless = p.contact.photo ? !(await decoded(p.contact.photo)) : false;
+  const photos = await Promise.all(p.ad.photos.map(async (at) => (at && (await decoded(asUrl(at))) ? asUrl(at) : null)));
+  return { photos, ...(faceless ? { faceless } : {}) };
 }
 
 function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
@@ -129,8 +133,7 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
       const bgH = motionBgHeight({ h });
       // วาดมือบนกระดาษ's opening of hand-drawn faces left with the faces (owner chose ก, 2026-11-17): every theme opens on the shield and the family
       const ground = await themeBackground(p.theme, { w, h }, bgH, lookOf(p));
-      const photos = await adPhotos(p);
-      setGot({ ground: ground ?? motionBackground({ w, h }), photos });
+      setGot({ ground: ground ?? motionBackground({ w, h }), ...(await adPhotos(p)) });
       continueRender(handle);
     })().catch((e) => { console.error(e); throw e; });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -214,9 +217,13 @@ export function Clip(p: ClipProps) {
   const layers = p.scenes.map((sc, s) => {
     if (T < sc.start || T >= sc.start + sc.dur) return null;
     const t = T - sc.start;
+    // วิดีโอโฆษณา: the agent's photo dropped when it would not load (their initial instead), the closing words as the
+    // contact card's title (ad-video/draw.tsx ctaTitle); every other clip's context is exactly as before
+    const contact = got.faceless ? { ...p.contact, photo: undefined } : p.contact;
     const c: MotionContext = {
-      facts: p.facts, narrator: p.narrator, customer: p.customer, contact: p.contact,
+      facts: p.facts, narrator: p.narrator, customer: p.customer, contact,
       words: sc.voice.split(" ").filter(Boolean), voiceSec: sc.voiceSec, ...p.shown,
+      ...(p.ad && sc.key === "contact" ? { ctaTitle: ctaTitle(p.ad.cta, w) } : {}),
     };
     // the ground drifts up the scene (down on every other one), as buildJob's crop does
     const y = drift * (s % 2 ? 1 - t / sc.dur : t / sc.dur);
@@ -243,7 +250,7 @@ export function Clip(p: ClipProps) {
         <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
           <KeepWords>{AdPhotoScene({
             src: photo, t, dur: sc.dur, w, h, kind,
-            ...(kind === "hook" ? { headline: p.shown.headline } : kind === "body" ? { line: bodyFigure(p.facts, sc.key as AdBodyKey) } : { cta: ad.cta, contact: p.contact }),
+            ...(kind === "hook" ? { headline: p.shown.headline } : kind === "body" ? { line: bodyFigure(p.facts, sc.key as AdBodyKey) } : { cta: ad.cta, contact }),
           })}</KeepWords>
           {note}
         </AbsoluteFill>
@@ -253,10 +260,7 @@ export function Clip(p: ClipProps) {
     // ลูกเล่นคลิปใหม่'s icon, in the frame so the theme repaints it with the rest (fx-icons.tsx)
     const icon = p.fx && portrait ? iconFor(p.facts.product, sc.key) : null;
     const frameOf = portrait ? motionFrame(sc.key, c, t) : wideQuoteFrame(sc.key, c, t, p.size as "square" | "landscape");
-    // an ad's closing words over its Motion contact card, in the frame so the theme repaints them with the card
-    const cta = ad && sc.key === "contact" ? adCtaOver(ad.cta, w) : null;
-    const drawn = cta ? <div style={{ display: "flex", position: "relative", width: w, height: h }}>{frameOf}{icon ? fxIcon(icon, t) : null}{cta}</div>
-      : icon ? <div style={{ display: "flex", position: "relative", width: w, height: h }}>{frameOf}{fxIcon(icon, t)}</div> : frameOf;
+    const drawn = icon ? <div style={{ display: "flex", position: "relative", width: w, height: h }}>{frameOf}{fxIcon(icon, t)}</div> : frameOf;
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>

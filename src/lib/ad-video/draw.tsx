@@ -39,10 +39,13 @@ export function bodyFigure(f: QuoteVideoFacts, key: AdBodyKey): string {
 
 /**
  * The closing words as lines broken at their spaces only (a Thai line breaks at a space, as KeepWords keeps it),
- * each drawn on one line: the biggest size, up to 64, at which the longest word fits and the whole takes three lines
- * at most (no smaller than 44 for a long line the AI wrote), measured at 0.6 em a letter as the recipes are.
+ * each drawn on one line: the biggest size, up to `cap`, at which the longest word fits and the whole `fits` (three
+ * lines at most unless told otherwise; no smaller than `least` for a long line the AI wrote), measured at 0.6 em a
+ * letter as the recipes are.
  */
-function ctaLines(cta: string, room: number, u: number): { size: number; lines: string[] } {
+export function ctaLines(
+  cta: string, room: number, u: number, cap = 64, least = 44, fits: (lines: number, size: number) => boolean = (n) => n <= 3,
+): { size: number; lines: string[] } {
   const words = cta.trim().split(/\s+/).filter(Boolean);
   const longest = words.reduce((m, x) => Math.max(m, [...x].length), 1);
   const wrap = (size: number) => {
@@ -55,26 +58,24 @@ function ctaLines(cta: string, room: number, u: number): { size: number; lines: 
     }
     return out;
   };
-  let size = Math.floor(Math.min(64 * u, room / (longest * 0.6)));
-  while (size > 44 * u && wrap(size).length > 3) size -= 2;
+  let size = Math.floor(Math.min(cap * u, room / (longest * 0.6)));
+  while (size > least * u && !fits(wrap(size).length, size)) size -= 2;
   return { size, lines: wrap(size) };
 }
 
 /**
- * The closing words over the contact scene (the CTA's voice without its polite ending, make.ts adCta): a gold rule,
- * then the words in white. Drawn in the Motion clip's own white and gold, so on ไวท์บอร์ด themed (themes.tsx)
- * repaints them in the board's ink as it does the card under them. Over a photo the words carry a shadow; on a
- * Motion card they do not (on the white board it reads as a smudge, first local render 2026-11-22). Unplaced: the
- * caller puts it where it goes.
+ * The closing words over the closing photo (the CTA's voice without its polite ending, make.ts adCta): a gold rule,
+ * then the words in white with a shadow that holds them on any picture. Unplaced: the caller puts it where it goes.
+ * (A Motion contact card shows them as its title instead: ctaTitle.)
  */
-export function adCtaBlock(cta: string, w: number, onPhoto = true): ReactNode {
+export function adCtaBlock(cta: string, w: number): ReactNode {
   const u = w / 1080;
   const { size, lines } = ctaLines(cta, (1080 - SIDE * 2) * u, u);
   return (
     <div style={flex({ flexDirection: "column", alignItems: "center", width: (1080 - SIDE * 2) * u, fontFamily: "Plex" })}>
       <div style={flex({ width: 120 * u, height: 8 * u, borderRadius: 4 * u, background: A.gold, marginBottom: 22 * u })} />
       {lines.map((l, i) => (
-        <div key={i} style={line({ fontSize: size, fontWeight: 600, lineHeight: 1.3, color: A.ink, ...(onPhoto ? { textShadow: A.shadow } : {}) })}>{l}</div>
+        <div key={i} style={line({ fontSize: size, fontWeight: 600, lineHeight: 1.3, color: A.ink, textShadow: A.shadow })}>{l}</div>
       ))}
     </div>
   );
@@ -117,6 +118,23 @@ function contactCard(k: Contact, u: number): ReactNode {
         <div style={line({ fontSize: fitSize(phone, room, 40 * u), marginTop: 6 * u })}>{phone}</div>
         {lineId ? <div style={line({ fontSize: fitSize(lineId, room, 40 * u) })}>{lineId}</div> : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The agent's รายละเอียดเพิ่มเติม (their licence line, as a rule) under the card on the closing photo, as the Motion
+ * contact frame shows it (motion.tsx Contact): two lines at most, each fitted on one line, in the frame's white.
+ */
+function moreLines(k: Contact, room: number): ReactNode {
+  const lines = (k.more ?? "").split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 2);
+  if (!lines.length) return null;
+  const u = room / (1080 - SIDE * 2);
+  return (
+    <div style={flex({ flexDirection: "column", alignItems: "center", width: room, marginTop: 20 * u })}>
+      {lines.map((x, i) => (
+        <div key={i} style={line({ fontSize: fitSize(x, room, 40 * u), lineHeight: 1.45, color: A.ink, textShadow: A.shadow })}>{x}</div>
+      ))}
     </div>
   );
 }
@@ -172,6 +190,7 @@ export function AdPhotoScene({ src, t, dur, w, h, kind, headline, line: figure, 
         <div style={flex({ position: "absolute", left: SIDE * u, width: room, bottom: CLOSE_BOTTOM * u, flexDirection: "column", alignItems: "center" })}>
           {cta ? adCtaBlock(cta, w) : null}
           {contact ? contactCard(contact, u) : null}
+          {contact ? moreLines(contact, room) : null}
         </div>
       ) : null}
       <div style={flex({ position: "absolute", left: 0, width: w, bottom: 34 * u, justifyContent: "center", fontSize: 26 * u, color: A.ink, opacity: 0.6 })}>Application by www.advisortool.app</div>
@@ -180,14 +199,12 @@ export function AdPhotoScene({ src, t, dur, w, h, kind, headline, line: figure, 
 }
 
 /**
- * where the closing words go over a Motion contact card (Clip.tsx): above the regulator's line, clear of the card.
- * A plain function, not a component, so themed (themes.tsx) sees its pieces and repaints them with the card.
+ * The closing words as a Motion contact card's title (motion.tsx Contact, MotionContext.ctaTitle): in the slot above
+ * the card that the standing "ทักมาคุยกันได้เลย" takes on other clips (controller ruling, 2026-11-22), so the words
+ * sit above the agent as on the closing photo, and the subtitle under the card is no longer a copy of them. The slot
+ * runs from 260 to the card at 620: up to 84, as small as it takes for every line at 1.3 to fit those 360 px.
  */
-export function adCtaOver(cta: string, w: number): ReactNode {
+export function ctaTitle(cta: string, w: number): { size: number; lines: string[] } {
   const u = w / 1080;
-  return (
-    <div style={flex({ position: "absolute", left: SIDE * u, width: (1080 - SIDE * 2) * u, bottom: CLOSE_BOTTOM * u, justifyContent: "center" })}>
-      {adCtaBlock(cta, w, false)}
-    </div>
-  );
+  return ctaLines(cta, (1080 - SIDE * 2) * u, u, 84, 30, (n, size) => n * size * 1.3 <= 360 * u);
 }

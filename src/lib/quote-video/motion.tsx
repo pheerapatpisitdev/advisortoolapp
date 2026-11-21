@@ -253,6 +253,11 @@ export interface MotionContext {
   voiceSec: number;
   /** the opening's picture where the clip's theme has its own (themes.tsx); the shield and the family otherwise */
   hero?: (s: Record<string, Anim>, t: number, w: number, h: number) => ReactNode;
+  /**
+   * วิดีโอโฆษณา (ad-video/draw.tsx ctaTitle): the closing words in place of the contact card's standing title, already
+   * broken into lines at a size that fits the slot above the card; absent on every other clip
+   */
+  ctaTitle?: { size: number; lines: string[] };
 }
 
 export const abs = (s: React.CSSProperties): React.CSSProperties => ({ display: "flex", position: "absolute", ...s });
@@ -1336,10 +1341,17 @@ function Contact({ c, t }: { c: MotionContext; t: number }) {
   return (
     <>
       <Header f={f} title={c.customer ? vw.contactFor(c.customer) : vw.contactMore} />
-      <El an={s.title} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 260, flexDirection: "column", fontSize: f.lang && f.lang !== "th" ? 68 : 84, fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight }}>
-        <div style={box({})}>{said}</div>
-        <div style={box({ color: GOLD })}>{help}</div>
-      </El>
+      {c.ctaTitle ? (
+        // an ad's closing words take the title's place above the card (controller ruling, 2026-11-22), the last line in gold
+        <El an={s.title} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 260, flexDirection: "column", fontSize: c.ctaTitle.size, fontWeight: 700, color: WHITE, lineHeight: 1.3 }}>
+          {c.ctaTitle.lines.map((l, i, all) => <div key={i} style={box({ whiteSpace: "nowrap", ...(i === all.length - 1 && all.length > 1 ? { color: GOLD } : {}) })}>{l}</div>)}
+        </El>
+      ) : (
+        <El an={s.title} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 260, flexDirection: "column", fontSize: f.lang && f.lang !== "th" ? 68 : 84, fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight }}>
+          <div style={box({})}>{said}</div>
+          <div style={box({ color: GOLD })}>{help}</div>
+        </El>
+      )}
       <El an={s.card} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 620, background: WHITE, color: NAVY, borderRadius: 48, padding: 44, alignItems: "center" }}>
         {k.photo ? (
           // eslint-disable-next-line @next/next/no-img-element

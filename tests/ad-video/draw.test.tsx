@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AdDisclaimer, AdPhotoScene, adCtaBlock, bodyFigure } from "@/lib/ad-video/draw";
+import { AdDisclaimer, AdPhotoScene, adCtaBlock, bodyFigure, ctaTitle } from "@/lib/ad-video/draw";
+import { motionFrame, type MotionContext } from "@/lib/quote-video/motion";
 import { adCta } from "@/lib/ad-video/make";
 import { fixedCta } from "@/lib/ad-video/plan";
 import type { AdCtaKey } from "@/lib/ad-video/keys";
@@ -80,9 +81,44 @@ describe("adCtaBlock", () => {
       expect(nowrapOverflows(html), cta).toEqual([]);
     }
   });
-  it("shadows the words over a photo only, not on a Motion card the theme repaints", () => {
-    expect(renderToStaticMarkup(adCtaBlock(CTAS[0], W))).toContain("text-shadow");
-    expect(renderToStaticMarkup(adCtaBlock(CTAS[0], W, false))).not.toContain("text-shadow");
+});
+
+describe("the closing photo's รายละเอียดเพิ่มเติม (fix round 1)", () => {
+  const close = (more?: string) => renderToStaticMarkup(AdPhotoScene({ src: "a.png", t: 3, dur: 4, w: W, h: H, kind: "close", cta: CTAS[0], contact: { ...CONTACT, ...(more !== undefined ? { more } : {}) } }));
+  it("shows up to two lines of the agent's more under the card, each inside 1080", () => {
+    const long = "ตัวแทนประกันชีวิต ใบอนุญาตเลขที่ 6501234567 สังกัดสำนักงานตัวอย่างที่มีชื่อยาวมากจริงๆ";
+    const html = close(`${long}\nบรรทัดที่สอง\nบรรทัดที่สามไม่แสดง`);
+    expect(html).toContain(long);
+    expect(html).toContain("บรรทัดที่สอง");
+    expect(html).not.toContain("บรรทัดที่สามไม่แสดง");
+    expect(nowrapOverflows(html)).toEqual([]);
+    expect(html.indexOf("LINE @unitclub")).toBeLessThan(html.indexOf(long));
+  });
+  it("draws nothing more when the agent has none", () => {
+    expect(close()).toBe(close(""));
+  });
+});
+
+describe("ctaTitle on a Motion contact card (fix round 1)", () => {
+  const f = quoteVideoFacts(lp(), new Date("2026-10-17T12:00:00+07:00"))!;
+  const ctx = (extra: Partial<MotionContext> = {}): MotionContext => ({ facts: f, customer: "", narrator: "F", contact: CONTACT, words: ["x"], voiceSec: 4, ...extra });
+  it("puts the closing words in the title's slot above the card, in place of the standing title", () => {
+    const plain = renderToStaticMarkup(motionFrame("contact", ctx(), 3));
+    expect(plain).toContain("ทักมาคุยกันได้เลย");
+    for (const cta of CTAS) {
+      const html = renderToStaticMarkup(motionFrame("contact", ctx({ ctaTitle: ctaTitle(cta, W) }), 3));
+      expect(html).not.toContain("ทักมาคุยกันได้เลย");
+      expect([...html.matchAll(/white-space:nowrap[^"]*">([^<]*)</g)].map((m) => m[1]).join(" ")).toBe(cta);
+      expect(html.indexOf(cta.split(" ")[0])).toBeLessThan(html.indexOf("081-234-5678"));
+      expect(nowrapOverflows(html), cta).toEqual([]);
+    }
+  });
+  it("fits the slot from 260 to the card at 620, even for a 150-letter line", () => {
+    for (const cta of [...CTAS, Array.from({ length: 15 }, () => "ทักมาคุยกัน").join(" ").slice(0, 150)]) {
+      const { size, lines } = ctaTitle(cta, W);
+      expect(size).toBeLessThanOrEqual(84);
+      expect(lines.length * size * 1.3, cta).toBeLessThanOrEqual(620 - 260);
+    }
   });
 });
 

@@ -618,8 +618,7 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the วิดีโอโฆ�
   const stand = (top: string, foot: string, spot: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920">
     <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${foot}"/></linearGradient></defs>
     <rect width="1080" height="1920" fill="url(#g)"/>
-    <circle cx="760" cy="520" r="210" fill="${spot}" opacity="0.55"/><circle cx="300" cy="980" r="150" fill="${spot}" opacity="0.35"/>
-    <rect x="140" y="1180" width="800" height="420" rx="60" fill="#ffffff" opacity="0.18"/></svg>`;
+    <circle cx="760" cy="520" r="210" fill="${spot}" opacity="0.55"/><circle cx="300" cy="980" r="150" fill="${spot}" opacity="0.35"/></svg>`;
   const pictures = ["ad/stand-0.png", null, null, "ad/stand-1.png"];
   await sharp(Buffer.from(stand("#7fb4e6", "#f3d9b1", "#fff3c4"))).png().toFile(join(PUB, pictures[0]!));
   await sharp(Buffer.from(stand("#3b2f63", "#e58a5b", "#ffd18a"))).png().toFile(join(PUB, pictures[3]!));
@@ -629,11 +628,18 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the วิดีโอโฆ�
   const input = { ...base, ad, pictures };
   const pcms = narisa(join(OUT, "voice-ad-lp"), adScript(facts, ad, "F"));
   const secs = pcms.map((p) => pcmSeconds(p, 24000));
-  const parts = quotePartsFor({ input, customer_name: "" }, CONTACT, secs);
+  // with a รายละเอียดเพิ่มเติม, so the closing photo shows it as an agent's would (fix round 1, 2026-11-22)
+  const contact = { ...CONTACT, more: "ตัวแทนประกันชีวิต ใบอนุญาตเลขที่ 6501234567" };
+  const parts = quotePartsFor({ input, customer_name: "" }, contact, secs);
   if (!parts.motion$?.ad) throw new Error("ad-lp: the app did not make it an ad clip");
   if (parts.motion$.ad.photos.join() !== pictures.join()) throw new Error(`ad-lp: photos ${JSON.stringify(parts.motion$.ad.photos)}`);
   const total = clipLength(parts.plans);
   writeFileSync(join(PUB, "audio/ad-lp.wav"), mixNarration(pcms.map((pcm, i) => ({ pcm, at: parts.plans[i].voiceAt })), total, 24000));
   writeFileSync(join(PUB, "props/ad-lp.json"), JSON.stringify(clipProps(parts.motion$, parts.plans as never, parts.script, secs, total, "audio/ad-lp.wav")));
+  // the same ad in ก (Motion only, no photo): the closing words as the Motion contact card's title, as props/ad-lp-motion.json
+  const still = { ...ad, art: "motion" as const };
+  const mParts = quotePartsFor({ input: { ...base, ad: still, pictures: [null, null, null, null] }, customer_name: "" }, contact, secs);
+  if (mParts.motion$?.ad?.photos.some(Boolean)) throw new Error("ad-lp-motion: a photo in a Motion-only ad");
+  writeFileSync(join(PUB, "props/ad-lp-motion.json"), JSON.stringify(clipProps(mParts.motion$!, mParts.plans as never, mParts.script, secs, clipLength(mParts.plans), "audio/ad-lp.wav")));
   console.log(JSON.stringify({ "ad-lp": { total, cta: parts.motion$.ad.cta, scenes: parts.plans.map((p, i) => ({ key: p.key, start: p.start, dur: p.dur, voice: parts.script[i].voice })) } }, null, 2));
 });
