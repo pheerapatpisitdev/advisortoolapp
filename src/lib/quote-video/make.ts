@@ -98,10 +98,12 @@ export const videoPrice = (v: ClipInput, prices: Prices): number =>
 export const VIDEO_ROUND = "quote-video";
 /**
  * Each clip tool's own round, so the wallet's history names it (owner, 2026-10-18): every one
- * starts "quote-video", which the hold sweep keeps 30 minutes (20261124_clip_rounds.sql).
+ * starts "quote-video", which the hold sweep keeps 30 minutes (20261124_clip_rounds.sql). An ad clip is a
+ * quote clip with a plan, and goes by its own name (วิดีโอโฆษณา).
  */
 export const clipRound = (v: ClipInput): string =>
-  isPromptStory(v) ? `${VIDEO_ROUND}-prompt` : isStoryInput(v) ? `${VIDEO_ROUND}-story` : VIDEO_ROUND;
+  isPromptStory(v) ? `${VIDEO_ROUND}-prompt` : isStoryInput(v) ? `${VIDEO_ROUND}-story`
+    : isQuoteInput(v) && v.ad ? `${VIDEO_ROUND}-ad` : VIDEO_ROUND;
 
 export type { VideoInput } from "./script";
 /** a quote clip: neither an FHC summary nor a story */

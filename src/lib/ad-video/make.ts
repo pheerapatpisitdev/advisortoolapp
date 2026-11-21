@@ -25,8 +25,13 @@ export function adScript(f: QuoteVideoFacts, plan: AdPlan, narrator: "F" | "M"):
   ];
 }
 
-/** the closing words as the screen shows them above the contact card: the voice without its polite ending */
-export const adCta = (voice: string): string => voice.trim().replace(/\s*(นะคะ|นะครับ|ค่ะ|คะ|ครับ)$/, "");
+/**
+ * The closing words as the screen shows them above the contact card: the voice without its polite ending, also
+ * when punctuation follows it ("…ไหมคะ?" shows "…ไหม?"). A question or exclamation mark stays; a trailing
+ * full stop, comma or ellipsis goes with the ending.
+ */
+export const adCta = (voice: string): string =>
+  voice.trim().replace(/\s*(นะคะ|นะครับ|ค่ะ|คะ|ครับ)\s*([?!？！]*)[\s.,…]*$/, "$2");
 
 /** one photo's price: the painter's, or Gemini's own key should the painter list ever drop it (R4) */
 export const adPhotoSatang = (prices: Prices): number => pictureSatang(prices, AD_PAINTER) ?? prices.drawGemini;

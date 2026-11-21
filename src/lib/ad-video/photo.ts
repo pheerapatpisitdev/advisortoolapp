@@ -1,4 +1,4 @@
-import { drawImage } from "@/lib/ai/client";
+import { BudgetExceeded, drawImage } from "@/lib/ai/client";
 import type { Aspect, ReferenceImage } from "@/lib/ai/images";
 import { AVOID } from "@/lib/content/background";
 import { STYLES } from "@/lib/content/looks";
@@ -25,14 +25,22 @@ export function photoPrompt(idea: string, scene: "hook" | "close" | "body"): str
 
 type Draw = (a: { task: string; prompt: string; prefer?: string; aspect?: Aspect; references?: ReferenceImage[] }) => Promise<{ bytes: Buffer }>;
 
-/** one photo for a scene; two tries, then null so the caller falls back to the motion look */
+/** drawImage's refusals that a second try cannot change: the owner's month budget, and no painter switched on */
+const NO_MODEL = "ไม่มีโมเดลวาดรูปที่ใช้ได้ในตอนนี้";
+const final = (e: unknown): boolean => e instanceof BudgetExceeded || (e instanceof Error && e.message === NO_MODEL);
+
+/**
+ * One photo for a scene; two tries, then null so the caller falls back to the motion look. Each failure is logged
+ * (the task and the error's message: no stack, no prompt), and a refusal a retry cannot change is not retried.
+ */
 export async function drawAdPhoto(idea: string, scene: "hook" | "close" | "body", draw: Draw = drawImage): Promise<Buffer | null> {
   const args = { task: "ad-video-photo", prompt: photoPrompt(idea, scene), aspect: "9:16" as const, prefer: AD_MODEL };
   for (let i = 0; i < 2; i++) {
     try {
       return (await draw(args)).bytes;
-    } catch {
-      /* retry once */
+    } catch (e) {
+      console.error(`${args.task} (${scene}) try ${i + 1} failed: ${e instanceof Error ? e.message : String(e)}`);
+      if (final(e)) break;
     }
   }
   return null;

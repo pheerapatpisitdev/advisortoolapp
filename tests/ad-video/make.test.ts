@@ -179,9 +179,10 @@ describe("ad board and price", () => {
     expect(adPrice(adInput({}, "motion"), DEFAULT_PRICES)).toBe(1000);
     expect(adPrice(adInput({}, "photo"), DEFAULT_PRICES)).toBe(1000 + 4 * 500);
     expect(adPrice(adInput({ voice: "el-voice" }), DEFAULT_PRICES)).toBe(1000 + 2 * 500 + 200);
-    // the clip's price is the ad's, and its round the quote clips'
+    // the clip's price is the ad's, and its round its own (the wallet names it วิดีโอโฆษณา; still "quote-video…" for the hold sweep)
     expect(videoPrice(adInput(), DEFAULT_PRICES)).toBe(2000);
-    expect(clipRound(adInput())).toBe("quote-video");
+    expect(clipRound(adInput())).toBe("quote-video-ad");
+    expect(clipRound({ variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000 })).toBe("quote-video");
   });
 });
 
@@ -206,6 +207,13 @@ describe("ad script and parts", () => {
     expect(adCta("บอกแค่อายุ ทักมาขอใบเสนอของคุณได้เลยนะคะ")).toBe("บอกแค่อายุ ทักมาขอใบเสนอของคุณได้เลย");
     expect(adCta("ทักมานัดคุย 15 นาที ช่วยดูแผนให้ฟรีค่ะ")).toBe("ทักมานัดคุย 15 นาที ช่วยดูแผนให้ฟรี");
     expect(adCta("ทักมาเลยครับ")).toBe("ทักมาเลย");
+    // an ending before punctuation goes too; a question or exclamation mark stays
+    expect(adCta("อยากรู้ไหมคะ?")).toBe("อยากรู้ไหม?");
+    expect(adCta("ทักมาเลยนะคะ!")).toBe("ทักมาเลย!");
+    expect(adCta("ทักมาเลยค่ะ.")).toBe("ทักมาเลย");
+    expect(adCta("ทักมาเลยนะครับ…")).toBe("ทักมาเลย");
+    expect(adCta("ทักมาคุยกันค่ะ, ")).toBe("ทักมาคุยกัน");
+    expect(adCta("ทักมาเลย!")).toBe("ทักมาเลย!");
   });
 
   it("plans a portrait Motion clip with the hook's headline and a photo place per scene", () => {
@@ -305,7 +313,7 @@ describe("paying for an ad clip", () => {
     const row = rowOf((made as { id: string }).id);
     expect(row.paid_by).toBe("free");
     expect(row.held_satang).toBe(2 * 500);
-    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", 1000, "quote-video");
+    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", 1000, "quote-video-ad");
   });
 
   it("a free motion-only ad holds nothing", async () => {

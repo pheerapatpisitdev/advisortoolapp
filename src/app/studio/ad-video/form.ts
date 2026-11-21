@@ -209,10 +209,10 @@ export function adInput(s: AdState): VideoInput {
     : { product: s.product, variant: s.variant, sex: s.sex, age: s.age, sumAssured: Number(s.sum.replace(/[^\d]/g, "")), ...look };
 }
 
-/** the bodies the clip will have as the form stands: the picks, the AI's plan, or the AI's usual two before it writes */
 /** AI mode before the AI has written, with a photo on every scene: the price is a range over 1–3 scenes */
 export const ranged = (s: AdState): boolean => s.mode === "ai" && s.art === "photo" && !shownFor(s);
 
+/** the bodies the clip will have as the form stands: the picks, the AI's plan, or the AI's usual two before it writes */
 export const sceneCount = (s: AdState): number =>
   s.mode === "pick" ? s.bodies.length : shownFor(s)?.plan.body.length ?? 2;
 
