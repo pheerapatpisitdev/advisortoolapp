@@ -39,5 +39,6 @@
 	"workers_dev": false,
 	"preview_urls": false,
 	// settings that are not secret; the secrets are set with wrangler (scripts/cloudflare-setup.sh)
-	"vars": { "DRAW_URL": "https://advisortool-draw-33p5kshztq-as.a.run.app" }
+	// LINE_LIFF_ID: เชื่อม LINE inside LINE (owner chose ง, 2026-11-21), LIFF app of LINE Login channel 2011423304, src/lib/line/liff.ts
+	"vars": { "DRAW_URL": "https://advisortool-draw-33p5kshztq-as.a.run.app", "LINE_LIFF_ID": "2011423304-L4wJIP90" }
 }

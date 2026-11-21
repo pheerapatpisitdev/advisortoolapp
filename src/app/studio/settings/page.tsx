@@ -7,8 +7,8 @@ import { getAgentPrefs } from "@/lib/pay-prefs-store";
 import { SHARE_PLAN_KEYS, SHARE_PLANS, type SharePlan } from "@/lib/share-text/plans";
 import { samplePreview, shareSample } from "@/lib/share-text/samples";
 import { ARRANGES_PER_DAY, arrangesLeft, myShareTexts } from "@/lib/share-text/store";
-import { agentLine } from "@/lib/line/agent-line";
-import { lineViewOf, type LineView } from "@/lib/line/link-view";
+import type { LineView } from "@/lib/line/link-view";
+import { lineViewFor } from "@/lib/line/agent-line-view";
 import { LineLinkForm } from "./LineLinkForm";
 import { PayPrefsForm } from "./PayPrefsForm";
 import { ShareTextForm, type SharePlanView, type ShareTextView } from "./ShareTextForm";
@@ -36,7 +36,7 @@ export default async function SettingsPage() {
     arrangesLeft(viewer.agentId).catch((e) => { console.error("share allowance not read:", e); return ARRANGES_PER_DAY; }),
   ]);
   // เชื่อม LINE ของฉัน (owner chose ข, 2026-11-19): what cannot be read shows as "อ่านไม่ได้"
-  const line: LineView | null = demo ? null : await agentLine(viewer.agentId).then(lineViewOf).catch((e) => {
+  const line: LineView | null = demo ? null : await lineViewFor(viewer).catch((e) => {
     console.error("agent line not read:", e);
     return null;
   });

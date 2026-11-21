@@ -238,6 +238,26 @@ export async function quota(): Promise<{ limit: number | null; used: number } | 
  * Whether this person has the account as a friend, which a push needs: LINE gives a profile only
  * for a friend. Null when LINE could not be asked. Not a message, so it costs nothing.
  */
+/**
+ * A friend's name as LINE shows it, with the friendship: null = not a friend (no push reaches
+ * them), undefined = LINE could not be asked.
+ */
+export async function friendProfile(userId: string): Promise<{ displayName: string } | null | undefined> {
+  try {
+    const res = await menuCall("GET", `${API}/profile/${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { displayName?: unknown };
+      return { displayName: typeof body.displayName === "string" ? body.displayName : "" };
+    }
+    if (res.status === 404) return null;
+    console.error(`[line] friendship not read: ${res.status}`);
+    return undefined;
+  } catch (e) {
+    console.error("[line] friendship not read:", e);
+    return undefined;
+  }
+}
+
 export async function isFriend(userId: string): Promise<boolean | null> {
   try {
     const res = await menuCall("GET", `${API}/profile/${encodeURIComponent(userId)}`);

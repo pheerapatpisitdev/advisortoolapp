@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { isFriend, push, reply } from "@/lib/line/client";
+import { friendProfile, isFriend, push, reply } from "@/lib/line/client";
 import { isPromptStory } from "@/lib/prompt-story/types";
 import { isStoryInput } from "@/lib/quote-video/story";
 import { siteUrl } from "@/lib/site-url";
@@ -160,6 +160,58 @@ async function linkAgent(code: string, userId: string, replyToken: string): Prom
   const friend = await isFriend(userId);
   await reply(replyToken, [{ type: "text", text: linkedText(friend) }]).catch((e) => console.error("[line] link reply not sent:", e));
   return true;
+}
+
+/* ── เชื่อม LINE inside LINE (owner chose ง, 2026-11-21, src/lib/line/liff.ts) ─────────────────── */
+
+/**
+ * This LINE now gets this agent's alerts: the LIFF page proved who holds the phone, the agent's
+ * code (or a member's one-time link) said whose alerts. A code still waiting stops working.
+ */
+export async function linkAgentLine(agentId: string, lineUserId: string): Promise<void> {
+  await save(agentId, {
+    line_user_id: lineUserId, linked_at: new Date().toISOString(),
+    link_code: null, link_expires: null, money_low_sent: false,
+  });
+}
+
+/** whose live one-time code this is (a member's link from ตั้งค่าส่วนตัว), or null */
+export async function agentOfLinkCode(code: string, now = Date.now()): Promise<string | null> {
+  if (!/^\d{6}$/.test(code)) return null;
+  const { data, error } = await table().select("agent_id, link_expires").eq("link_code", code).maybeSingle();
+  if (error) throw new Error(`link code not read: ${error.message}`);
+  const r = data as { agent_id: string; link_expires: string | null } | null;
+  return r?.link_expires && Date.parse(r.link_expires) > now ? r.agent_id : null;
+}
+
+/** whether this LINE already gets somebody's alerts: the LIFF page says so before asking again */
+export async function lineIsLinked(lineUserId: string): Promise<boolean> {
+  const { data, error } = await table().select("agent_id").eq("line_user_id", lineUserId).limit(1);
+  if (error) throw new Error(`agent line not read: ${error.message}`);
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Whether the linked LINE can be reached: a push goes only to a friend of the account. Its LINE
+ * name comes with it. undefined = not linked or LINE could not be asked; the page then says nothing.
+ */
+export async function agentLineFriend(agentId: string): Promise<{ friend: boolean; name: string } | undefined> {
+  const r = await rowOf(agentId);
+  if (!r?.line_user_id) return undefined;
+  const p = await friendProfile(r.line_user_id);
+  if (p === undefined) return undefined;
+  return p ? { friend: true, name: p.displayName } : { friend: false, name: "" };
+}
+
+export const agentTestText = () =>
+  "✅ ทดสอบแจ้งเตือนจาก advisortool\nถ้าเห็นข้อความนี้ แจ้งเตือนคลิปทำเสร็จ คลิปไม่สำเร็จ และเงินใกล้หมดจะมาที่นี่";
+
+/** The test button on ตั้งค่าส่วนตัว: one push, so the agent sees an alert arrive. */
+export async function sendAgentTest(agentId: string): Promise<"sent" | "unlinked"> {
+  const r = await rowOf(agentId);
+  if (!r?.line_user_id) return "unlinked";
+  await push(r.line_user_id, [{ type: "text", text: agentTestText() }]);
+  return "sent";
 }
 
 /** One alert to one agent, if linked and that switch is on. Never throws; false when nothing went. */

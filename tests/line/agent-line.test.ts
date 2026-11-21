@@ -12,6 +12,7 @@ function from(name: string) {
   const q = {
     select: () => q,
     eq: (k: string, v: unknown) => { filters.push([k, v]); return q; },
+    limit: () => q,
     update: (p: Record<string, unknown>) => { patch = p; return q; },
     upsert: (row: Record<string, unknown>) => {
       const clash = row.link_code != null && rows.some((r) => r.link_code === row.link_code && r.agent_id !== row.agent_id);
@@ -28,7 +29,7 @@ function from(name: string) {
     },
     then: (ok: (v: unknown) => void) => {
       if (patch) for (const r of hit()) Object.assign(r, patch);
-      ok({ error: null });
+      ok({ data: hit().map((r) => ({ ...r })), error: null });
     },
   };
   return q;
@@ -38,7 +39,8 @@ vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: () => ({ from }) }));
 const reply = vi.fn(async () => {});
 const push = vi.fn(async () => {});
 const isFriend = vi.fn(async () => true as boolean | null);
-vi.mock("@/lib/line/client", () => ({ reply, push, isFriend }));
+const friendProfile = vi.fn(async () => ({ displayName: "Boy" }) as { displayName: string } | null | undefined);
+vi.mock("@/lib/line/client", () => ({ reply, push, isFriend, friendProfile }));
 
 const line = await import("@/lib/line/agent-line");
 const { tryLink } = await import("@/lib/line/owner-alert");
@@ -189,5 +191,58 @@ describe("migration 20261218", () => {
     expect(mine).toMatch(/ins_update_reads/);
     expect(lines(mine).filter((l) => !/ins_agent_line/.test(l))).toEqual(lines(live));
     expect(sql).toMatch(/grant execute on function public\.ins_member_delete\(uuid\) to service_role/);
+  });
+});
+
+describe("เชื่อม LINE inside LINE (owner chose ง, 2026-11-21)", () => {
+  const LIFF = "2001234567-AbCdEfGh";
+
+  it("an agent with a code gets the fixed QR; a member's code becomes a one-time LIFF link", async () => {
+    const agent = lineViewOf(await line.agentLine(AGENT), { liffId: LIFF, byCode: true });
+    expect(agent.team).toBe(`https://liff.line.me/${LIFF}`);
+    expect(agent.pending).toBeNull();
+    const { code } = await line.startAgentLink(AGENT);
+    const member = lineViewOf(await line.agentLine(AGENT), { liffId: LIFF, byCode: false });
+    expect(member.team).toBeNull();
+    expect(member.pending).toMatchObject({ code, url: `https://liff.line.me/${LIFF}?lt=${code}`, words: null });
+    // without the LIFF app, the code typed into the chat as before
+    expect(lineViewOf(await line.agentLine(AGENT)).pending?.words).toBe(`ผูก ${code}`);
+  });
+
+  it("links this LINE, and the waiting code stops working", async () => {
+    const { code } = await line.startAgentLink(AGENT);
+    expect(await line.agentOfLinkCode(code)).toBe(AGENT);
+    expect(await line.lineIsLinked("Uabc")).toBe(false);
+    await line.linkAgentLine(AGENT, "Uabc");
+    expect(await line.lineIsLinked("Uabc")).toBe(true);
+    expect(await line.agentOfLinkCode(code)).toBeNull();
+    expect((await line.agentLine(AGENT)).linked).toBe(true);
+  });
+
+  it("an expired or made-up one-time link is nobody's", async () => {
+    const { code } = await line.startAgentLink(AGENT);
+    expect(await line.agentOfLinkCode(code, Date.now() + 11 * 60_000)).toBeNull();
+    expect(await line.agentOfLinkCode("12a456")).toBeNull();
+  });
+
+  it("says whether LINE can reach the linked chat, with its name", async () => {
+    expect(await line.agentLineFriend(AGENT)).toBeUndefined();
+    await line.linkAgentLine(AGENT, "Uabc");
+    expect(await line.agentLineFriend(AGENT)).toEqual({ friend: true, name: "Boy" });
+    friendProfile.mockResolvedValueOnce(null);
+    expect(await line.agentLineFriend(AGENT)).toEqual({ friend: false, name: "" });
+    friendProfile.mockResolvedValueOnce(undefined);
+    expect(await line.agentLineFriend(AGENT)).toBeUndefined();
+    const view = lineViewOf(await line.agentLine(AGENT), { liffId: LIFF, byCode: true }, { friend: false, name: "" });
+    expect(view.friend).toEqual({ friend: false, name: "" });
+    expect(view.addFriend).toBe("https://line.me/R/ti/p/%40006crkvq");
+  });
+
+  it("the test button pushes one message to the linked LINE only", async () => {
+    expect(await line.sendAgentTest(AGENT)).toBe("unlinked");
+    expect(push).not.toHaveBeenCalled();
+    await line.linkAgentLine(AGENT, "Uabc");
+    expect(await line.sendAgentTest(AGENT)).toBe("sent");
+    expect(push).toHaveBeenCalledWith("Uabc", [{ type: "text", text: line.agentTestText() }]);
   });
 });
