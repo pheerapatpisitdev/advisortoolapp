@@ -13,7 +13,7 @@ import { readHistory } from "@/lib/home/history-read";
 import { buildToday } from "@/lib/home/today";
 import { memberAccess } from "@/lib/members/access";
 import { listVideos } from "@/lib/quote-video/rows";
-import { boardOf } from "@/lib/quote-video/board";
+import { clipMaking } from "@/lib/home/clip-making";
 import { walletView } from "@/lib/wallet/store";
 import { barText } from "@/lib/updates/rules";
 import { updatesFor } from "@/lib/updates/store";
@@ -96,15 +96,7 @@ export default async function Home() {
     customers,
     clipsMaking: videos && videos
       .filter((v) => v.status === "drawing" || v.status === "rendering")
-      .map((v) => {
-        // a คลิปเล่าเรื่อง and a คลิปตามโจทย์ are made on their own boards (owner, 2026-10-15/16)
-        const board = boardOf(v.input as { product?: string });
-        const free = board === "prompt";
-        const what = free ? "คลิปตามโจทย์" : board === "story" ? "คลิปเล่าเรื่อง" : "วิดีโอนำเสนอ";
-        const brief = free ? (v.input as { brief?: string }).brief?.trim().split("\n")[0].slice(0, 40) : "";
-        const label = v.customer_name ? `${what} · ${v.customer_name}` : brief ? `${what} · ${brief}` : what;
-        return { id: v.id, label, status: v.status as "drawing" | "rendering", href: free ? "/studio/prompt-story" : board === "story" ? "/studio/story-clip" : "/studio/quote-video" };
-      }),
+      .map((v) => ({ id: v.id, status: v.status as "drawing" | "rendering", ...clipMaking(v.input, v.customer_name) })),
   });
 
   return (

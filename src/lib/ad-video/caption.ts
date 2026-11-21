@@ -1,4 +1,5 @@
 import { DISCLAIMER } from "@/lib/content/output";
+import { boardOf } from "@/lib/quote-video/board";
 import { numbersIn } from "@/lib/quote-video/brief";
 import { quoteBasis, type PostBasis } from "@/lib/quote-video/post-text";
 import type { QuoteVideoFacts } from "@/lib/quote-video/script";
@@ -24,3 +25,7 @@ export function adBasis(f: QuoteVideoFacts, plan: AdPlan): PostBasis {
   for (const line of said) for (const n of numbersIn(line)) allowed.add(n);
   return { ...base, facts: [...base.facts, ...said.map((l) => `ในคลิปพูดว่า: ${l}`)], allowed, about: `คลิปโฆษณาแบบประกัน ${f.planLine}` };
 }
+
+/** the plan an ad clip carries, or undefined for any other clip */
+export const adPlanOf = (input: unknown): AdPlan | undefined =>
+  boardOf(input as { ad?: unknown }) === "ad" ? (input as { ad: AdPlan }).ad : undefined;
