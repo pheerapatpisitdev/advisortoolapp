@@ -9,6 +9,8 @@
  * Owner 2026-11-17 (mockup https://claude.ai/artifact/6rxmSDSGKu94YqnXQxZRcP, ก): น้ำเงินทอง, วาดมือบนกระดาษ, กระจกใส and
  * สีของฉัน left the form; ไวท์บอร์ด is what a clip is drawn in when it asks for none, or for a look taken away. Their
  * drawing stays: every look repaints น้ำเงินทอง's frame, and ธีมเทศกาล is drawn on it.
+ * Owner 2026-11-21 (mockup https://claude.ai/artifact/CppTipqJijak9wG6aHQA8W, ก ก): Motion Graphic offers ไวท์บอร์ด and
+ * แบบเดิม (น้ำเงินทอง back) alone; โน้ตแปะ and ตัวหนังสือเด้ง left the form, read as ไวท์บอร์ด like any look taken away.
  */
 
 import { VIDEO_THEME_EXTRA } from "@/lib/card-theme";
@@ -16,15 +18,15 @@ import { VIDEO_THEME_EXTRA } from "@/lib/card-theme";
 /** "chat": แชทถาม-ตอบ's drawing (chat.tsx), set by the style, never picked as a look nor read from a request */
 export type ThemeKey = "navy" | "paper" | "board" | "kinetic" | "mine" | "festival" | "chat" | "glass" | "sticky";
 /** the looks a request may ask for; any other (a look taken away, or none) is read as DEFAULT_THEME */
-export const THEME_KEYS: ThemeKey[] = ["board", "kinetic", "festival", "sticky"];
+export const THEME_KEYS: ThemeKey[] = ["board", "navy", "festival"];
 /** the looks the form always offers; ธีมเทศกาล joins them in a festival's days */
-export const STANDING_THEMES: ThemeKey[] = ["board", "sticky", "kinetic"];
+export const STANDING_THEMES: ThemeKey[] = ["board", "navy"];
 export const DEFAULT_THEME: ThemeKey = "board";
 export const readTheme = (v: unknown): ThemeKey => (THEME_KEYS.includes(v as ThemeKey) ? (v as ThemeKey) : DEFAULT_THEME);
 
 /** what the form shows for each */
 export const THEME_LABELS: Record<ThemeKey, { name: string; swatch: string; note: string }> = {
-  navy: { name: "น้ำเงินทอง", swatch: VIDEO_THEME_EXTRA.swatch.navy, note: "หน้าตาเดิมของ Motion Graphic" },
+  navy: { name: "แบบเดิม", swatch: VIDEO_THEME_EXTRA.swatch.navy, note: "หน้าตาเดิมของ Motion Graphic พื้นน้ำเงิน ตัวเลขสีทอง" },
   paper: { name: "วาดมือบนกระดาษ", swatch: VIDEO_THEME_EXTRA.swatch.paper, note: "พื้นกระดาษ ลายมือ ปากกาแดงเน้นตัวเลข" },
   board: { name: "ไวท์บอร์ด", swatch: VIDEO_THEME_EXTRA.swatch.board, note: "ปากกาเขียนทีละอย่างตามเสียง เหมือนนั่งอธิบายบนกระดาน ปากกาแดงวงจุดสำคัญ" },
   kinetic: { name: "ตัวหนังสือเด้ง", swatch: VIDEO_THEME_EXTRA.swatch.kinetic, note: "ไม่มีรูป ตัวหนังสือใหญ่เด้งตามเสียงทีละคำ ตัวเลขเต็มจอ พื้นสลับดำ เหลือง น้ำเงิน เหมาะกับ Reels และ TikTok" },

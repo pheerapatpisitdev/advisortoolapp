@@ -3,7 +3,6 @@ import { LIBRARY, libraryItem, usesFor, storyLibraryHref, promptLibraryHref, TYP
 import { DEVICES } from "@/lib/scene-library/devices";
 import { PROMPT_FORMATS, PICTURE_STYLES } from "@/lib/prompt-story/types";
 import { SOUNDS, MUSIC_MOODS, joinCues } from "@/lib/quote-video/fx";
-import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
 import type { StoryVideoInput } from "@/lib/quote-video/story";
 import type { StoryLook } from "@/lib/scene-library/links";
 import { INFO_SHELVES, topicOf } from "@/lib/story/topics";
@@ -116,7 +115,8 @@ describe("catalogue", () => {
     }
     // กระจกใส left วิดีโอนำเสนอ (owner, 2026-11-17), and the library with it
     expect(libraryItem("look-glass")).toBeUndefined();
-    expect(libraryItem("look-sticky")?.name).toBe(THEME_LABELS.sticky.name);
+    // โน้ตแปะ left วิดีโอนำเสนอ (owner, 2026-11-21, ก ก)
+    expect(libraryItem("look-sticky")).toBeUndefined();
     for (const m of MUSIC_MOODS) expect(libraryItem(`fx-music-${m}`)?.ready).toBe(true);
     // เสียงเอฟเฟกต์ตรงจังหวะสำคัญ = the clip's own sounds: a whoosh at each join, a ding as a figure lands
     expect(libraryItem("fx-sound-beats")?.ready).toBe(true);
