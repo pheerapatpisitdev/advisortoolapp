@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 /**
  * The plan calculators are for members only, trial included (owner, 2026-10-20; mockup
  * QEphNuJbqufEhqVJzRKrcC, ก ก ก). The gate itself is tested with the pass in
  * tests/members/gates.test.ts; here, that every page has it, the printer's pass, the one server
- * action, and the price list the front page shows.
+ * action, and the trial line the front page still says (its price list came off 2026-11-22).
  */
 
 const auth = vi.hoisted(() => ({ viewer: null as unknown, printing: false }));
@@ -22,7 +20,6 @@ const { CALC_PATHS, isCalcPath } = await import("@/lib/auth/calc-paths");
 const { printPassFor, validPrintPass } = await import("@/lib/auth/print-pass");
 const { priceWithRiders } = await import("@/app/ihealthy-ultra/actions");
 const { frontPricesOf, signupHint } = await import("@/lib/pricing/front");
-const { PriceList } = await import("@/components/auth/PriceList");
 const { DEFAULT_PASS_SETTINGS } = await import("@/lib/members/pass");
 
 const APP = path.resolve(__dirname, "../../src/app");
@@ -98,42 +95,17 @@ describe("priceWithRiders", () => {
   });
 });
 
-describe("ค่าบริการ on the front page", () => {
+describe("the trial on the front page (its ค่าบริการ cards came off 2026-11-22, owner)", () => {
   const prod = frontPricesOf({
     pass: { enabled: true, satang: 19900, trialDays: 3, trialCreditSatang: 1500, creditSatang: 5000 },
     agentStarterSatang: 1500,
     walletOn: true,
   });
-  const html = renderToStaticMarkup(createElement(PriceList, { prices: prod }));
 
-  it("says both packages with the back office's figures", () => {
-    expect(html).toContain("สมาชิกทั่วไป");
-    expect(html).toContain("ตัวแทน UnitOS");
-    expect(html).toContain("฿199");
-    expect(html).toContain("3 วัน");
-    expect(html).toContain("เครดิต Studio ฿15 ไว้ลองทำโพสต์ รูป คลิป");
-    expect(html).toContain("เครดิต Studio ฿50 ทุกครั้งที่ต่ออายุ");
-    expect(html).toContain("เครดิตเริ่มต้น Studio ฿15 ครั้งเดียว ไม่มีวันหมดอายุ");
-    expect(html).not.toContain("ชวนเพื่อน");
-    expect(html).toContain("เครื่องคิดเบี้ยทุกแบบประกัน");
-  });
-
-  it("says topping up is possible, without the amounts box or per-item prices (owner took both out)", () => {
-    expect(html).toContain("ใช้เกินเครดิต เติมเงินใช้ต่อได้");
-    expect(html).not.toContain("เติมเงินกระเป๋า Studio");
-    for (const n of ["฿50", "฿100", "฿150", "฿200", "฿500"]) expect(html).not.toContain(`>${n}<`);
-    expect(html).not.toContain("ราคาต่อชิ้น");
-    expect(html).not.toContain("วาดรูป");
-  });
-
-  it("leaves out what is switched off", () => {
-    const off = renderToStaticMarkup(createElement(PriceList, {
-      prices: frontPricesOf({ pass: DEFAULT_PASS_SETTINGS, agentStarterSatang: null, walletOn: false }),
-    }));
-    expect(off).toContain("สมัครสมาชิก");
-    expect(off).not.toContain("รายเดือน");
-    expect(off).not.toContain("เติมเงิน");
-    expect(off).not.toContain("เครดิตเริ่มต้น");
+  it("the price list is gone from the door", () => {
+    expect(existsSync(path.resolve(__dirname, "../../src/components/auth/PriceList.tsx"))).toBe(false);
+    const door = readFileSync(path.join(APP, "login/door.tsx"), "utf8");
+    expect(door).not.toContain("PriceList");
   });
 
   it("tells a newcomer about the trial only while there is one", () => {

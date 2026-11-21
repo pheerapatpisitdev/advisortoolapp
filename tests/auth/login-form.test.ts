@@ -67,6 +67,12 @@ describe("LoginForm's look (owner, 2026-10-01)", () => {
 });
 
 describe("LoginForm without the how-to video (owner, 2026-10-18: removed, option ก)", () => {
+  it("has no ค่าบริการ link: the price cards came off (owner, 2026-11-22)", () => {
+    const html = draw(true) + drawMember(true);
+    expect(html).not.toContain("ดูค่าบริการ");
+    expect(html).not.toContain('href="#prices"');
+  });
+
   it("shows no video card on either tab", () => {
     for (const open of [true, false]) {
       const html = draw(open);
