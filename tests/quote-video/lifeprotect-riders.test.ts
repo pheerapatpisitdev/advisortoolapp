@@ -42,7 +42,8 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
 
   it("says what the price includes, and never that a rising medical premium stays level", () => {
     const voice = voiceOf({ ...base, riders: WP_MEB });
-    expect(voice).toContain("เดือนละ 2,712 บาท เป็นสัญญาหลัก 2,583 บาท ดับบลิวพี ฟิต 13 บาท และค่าชดเชยรายวัน 117 บาท");
+    // each rider says its own price in its own scene (owner, 2026-11-21): the price scene only what the total holds
+    expect(voice).toContain("เดือนละ 2,712 บาท รวมสัญญาหลักกับสัญญาเพิ่มเติมอีก 2 ตัวไว้แล้ว");
     expect(voice).toContain("ส่วนค่าชดเชยรายวันปรับตามอายุค่ะ");
     expect(voice).not.toContain("เท่าเดิมตลอด");
     expect(voiceOf(base)).toContain("ยอดออมเท่าเดิมตลอดค่ะ");
@@ -50,12 +51,13 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
     expect(factLines(facts({ ...base, riders: WP_MEB })).join("\n")).toContain("ยอดออมรวมสัญญายกเว้นเบี้ย และค่าชดเชยรายวันไว้แล้ว ค่าชดเชยรายวันปรับตามอายุ");
   });
 
-  it("tells what each rider pays out after the death benefit (owner, 2026-10-17, ก)", () => {
-    const cover = (v: VideoInput) => quoteVideoScript(facts(v), undefined, "F").find((s) => s.key === "cover")!.voice;
-    expect(cover({ ...base, riders: WP_MEB })).toContain(
-      "ยังมีสัญญาเพิ่มเติมอีก 2 ตัว ดับบลิวพี ฟิต ถ้าทุพพลภาพสิ้นเชิงถาวร ไม่ต้องจ่ายเบี้ยที่เหลือ แต่ความคุ้มครองยังอยู่ครบ และค่าชดเชยรายวัน นอนโรงพยาบาลรับเงินวันละ 1,000 บาทค่ะ",
-    );
-    expect(cover({ ...base, riders: { waiver: { code: "WP", option: "BEYOND" } } })).toContain("ยังมีสัญญาเพิ่มเติม ดับบลิวพี บียอนด์ ถ้าทุพพลภาพสิ้นเชิงถาวร หรือเป็นโรคร้ายแรง");
+  it("tells what each rider pays out in a scene of its own (owner, 2026-11-21, ก)", () => {
+    const say = (v: VideoInput, key: string) => quoteVideoScript(facts(v), undefined, "F").find((s) => s.key === key)?.voice;
+    const cover = (v: VideoInput) => say(v, "cover")!;
+    expect(cover({ ...base, riders: WP_MEB })).not.toContain("สัญญาเพิ่มเติม");
+    expect(say({ ...base, riders: WP_MEB }, "rider1")).toBe("ตัวแรก ดับบลิวพี ฟิต เดือนละ 13 บาท ถ้าทุพพลภาพสิ้นเชิงถาวร ไม่ต้องจ่ายเบี้ยที่เหลือ แต่ความคุ้มครองยังอยู่ครบค่ะ");
+    expect(say({ ...base, riders: WP_MEB }, "rider2")).toBe("ตัวสุดท้าย ค่าชดเชยรายวัน เดือนละ 117 บาท นอนโรงพยาบาลรับเงินวันละ 1,000 บาท อย่างนอน 5 วันก็รับ 5,000 บาทค่ะ");
+    expect(say({ ...base, riders: { waiver: { code: "WP", option: "BEYOND" } } }, "rider1")).toContain("ดับบลิวพี บียอนด์ เดือนละ 84 บาท ถ้าทุพพลภาพสิ้นเชิงถาวร หรือเป็นโรคร้ายแรง");
     // พีบี came off Life Protect (2026-11-02): a clip started from an older link loses it at intake
     expect(currentRiders({ waiver: { code: "PB", option: "FIT" }, payer: { sex: "F", age: 35 } })).toBeUndefined();
     expect(currentRiders({ waiver: { code: "PB", option: "FIT" }, medical: 1000 })).toEqual({ medical: 1000 });

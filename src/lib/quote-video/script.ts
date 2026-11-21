@@ -7,6 +7,7 @@ import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
 import { setupQuery } from "./ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { LIFEPROTECT_PLAN } from "@/lib/lifeprotect-card";
+import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { quoteCard, valueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import type { PensionPay } from "@/calc/pension/engine";
 import { pensionVideoFacts, roughBaht, type PensionVideoFacts } from "./pension";
@@ -53,7 +54,54 @@ export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "conta
   /** Global Savings' fourth scene: the seven index returns as bars, the picked one gold (gsaving.ts) */
   | "index"
   /** the longer clips' own (told.ts, owner 2026-10-13): the customer's story, a comparison, two questions, how to start */
-  | "story" | "versus" | "qa" | "steps";
+  | "story" | "versus" | "qa" | "steps"
+  /**
+   * Life Protect with riders (owner, 2026-11-21, ก ก ก on https://claude.ai/artifact/HvVdgdGq4oajv1Hjd1ZBv2): the
+   * package at a glance, one scene for each rider with its own picture, and what each event pays
+   */
+  | "riders" | RiderKey | "payout";
+
+/** one scene a rider, in the page's order: at most six (WP, MEB, DCI, CI 123, AP, ECARE) */
+export const RIDER_KEYS = ["rider1", "rider2", "rider3", "rider4", "rider5", "rider6"] as const;
+export type RiderKey = (typeof RIDER_KEYS)[number];
+/** which rider a scene shows, 0 first; undefined for a scene that is not a rider's */
+export const riderIndex = (key: string): number | undefined => {
+  const i = (RIDER_KEYS as readonly string[]).indexOf(key);
+  return i < 0 ? undefined : i;
+};
+
+/**
+ * One Life Protect rider as its scene shows it (owner, 2026-11-21): its name on screen and in the voice,
+ * its share of the spoken instalment in whole baht where the split gives one, what it pays, and the
+ * figures its picture is drawn from.
+ */
+export type RiderScene = {
+  code: string;
+  /** the scene's heading, "ยกเว้นเบี้ย", and the line under it, "ดับบลิวพี ฟิต" */
+  title: string;
+  sub: string;
+  /** the overview's badge, "ชดเชยรายวัน" */
+  badge: string;
+  /** the name the voice says, "สัญญาโรคร้ายแรง DCI" */
+  said: string;
+  /** its share of the spoken instalment, whole baht, "362"; absent where the split does not say it */
+  price?: string;
+  /** its premium moves with age (the medical plan's) */
+  rises?: boolean;
+  /** what it pays, said the owner's way */
+  what: string;
+} & (
+  | { kind: "waiver"; plus: boolean; startAge: number; paid: number; left: number }
+  | { kind: "medical"; perDay: number; days: number }
+  | { kind: "dci"; sum: number; diseases: number; coverToAge?: number }
+  | { kind: "ci123"; sum: number; diseases: number; stairs: CiStage[]; more: CiStage[] }
+  | { kind: "ap"; sum: number; coverToAge?: number }
+  | { kind: "ecare"; sum: number; care: number; coverToAge?: number }
+);
+/** a stage of CI 123: its name, its share ("25%", "20% ไม่เกิน 100,000") and what it pays on this sum */
+export interface CiStage { label: string; share: string; amount: number }
+/** a row of "เกิดเรื่องนี้ ได้เท่าไร": the event, the contracts that pay, what they come to */
+export interface PayoutRow { tone: "early" | "major" | "hospital" | "accident" | "waiver"; event: string; from: string; amount: string }
 
 /** What the agent asked for. A row written before products existed has no `product`: Life Protect. */
 export type VideoInput = (
@@ -225,7 +273,13 @@ export interface QuoteVideoFacts {
    * instalment, whole baht) and what each rider pays out (`parts`) (owner, 2026-10-17,
    * mockup https://claude.ai/artifact/XaTkLWYU8twVqtMfrYFLGN, ก)
    */
-  riders?: { said: string; rises?: string; split?: { name: string; baht: string }[]; parts: { name: string; what: string }[] };
+  riders?: {
+    said: string; rises?: string; split?: { name: string; baht: string }[]; parts: { name: string; what: string }[];
+    /** each rider's own scene (owner, 2026-11-21, ก) */
+    scenes: RiderScene[];
+    /** what each event pays across the contracts (owner, 2026-11-21, ก); said only with two rows or more */
+    payout: PayoutRow[];
+  };
   footNote?: string;
   /** บำนาญ 95: the pension's schedule (pension.ts) */
   pension?: PensionVideoFacts;
@@ -314,6 +368,7 @@ export const riderShort = (label: string) => label.replace(/^สัญญาเ�
  */
 function riderFacts(
   riders: CardRiders | undefined, rows: ValueTableRow[], split: { title: string; rows: { label: string; amount: string }[] }, spokenLabel: string,
+  at: { age: number; payYears: number; today: Date },
 ): QuoteVideoFacts["riders"] {
   if (!riders?.waiver && riders?.medical === undefined && !riders?.illness?.length) return undefined;
   const illness = (riders.illness ?? []).map((r) => ({ ...r, name: ILLNESS_SAID[r.code] ?? "สัญญาเพิ่มเติม" }));
@@ -345,12 +400,128 @@ function riderFacts(
       ? [{ name: MEDICAL_SAID, what: `นอนโรงพยาบาลรับเงินวันละ ${riders.medical.toLocaleString("en-US")} บาท` }] : []),
     ...illness.map((r) => ({ name: r.name, what: illnessWhat(r.code, r.sumAssured) })),
   ];
+  const scenes = riderScenes(riders, waiverName, names, parts, split_, at);
   return {
     said: said.length > 1 ? `${said.slice(0, -1).join(" ")} และ${said[said.length - 1]}` : said[0],
     ...(moves ? { rises: riders.medical !== undefined ? MEDICAL_SAID : "สัญญาเพิ่มเติม" } : {}),
     ...(split_ ? { split: split_ } : {}),
     parts,
+    scenes,
+    payout: [],
   };
+}
+
+/** CI 123's parts by the rate sheet's names (data/rates/lifeprotect.json), as the clip names them */
+const CI_PART: Record<string, string> = {
+  "pre-early ci": "ระยะก่อนเริ่มต้น", "early to intermediate ci": "ระยะเริ่มต้นถึงปานกลาง", "major ci": "ระยะรุนแรง",
+  "critical care benefit": "กรณีวิกฤต", "juvenile ci": "โรคเด็ก", "special conditions": "เงื่อนไขพิเศษ",
+};
+/** the three stages CI 123's stairs climb, lowest first; the rest go under them as small print */
+const CI_STAIRS = ["pre-early ci", "early to intermediate ci", "major ci"];
+/** the juvenile illnesses cover the insured to 18 (data/riders/ci123-diseases.json) */
+const JUVENILE_TO = 18;
+/** a page's "31 โรค" */
+const diseasesIn = (what: string) => Number(what.match(/(\d+)\s*โรค/)?.[1] ?? 0);
+const pct = (share: number) => `${Math.round(share * 100)}%`;
+/** "1 ล้าน", "1.5 ล้าน", "500,000": a sum as the picture and the payout table write it short */
+export const sumShort = (baht: number) => (baht >= 1_000_000 && baht % 100_000 === 0
+  ? `${(baht / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 1 })} ล้าน`
+  : baht.toLocaleString("en-US"));
+
+/**
+ * Each rider's scene (owner, 2026-11-21, ก): in the order the split and the voice name them — the
+ * waiver, the medical plan, then the critical-illness and accident riders as the page lists them.
+ */
+function riderScenes(
+  riders: CardRiders, waiverName: string | undefined, names: string[], parts: { name: string; what: string }[],
+  split: { name: string; baht: string }[] | undefined, at: { age: number; payYears: number; today: Date },
+): RiderScene[] {
+  const table = lifeProtectTable(at.today);
+  const priceAt = (i: number) => (split?.[i + 1] ? { price: split[i + 1].baht } : {});
+  const whatOf = (name: string) => parts.find((p) => p.name === name)?.what ?? "";
+  const out: RiderScene[] = [];
+  let i = 0;
+  if (riders.waiver && waiverName) {
+    // the instalments paid until an example disability a little past half way, the rest waived
+    const paid = Math.min(at.payYears - 1, Math.max(1, Math.round(at.payYears * 0.55)));
+    out.push({
+      code: riders.waiver.code, title: "ยกเว้นเบี้ย", sub: waiverName, badge: "ยกเว้นเบี้ย", said: waiverName, ...priceAt(i),
+      what: whatOf(waiverName), kind: "waiver", plus: riders.waiver.option === "BEYOND", startAge: at.age, paid, left: at.payYears - paid,
+    });
+    i++;
+  }
+  if (riders.medical !== undefined) {
+    out.push({
+      code: "MEB", title: MEDICAL_SAID, sub: `MEB แผน ${riders.medical.toLocaleString("en-US")}`, badge: "ชดเชยรายวัน", said: MEDICAL_SAID,
+      ...priceAt(i), rises: true, what: whatOf(MEDICAL_SAID), kind: "medical", perDay: riders.medical, days: 5,
+    });
+    i++;
+  }
+  for (const r of riders.illness ?? []) {
+    const name = names[i];
+    const row = table.illness.find((x) => x.code === r.code);
+    const sum = r.sumAssured;
+    const head = { code: r.code, badge: row?.short ?? r.code, said: name, ...priceAt(i), what: whatOf(name) };
+    const cover = row?.coverToAge !== undefined ? ` · คุ้มครองถึงอายุ ${row.coverToAge}` : "";
+    if (r.code === "CI123" && row) {
+      const stages = row.parts.flatMap((p) => {
+        const label = p.key ? CI_PART[p.key] : undefined;
+        if (!label || !p.key) return [];
+        const amount = Math.round(Math.min(sum * p.share, p.cap ?? Infinity));
+        return [{ key: p.key, label, share: p.cap ? `${pct(p.share)} ไม่เกิน ${p.cap.toLocaleString("en-US")}` : pct(p.share), amount }];
+      });
+      const stage = (x: (typeof stages)[number]): CiStage => ({ label: x.label, share: x.share, amount: x.amount });
+      const stairs = CI_STAIRS.flatMap((k) => stages.filter((x) => x.key === k)).map(stage);
+      const more = stages.filter((x) => !CI_STAIRS.includes(x.key) && (x.key !== "juvenile ci" || at.age <= JUVENILE_TO)).map(stage);
+      const diseases = diseasesIn(row.what);
+      out.push({ ...head, title: "โรคร้ายแรง CI 123", sub: `ทุน ${sum.toLocaleString("en-US")}${diseases ? ` · ${diseases} โรค` : ""}`, kind: "ci123", sum, diseases, stairs, more });
+    } else if (r.code === "DCI") {
+      out.push({ ...head, title: "โรคร้ายแรง DCI", sub: `ทุน ${sum.toLocaleString("en-US")}${cover}`, kind: "dci", sum, diseases: diseasesIn(row?.what ?? ""), ...(row?.coverToAge !== undefined ? { coverToAge: row.coverToAge } : {}) });
+    } else if (r.code === "AP") {
+      out.push({ ...head, title: "อุบัติเหตุ AP", sub: `ทุน ${sum.toLocaleString("en-US")}${cover}`, kind: "ap", sum, ...(row?.coverToAge !== undefined ? { coverToAge: row.coverToAge } : {}) });
+    } else if (r.code === "ECARE") {
+      out.push({ ...head, title: "อุบัติเหตุ ECARE", sub: `ทุน ${sum.toLocaleString("en-US")}${cover}`, kind: "ecare", sum, care: Math.round(sum * 0.05), ...(row?.coverToAge !== undefined ? { coverToAge: row.coverToAge } : {}) });
+    }
+    i++;
+  }
+  return out.slice(0, RIDER_KEYS.length);
+}
+
+/**
+ * "เกิดเรื่องนี้ ได้เท่าไร" (owner, 2026-11-21, ก): what each event pays, the contracts that pay it added up.
+ * Where a stage might be paid less after an earlier claim (CI 123's major stage), it says สูงสุด.
+ */
+export function payoutRows(f: Pick<QuoteVideoFacts, "cover" | "riders">): PayoutRow[] {
+  const sc = f.riders?.scenes ?? [];
+  const ci = sc.find((x) => x.kind === "ci123");
+  const dci = sc.find((x) => x.kind === "dci");
+  const med = sc.find((x) => x.kind === "medical");
+  const ap = sc.find((x) => x.kind === "ap");
+  const wp = sc.find((x) => x.kind === "waiver");
+  const rows: PayoutRow[] = [];
+  if (ci?.kind === "ci123") {
+    const early = ci.stairs.find((x) => x.label === CI_PART["early to intermediate ci"]);
+    if (early) rows.push({ tone: "early", event: "ป่วยโรคร้ายแรง ระยะเริ่มต้น", from: "CI 123", amount: early.amount.toLocaleString("en-US") });
+  }
+  if (dci?.kind === "dci" || ci?.kind === "ci123") {
+    const from = [
+      ...(dci?.kind === "dci" ? [`DCI ${sumShort(dci.sum)}`] : []),
+      ...(ci?.kind === "ci123" ? [`CI 123 สูงสุด ${sumShort(ci.sum)}`] : []),
+    ];
+    const total = (dci?.kind === "dci" ? dci.sum : 0) + (ci?.kind === "ci123" ? ci.sum : 0);
+    rows.push({ tone: "major", event: ci ? "ป่วยโรคร้ายแรง ระยะรุนแรง" : "ป่วยโรคร้ายแรง", from: from.join(" + "), amount: total.toLocaleString("en-US") });
+  }
+  if (med?.kind === "medical") rows.push({ tone: "hospital", event: "นอนโรงพยาบาล", from: MEDICAL_SAID, amount: `${med.perDay.toLocaleString("en-US")}/วัน` });
+  const life = f.cover[0];
+  if (ap?.kind === "ap" && life) {
+    const lifeBaht = digits(life.amount);
+    const before = f.cover.length > 1 ? life.label.match(/ก่อนอายุ\s*(\d+)/)?.[1] : undefined;
+    const total = lifeBaht + (dci?.kind === "dci" ? dci.sum : 0) + ap.sum;
+    const from = [`ชีวิต ${sumShort(lifeBaht)}`, ...(dci?.kind === "dci" ? [`DCI ${sumShort(dci.sum)}`] : []), `AP ${sumShort(ap.sum)}`];
+    rows.push({ tone: "accident", event: `อุบัติเหตุถึงชีวิต${before ? ` ก่อนอายุ ${before}` : ""}`, from: from.join(" + "), amount: total.toLocaleString("en-US") });
+  }
+  if (wp?.kind === "waiver") rows.push({ tone: "waiver", event: `ทุพพลภาพสิ้นเชิงถาวร${wp.plus ? " หรือโรคร้ายแรง" : ""}`, from: wp.sub, amount: "หยุดจ่ายเบี้ย" });
+  return rows;
 }
 
 const PER_MODE: Record<NonNullable<PriceRow["per"]>, PayMode> = { month: "monthly", half: "semi", year: "annual" };
@@ -372,8 +543,12 @@ export function hidePay(f: QuoteVideoFacts, hide: readonly PayMode[]): QuoteVide
   const spokenMode = SPOKEN_MODE[f.spokenPrice.per];
   const spokenPrice = spokenMode && !shows(hide, spokenMode) && yearly ? { per: "ปีละ", amount: yearly.amount } : f.spokenPrice;
   const noMonthly = !shows(hide, "monthly");
+  // each rider's price is its share of the instalment the voice said: another one leaves them unsaid
+  const riders = f.riders && spokenPrice !== f.spokenPrice
+    ? { ...f.riders, split: undefined, scenes: f.riders.scenes.map((r) => { const { price, ...rest } = r; void price; return rest as RiderScene; }) }
+    : f.riders;
   return {
-    ...f, prices, spokenPrice, hide: [...hide],
+    ...f, prices, spokenPrice, hide: [...hide], ...(riders ? { riders } : {}),
     // บำนาญ 95's highlighted line is its monthly instalment: the yearly one instead
     ...(f.product === "PENSION" && noMonthly && yearly ? { priceMark: `ปีละ ${yearly.amount} บาท` } : {}),
     ...(f.legacy && noMonthly ? { legacy: { ...f.legacy, monthly: undefined } } : {}),
@@ -419,7 +594,9 @@ function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { produc
   const lifeProtect = product === LIFEPROTECT_PLAN;
   const coverToAge = last.age + 1;
   const payToEnd = paying.length === table.rows.length;
-  const riders = lifeProtect && card.summary.split ? riderFacts(input.riders, table.rows, card.summary.split, spoken.label) : undefined;
+  const riders = lifeProtect && card.summary.split
+    ? riderFacts(input.riders, table.rows, card.summary.split, spoken.label, { age: v.age, payYears: paying.length, today })
+    : undefined;
   // the plan's own premium is level; with a medical plan beside it the whole instalment is not
   const level = riders?.rises ? "เบี้ยสัญญาหลักคงที่" : "เบี้ยคงที่ตลอด";
   const facts: QuoteVideoFacts = {
@@ -458,6 +635,7 @@ function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { produc
     ...(be?.cash ? { breakEven: { age: be.age, cash: be.cash, index: beIndex } } : {}),
     ...(card.footNotes?.[0] ? { footNote: card.footNotes[0] } : {}),
   };
+  if (facts.riders) facts.riders.payout = payoutRows(facts);
   return lifeProtect ? facts : iShieldShape(facts, card.footNotes?.[0], paying.length, coverToAge);
 }
 
@@ -884,10 +1062,64 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   return [
     { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ${budgetLead(f, "ถ้าออม")}ทำทุน ${spokenBaht(digits(f.insuredLine))} ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
     { key: "price", voice: lifeProtectPriceLine(f) },
-    { key: "cover", voice: `${cover}${ridersCoverLine(f)}` },
+    { key: "cover", voice: f.riders?.scenes.length ? cover : `${cover}${ridersCoverLine(f)}` },
+    ...riderLines(f),
     { key: "value", voice: value },
     { key: "contact", voice: closing },
   ];
+}
+
+const ORDINAL = ["ตัวแรก", "ตัวที่สอง", "ตัวที่สาม", "ตัวที่สี่", "ตัวที่ห้า"];
+
+/**
+ * Life Protect's riders, a scene each (owner, 2026-11-21, ก ก ก on https://claude.ai/artifact/HvVdgdGq4oajv1Hjd1ZBv2):
+ * the package first where there are two or more, then each rider with its own price and what it pays,
+ * then what each event pays where two or more rows say something.
+ */
+function riderLines(f: QuoteVideoFacts): SceneScript[] {
+  const sc = f.riders?.scenes ?? [];
+  if (!sc.length) return [];
+  const n = sc.length;
+  const lines: SceneScript[] = [];
+  if (n > 1) lines.push({ key: "riders", voice: `นอกจากประกันชีวิตแล้ว แผนนี้ยังมีสัญญาเพิ่มเติมอีก ${n} ตัว มาดูทีละตัวกันนะคะ` });
+  sc.forEach((r, i) => {
+    const ord = n === 1 ? "" : i === n - 1 ? "ตัวสุดท้าย " : `${ORDINAL[i]} `;
+    const price = r.price ? ` ${f.spokenPrice.per} ${r.price} บาท` : "";
+    const head = `${ord}${r.said}${price}`;
+    const voice = r.kind === "waiver" ? `${head} ${r.what}ค่ะ`
+      : r.kind === "medical" ? `${head} นอนโรงพยาบาลรับเงินวันละ ${r.perDay.toLocaleString("en-US")} บาท อย่างนอน ${r.days} วันก็รับ ${(r.perDay * r.days).toLocaleString("en-US")} บาทค่ะ`
+      : r.kind === "dci" ? `${head} ถ้าเป็นโรคร้ายแรง${r.diseases ? ` 1 ใน ${r.diseases} โรค` : ""} หรือเป็นอะไรไป รับเงินก้อน ${spokenWithBaht(r.sum)}ค่ะ`
+      : r.kind === "ci123" ? `${head} ไม่ต้องรอให้เป็นหนัก ${ciEarlySaid(r)}ระยะรุนแรงรับสูงสุด ${spokenWithBaht(r.sum)}${r.diseases ? ` คุ้มครอง ${r.diseases} โรค` : ""} เคลมได้หลายครั้งค่ะ`
+      : r.kind === "ap" ? `${head} ถ้าเป็นอะไรไปหรือสูญเสียอวัยวะจากอุบัติเหตุ รับสูงสุด ${spokenWithBaht(r.sum)}${r.coverToAge ? ` คุ้มครองถึงอายุ ${r.coverToAge} ` : ""}ค่ะ`
+      : `${head} ${r.what}ค่ะ`;
+    lines.push({ key: RIDER_KEYS[i], voice });
+  });
+  const rows = f.riders?.payout ?? [];
+  if (rows.length > 1) lines.push({ key: "payout", voice: payoutSaid(rows) });
+  return lines;
+}
+
+/** "เจอระยะเริ่มต้นก็รับ 250,000 บาท " */
+function ciEarlySaid(r: Extract<RiderScene, { kind: "ci123" }>): string {
+  const early = r.stairs.find((x) => x.label === CI_PART["early to intermediate ci"]);
+  return early ? `เจอระยะเริ่มต้นก็รับ ${early.amount.toLocaleString("en-US")} บาท ` : "";
+}
+
+/** the payout said: the major illness, the hospital, the accident; the early stage and the waiver where fewer are said */
+function payoutSaid(rows: PayoutRow[]): string {
+  const by = (t: PayoutRow["tone"]) => rows.find((r) => r.tone === t);
+  const said: string[] = [];
+  const major = by("major");
+  if (major) said.push(`${major.event.replace(" ระยะ", "ระยะ")} รับ${major.from.includes("สูงสุด") ? "สูงสุด" : ""} ${spokenWithBaht(digits(major.amount))}`);
+  const hospital = by("hospital");
+  if (hospital) said.push(`นอนโรงพยาบาลรับวันละ ${hospital.amount.replace("/วัน", "")} บาท`);
+  const accident = by("accident");
+  if (accident) said.push(`ถ้าเป็นอะไรไปจากอุบัติเหตุ${accident.event.replace("อุบัติเหตุถึงชีวิต", "")} ครอบครัวได้สูงสุด ${spokenWithBaht(digits(accident.amount))}`);
+  const early = by("early");
+  if (said.length < 2 && early) said.unshift(`ป่วยโรคร้ายแรงระยะเริ่มต้น รับ ${spokenWithBaht(digits(early.amount))}`);
+  const waiver = by("waiver");
+  if (said.length < 2 && waiver) said.push(`${waiver.event} ไม่ต้องจ่ายเบี้ยต่อ`);
+  return `สรุปง่ายๆ นะคะ ${said.join(" ")}ค่ะ`;
 }
 
 /**
@@ -897,7 +1129,10 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
 function lifeProtectPriceLine(f: QuoteVideoFacts): string {
   const r = f.riders;
   // the instalment contract by contract where it can be said (owner, 2026-10-17, ก); else what it includes
-  const parts = r?.split
+  // with a scene a rider (owner, 2026-11-21) each says its own price there: here only what the total holds
+  const parts = r?.scenes.length
+    ? ` รวมสัญญาหลักกับ${r.scenes.length > 1 ? `สัญญาเพิ่มเติมอีก ${r.scenes.length} ตัว` : r.scenes[0].said}${/[A-Za-z0-9]$/.test(r.scenes[0].said) && r.scenes.length === 1 ? " " : ""}ไว้แล้ว`
+    : r?.split
     ? ` เป็น${r.split.map((p, i) => `${i === r.split!.length - 1 ? "และ" : ""}${p.name} ${p.baht} บาท`).join(" ")}`
     : r ? ` รวม${r.said}ไว้แล้ว` : "";
   const price = `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท${parts}`;
@@ -1026,6 +1261,10 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
     case "qa": return { sweeps: 2, spread: true };
     case "versus": return { count: true, sweeps: 1 };
     case "steps": return { sweeps: 3, spread: true };
+    // Life Protect's riders (owner, 2026-11-21): the package, a rider's picture with its price lit, the payout rows one by one
+    case "riders": return { sweeps: 1 };
+    case "payout": return { sweeps: f.riders?.payout.length ?? 1, spread: true };
+    default: return { sweeps: 1 };
   }
 }
 

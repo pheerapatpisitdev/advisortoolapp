@@ -45,7 +45,10 @@ export function chatQuestion(key: string, f: QuoteVideoFacts, sex: "M" | "F"): s
     case "qa": return `ขอถามอีกข้อได้ไหม${q}`;
     case "versus": return `ต่างจากเก็บเงินเองยังไง${q}`;
     case "steps": return `ถ้าตกลงทำ ต้องทำยังไงบ้าง${q}`;
-    default: return `เล่าเพิ่มอีกหน่อยได้ไหม${q}`;
+    // Life Protect's riders (owner, 2026-11-21)
+    case "riders": return `มีสัญญาเพิ่มเติมอะไรบ้าง${q}`;
+    case "payout": return `สรุปแล้วเกิดอะไรขึ้น ได้เท่าไหร่บ้าง${q}`;
+    default: return key.startsWith("rider") ? `แล้วตัวนี้คุ้มครองอะไร${q}` : `เล่าเพิ่มอีกหน่อยได้ไหม${q}`;
   }
 }
 

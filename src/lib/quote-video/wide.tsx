@@ -5,9 +5,10 @@ import type { Level } from "@/lib/fhc/health";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
 import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
-import { abs, box, chartPaths, coverGroupStarts, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, type Anim } from "./motion";
+import { abs, box, chartPaths, coverGroupStarts, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionDraw, motionSpec, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, type Anim } from "./motion";
+import { packagePicture, payoutList, riderHead, riderPicture, riderWhat } from "./rider-pictures";
 import { leadBig, leadPill } from "./plb";
-import type { QuoteVideoFacts, SceneKey } from "./script";
+import { riderIndex, type QuoteVideoFacts, type SceneKey } from "./script";
 import { captionShown, wordAt } from "./caption";
 import { countAt, LEAD, SIZES, wordTimes, type VideoSize } from "./timeline";
 import type { Extra } from "./told";
@@ -852,9 +853,64 @@ function Compare({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   );
 }
 
+/**
+ * Life Protect's riders in a square or landscape frame (owner, 2026-11-21; rider-pictures.tsx): the package,
+ * a rider (its name and price over its picture; in landscape what it pays beside them), what each event pays.
+ */
+function RiderWide({ g, c, t, key_ }: { g: Geo; c: WideQuoteContext; t: number; key_: SceneKey }) {
+  const f = c.facts;
+  const s = motionSpec(key_, f, c.voiceSec);
+  const d = motionDraw(s, t);
+  const head = (text: string) => <Kicker g={g} an={s.kicker} t={t} text={text} />;
+  if (key_ === "riders") {
+    const ph = g.px(560, 620);
+    const pw = g.px(g.w - g.side * 2, 1200);
+    return (
+      <>
+        {head("แพ็กเกจของคุณ")}
+        <div style={abs({ left: (g.w - pw) / 2, top: g.px(190, 200), width: pw, height: ph })}>{packagePicture(f, d, pw, ph, g.px(0.62, 0.7))}</div>
+      </>
+    );
+  }
+  if (key_ === "payout") {
+    const w = g.px(g.w - g.side * 2, 1300);
+    return (
+      <>
+        {head("เกิดเรื่องนี้ ได้เท่าไร")}
+        <div style={abs({ left: (g.w - w) / 2, top: g.px(190, 200), width: w })}>{payoutList(f.riders?.payout ?? [], d, w, g.px(0.62, 0.7))}</div>
+      </>
+    );
+  }
+  const r = f.riders?.scenes[riderIndex(key_) ?? -1];
+  if (!r) return null;
+  if (g.wide) {
+    const leftW = 720;
+    const picW = g.w - g.side * 2 - leftW - 70;
+    return (
+      <>
+        <div style={abs({ left: g.side, top: 110, width: leftW, flexDirection: "column" })}>
+          {riderHead(r, f.spokenPrice.per, d, leftW, 0.82)}
+          <div style={box({ marginTop: 40, width: leftW })}>{riderWhat(r, d, leftW, 0.82)}</div>
+        </div>
+        <div style={abs({ left: g.side + leftW + 70, top: 120, width: picW })}>{riderPicture(r, f, d, picW, 0.66)}</div>
+      </>
+    );
+  }
+  const w = g.w - g.side * 2;
+  return (
+    <div style={abs({ left: g.side, top: 90, width: w, flexDirection: "column" })}>
+      {riderHead(r, f.spokenPrice.per, d, w, 0.72)}
+      <div style={box({ marginTop: 26, width: w })}>{riderPicture(r, f, d, w, 0.72)}</div>
+    </div>
+  );
+}
+
 /** One frame of a square or landscape quote clip at scene time t. */
 export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, size: Exclude<VideoSize, "portrait">) {
   const g = geo(size);
+  if (key === "riders" || key === "payout" || riderIndex(key) !== undefined) {
+    return <Frame g={g} words={c.words} t={t} voiceSec={c.voiceSec}><RiderWide g={g} c={c} t={t} key_={key} /></Frame>;
+  }
   const body = {
     lead: <Lead g={g} c={c} t={t} />,
     price: <Price g={g} c={c} t={t} />,
@@ -875,7 +931,7 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
     qa: <QaScene g={g} c={c} t={t} />,
     versus: <VersusScene g={g} c={c} t={t} />,
     steps: <StepsScene g={g} c={c} t={t} />,
-  }[key];
+  }[key as Exclude<SceneKey, "riders" | "payout" | `rider${number}`>];
   return <Frame g={g} words={c.words} t={t} voiceSec={c.voiceSec}>{body}</Frame>;
 }
 

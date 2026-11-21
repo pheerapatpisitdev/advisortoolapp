@@ -5,7 +5,8 @@ import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import type { CardChart } from "@/lib/quote-card";
-import type { QuoteVideoFacts, SceneKey } from "./script";
+import { riderIndex, type QuoteVideoFacts, type SceneKey } from "./script";
+import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
 import type { Extra } from "./told";
 import { colsOf, PHOTO, ROW_H, TABLE, valueHeads } from "./table-geo";
 import { noteInWindow, type TableNote } from "./table-pen";
@@ -844,9 +845,55 @@ function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
 
 const DONE: OverlayState = { word: -1, count: 1, sweep: [1, 1], bars: [1, 1], ring: 0 };
 
+/** the rider scenes in the classic card's colours (rider-pictures.tsx) */
+export const CLASSIC_RIDER_PAL: RiderPal = { ink: P.ink, fill: P.highlighter, figure: P.figure, onFill: P.ink, card: P.box, onCard: P.figure, red: P.pen, green: P.gain, sky: C.barAfter };
+/** the classic clip draws a rider picture whole, on the still under the subtitles */
+export const classicDraw: Draw = {
+  pal: CLASSIC_RIDER_PAL,
+  piece: (name, style, children) => <div key={name} style={{ display: "flex", ...style }}>{unwrap(children)}</div>,
+  count: 1,
+};
+
+/**
+ * Life Protect's riders in the classic look (owner, 2026-11-21, ก ก ก): the package, a rider (its name and
+ * price, its picture, what it pays), what each event pays — drawn whole on the still.
+ */
+function RiderClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: SceneKey }) {
+  const f = c.facts;
+  const w = W - SIDE * 2;
+  const title = (text: string) => <div style={box({ fontSize: 66, fontWeight: 700, color: P.figure })}>{text}</div>;
+  if (k === "riders") {
+    return (
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 270, width: w, flexDirection: "column" }}>
+        {title("แพ็กเกจของคุณ")}
+        <div style={box({ fontSize: 40, color: P.mute, marginBottom: 30 })}>{`สัญญาหลัก + สัญญาเพิ่มเติม ${f.riders?.scenes.length ?? 0} ตัว`}</div>
+        {packagePicture(f, classicDraw, w, 1000, 1)}
+      </On>
+    );
+  }
+  if (k === "payout") {
+    return (
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 270, width: w, flexDirection: "column" }}>
+        <div style={box({ marginBottom: 40 })}>{title("เกิดเรื่องนี้ ได้เท่าไร")}</div>
+        {payoutList(f.riders?.payout ?? [], classicDraw, w, 1)}
+      </On>
+    );
+  }
+  const r = f.riders?.scenes[riderIndex(k) ?? -1];
+  if (!r) return null;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 270, width: w, flexDirection: "column" }}>
+      {riderHead(r, f.spokenPrice.per, classicDraw, w, 1)}
+      <div style={box({ marginTop: 46, width: w })}>{riderPicture(r, f, classicDraw, w, 1)}</div>
+      <div style={box({ marginTop: 40, width: w })}>{riderWhat(r, classicDraw, w, 1)}</div>
+    </On>
+  );
+}
+
 /** One layer of one scene, as a full 1080×1920 picture. */
 export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: OverlayState = DONE) {
-  const body = {
+  const rider = key === "riders" || key === "payout" || riderIndex(key) !== undefined;
+  const body = rider ? <RiderClassic c={c} layer={layer} k={key} /> : {
     lead: <Lead c={c} layer={layer} s={state} />,
     compare: <Compare c={c} layer={layer} s={state} />,
     critical: <Critical c={c} layer={layer} s={state} />,
@@ -860,7 +907,7 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
     qa: <QaScene c={c} layer={layer} s={state} />,
     versus: <VersusScene c={c} layer={layer} s={state} />,
     steps: <StepsScene c={c} layer={layer} s={state} />,
-  }[key];
+  }[key as Exclude<SceneKey, "riders" | "payout" | `rider${number}`>];
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: layer === "base" ? C.paper : "transparent", fontFamily: "Plex", color: P.ink }}>
       {(key !== "contact" || c.loop) && <Header f={c.facts} layer={layer} />}

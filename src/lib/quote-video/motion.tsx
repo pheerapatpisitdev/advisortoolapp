@@ -3,7 +3,8 @@ import { Fragment, type ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_EXTRA as X } from "@/lib/card-theme";
 import { CHART_WRITE, chartNotes } from "./chart-pen";
 import { beatCues, penBeats } from "./pen";
-import type { CoverRow, QuoteVideoFacts, SceneKey } from "./script";
+import { riderIndex, type CoverRow, type QuoteVideoFacts, type SceneKey } from "./script";
+import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
 import { pensionBars } from "./pension";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
@@ -168,7 +169,25 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       return { kicker: a(0.2, "up"), left: a(0.6, "left"), vs: a(Math.max(1.4, voiceSec * 0.35), "pop"), right: a(Math.max(1.8, voiceSec * 0.4), "pop"), count: a(Math.max(1.8, voiceSec * 0.4), "count"), note: a(Math.max(3, voiceSec * 0.7), "fade") };
     case "steps":
       return { kicker: a(0.2, "up"), ...spread("st", 3, voiceSec, 0.9) };
+    // Life Protect's riders (owner, 2026-11-21, rider-pictures.tsx): the shield, then each rider's badge as the voice runs
+    case "riders":
+      return { kicker: a(0.2, "up"), sub: a(0.5, "fade"), shield: a(0.6, "pop"), lines: a(1.0, "fade"), ...spread("b", f.riders?.scenes.length ?? 0, voiceSec, 1.2) };
+    case "payout":
+      return { kicker: a(0.2, "up"), ...spread("row", f.riders?.payout.length ?? 0, voiceSec, 0.8) };
+    default:
+      // a rider: its name and price, its picture piece by piece, its lump sum counted, what it pays
+      return riderSpec(voiceSec);
   }
+}
+
+/** one rider's scene (rider-pictures.tsx names its pieces kicker, sub, price, pic0–4, day0–4, big, what) */
+function riderSpec(voiceSec: number): Record<string, Anim> {
+  const late = Math.max(2.4, voiceSec * 0.55);
+  return {
+    kicker: a(0.2, "up"), sub: a(0.5, "fade"), price: a(Math.min(1.4, voiceSec * 0.25), "pop"),
+    ...spread("pic", 5, Math.max(voiceSec * 0.8, 3), 1.0), ...spread("day", 5, Math.max(voiceSec * 0.7, 3), 1.4),
+    big: a(late, "pop"), count: a(late, "count"), what: a(Math.max(3, voiceSec * 0.7), "up"),
+  };
 }
 
 /** n items brought in one after another over the first 80% of the voice, named prefix0, prefix1, … */
@@ -1452,9 +1471,71 @@ function StepsScene({ c, t }: { c: MotionContext; t: number }) {
   );
 }
 
+/** the rider scenes in Motion's own colours, which its themes repaint */
+export const MOTION_RIDER_PAL: RiderPal = { ink: WHITE, fill: GOLD, figure: GOLD, onFill: NAVY, card: WHITE, onCard: NAVY, red: RED, green: GREEN, sky: SKY };
+
+/** how a Motion scene brings in a rider picture's pieces */
+export const motionDraw = (s: Record<string, Anim>, t: number): Draw => ({
+  pal: MOTION_RIDER_PAL,
+  piece: (name, style, children) => <El key={name} an={s[name]} t={t} style={style}>{unwrap(children)}</El>,
+  count: look(s.count, t).p,
+});
+
+/** แพ็กเกจของคุณ: the life cover's shield, each rider joined to it */
+function RiderPackage({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("riders", f, c.voiceSec);
+  const d = motionDraw(s, t);
+  const n = f.riders?.scenes.length ?? 0;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 180, fontSize: 70, fontWeight: 700, color: WHITE }}>แพ็กเกจของคุณ</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 285, fontSize: 40, color: WHITE, opacity: 0.85 }}>{`สัญญาหลัก + สัญญาเพิ่มเติม ${n} ตัว`}</El>
+      <div style={abs({ left: SIDE, top: 400, width: W - SIDE * 2, height: 1000 })}>{packagePicture(f, d, W - SIDE * 2, 1000, 1)}</div>
+    </>
+  );
+}
+
+/** one rider: its name and price, its picture, what it pays */
+function RiderOne({ c, t, i }: { c: MotionContext; t: number; i: number }) {
+  const f = c.facts;
+  const r = f.riders?.scenes[i];
+  if (!r) return null;
+  const d = motionDraw(motionSpec("rider1", f, c.voiceSec), t);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <div style={abs({ left: SIDE, top: 170, width: w, flexDirection: "column" })}>
+        {riderHead(r, f.spokenPrice.per, d, w, 1)}
+        <div style={box({ marginTop: 50, width: w })}>{riderPicture(r, f, d, w, 1)}</div>
+        <div style={box({ marginTop: 44, width: w })}>{riderWhat(r, d, w, 1)}</div>
+      </div>
+    </>
+  );
+}
+
+/** เกิดเรื่องนี้ ได้เท่าไร */
+function Payout({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("payout", f, c.voiceSec);
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 180, fontSize: 70, fontWeight: 700, color: WHITE }}>เกิดเรื่องนี้ ได้เท่าไร</El>
+      <div style={abs({ left: SIDE, top: 330, width: W - SIDE * 2 })}>{payoutList(f.riders?.payout ?? [], motionDraw(s, t), W - SIDE * 2, 1)}</div>
+    </>
+  );
+}
+
 /** One frame of a Motion Graphic scene at scene time t: transparent, over the drifting background. */
 export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
-  const body = allPlansFrame(key, c, t) ?? {
+  const ri = riderIndex(key);
+  const body = allPlansFrame(key, c, t) ?? (ri !== undefined ? <RiderOne c={c} t={t} i={ri} />
+    : key === "riders" ? <RiderPackage c={c} t={t} />
+    : key === "payout" ? <Payout c={c} t={t} />
+    : undefined) ?? {
     lead: <Lead c={c} t={t} />,
     price: c.priceJar && jarFits(c.facts) ? <PriceJar c={c} t={t} /> : <Price c={c} t={t} />,
     cover: c.coverRoad && roadFits(c.facts) ? <CoverRoad c={c} t={t} /> : c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
@@ -1470,7 +1551,7 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
     qa: <QaScene c={c} t={t} />,
     versus: <VersusScene c={c} t={t} />,
     steps: <StepsScene c={c} t={t} />,
-  }[key];
+  }[key as Exclude<SceneKey, "riders" | "payout" | `rider${number}`>];
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {body}

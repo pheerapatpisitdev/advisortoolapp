@@ -2,12 +2,13 @@ import type { CSSProperties, ReactNode } from "react";
 import { Chart } from "@/app/api/card/chart-drawing";
 import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
-import { abs, box, classicIndexBars, gsHeads, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
+import { abs, box, classicDraw, classicIndexBars, gsHeads, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
+import { packagePicture, payoutList, riderHead, riderPicture, riderWhat } from "./rider-pictures";
 import { gsMoney, rateLabel } from "./gsaving";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
-import type { SceneKey } from "./script";
+import { riderIndex, type SceneKey } from "./script";
 import { CLASSIC_BOXES, valueHeads, type Rect } from "./table-geo";
 import { noteInWindow } from "./table-pen";
 import { captionShown } from "./caption";
@@ -715,10 +716,50 @@ function StepsScene({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; 
 
 const DONE: OverlayState = { word: -1, count: 1, sweep: [1, 1, 1], bars: [1, 1], ring: 0 };
 
+/** Life Protect's riders in a classic square or landscape frame (owner, 2026-11-21), drawn whole on the still */
+function RiderWideClassic({ g, c, layer, k }: { g: Geo; c: DrawContext; layer: Layer; k: SceneKey }) {
+  const f = c.facts;
+  const title = (text: string) => <div style={box({ fontSize: g.px(46, 54), fontWeight: 700, color: P.figure, marginBottom: g.px(20, 24) })}>{text}</div>;
+  const top = g.top - g.px(15, 25);
+  if (k === "riders" || k === "payout") {
+    const w = g.px(g.w - g.side * 2, 1300);
+    const h = g.px(540, 580);
+    return (
+      <On layer={layer} own="base" style={{ position: "absolute", left: (g.w - w) / 2, top, width: w, flexDirection: "column" }}>
+        {title(k === "riders" ? "แพ็กเกจของคุณ" : "เกิดเรื่องนี้ ได้เท่าไร")}
+        {k === "riders" ? packagePicture(f, classicDraw, w, h, g.px(0.6, 0.66)) : payoutList(f.riders?.payout ?? [], classicDraw, w, g.px(0.6, 0.68))}
+      </On>
+    );
+  }
+  const r = f.riders?.scenes[riderIndex(k) ?? -1];
+  if (!r) return null;
+  if (g.wide) {
+    const leftW = 720;
+    const picW = g.w - g.side * 2 - leftW - 70;
+    return (
+      <>
+        <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top, width: leftW, flexDirection: "column" }}>
+          {riderHead(r, f.spokenPrice.per, classicDraw, leftW, 0.82)}
+          <div style={box({ marginTop: 40, width: leftW })}>{riderWhat(r, classicDraw, leftW, 0.82)}</div>
+        </On>
+        <On layer={layer} own="base" style={{ position: "absolute", left: g.side + leftW + 70, top, width: picW }}>{riderPicture(r, f, classicDraw, picW, 0.66)}</On>
+      </>
+    );
+  }
+  const w = g.w - g.side * 2;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top, width: w, flexDirection: "column" }}>
+      {riderHead(r, f.spokenPrice.per, classicDraw, w, 0.7)}
+      <div style={box({ marginTop: 24, width: w })}>{riderPicture(r, f, classicDraw, w, 0.7)}</div>
+    </On>
+  );
+}
+
 /** One layer of one classic scene in a square or landscape frame. */
 export function wideSceneLayer(key: SceneKey, c: DrawContext, layer: Layer, size: Wide, state: OverlayState = DONE) {
   const g = geo(size);
-  const body = {
+  const rider = key === "riders" || key === "payout" || riderIndex(key) !== undefined;
+  const body = rider ? <RiderWideClassic g={g} c={c} layer={layer} k={key} /> : {
     lead: <Lead g={g} c={c} layer={layer} s={state} />,
     price: <Price g={g} c={c} layer={layer} s={state} />,
     cover: <Cover g={g} c={c} layer={layer} s={state} />,
@@ -733,7 +774,7 @@ export function wideSceneLayer(key: SceneKey, c: DrawContext, layer: Layer, size
     qa: <QaScene g={g} c={c} layer={layer} s={state} />,
     versus: <VersusScene g={g} c={c} layer={layer} s={state} />,
     steps: <StepsScene g={g} c={c} layer={layer} s={state} />,
-  }[key];
+  }[key as Exclude<SceneKey, "riders" | "payout" | `rider${number}`>];
   return (
     <div style={{ display: "flex", position: "relative", width: g.w, height: g.h, background: layer === "base" ? C.paper : "transparent", fontFamily: "Plex", color: P.ink }}>
       {(key !== "contact" || c.loop) && <Header g={g} c={c} layer={layer} />}
