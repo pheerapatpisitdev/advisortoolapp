@@ -94,6 +94,13 @@ export interface MenuLink {
   logo?: ToolLogoId;
   /** True only for links that leave this application. */
   external?: boolean;
+  /**
+   * Drawn as a coloured card under its group's list instead of as a row in it (Sidebar's
+   * FeatureCard). Studio's alone (owner chose ง, 2026-11-22): the one tool the menu asks to be
+   * pressed. It stays in `links`, in its place, so the order, the closed-tool filter and the
+   * lit page work as for any other link.
+   */
+  feature?: { note: string };
 }
 
 export interface MenuGroup {
@@ -376,7 +383,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       FHC_CUSTOMERS,
       { href: "/ask", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
-      { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
+      // drawn as the coloured card under this list (owner chose ง, 2026-11-22)
+      { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80", feature: { note: "วิดีโอ · รูปภาพ · โพสต์" } },
       // the how-to clips, open to everyone (owner chose ก ก, 2026-11-11)
       { href: "/help", label: "วิธีใช้งาน", icon: "play", hue: "#2e5480" },
       // what changed in the app, a red number while anything is unread (owner chose 1ข, 2026-11-14); for

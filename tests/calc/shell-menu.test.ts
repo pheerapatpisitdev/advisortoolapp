@@ -243,6 +243,12 @@ describe("what the menu shows to somebody who has not signed in", () => {
     for (const group of menuGroups(false)) expect(group.links.length).toBeGreaterThan(0);
   });
 
+  it("draws Studio, and only Studio, as the coloured card under งานของฉัน (owner chose ง, 2026-11-22)", () => {
+    const all = [...menuGroups(true), ...menuGroups(false), ...studioMenu()].flatMap((g) => g.links);
+    expect(all.filter((l) => l.feature).map((l) => l.href)).toEqual(["/studio"]);
+    expect(all.find((l) => l.href === "/studio")?.feature?.note).toBe("วิดีโอ · รูปภาพ · โพสต์");
+  });
+
   it("puts the agent's own work first: หน้าหลัก, their FHC customers, ถาม AI, Studio (owner chose ข, 2026-10-14), then วิธีใช้งาน (2026-11-11) and มีอะไรใหม่ (2026-11-14)", () => {
     const who = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false };
     const first = (w: typeof who | null) => menuGroups(false, w)[0];

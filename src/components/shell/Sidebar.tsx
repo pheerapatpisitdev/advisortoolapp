@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/login/actions";
 import { ToolLogo } from "./ToolLogo";
-import { accountLinks, isCurrent, menuGroups, RAIL_KEY, WHATS_NEW, type MenuGroup, type MenuIcon, type Who } from "@/lib/shell/menu";
+import { accountLinks, isCurrent, menuGroups, RAIL_KEY, WHATS_NEW, type MenuGroup, type MenuIcon, type MenuLink, type Who } from "@/lib/shell/menu";
 
 /** the name at the top of the menu, and where it leads */
 export type Brand = { href: string; label: string };
@@ -28,6 +28,34 @@ export type Brand = { href: string; label: string };
  * `.shell-btn` in `globals.css` out of neutral black and white at low opacity, which is the
  * only kind of shading that reads on a near-black page and a cream one both.
  */
+
+/**
+ * Studio as a card of its own under the list (owner chose ง, 2026-11-22): the one tool the menu
+ * asks to be pressed, so it is the one thing here drawn in colour across its whole face. The
+ * gradient is its own surface carrying white ink, as a chip is, so it reads on every skin; the
+ * page you are on rings it in the menu's own active colour. Folded to icons it is a square.
+ */
+function FeatureCard({ link, here, closed }: { link: MenuLink; here: boolean; closed: boolean }) {
+  return (
+    <Link
+      href={link.href}
+      aria-current={here ? "page" : undefined}
+      title={closed ? `${link.label} (ปิดชั่วคราว)` : link.label}
+      className={`shell-feature mt-3 flex items-center gap-2.5 p-2.5 no-underline rail:mx-auto rail:size-10 rail:justify-center rail:p-0 ${closed ? "opacity-60" : ""}`}
+    >
+      <span className="shell-feature-icon rail:size-8">
+        <Icon name={link.icon} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col rail:sr-only">
+        <span className="truncate text-[0.95rem] font-bold leading-tight">{link.label}</span>
+        <span className="truncate text-[0.72rem] leading-snug opacity-90">{closed ? "ปิดชั่วคราว" : link.feature?.note}</span>
+      </span>
+      <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 rail:hidden">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </Link>
+  );
+}
 
 function Mark() {
   return (
@@ -271,7 +299,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
             </p>
           )}
           <ul className="space-y-1">
-            {group.links.map((link) => {
+            {group.links.filter((link) => !link.feature).map((link) => {
               const here = !link.external && isCurrent(link.href, path);
               // switched off for now, as only the owner and the Super Admin see it: marked, still open to them
               const closed = who?.closed?.includes(link.href) === true;
@@ -299,6 +327,9 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
               );
             })}
           </ul>
+          {group.links.filter((link) => link.feature).map((link) => (
+            <FeatureCard key={link.href} link={link} here={isCurrent(link.href, path)} closed={who?.closed?.includes(link.href) === true} />
+          ))}
           {i < groups.length - 1 && (
             <hr className="mt-3 border-0 border-t" style={{ borderColor: "var(--shell-line)" }} />
           )}
