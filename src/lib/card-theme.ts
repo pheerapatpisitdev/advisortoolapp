@@ -182,7 +182,7 @@ export const NOTE_BUBBLE = {
 export const NOTE_BIG = 36 / 32;
 
 /** Bump when a card gains or removes visible content without changing its palette. */
-const DRAWING_REVISION = "29";
+const DRAWING_REVISION = "30";
 
 /** The fingerprint of the palette and layout this card will be drawn in. */
 export function cardVersionFor(): string {

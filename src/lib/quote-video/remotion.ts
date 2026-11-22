@@ -30,7 +30,7 @@ import type { RecipeKey } from "./recipes";
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "889725a0134d";
+export const REMOTION_DRAWING = "a9724c95c032";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
