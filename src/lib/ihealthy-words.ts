@@ -366,7 +366,7 @@ const th: IHealthyWords = {
   dailyCashRow: "ค่าชดเชยรายวัน",
   riderCount: (count) => `สัญญาเพิ่มเติม ${count} รายการ`,
   riderShort: {
-    MEB: "ค่ารักษาพยาบาล MEB",
+    MEB: "ค่าชดเชยรายวัน MEB",
     MEX: "ค่ารักษาพยาบาลพิเศษ MEX",
     DCI: "โรคร้ายแรง DCI",
     CI123: "โรคร้ายแรง CI 123",
@@ -533,7 +533,7 @@ const en: IHealthyWords = {
   dailyCashRow: "Daily hospital cash",
   riderCount: (count) => `${count} additional riders`,
   riderShort: {
-    MEB: "Medical expense MEB",
+    MEB: "Daily hospital cash MEB",
     MEX: "Extra medical MEX",
     DCI: "Critical illness DCI",
     CI123: "Critical illness CI 123",
@@ -643,7 +643,7 @@ const en: IHealthyWords = {
 
   rider: riderReader({
     names: {
-      "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)": "Medical expense rider (MEB)",
+      "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)": "Daily hospital cash (MEB)",
       "สัญญาเพิ่มเติมโรคร้ายแรง (DCI)": "Critical illness rider (DCI)",
       "ไอเฮลท์ตี้ อัลตร้า": "iHealthy Ultra",
       "สัญญาเพิ่มเติมดับบลิวพี (ยกเว้นเบี้ย)": "Waiver of premium rider (WP)",
@@ -774,7 +774,7 @@ const zh: IHealthyWords = {
   dailyCashRow: "住院每日津贴",
   riderCount: (count) => `附加合同 ${count} 项`,
   riderShort: {
-    MEB: "医疗费用 MEB",
+    MEB: "住院每日津贴 MEB",
     MEX: "额外医疗 MEX",
     DCI: "重大疾病 DCI",
     CI123: "重大疾病 CI 123",
@@ -882,7 +882,7 @@ const zh: IHealthyWords = {
 
   rider: riderReader({
     names: {
-      "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)": "医疗费用附加合同（MEB）",
+      "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)": "住院每日津贴（MEB）",
       "สัญญาเพิ่มเติมโรคร้ายแรง (DCI)": "重大疾病附加合同（DCI）",
       "ไอเฮลท์ตี้ อัลตร้า": "iHealthy Ultra",
       "สัญญาเพิ่มเติมดับบลิวพี (ยกเว้นเบี้ย)": "豁免保费附加合同（WP）",
@@ -1005,7 +1005,7 @@ const ru: IHealthyWords = {
   dailyCashRow: "Суточные при госпитализации",
   riderCount: (count) => `Дополнительных договоров: ${count}`,
   riderShort: {
-    MEB: "Мед. расходы MEB",
+    MEB: "Суточные при госпитализации MEB",
     MEX: "Доп. мед. расходы MEX",
     DCI: "Тяжёлые заболевания DCI",
     CI123: "Тяжёлые заболевания CI 123",
@@ -1115,7 +1115,7 @@ const ru: IHealthyWords = {
 
   rider: riderReader({
     names: {
-      "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)": "Дополнительный договор медицинских расходов (MEB)",
+      "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)": "Суточные при госпитализации (MEB)",
       "สัญญาเพิ่มเติมโรคร้ายแรง (DCI)": "Дополнительный договор критических заболеваний (DCI)",
       "ไอเฮลท์ตี้ อัลตร้า": "iHealthy Ultra",
       "สัญญาเพิ่มเติมดับบลิวพี (ยกเว้นเบี้ย)": "Дополнительный договор освобождения от взносов (WP)",
@@ -1237,7 +1237,7 @@ const my: IHealthyWords = {
   dailyCashRow: "ဆေးရုံတက် နေ့စဉ်ထောက်ပံ့ငွေ",
   riderCount: (count) => `ဖြည့်စွက်စာချုပ် ${count} ခု`,
   riderShort: {
-    MEB: "ဆေးကုသစရိတ် MEB",
+    MEB: "ဆေးရုံတက် နေ့စဉ်ထောက်ပံ့ငွေ MEB",
     MEX: "အပိုဆေးကုသစရိတ် MEX",
     DCI: "ပြင်းထန်သောရောဂါ DCI",
     CI123: "ပြင်းထန်သောရောဂါ CI 123",
@@ -1347,7 +1347,7 @@ const my: IHealthyWords = {
 
   rider: riderReader({
     names: {
-      "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)": "ဆေးကုသစရိတ် ဖြည့်စွက်စာချုပ် (MEB)",
+      "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)": "ဆေးရုံတက် နေ့စဉ်ထောက်ပံ့ငွေ (MEB)",
       "สัญญาเพิ่มเติมโรคร้ายแรง (DCI)": "ပြင်းထန်သောရောဂါ ဖြည့်စွက်စာချုပ် (DCI)",
       "ไอเฮลท์ตี้ อัลตร้า": "iHealthy Ultra",
       "สัญญาเพิ่มเติมดับบลิวพี (ยกเว้นเบี้ย)": "ပရီမီယံ ကင်းလွတ်ခွင့် ဖြည့်စွက်စာချုပ် (WP)",
@@ -1476,7 +1476,7 @@ const fr: IHealthyWords = {
   dailyCashRow: "Indemnité journalière d'hospitalisation",
   riderCount: (count) => `${count} garanties complémentaires`,
   riderShort: {
-    MEB: "Frais médicaux MEB",
+    MEB: "Indemnité journalière MEB",
     MEX: "Frais médicaux supplémentaires MEX",
     DCI: "Maladies graves DCI",
     CI123: "Maladies graves CI 123",
@@ -1586,7 +1586,7 @@ const fr: IHealthyWords = {
 
   rider: riderReader({
     names: {
-      "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)": "Garantie complémentaire frais médicaux (MEB)",
+      "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)": "Indemnité journalière d'hospitalisation (MEB)",
       "สัญญาเพิ่มเติมโรคร้ายแรง (DCI)": "Garantie complémentaire maladies graves (DCI)",
       "ไอเฮลท์ตี้ อัลตร้า": "iHealthy Ultra",
       "สัญญาเพิ่มเติมดับบลิวพี (ยกเว้นเบี้ย)": "Garantie complémentaire d'exonération des primes (WP)",
@@ -1708,7 +1708,7 @@ const de: IHealthyWords = {
   dailyCashRow: "Krankenhaustagegeld",
   riderCount: (count) => `${count} Zusatzversicherungen`,
   riderShort: {
-    MEB: "Behandlungskosten MEB",
+    MEB: "Krankenhaustagegeld MEB",
     MEX: "Zusätzliche Behandlungskosten MEX",
     DCI: "Schwere Krankheiten DCI",
     CI123: "Schwere Krankheiten CI 123",
@@ -1818,7 +1818,7 @@ const de: IHealthyWords = {
 
   rider: riderReader({
     names: {
-      "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)": "Zusatzversicherung Behandlungskosten (MEB)",
+      "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)": "Krankenhaustagegeld (MEB)",
       "สัญญาเพิ่มเติมโรคร้ายแรง (DCI)": "Zusatzversicherung schwere Krankheiten (DCI)",
       "ไอเฮลท์ตี้ อัลตร้า": "iHealthy Ultra",
       "สัญญาเพิ่มเติมดับบลิวพี (ยกเว้นเบี้ย)": "Zusatzversicherung Beitragsbefreiung (WP)",

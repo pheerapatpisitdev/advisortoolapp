@@ -31,9 +31,9 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
     expect(f.perDayAmount).toBe("83");
     expect(f.priceNotes).toEqual([
       "แยกตามสัญญา · รายเดือน",
-      "สัญญาหลัก  2,583.00 บาท",
-      "ดับบลิวพี ฟิต  +12.91 บาท",
-      "ค่ารักษาพยาบาล MEB แผน 1,000  +117.00 บาท",
+      "สัญญาหลัก  2,583.00\u00a0บาท",
+      "ดับบลิวพี ฟิต  +12.91\u00a0บาท",
+      "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB) แผน 1,000  +117.00\u00a0บาท",
     ]);
     expect(f.pills).toContain("เบี้ยสัญญาหลักคงที่");
     expect(plain.priceNotes).toEqual([]);

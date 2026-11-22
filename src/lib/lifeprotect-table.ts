@@ -102,7 +102,7 @@ export interface LifeProtectRider {
  */
 export interface LifeProtectMedical {
   code: string;
-  /** the contract's own name, e.g. "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)" */
+  /** the contract's own name, e.g. "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)" */
   name: string;
   ageMin: number;
   ageMax: number;
@@ -237,7 +237,7 @@ const TERMS: { variant: string; label: string; short: string }[] = [
  */
 const RIDERS = ["WP"];
 
-/** The medical-expense rider the page offers beside the premium waivers. */
+/** The daily hospital cash rider (MEB) the page offers beside the premium waivers. */
 const MEDICAL = "MEB";
 
 /** The critical-illness riders the page offers, with the words its buttons carry (owner, 2026-10-28). */

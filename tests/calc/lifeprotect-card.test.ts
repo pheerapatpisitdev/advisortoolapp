@@ -125,7 +125,7 @@ describe("a Life Protect card", () => {
     const { meb } = pagePaid(WITH_MEB);
     const card = quoteCard(WITH_MEB, WHILE_CURRENT)!;
     expect(card.summary!.split!.rows[1]).toEqual({
-      label: "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB) แผน 1,000",
+      label: "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB) แผน 1,000",
       amount: `+${formatSatang(meb!.find((m) => m.mode === "monthly")!.total)}`,
     });
     expect(card.priceNote).toBeUndefined();

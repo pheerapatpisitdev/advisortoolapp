@@ -152,7 +152,7 @@ describe("the medical rider", () => {
 
   it("is MEB, sold 6 - 65 with the plans capped by age as the rules cap them", () => {
     expect([medical.code, medical.name, medical.ageMin, medical.ageMax])
-      .toEqual(["MEB", "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)", 6, 65]);
+      .toEqual(["MEB", "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)", 6, 65]);
     expect(medicalPlansAt(table, medical, 5)).toEqual([]);
     expect(medicalPlansAt(table, medical, 8)).toEqual([500]);
     expect(medicalPlansAt(table, medical, 14)).toEqual([500, 1000]);

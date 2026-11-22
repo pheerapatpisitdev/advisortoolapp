@@ -366,8 +366,8 @@ export function wholeShares(amounts: string[]): string[] {
   return floors.map((x) => x.toLocaleString("en-US"));
 }
 
-/** a split row's contract as the screen names it: "ดับบลิวพี ฟิต", "ค่ารักษาพยาบาล MEB แผน 1,000" */
-export const riderShort = (label: string) => label.replace(/^สัญญาเพิ่มเติม/, "").replace(/\((MEB)\)/, "$1").replace(/\s+/g, " ").trim();
+/** a split row's contract as the screen names it: "ดับบลิวพี ฟิต", "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB) แผน 1,000" */
+export const riderShort = (label: string) => label.replace(/^สัญญาเพิ่มเติม/, "").replace(/\s+/g, " ").trim();
 
 /**
  * What the riders add to a Life Protect clip: the voice's words for them, and whether their
@@ -625,9 +625,10 @@ function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { produc
       : lifeProtect ? [`จ่ายเบี้ยแค่ ${paying.length} ปี`, level] : [`จ่ายเบี้ยแค่ ${paying.length} ปี`, `คุ้มครองถึงอายุ ${coverToAge}`],
     ...(payToEnd ? {} : { penNote: `จ่ายครบอายุ ${paying[paying.length - 1].age} แล้วหยุดส่ง` }),
     ...(payToEnd ? { payToEnd } : {}),
-    // what the headline instalment is made of, as the card's box splits it (owner, 2026-10-17, 1ก)
+    // what the headline instalment is made of, as the card's box splits it (owner, 2026-10-17, 1ก);
+    // the amount keeps its บาท when a long contract name wraps
     priceNotes: riders && card.summary.split
-      ? [card.summary.split.title, ...card.summary.split.rows.map((r) => `${riderShort(r.label)}  ${r.amount} บาท`)]
+      ? [card.summary.split.title, ...card.summary.split.rows.map((r) => `${riderShort(r.label)}  ${r.amount}\u00a0บาท`)]
       : [],
     ...(riders ? { riders } : {}),
     coverTitle: section.title,

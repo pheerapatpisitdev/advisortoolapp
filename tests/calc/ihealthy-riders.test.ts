@@ -282,7 +282,7 @@ describe("what the family receives", () => {
 
 describe("withinOffer", () => {
   const meb = (plans: number[]) => [{
-    code: "MEB", name: "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)", ageRange: "6 - 65 ปี",
+    code: "MEB", name: "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)", ageRange: "6 - 65 ปี",
     eligible: true, plans,
   }];
 
