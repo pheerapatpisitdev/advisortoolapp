@@ -325,6 +325,9 @@ export function adCostLine(cost: CostView | null, prices: Prices, s: AdState): {
     }
     return { text: `${head} ${photos} × ${eachWord} = ${formatBaht(photos * each)} หักจากกระเป๋า`, blocked: false, topUp: false };
   }
+  // the bare Motion price is not this clip's: until previewAd answers with the photos in, a paying agent sees no figure
+  // and cannot press (owner, 2026-11-22: ฿8 showed for two seconds before the ฿18 landed)
+  if (!p && cost?.kind === "wallet") return { text: "กำลังคิดราคา…", blocked: true, topUp: false };
   if (range && p?.upTo !== undefined && cost?.kind === "wallet") return rangeLine(cost, p.satang, p.upTo);
   return costLine(cost, "videoMotion", p?.satang);
 }

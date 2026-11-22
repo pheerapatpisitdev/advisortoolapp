@@ -316,3 +316,18 @@ describe("the วิดีโอโฆษณา form, fix round 1", () => {
     for (const what of ["make", "body1"] as const) expect(edits(draw(apply(s1, { type: "busy", what })))).toEqual([true, true, true, true]);
   });
 });
+
+describe("the วิดีโอโฆษณา price line before the price is in (owner, 2026-11-22: ฿8 showed for 2 s on load)", () => {
+  it("a wallet clip says กำลังคิดราคา and stays shut until previewAd answers, never the bare Motion price", () => {
+    const html = text(draw(start()));
+    expect(html).toContain("กำลังคิดราคา");
+    expect(html).not.toContain(formatBaht(DEFAULT_PRICES.videoMotion));
+    expect(F.adCostLine(wallet, DEFAULT_PRICES, start())?.blocked).toBe(true);
+  });
+
+  it("once previewAd answers, the line is the whole clip's price", () => {
+    const s = F.reduce(start(), { type: "preview", stamp: 0, preview: { line: LINE, satang: 2000, bodies: ["price", "cover"], ctas: ["chat"] } });
+    expect(text(draw(s))).toContain(formatBaht(2000));
+    expect(F.adCostLine(wallet, DEFAULT_PRICES, s)?.blocked).toBe(false);
+  });
+});
