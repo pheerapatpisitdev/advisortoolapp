@@ -49,6 +49,12 @@ export const FORM_NEXT_EN = "When you've sent the form, just let me know here �
 
 export const PREMIUM_FIRST_EN = "If you'd like to see your premium first, just tell me your age and gender (e.g. \"35 male\").";
 
+/** "I want to apply" again, after the form has gone: not the same steps a second time (a customer sent it five times). */
+export const APPLY_AGAIN_EN = "The form is just above 👆 If it doesn't open or something is unclear, tell me and I'll help you right here.";
+
+/** Under a reply to several questions, when some of them have no written answer here. */
+export const CHECK_REST_EN = "I'll check the rest and get back to you here 🙏";
+
 export const FORM_DONE_EN = "Thank you! 🙏 I'll check your details and get back to you in this chat.";
 
 export const STALL_EN = "No problem at all — take your time. 🙏 Just message here whenever you're ready.";

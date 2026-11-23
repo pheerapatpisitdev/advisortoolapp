@@ -187,7 +187,8 @@ describe("the English health brain", () => {
 
   it("tells the plan-info model to answer in English, with the contract in English", async () => {
     routed = { intent: "plan_info" };
-    await answerHealthEn(said("does it cover outpatient visits at a clinic?"), KNOWN);
+    // outpatient has a written answer since 2026-11-23; physiotherapy still goes to the model
+    await answerHealthEn(said("does it cover physiotherapy at a clinic?"), KNOWN);
     const system = chat.mock.calls.find(([o]) => o.task === "plan_info_health_en")?.[0].messages[0].content ?? "";
     expect(system).toContain("Reply in English only");
     expect(system).not.toMatch(THAI);

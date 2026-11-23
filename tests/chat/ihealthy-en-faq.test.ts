@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FAQ_EN, healthFaqAnswerEn } from "@/lib/assistant/ihealthy-en/faq";
+import { FAQ_EN, faqFor, healthFaqAnswerEn } from "@/lib/assistant/ihealthy-en/faq";
 import {
   HEALTH_PLAN_INFO_SYSTEM_EN, HEALTH_SMALL_TALK_SYSTEM_EN, healthFactsForEn,
 } from "@/lib/assistant/ihealthy-en/prompts";
@@ -15,7 +15,19 @@ describe("the English FAQ", () => {
     ["Does the premium go up every year?", "rises"],
     ["Can I pay monthly?", "monthly"],
     ["Can I use it for tax?", "tax"],
-  ])("%s → %s", (q, key) => expect(FAQ_EN.find((e) => e.match.test(q))?.key).toBe(key));
+    ["Does your insurance offer direct billing?", "direct"],
+    ["Is there a no-claim discount?", "noclaim"],
+    ["Up to what age can I renew?", "ages"],
+    ["Does it cover outpatient?", "outpatient"],
+    ["Are there any sublimits?", "deductible"],
+    ["Can I see the terms and conditions?", "documents"],
+    // read as the health declaration before 2026-11-23 (daily chat review)
+    ["So this is also if i have a accident? Or only when im sick?", "accident"],
+    ["Are there individual limits for surgery?", "deductible"],
+    ["Does it cover outpatient medication?", "outpatient"],
+    // a condition said beside a benefit word is still a condition
+    ["I have diabetes, how long is the waiting period?", "health"],
+  ])("%s → %s", (q, key) => expect(faqFor(q)?.key).toBe(key));
 
   it("answers nothing it was not asked", () => {
     expect(healthFaqAnswerEn("35 male")).toBeUndefined();

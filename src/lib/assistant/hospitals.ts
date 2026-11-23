@@ -238,6 +238,40 @@ export interface HospitalAnswer {
 }
 
 /**
+ * The same answer kept short, for one item among several in a reply to a message that asked
+ * many things (ihealthy-en/topics.ts): a province is counted and four names given, not listed.
+ */
+export function hospitalBriefEn(text: string, awaitingProvince = false): HospitalAnswer | undefined {
+  const found = hospitalsIn(text);
+  if (found.length) return { text: namedEn(found) };
+  const place = provinceIn(text);
+  if (!(awaitingProvince && place) && !ASKS_EN.test(text)) return undefined;
+  if (!place) {
+    const hospitals = HOSPITALS.filter((h) => usable(h) && inpatient(h)).length;
+    return {
+      text: `Krungthai-AXA's network has ${hospitals} hospitals across Thailand. `
+        + "Tell me your province and I'll send you the ones near you 🏥",
+      asksProvince: true,
+    };
+  }
+  // the names an expat knows first; Bangkok Hospital is not on the full answer's list
+  const first = ["bumrungrad-hospital", "bnh-hospital", "samitivej-sukhumvit-hospital", "bangkok-hospital", ...WELL_KNOWN];
+  const known = (h: Hospital) => {
+    const i = first.indexOf(h.id);
+    return i >= 0 ? i : first.length;
+  };
+  const here = HOSPITALS.filter((h) => h.province === place.th && usable(h) && inpatient(h))
+    .sort((a, b) => known(a) - known(b));
+  if (!here.length) return { text: inProvince(place, "en") };
+  const names = here.slice(0, 4).map((h) => h.en);
+  const listed = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+  return {
+    text: `${here.length} network hospitals in ${place.en}, including ${listed}. `
+      + `${FAX_EN.replace(" there", " at any of them")}\nFull list: ${LIST_EN}`,
+  };
+}
+
+/**
  * The answer to a question about the network, or undefined when the message is not one.
  *
  * A hospital named outright is answered whatever else the message says. A general question is
