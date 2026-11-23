@@ -17,7 +17,11 @@ export function isExpatPage(pageId?: string): boolean {
 
 export type ChatLang = "en" | "th";
 
-const THAI = /[฀-๿]/;
+/**
+ * Thai writing: the letters, vowels, tone marks and digits. Not ฿ — it sits in the same block,
+ * and a foreigner quoting the advertisement's "฿3 million" was answered in Thai (2026-11-23).
+ */
+export const THAI = /[ก-ฺเ-๛]/;
 const LATIN_WORD = /[A-Za-z]{2,}/;
 const NEUTRAL = /^\s*(?:smart|bronze|silver|gold|diamond|platinum|ok(?:ay)?|opd|ipd)\s*[.!]*\s*$/i;
 

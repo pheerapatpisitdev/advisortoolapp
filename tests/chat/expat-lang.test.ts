@@ -27,6 +27,11 @@ describe("languageOf", () => {
     ["ok", "th", "th"],
     ["Gold", undefined, "en"],
     ["Gold", "en", "en"],
+    // ฿ sits in the Thai block but is a price, not Thai writing (Expat Influencer, 2026-11-23)
+    ["Does the ฿3 million cover hospital admissions only?", undefined, "en"],
+    ["The first-year premium is ฿2,086 monthly", "th", "en"],
+    ["฿2,086", "th", "th"],
+    ["เบี้ย ฿2,086 ต่อเดือนใช่ไหม", "en", "th"],
   ] as const)("%s (was %s) → %s", (text, prev, want) => {
     expect(languageOf(text, prev)).toBe(want);
   });

@@ -4,7 +4,7 @@ import type { AnyAnswer } from "../dispatch";
 import type { Channel } from "../channel";
 import { askWhich, CHOOSE_HEALTH, CHOOSE_ISHIELD, CHOOSE_LEGACY, CHOOSE_LIFE, productNamedIn } from "../choose";
 import { affirms, ageIn, ASK_FOR_TABLE, one, peopleIn, sexIn, WANTS_IN, wantsToBuy, type Reply } from "../common";
-import { asksForEnglish, asksForThai } from "../expat";
+import { asksForEnglish, asksForThai, THAI } from "../expat";
 import { asksFullTable, planNamedIn, type HealthSlots } from "../ihealthy/route";
 import { healthMenu } from "../ihealthy/menu";
 import { hasHealthQuote, healthQuote } from "../ihealthy/quote";
@@ -47,7 +47,6 @@ const BUTTONS_EN = new Map([
 /** The buttons for plans there is no English brain for. */
 const OTHER_PLANS = new Set([CHOOSE_LIFE, CHOOSE_LEGACY, CHOOSE_ISHIELD, ASK_FOR_TABLE]);
 
-const THAI = /[฀-๿]/;
 
 function lead(reply: Reply, first: string): Reply {
   const [head, ...rest] = reply.messages;
