@@ -4,7 +4,7 @@ import { gatePage } from "@/lib/auth/viewer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { friends, quota, testWebhook } from "@/lib/line/client";
 import { listBroadcasts, MAX_PARTS, REPLY_CHOICES, type Broadcast } from "@/lib/line/broadcasts";
-import { MENUS } from "@/lib/line/rich-menu";
+import { CUSTOMER_MENU, MENUS } from "@/lib/line/rich-menu";
 import { lineBotEnabled } from "@/lib/line/settings";
 import { ownerLine, type OwnerLine } from "@/lib/line/owner-alert";
 import { readHealth } from "@/lib/ai/health";
@@ -63,10 +63,20 @@ export default async function LinePage() {
   const view: LineView = {
     hook, friends: f, quota: q, chats: c, botOn, owner, broadcasts: list, health,
     replyChoices: REPLY_CHOICES, maxParts: MAX_PARTS,
-    menus: Object.values(MENUS).map((m) => ({
-      name: m.name, alias: m.alias, tab: m.tab, bar: m.chatBarText, columns: m.columns,
-      buttons: m.buttons.map((b) => ({ title: b.title, sub: b.sub, href: b.href })),
-    })),
+    menus: [
+      {
+        name: CUSTOMER_MENU.name, alias: CUSTOMER_MENU.alias, tab: "ลูกค้า", bar: CUSTOMER_MENU.chatBarText,
+        columns: CUSTOMER_MENU.columns, who: "customer" as const,
+        buttons: [
+          ...CUSTOMER_MENU.buttons.map((b) => ({ title: b.title, sub: b.sub, href: `พิมพ์ "${b.say}" ให้บอทตอบ` })),
+          { title: CUSTOMER_MENU.strip.words, sub: "", href: "หน้ายืนยันรหัสใน LINE" },
+        ],
+      },
+      ...Object.values(MENUS).map((m) => ({
+        name: m.name, alias: m.alias, tab: m.tab, bar: m.chatBarText, columns: m.columns, who: "agent" as const,
+        buttons: m.buttons.map((b) => ({ title: b.title, sub: b.sub, href: b.href })),
+      })),
+    ],
   };
 
   return (

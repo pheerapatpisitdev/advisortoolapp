@@ -1,5 +1,6 @@
 import crypto from "crypto";
-import { friendProfile, isFriend, push, reply } from "@/lib/line/client";
+import { friendProfile, isFriend, push, reply, linkRichMenu, richMenuIdOfAlias, unlinkRichMenu } from "@/lib/line/client";
+import { AGENT_MENU, MENUS } from "@/lib/line/rich-menu";
 import { isPromptStory } from "@/lib/prompt-story/types";
 import { boardOf } from "@/lib/quote-video/board";
 import { isStoryInput } from "@/lib/quote-video/story";
@@ -112,8 +113,46 @@ export async function startAgentLink(agentId: string): Promise<{ code: string; u
   throw new Error("link code not saved: five clashes in a row");
 }
 
+/* ── whose menu (owner chose ข ก, 2026-11-24, src/lib/line/rich-menu.ts) ─────────────────────
+ * Every friend sees the customers' menu; a LINE linked to an agent sees the agents'. Changing
+ * one person's menu is a call to LINE, not a message: none of the month's pushes is spent.
+ * Neither throws: a menu that did not change is no reason to undo a link. */
+
+/** The agents' menu for this LINE, in place of the customers'. */
+export async function showAgentMenu(lineUserId: string): Promise<void> {
+  try {
+    const id = await richMenuIdOfAlias(MENUS[AGENT_MENU].alias);
+    if (id) await linkRichMenu(lineUserId, id);
+  } catch (e) {
+    console.error("[line] agents' menu not shown:", e);
+  }
+}
+
+/** Back to the menu every friend sees. */
+export async function showCustomerMenu(lineUserId: string): Promise<void> {
+  try {
+    await unlinkRichMenu(lineUserId);
+  } catch (e) {
+    console.error("[line] customers' menu not restored:", e);
+  }
+}
+
+/** Every LINE linked to an agent: a rebuild shows each the new agents' menu (src/lib/line/rebuild.ts). */
+export async function linkedLineIds(): Promise<string[]> {
+  const { data, error } = await table().select("line_user_id").not("line_user_id", "is", null);
+  if (error) throw new Error(`agent lines not read: ${error.message}`);
+  return [...new Set(((data ?? []) as { line_user_id: string }[]).map((r) => r.line_user_id))];
+}
+
+/** the LINE this agent was linked to, when a new link or an unlink is about to replace it */
+async function lineBefore(agentId: string): Promise<string | null> {
+  return (await rowOf(agentId).catch(() => null))?.line_user_id ?? null;
+}
+
 export async function unlinkAgent(agentId: string): Promise<void> {
+  const before = await lineBefore(agentId);
   await save(agentId, { line_user_id: null, linked_at: null, link_code: null, link_expires: null, money_low_sent: false });
+  if (before) await showCustomerMenu(before);
 }
 
 export async function setAgentNotify(agentId: string, which: AgentNotify, on: boolean): Promise<void> {
@@ -124,6 +163,7 @@ export async function setAgentNotify(agentId: string, which: AgentNotify, on: bo
 export function linkedText(friend: boolean | null): string {
   return [
     "เชื่อม LINE นี้กับบัญชี advisortool ของคุณแล้วครับ ✅",
+    "เมนูด้านล่างเปลี่ยนเป็นเมนูตัวแทนแล้ว",
     "จะแจ้งที่นี่เมื่อคลิปทำเสร็จหรือไม่สำเร็จ เปิดปิดแต่ละเรื่องได้ที่หน้า ตั้งค่าส่วนตัว",
     ...(friend === false ? ["", `กดเพิ่มเพื่อนด้วยนะครับ ไม่อย่างนั้นแจ้งเตือนจะส่งมาไม่ถึง ${addFriendUrl()}`] : []),
   ].join("\n");
@@ -150,6 +190,7 @@ async function linkAgent(code: string, userId: string, replyToken: string): Prom
   }
   const r = data as Row | null;
   if (!r?.link_expires || Date.parse(r.link_expires) <= Date.now()) return false;
+  const before = r.line_user_id;
   // the row moves once: the same code sent twice links once
   const { data: moved, error: e2 } = await table()
     .update({ line_user_id: userId, linked_at: new Date().toISOString(), link_code: null, link_expires: null, money_low_sent: false, updated_at: new Date().toISOString() })
@@ -158,6 +199,8 @@ async function linkAgent(code: string, userId: string, replyToken: string): Prom
     if (e2) console.error("[line] agent link not saved:", e2.message);
     return false;
   }
+  if (before && before !== userId) await showCustomerMenu(before);
+  await showAgentMenu(userId);
   const friend = await isFriend(userId);
   await reply(replyToken, [{ type: "text", text: linkedText(friend) }]).catch((e) => console.error("[line] link reply not sent:", e));
   return true;
@@ -170,10 +213,13 @@ async function linkAgent(code: string, userId: string, replyToken: string): Prom
  * code (or a member's one-time link) said whose alerts. A code still waiting stops working.
  */
 export async function linkAgentLine(agentId: string, lineUserId: string): Promise<void> {
+  const before = await lineBefore(agentId);
   await save(agentId, {
     line_user_id: lineUserId, linked_at: new Date().toISOString(),
     link_code: null, link_expires: null, money_low_sent: false,
   });
+  if (before && before !== lineUserId) await showCustomerMenu(before);
+  await showAgentMenu(lineUserId);
 }
 
 /** whose live one-time code this is (a member's link from ตั้งค่าส่วนตัว), or null */

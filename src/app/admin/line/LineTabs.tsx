@@ -24,7 +24,7 @@ export interface LineView {
   broadcasts: Broadcast[] | null;
   replyChoices: Reply[];
   maxParts: number;
-  menus: { name: string; alias: string; tab: string; bar: string; columns: number; buttons: { title: string; sub: string; href: string }[] }[];
+  menus: { name: string; alias: string; tab: string; bar: string; columns: number; who: "customer" | "agent"; buttons: { title: string; sub: string; href: string }[] }[];
 }
 
 /** The same look as /admin/welcome. Every control is at least 44px tall: the owner uses this on a phone. */
@@ -566,18 +566,18 @@ function Menus({ view }: { view: LineView }) {
     setConfirming(false);
   });
   return (
-    <Card title="เมนูใต้แชท" hint="สำหรับตัวแทน · ปุ่มเปิดหน้าในระบบด้วยเบราว์เซอร์ของมือถือ แท็บด้านบนสลับสองหน้า · แก้ปุ่มได้ในโค้ดเท่านั้น">
+    <Card title="เมนูใต้แชท" hint="ทุกคนที่แอดเห็นเมนูลูกค้า · ตัวแทนที่ยืนยันรหัส 6 หลักแล้วเห็นเมนูตัวแทนสองแท็บ · แก้ปุ่มได้ในโค้ดเท่านั้น">
       <div className="grid gap-3 sm:grid-cols-2">
-        {view.menus.map((m, i) => (
+        {view.menus.map((m) => (
           <div key={m.name} className="rounded-lg border border-[var(--bot-line)] p-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <b className="text-sm">แท็บ {m.tab}</b>
-              {i === 0 ? <Pill tone="ok">เห็นก่อน</Pill> : <Pill tone="warn">กดแท็บเพื่อเปิด</Pill>}
+              <b className="text-sm">{m.who === "customer" ? "เมนูลูกค้า" : `ตัวแทน · แท็บ ${m.tab}`}</b>
+              {m.who === "customer" ? <Pill tone="ok">ทุกคนเห็น</Pill> : <Pill tone="warn">หลังยืนยันรหัส</Pill>}
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element -- drawn on request, not a static asset */}
-            <img src={`/api/line/menu-image?menu=${m.name}`} alt={`เมนูแท็บ ${m.tab}`} className="w-full rounded" loading="lazy" />
+            <img src={`/api/line/menu-image?menu=${m.name}`} alt={`เมนู ${m.tab}`} className="w-full rounded" loading="lazy" />
             <ul className="mt-2 grid gap-0.5 text-xs text-[var(--bot-ink-mute)]">
-              {m.buttons.map((b) => <li key={b.href}>{b.title} → {b.href}</li>)}
+              {m.buttons.map((b) => <li key={b.title}>{b.title} → {b.href}</li>)}
             </ul>
             <p className="mt-1.5 text-xs text-[var(--bot-ink-mute)]">ป้ายแถบ: {m.bar} · {m.alias}</p>
           </div>
@@ -588,7 +588,7 @@ function Menus({ view }: { view: LineView }) {
           <button type="button" className={quiet} onClick={() => { setResult(null); setConfirming(true); }}>สร้างเมนูใหม่จากโค้ดล่าสุด</button>
         ) : (
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span>สร้างใหม่ทั้ง 2 แท็บ และลบชุดเก่า?</span>
+            <span>สร้างใหม่ทั้ง 3 เมนู และลบชุดเก่า?</span>
             <button type="button" className={quiet} disabled={pending} onClick={rebuild}>{pending ? "กำลังสร้าง…" : "ยืนยัน"}</button>
             <button type="button" className={quiet} disabled={pending} onClick={() => setConfirming(false)}>ยกเลิก</button>
           </div>

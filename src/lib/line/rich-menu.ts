@@ -1,4 +1,6 @@
 import { siteUrl } from "@/lib/site-url";
+import { CHOOSE_HEALTH, CHOOSE_ISHIELD, CHOOSE_LEGACY, CHOOSE_LIFE } from "@/lib/assistant/choose";
+import { WANTS_IN } from "@/lib/assistant/common";
 
 /**
  * The menu pinned under the LINE chat: a picture cut into buttons.
@@ -21,7 +23,8 @@ export type MenuName = "calc" | "studio";
 
 export type MenuIcon =
   | "life" | "health" | "shield" | "legacy" | "pa" | "grid"
-  | "video" | "story" | "spark" | "bell" | "play" | "wallet";
+  | "video" | "story" | "spark" | "bell" | "play" | "wallet"
+  | "hospital" | "apply";
 
 export interface MenuButton {
   /** the page the button opens, as a path of this app */
@@ -105,6 +108,7 @@ export function menuLink(href: string): string {
 type Bounds = { x: number; y: number; width: number; height: number };
 
 export type MenuArea =
+  | { bounds: Bounds; action: { type: "message"; label: string; text: string } }
   | { bounds: Bounds; action: { type: "richmenuswitch"; label: string; richMenuAliasId: string; data: string } }
   | { bounds: Bounds; action: { type: "uri"; label: string; uri: string } };
 
@@ -160,5 +164,107 @@ export function richMenuBody(menu: MenuSpec) {
     name: `advisor-${menu.name}`,
     chatBarText: menu.chatBarText,
     areas: menuAreas(menu),
+  };
+}
+
+/* ── the customers' menu ──────────────────────────────────────────────────────────────────
+ * The account serves customers as well as agents (owner, 2026-11-24; mockup
+ * https://claude.ai/artifact/XPd7v5yLHLLwXAmokxCePE, chose ข ก). Every friend sees this menu;
+ * an agent who has proved their six-digit code is shown the agents' two tabs in its place
+ * (src/lib/line/agent-line.ts) and falls back to this one when they unlink.
+ *
+ * A button here writes in the chat, as the customer would have, and the bot answers: each
+ * says exactly what a button of the bot's own says, so it is read the same way. The strip
+ * under them is the agents' door: it opens the page that asks for the code. */
+
+export interface CustomerButton {
+  /** what the tap writes in the chat: words the bot already reads */
+  say: string;
+  /** the label, at most twenty characters */
+  title: string;
+  /** the title as the picture writes it, where it is too long for one line of a button */
+  lines?: [string, string];
+  sub: string;
+  icon: MenuIcon;
+  lead?: true;
+}
+
+export interface CustomerMenuSpec {
+  name: "customer";
+  alias: string;
+  width: 2500;
+  height: 1686;
+  columns: 3;
+  chatBarText: string;
+  buttons: CustomerButton[];
+  /** the agents' door: its words on the picture, and its label (at most twenty characters) */
+  strip: { words: string; label: string };
+}
+
+/** The agents' door along the bottom of the customers' picture, in the picture's own pixels. */
+export const STRIP_HEIGHT = 190;
+
+/** What the hospital button writes: a health subject (assistant/choose.ts) the health brain answers by asking the province. */
+export const ASK_HOSPITALS = "โรงพยาบาลในเครือ";
+
+export const CUSTOMER_MENU: CustomerMenuSpec = {
+  name: "customer",
+  alias: "advisor-customer",
+  width: 2500,
+  height: 1686,
+  columns: 3,
+  chatBarText: "เมนู",
+  buttons: [
+    { say: CHOOSE_HEALTH, title: "ประกันสุขภาพ", sub: "iHealthy Ultra", icon: "health" },
+    { say: CHOOSE_LIFE, title: "Life Protect", sub: "ชีวิต x 2", icon: "life" },
+    { say: CHOOSE_ISHIELD, title: "iShield", sub: "โรคร้ายแรง", icon: "shield" },
+    { say: CHOOSE_LEGACY, title: "มรดกเพื่อครอบครัว", lines: ["มรดก", "เพื่อครอบครัว"], sub: "Family Legacy", icon: "legacy" },
+    { say: ASK_HOSPITALS, title: "โรงพยาบาลในเครือ", lines: ["โรงพยาบาล", "ในเครือ"], sub: "เช็กตามจังหวัด", icon: "hospital" },
+    { say: WANTS_IN, title: "สนใจสมัคร", sub: "ให้แอดมินติดต่อ", icon: "apply", lead: true },
+  ],
+  strip: { words: "สำหรับตัวแทน · ยืนยันรหัส 6 หลัก", label: "สำหรับตัวแทน" },
+};
+
+/** The menu an agent is shown once linked: the first of the two tabs. */
+export const AGENT_MENU: MenuName = FIRST_MENU;
+
+/** Where the customers' buttons sit: the whole picture above the strip, cut as the agents' are. */
+export function customerButtonBounds(menu: CustomerMenuSpec): Bounds[] {
+  const rows = Math.ceil(menu.buttons.length / menu.columns);
+  const cellW = Math.floor(menu.width / menu.columns);
+  const cellH = Math.floor((menu.height - STRIP_HEIGHT) / rows);
+  return menu.buttons.map((_, i) => {
+    const col = i % menu.columns;
+    const row = Math.floor(i / menu.columns);
+    return {
+      x: col * cellW,
+      y: row * cellH,
+      width: col === menu.columns - 1 ? menu.width - col * cellW : cellW,
+      height: row === rows - 1 ? menu.height - STRIP_HEIGHT - row * cellH : cellH,
+    };
+  });
+}
+
+export function stripBounds(menu: CustomerMenuSpec): Bounds {
+  return { x: 0, y: menu.height - STRIP_HEIGHT, width: menu.width, height: STRIP_HEIGHT };
+}
+
+/** Every tappable area: the six buttons, then the agents' door, which opens `door`. */
+export function customerAreas(menu: CustomerMenuSpec, door: string): MenuArea[] {
+  const buttons: MenuArea[] = customerButtonBounds(menu).map((bounds, i) => {
+    const b = menu.buttons[i];
+    return { bounds, action: { type: "message", label: b.title, text: b.say } };
+  });
+  return [...buttons, { bounds: stripBounds(menu), action: { type: "uri", label: menu.strip.label, uri: door } }];
+}
+
+/** The body LINE's create-menu call takes for the customers' menu. */
+export function customerMenuBody(menu: CustomerMenuSpec, door: string) {
+  return {
+    size: { width: menu.width, height: menu.height },
+    selected: true,
+    name: `advisor-${menu.name}`,
+    chatBarText: menu.chatBarText,
+    areas: customerAreas(menu, door),
   };
 }

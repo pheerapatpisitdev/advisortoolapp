@@ -40,7 +40,10 @@ const reply = vi.fn(async () => {});
 const push = vi.fn(async () => {});
 const isFriend = vi.fn(async () => true as boolean | null);
 const friendProfile = vi.fn(async () => ({ displayName: "Boy" }) as { displayName: string } | null | undefined);
-vi.mock("@/lib/line/client", () => ({ reply, push, isFriend, friendProfile }));
+const richMenuIdOfAlias = vi.fn(async () => "richmenu-calc" as string | null);
+const linkRichMenu = vi.fn(async () => {});
+const unlinkRichMenu = vi.fn(async () => {});
+vi.mock("@/lib/line/client", () => ({ reply, push, isFriend, friendProfile, richMenuIdOfAlias, linkRichMenu, unlinkRichMenu }));
 
 const line = await import("@/lib/line/agent-line");
 const { tryLink } = await import("@/lib/line/owner-alert");
@@ -54,6 +57,51 @@ beforeEach(() => {
   reply.mockClear();
   push.mockClear();
   isFriend.mockReset().mockResolvedValue(true);
+  richMenuIdOfAlias.mockReset().mockResolvedValue("richmenu-calc");
+  linkRichMenu.mockReset().mockResolvedValue(undefined);
+  unlinkRichMenu.mockReset().mockResolvedValue(undefined);
+});
+
+/** Whose menu (owner chose ข ก, 2026-11-24): a linked LINE sees the agents' menu, everybody else the customers'. */
+describe("the menu under a linked agent's chat", () => {
+  it("becomes the agents' menu when the LINE page links them, found by its alias", async () => {
+    await line.linkAgentLine(AGENT, "Uagent");
+    expect(richMenuIdOfAlias).toHaveBeenCalledWith("advisor-calc");
+    expect(linkRichMenu).toHaveBeenCalledWith("Uagent", "richmenu-calc");
+    expect(unlinkRichMenu).not.toHaveBeenCalled();
+  });
+
+  it("becomes the agents' menu when a typed code links them, and the reply says so", async () => {
+    const { code } = await line.startAgentLink(AGENT);
+    expect(await line.tryAgentLink(code, "Uagent", "r")).toBe(true);
+    expect(linkRichMenu).toHaveBeenCalledWith("Uagent", "richmenu-calc");
+    expect(said()).toContain("เมนูด้านล่างเปลี่ยนเป็นเมนูตัวแทนแล้ว");
+  });
+
+  it("goes back to the customers' menu when they unlink", async () => {
+    await line.linkAgentLine(AGENT, "Uagent");
+    await line.unlinkAgent(AGENT);
+    expect(unlinkRichMenu).toHaveBeenCalledWith("Uagent");
+  });
+
+  it("leaves the LINE they linked before with the customers' menu", async () => {
+    await line.linkAgentLine(AGENT, "Uold");
+    await line.linkAgentLine(AGENT, "Unew");
+    expect(unlinkRichMenu).toHaveBeenCalledWith("Uold");
+    expect(linkRichMenu).toHaveBeenLastCalledWith("Unew", "richmenu-calc");
+  });
+
+  it("still links when LINE refuses the menu, or there is no agents' menu yet", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    linkRichMenu.mockRejectedValueOnce(new Error("LINE 500"));
+    await expect(line.linkAgentLine(AGENT, "Uagent")).resolves.toBeUndefined();
+    expect((await line.agentLine(AGENT)).linked).toBe(true);
+    richMenuIdOfAlias.mockResolvedValueOnce(null);
+    linkRichMenu.mockClear();
+    await line.linkAgentLine(AGENT, "Uagent");
+    expect(linkRichMenu).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
 });
 
 describe("the agent's code", () => {

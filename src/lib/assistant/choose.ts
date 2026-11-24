@@ -95,7 +95,7 @@ export function productNamedIn(text: string): Product | undefined {
  * contract under it, not a change of subject.
  */
 const TOPICS: [Product, RegExp][] = [
-  ["ihealthy", /ค่ารักษา|ค่าห้อง|เหมาจ่าย|ค่าหมอ|ผู้ป่วยใน|ผู้ป่วยนอก|\bopd\b|\bipd\b|แอดมิท|นอนโรงพยาบาล|นอน\s*รพ|ค่าผ่าตัด|วงเงินค่ารักษา/i],
+  ["ihealthy", /ค่ารักษา|ค่าห้อง|เหมาจ่าย|ค่าหมอ|ผู้ป่วยใน|ผู้ป่วยนอก|\bopd\b|\bipd\b|แอดมิท|นอนโรงพยาบาล|นอน\s*รพ|ค่าผ่าตัด|วงเงินค่ารักษา|(?:โรงพยาบาล|รพ\.?)\s*(?:ในเครือ|คู่สัญญา)/i],
   // "มรดกเก็บออม 50 บาทต่อวัน": a bare มรดก names no plan, but a daily budget beside it can only be this one
   ["lifeprotect", /มรดก.*(?:ต่อวัน|วันละ|\/\s*วัน)|ทุน\s*\d|ทุนประกัน|\d+\s*ล้าน|\d+\s*แสน|(?:จ่าย|ชำระ)\s*(?:เบี้ย)?\s*\d+\s*ปี|อายุ\s*99|เวนคืน|เสียชีวิต/i],
 ];

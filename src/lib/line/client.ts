@@ -204,6 +204,11 @@ export async function linkRichMenu(userId: string, richMenuId: string): Promise<
   await menuOk(await menuCall("POST", `${API}/user/${userId}/richmenu/${richMenuId}`, {}), "link menu");
 }
 
+/** Takes this person's own menu away, so they see the default again. A person with none is not an error. */
+export async function unlinkRichMenu(userId: string): Promise<void> {
+  await menuOk(await menuCall("DELETE", `${API}/user/${userId}/richmenu`), "unlink menu");
+}
+
 /** Every menu the account holds, with the names this app gave them. */
 export async function listRichMenus(): Promise<{ richMenuId: string; name: string }[]> {
   const res = await menuOk(await menuCall("GET", `${API}/richmenu/list`), "list menus");
