@@ -382,12 +382,12 @@ describe("Studio's own menu", () => {
   });
 
 
-  it("gives every agent วิดีโอโฆษณา, with its own logo, right after วิดีโอนำเสนอ (owner, 2026-11-22)", () => {
+  it("gives every agent วิดีโอโฆษณา Demo, with its own logo, right after วิดีโอนำเสนอ (owner, 2026-11-22)", () => {
     const base = { name: "ก", room: "r", publish: false, connect: false, admin: false, owner: false };
     const links = studioMenu(base).flatMap((g) => g.links);
     const at = links.findIndex((l) => l.href === "/studio/ad-video");
     expect(at).toBe(links.findIndex((l) => l.href === "/studio/quote-video") + 1);
-    expect(links[at]).toMatchObject({ label: "วิดีโอโฆษณา", logo: "av", hue: "#7a3db8" });
+    expect(links[at]).toMatchObject({ label: "วิดีโอโฆษณา Demo", logo: "av", hue: "#7a3db8" });
   });
 
   it("lights the front page only on /studio itself, not on the pages beside it", () => {
