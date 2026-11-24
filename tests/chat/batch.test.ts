@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
-  eachBySender, groupBySender, SEND_MARGIN_MS, TURN_MS, turnBudgetMs, WEBHOOK_LIMIT_MS,
+  eachBySender, groupBySender, SEND_MARGIN_MS, TAIL_LIMIT_MS, TAIL_MARGIN_MS, TURN_MS, turnBudgetMs, WEBHOOK_LIMIT_MS,
 } from "@/lib/chat/batch";
 
 /**
@@ -66,6 +66,15 @@ describe("a turn's clock", () => {
     const late = WEBHOOK_LIMIT_MS - SEND_MARGIN_MS - 10_000;
     expect(turnBudgetMs(startedAt, late)).toBe(10_000);
     expect(turnBudgetMs(startedAt, WEBHOOK_LIMIT_MS)).toBeLessThanOrEqual(0);
+  });
+
+  it("fits a Worker's 30-second tail when the answer runs there: about 14 seconds after the wait", () => {
+    expect(TAIL_LIMIT_MS).toBe(30_000);
+    // one second of reading and the five-second wait for a burst have gone by
+    expect(turnBudgetMs(0, 6_000, true)).toBe(14_000);
+    expect(turnBudgetMs(0, TAIL_LIMIT_MS - TAIL_MARGIN_MS, true)).toBeLessThanOrEqual(0);
+    // elsewhere the same moment still has the whole turn
+    expect(turnBudgetMs(0, 6_000)).toBe(TURN_MS);
   });
 
   it("matches the maxDuration the webhook routes declare", () => {

@@ -112,9 +112,10 @@ async function say(replyToken: string, userId: string, messages: LineMessage[]):
 /**
  * `destination` is the account's own id, from the webhook body. It stands where Messenger puts
  * the Page's id, so the report can tell which account a conversation came in on. `startedAt`
- * is when the batch began, as on Messenger.
+ * is when the batch began, as on Messenger; `tail` shortens the turn's clock to a Worker's tail
+ * (src/lib/chat/batch.ts).
  */
-export async function handle(event: LineEvent, destination = "", opts: { startedAt?: number; followed?: boolean } = {}): Promise<void> {
+export async function handle(event: LineEvent, destination = "", opts: { startedAt?: number; followed?: boolean; tail?: boolean } = {}): Promise<void> {
   // a person, one to one: a group or a room is not a customer asking for a quotation
   if (event.source?.type && event.source.type !== "user") return;
   if (event.type !== "message" || event.message?.type !== "text") return;
@@ -180,7 +181,7 @@ export async function handle(event: LineEvent, destination = "", opts: { started
 
   await showLoading(userId).catch(() => {});
   try {
-    const answer = await answered(history, session.slots, turnBudgetMs(opts.startedAt));
+    const answer = await answered(history, session.slots, turnBudgetMs(opts.startedAt, Date.now(), opts.tail));
     if (answer.taught) countLessonHit(answer.taught);
 
     // the words first and each card after the words it belongs to, as on Messenger

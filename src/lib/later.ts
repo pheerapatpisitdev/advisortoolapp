@@ -15,6 +15,10 @@ import { cloudflareEnv } from "@/lib/cloudflare/env";
  *   consumer (worker.ts) hands it to /api/later, which runs it while the consumer waits (up to
  *   15 minutes). The message is signed, as that route is on the open internet. A queue carries data, not a function, so a job is named and its payload
  *   is JSON — and it goes through JSON here too, so what works on Vercel works from a queue.
+ * - `runInTail(job, payload)`: a job that must start at once and fits a Worker's tail — LINE's
+ *   answers, which the queue held about six seconds each (measured 2026-11-24; owner chose ก).
+ *   after() on both hosts: minutes on Vercel, 30 seconds on Cloudflare, so the job keeps its
+ *   own clock inside that (src/lib/chat/batch.ts TAIL_LIMIT_MS).
  * - `finishAfter(work)`: a short tail of this request's own work, well under 30 seconds — a
  *   row written, one message sent. after() here, waitUntil() there.
  */
@@ -52,6 +56,13 @@ export function runLater<P>(job: Job<P>, payload: P, opts: { agentId?: string | 
     }));
     return;
   }
+  after(() => runMessage(job, message));
+}
+
+/** as runLater, but never queued: the job runs in this request's own tail on either host */
+export function runInTail<P>(job: Job<P>, payload: P, opts: { agentId?: string | null } = {}): void {
+  // through JSON all the same, so the job sees what it would from a queue
+  const message = JSON.parse(JSON.stringify({ job: job.name, payload, agentId: opts.agentId ?? null })) as LaterMessage;
   after(() => runMessage(job, message));
 }
 

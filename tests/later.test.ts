@@ -4,7 +4,7 @@ const tails = vi.hoisted(() => ({ list: [] as (() => unknown)[] }));
 vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), after: (f: () => unknown) => { tails.list.push(f); } }));
 
 import { currentWho } from "@/lib/ai/who";
-import { defineJob, openSealed, runLater, sealMessage } from "@/lib/later";
+import { defineJob, openSealed, runInTail, runLater, sealMessage } from "@/lib/later";
 import { LATER_JOBS, laterJob } from "@/lib/later-jobs";
 
 /** Work after the answer (src/lib/later.ts): data in, as a queue would carry it. */
@@ -36,6 +36,30 @@ describe("runLater", () => {
     runLater(defineJob("boom", async () => { throw new Error("x"); }), {});
     await expect(tails.list[0]()).resolves.toBeUndefined();
     expect(err).toHaveBeenCalledWith("later: boom failed:", "x");
+  });
+});
+
+/** LINE's answers on Cloudflare skip the queue, which held each one ~6 s (owner chose ก, 2026-11-24). */
+describe("runInTail", () => {
+  const key = Symbol.for("__cloudflare-context__");
+  afterEach(() => { delete (globalThis as Record<symbol, unknown>)[key]; });
+
+  it("runs the job in this request's own tail, even where there is a queue", async () => {
+    const send = vi.fn(async () => {});
+    (globalThis as Record<symbol, unknown>)[key] = { env: { LATER_QUEUE: { send } } };
+    const seen: unknown[] = [];
+    runInTail(defineJob<{ n: number; at: Date }>("tail", async (p) => { seen.push(p); }), { n: 2, at: new Date("2026-11-24T00:00:00Z") });
+    expect(seen).toEqual([]);
+    await tails.list[0]();
+    expect(seen).toEqual([{ n: 2, at: "2026-11-24T00:00:00.000Z" }]);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("logs a failed job rather than throwing", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    runInTail(defineJob("tail-boom", async () => { throw new Error("y"); }), {});
+    await expect(tails.list[0]()).resolves.toBeUndefined();
+    expect(err).toHaveBeenCalledWith("later: tail-boom failed:", "y");
   });
 });
 
