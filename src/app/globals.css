@@ -681,6 +681,44 @@ body:has(.theme-legacy) {
   line-height: 1.5;
 }
 
+/* ── ป้าย New (owner chose ก ก ก, 2026-11-24) ─────────────────────────────────────────────
+ * The pill is a surface of its own, red with white ink, so like a chip it owes the page's ground
+ * nothing. It fades rather than blinks, and holds still for somebody who asked for no movement. */
+.shell-new {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  border-radius: 999px;
+  padding: 1px 7px;
+  background: var(--bot-red);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  animation: shell-new 1.6s ease-in-out infinite;
+}
+@keyframes shell-new { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .shell-new { animation: none; } }
+
+/* what changed on this page, at its top: in the menu's own ink and rule so it reads on every skin.
+   Left room on a phone for the menu's button, which floats over the corner. */
+.shell-fresh {
+  position: relative;
+  z-index: 1;
+  padding: 0.6rem 1rem 0.6rem 4rem;
+  border-bottom: 1px solid var(--shell-line);
+  background: var(--shell-active-bg);
+  color: var(--shell-mute);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.shell-fresh ul { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.shell-fresh li { display: flex; align-items: flex-start; gap: 0.5rem; }
+.shell-fresh .shell-new { margin-top: 1px; }
+.shell-fresh b { color: var(--shell-ink); font-weight: 600; }
+@media (min-width: 1024px) { .shell-fresh { padding-left: 1rem; } }
+
 .shell-btn:hover {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.05)),

@@ -2,7 +2,7 @@ import { cache } from "react";
 import { can, type Viewer } from "@/lib/auth/access";
 import { DEMO_ID } from "@/lib/auth/demo";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { bangkokDay, shownFrom, unreadOf, visibleTo, type UpdateInput, type UpdateRow, type UpdateStatus } from "./rules";
+import { bangkokDay, freshOf, shownFrom, unreadOf, visibleTo, type FreshItem, type UpdateInput, type UpdateRow, type UpdateStatus } from "./rules";
 
 /**
  * มีอะไรใหม่'s rows (./rules.ts, supabase/migrations/20261213_whats_new.sql). Server only.
@@ -57,6 +57,41 @@ export async function markRead(agentId: string, ids: string[]): Promise<void> {
   const { error } = await supabaseAdmin().from(READS)
     .upsert(ids.map((update_id) => ({ agent_id: agentId, update_id })), { onConflict: "agent_id,update_id", ignoreDuplicates: true });
   if (error) throw new Error(`บันทึกว่าอ่านแล้วไม่สำเร็จ: ${error.message}`);
+}
+
+// ---- ป้าย New on the menu (owner chose ก ก ก, 2026-11-24; supabase/migrations/20261220_update_opened.sql) ----
+
+/**
+ * The changed pages this viewer has not opened: the menu's New and the strip on the page. Empty when it
+ * cannot be read, since a decoration must not break a page. The opened marks are asked for only while
+ * something was published in the last 14 days.
+ */
+export async function freshFor(viewer: Viewer | null): Promise<FreshItem[]> {
+  if (!viewer || viewer.kind === "super") return [];
+  try {
+    const { rows } = await updatesFor(viewer);
+    const now = new Date();
+    const recent = freshOf(rows, [], now);
+    if (recent.length === 0) return [];
+    const { data, error } = await supabaseAdmin().from(READS).select("update_id")
+      .eq("agent_id", viewer.agentId).eq("opened", true).in("update_id", recent.map((r) => r.id));
+    if (error) throw new Error(error.message);
+    return freshOf(rows, ((data ?? []) as { update_id: string }[]).map((r) => r.update_id), now);
+  } catch (e) {
+    console.error("whats-new: changed pages not read:", e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+/**
+ * This viewer opened the page these rows changed. The row is also read from then on (the strip on the page
+ * told them), so มีอะไรใหม่'s number drops with it; opening /whats-new alone leaves New on the menu.
+ */
+export async function markOpened(agentId: string, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabaseAdmin().from(READS)
+    .upsert(ids.map((update_id) => ({ agent_id: agentId, update_id, opened: true })), { onConflict: "agent_id,update_id" });
+  if (error) throw new Error(`บันทึกว่าเปิดหน้าแล้วไม่สำเร็จ: ${error.message}`);
 }
 
 // ---- the back office (/admin/updates) ----

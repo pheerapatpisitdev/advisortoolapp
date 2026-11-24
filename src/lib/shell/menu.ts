@@ -13,6 +13,7 @@
  * preference, it is a button that does nothing.
  */
 
+import type { FreshItem } from "@/lib/updates/rules";
 import type { ToolLogoId } from "./tool-logos";
 
 /** The drawings the menu has. One per kind of work, not one per link — see `icon` below. */
@@ -521,6 +522,8 @@ export interface Who {
   closed?: string[];
   /** มีอะไรใหม่ not read yet (src/lib/updates), the red number beside it and the dot on the phone's menu button */
   news?: number;
+  /** the pages that changed and this person has not opened yet (src/lib/updates): New beside their menu items, a strip on the page */
+  fresh?: FreshItem[];
 }
 
 

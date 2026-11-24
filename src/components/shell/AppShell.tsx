@@ -1,4 +1,5 @@
 import type { MenuGroup, Who } from "@/lib/shell/menu";
+import { FreshStrip } from "./FreshStrip";
 import { Sidebar, type Brand } from "./Sidebar";
 
 /**
@@ -31,7 +32,11 @@ export function AppShell({ children, signedIn = false, menu, brand, footer, who 
   return (
     <>
       {/* the page first, the menu after it, for the painting order the note above describes */}
-      <div className="shell-inset">{children}</div>
+      <div className="shell-inset">
+        {/* what changed on this page, while the menu marks it New (owner chose ก ก ก, 2026-11-24) */}
+        <FreshStrip who={who} />
+        {children}
+      </div>
       <div className="relative">
         <Sidebar signedIn={signedIn} menu={menu} brand={brand} footer={footer} who={who} />
       </div>

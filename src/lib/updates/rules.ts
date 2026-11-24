@@ -107,6 +107,64 @@ export function barText(unread: { title: string }[], shown = 3): { count: number
   return { count: unread.length, titles: titles.join(" · ") + (more > 0 ? ` และอีก ${more} เรื่อง` : "") };
 }
 
+// ---- ป้าย New on the menu (owner chose ก ก ก, 2026-11-24, mockup https://claude.ai/artifact/Xvdsgw9YWuwCKpLPKgRj1T) ----
+//
+// 1ก: a red "New" that fades in and out beside the menu item whose page changed. 2ก: it goes for a person
+// once they open that page, and for everyone after 14 days. 3ก: a strip at the top of that page says what
+// changed. It is fed by the rows already published here: a row's ลองเลย link names the page.
+
+/** how long a published row keeps its page marked for somebody who never opens it */
+export const FRESH_DAYS = 14;
+
+/** one published change whose page this person has not opened yet */
+export interface FreshItem {
+  id: string;
+  /** the page, as a menu names it */
+  href: string;
+  title: string;
+  body: string;
+}
+
+/** the page a ลองเลย link opens: no anchor, no query, no closing slash */
+export function linkPath(link: string): string {
+  const path = link.replace(/[?#].*$/, "");
+  return path.length > 1 ? path.replace(/\/+$/, "") : path;
+}
+
+/** the rows with a page, published within the 14 days, that this person has not opened */
+export function freshOf(
+  rows: Pick<UpdateRow, "id" | "link" | "published_at" | "day" | "title" | "body">[],
+  opened: Iterable<string>,
+  now: Date,
+): FreshItem[] {
+  const seen = new Set(opened);
+  const from = now.getTime() - FRESH_DAYS * 24 * 60 * 60 * 1000;
+  return rows
+    .filter((r) => r.link && !seen.has(r.id) && new Date(r.published_at ?? `${r.day}T00:00:00+07:00`).getTime() >= from)
+    .map((r) => ({ id: r.id, href: linkPath(r.link!), title: r.title, body: r.body }));
+}
+
+/**
+ * Which of a menu's items wear New: for each changed page, the item that is that page, or else the nearest
+ * item above it (Studio on the main menu for a Studio tool, the tool itself on Studio's own menu).
+ */
+export function freshMenu(hrefs: string[], fresh: { href: string }[]): Set<string> {
+  const marked = new Set<string>();
+  for (const f of fresh) {
+    const owner = hrefs
+      .filter((h) => h !== "/" && (f.href === h || f.href.startsWith(`${h}/`)))
+      .sort((a, b) => b.length - a.length)[0];
+    if (owner) marked.add(owner);
+  }
+  return marked;
+}
+
+/** what changed on the page being looked at */
+export function freshHere<T extends { href: string }>(path: string, fresh: T[]): T[] {
+  const here = linkPath(path);
+  return fresh.filter((f) => f.href === here);
+}
+
 export interface UpdateInput {
   kind: UpdateKind;
   grp: UpdateGroup;

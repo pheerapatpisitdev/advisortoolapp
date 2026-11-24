@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/login/actions";
 import { ToolLogo } from "./ToolLogo";
+import { freshMenu } from "@/lib/updates/rules";
+import { useOpened, useWho, wasOpened } from "./who-client";
 import { accountLinks, isCurrent, menuGroups, RAIL_KEY, WHATS_NEW, type MenuGroup, type MenuIcon, type MenuLink, type Who } from "@/lib/shell/menu";
 
 /** the name at the top of the menu, and where it leads */
@@ -35,7 +37,7 @@ export type Brand = { href: string; label: string };
  * gradient is its own surface carrying white ink, as a chip is, so it reads on every skin; the
  * page you are on rings it in the menu's own active colour. Folded to icons it is a square.
  */
-function FeatureCard({ link, here, closed }: { link: MenuLink; here: boolean; closed: boolean }) {
+function FeatureCard({ link, here, closed, fresh }: { link: MenuLink; here: boolean; closed: boolean; fresh: boolean }) {
   return (
     <Link
       href={link.href}
@@ -50,6 +52,7 @@ function FeatureCard({ link, here, closed }: { link: MenuLink; here: boolean; cl
         <span className="truncate text-[0.95rem] font-bold leading-tight">{link.label}</span>
         <span className="truncate text-[0.72rem] leading-snug opacity-90">{closed ? "ปิดชั่วคราว" : link.feature?.note}</span>
       </span>
+      {!closed && fresh && <NewTag />}
       <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 rail:hidden">
         <path d="M9 6l6 6-6 6" />
       </svg>
@@ -190,14 +193,6 @@ function Icon({ name }: { name: MenuIcon }) {
  * different things, and naming the pages on the calculator tells a stranger the shape of
  * the tool.
  */
-/**
- * Who is looking, as the sales pages learn it: they are built ahead of time and served to
- * whoever an advertisement sends, so they cannot ask on the server. The menu asks once the
- * page is up (owner chose ข, 2026-10-14), so an agent standing on one has the same menu as on
- * /home. Kept for the tab's life: moving between sales pages does not ask again or flicker.
- */
-let seen: Who | null | undefined;
-
 export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
   signedIn: boolean;
   menu?: MenuGroup[];
@@ -207,22 +202,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
   who?: Who | null;
 }) {
   const path = usePathname();
-  const [found, setFound] = useState<Who | null | undefined>(seen);
-  useEffect(() => {
-    if (given !== undefined || seen !== undefined) return;
-    let live = true;
-    fetch("/api/shell/who", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: { who?: Who | null } | null) => {
-        if (!j) return;
-        seen = j.who ?? null;
-        if (live) setFound(seen);
-      })
-      .catch(() => { /* the menu a customer sees, which is what it already shows */ });
-    return () => { live = false; };
-  }, [given]);
-  // a page that did not ask, and nobody signed in: no account box, as before
-  const who = given !== undefined ? given : found ?? undefined;
+  const who = useWho(given);
   const [open, setOpen] = useState(false);
   const [folded, setFolded] = useState(false);
 
@@ -246,6 +226,9 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
     .filter((g) => g.links.length > 0);
   // มีอะไรใหม่'s red number, and a dot on the phone's menu button, only where this menu lists มีอะไรใหม่
   const news = groups.some((g) => g.links.some((l) => l.href === WHATS_NEW.href)) ? who?.news ?? 0 : 0;
+  // New beside the items whose pages changed and this person has not opened (owner chose ก ก ก, 2026-11-24)
+  useOpened();
+  const fresh = freshMenu(groups.flatMap((g) => g.links.map((l) => l.href)), (who?.fresh ?? []).filter((f) => !wasOpened(f.id)));
   const home = brand ?? { href: "/home", label: "advisortool" };
 
   // a menu left open across a navigation covers the page that was just asked for
@@ -322,13 +305,14 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
                     <span className={`min-w-0 truncate rail:sr-only ${closed ? "opacity-60" : ""}`}>{link.label}</span>
                     {closed && <span className="shell-closed ml-auto shrink-0 rounded-full px-2 text-[11px] font-semibold rail:sr-only">ปิดชั่วคราว</span>}
                     {link.href === WHATS_NEW.href && news > 0 && <NewsCount n={news} />}
+                    {!closed && fresh.has(link.href) && <NewTag />}
                   </Link>
                 </li>
               );
             })}
           </ul>
           {group.links.filter((link) => link.feature).map((link) => (
-            <FeatureCard key={link.href} link={link} here={isCurrent(link.href, path)} closed={who?.closed?.includes(link.href) === true} />
+            <FeatureCard key={link.href} link={link} here={isCurrent(link.href, path)} closed={who?.closed?.includes(link.href) === true} fresh={fresh.has(link.href)} />
           ))}
           {i < groups.length - 1 && (
             <hr className="mt-3 border-0 border-t" style={{ borderColor: "var(--shell-line)" }} />
@@ -377,6 +361,18 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
 }
 
 /** มีอะไรใหม่'s red number in the menu (owner chose 1ข, 2026-11-14); on the folded rail, a dot on the chip's corner */
+/**
+ * "New", fading in and out, beside an item whose page changed (owner chose 1ก, 2026-11-24). Folded to
+ * its icons the menu keeps only a red dot at the icon's corner, as มีอะไรใหม่'s number does.
+ */
+function NewTag() {
+  return (
+    <span className="shell-new ml-auto rail:absolute rail:right-2 rail:top-0.5 rail:ml-0 rail:size-2.5 rail:p-0 rail:text-[0px]">
+      New<span className="sr-only"> มีการปรับปรุง</span>
+    </span>
+  );
+}
+
 function NewsCount({ n }: { n: number }) {
   return (
     <span
