@@ -28,11 +28,11 @@ describe("round-5 sources: the real files", () => {
     expect(health2Sources().pa.medical).toEqual([80_000, 100_000, 120_000, 150_000, 200_000, 300_000]);
     expect(health2Sources().pa.weekly).toEqual([1_000, 2_000, 3_000, 5_000, 10_000]);
   });
-  it("counts the hospital list: 537 in all, the five biggest provinces as the spec's stills use them, the fetched date", () => {
+  it("counts the hospital list: 548 in all, the five biggest provinces as the spec's stills use them, the fetched date", () => {
     const h = hospitalCounts();
-    expect(h.total).toBe(537);
+    expect(h.total).toBe(548);
     expect(h.ranked.slice(0, 5).map((r) => [r.province, r.count])).toEqual([
-      ["กรุงเทพมหานคร", 135], ["ชลบุรี", 49], ["ระยอง", 38], ["สมุทรปราการ", 25], ["นนทบุรี", 22],
+      ["กรุงเทพมหานคร", 136], ["ชลบุรี", 49], ["ระยอง", 38], ["ปทุมธานี", 30], ["สมุทรปราการ", 25],
     ]);
     expect(h.ranked.reduce((s, r) => s + r.count, 0)).toBe(h.total);
     expect(h.fetchedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);

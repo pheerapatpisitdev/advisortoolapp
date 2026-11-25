@@ -42,7 +42,7 @@ const T: [string, string] = ["สองประตู", "คนละวงเ�
 const LONG_TITLE: [string, string] = ["ครอบครัวไม่ต้องเปียก", "ประกันคือร่มของบ้าน"];
 const LONG_NOTE = "รายได้หลักของบ้าน ถ้าหายไปจะลำบาก";
 const NINE = 123_456_789;
-const FIVE_PROVINCES = [{ province: "กรุงเทพมหานคร", count: 135 }, { province: "ชลบุรี", count: 49 }, { province: "ระยอง", count: 38 }, { province: "สมุทรปราการ", count: 25 }, { province: "นนทบุรี", count: 22 }];
+const FIVE_PROVINCES = [{ province: "กรุงเทพมหานคร", count: 136 }, { province: "ชลบุรี", count: 49 }, { province: "ระยอง", count: 38 }, { province: "ปทุมธานี", count: 30 }, { province: "สมุทรปราการ", count: 25 }];
 
 /** the spec's example for each device, a nine-digit case, and the optional parts missing */
 const SHOWS: Health2Show[] = [
@@ -67,8 +67,8 @@ const SHOWS: Health2Show[] = [
   /* 18 */ { layout: "groupcost", title: ["ต้นทุนต่อหัว", "ประกันกลุ่ม"], note: "ตามตารางเบี้ยกลุ่ม", perYear: 2_552, band: "10-25" },
   /* 19 */ { layout: "groupcost", title: LONG_TITLE, note: LONG_NOTE, perYear: NINE },
   /* 20 */ { layout: "groupcost", title: T, perYear: 12_047, band: "51-100" },
-  /* 21 */ { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], note: "ดูรายชื่อเต็มที่เว็บ", total: 537, rows: FIVE_PROVINCES },
-  /* 22 */ { layout: "hospitals", title: T, total: 537, rows: [{ province: "เชียงใหม่", count: 14 }] },
+  /* 21 */ { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], note: "ดูรายชื่อเต็มที่เว็บ", total: 548, rows: FIVE_PROVINCES },
+  /* 22 */ { layout: "hospitals", title: T, total: 548, rows: [{ province: "เชียงใหม่", count: 14 }] },
   /* 23 */ { layout: "hospitals", title: LONG_TITLE, note: LONG_NOTE, total: NINE, rows: [{ province: "กรุงเทพมหานคร", count: NINE }, { province: "พระนครศรีอยุธยา", count: 5 }, { province: "ประจวบคีรีขันธ์", count: 2 }, { province: "นครศรีธรรมราช", count: 6 }, { province: "เลย", count: 1 }] },
   /* 24 */ { layout: "paclaim", title: ["อุบัติเหตุ", "หนึ่งครั้ง"], note: "ตามแผนที่เลือก", medical: 150_000, weekly: 3_000, weeks: 52 },
   /* 25 */ { layout: "paclaim", title: T, medical: 80_000 },
@@ -261,7 +261,7 @@ describe("they tell the paper's story with its words and figures", () => {
     each((size, art, label) => {
       const out = draw(hosps[0], size, art);
       const w = words(out);
-      expect(w, label).toContain(`537 ${W.nationwide}`);
+      expect(w, label).toContain(`548 ${W.nationwide}`);
       for (const r of FIVE_PROVINCES) { expect(w, `${label} ${r.province}`).toContain(provinceShort(r.province)); expect(w, label).toContain(String(r.count)); }
       expect(flat(out), label).toContain(hospitalsFoot().replace(/ /g, ""));
       expect(hospitalsFoot()).toContain(thaiDate(HEALTH2_FIXED.hospitals.fetchedAt));

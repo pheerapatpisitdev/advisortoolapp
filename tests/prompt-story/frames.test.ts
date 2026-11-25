@@ -327,7 +327,7 @@ const HEALTH2: DeviceScene[] = [
   { layout: "renew98", title: ["ต่ออายุได้ถึง", "อายุที่แผนกำหนด"], to: 98, age: 35 },
   { layout: "parentshealth", title: ["ประกันให้พ่อแม่", "ลดหย่อนภาษีได้"], cap: 15_000 },
   { layout: "groupcost", title: ["ต้นทุนต่อหัว", "ประกันกลุ่ม"], perYear: 2_552, band: "10-25" },
-  { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], total: 537, rows: [{ province: "กรุงเทพมหานคร", count: 135 }, { province: "ชลบุรี", count: 49 }] },
+  { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], total: 548, rows: [{ province: "กรุงเทพมหานคร", count: 136 }, { province: "ชลบุรี", count: 49 }] },
   { layout: "paclaim", title: ["อุบัติเหตุหนึ่งครั้ง", "ประกันจ่ายเท่าไร"], note: "ดูแผนที่เลือกประกอบ", medical: 150_000, weekly: 3_000, weeks: 52 },
 ];
 

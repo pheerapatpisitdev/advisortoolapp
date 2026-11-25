@@ -1,6 +1,6 @@
 {
  "source": "https://www.krungthai-axa.co.th/customer-service/hospitals",
- "fetchedAt": "2026-10-02",
+ "fetchedAt": "2026-11-24",
  "hospitals": [
   {
    "id": "krabi-hospital",
@@ -1394,6 +1394,22 @@
    ],
    "personalHealth": true,
    "phone": "1723, 0 2879 0300"
+  },
+  {
+   "id": "ruamjairak-hospital",
+   "th": "โรงพยาบาลรวมใจรักษ์",
+   "en": "Ruamjairak Hospital",
+   "district": "พระโขนง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2768 9999"
   },
   {
    "id": "rattanapracharak-hospital",
@@ -3522,6 +3538,20 @@
    "phone": "0 5554 4544, 0 5553 3912-4"
   },
   {
+   "id": "golden-jubilee-medical-center",
+   "th": "ศูนย์การแพทย์กาญจนาภิเษก มหาวิทยาลัยมหิดล",
+   "en": "Golden Jubilee Medical Center",
+   "district": "พุทธมณฑ",
+   "province": "นครปฐม",
+   "provinceEn": "Nakhon Pathom",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2849 6600"
+  },
+  {
    "id": "bangkok-christian-nakhon-pathom-hospital",
    "th": "โรงพยาบาลกรุงเทพคริสเตียน นครปฐม",
    "en": "Bangkok Christian Hospital Nakhon Pathom",
@@ -4514,6 +4544,22 @@
    "phone": "0 2529 4533-41"
   },
   {
+   "id": "klongluang-hospital",
+   "th": "โรงพยาบาลคลองหลวง",
+   "en": "Klongluang Hospital",
+   "district": "คลองหลวง",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2904 6446-9"
+  },
+  {
    "id": "cgh-lamlukka-hospital",
    "th": "โรงพยาบาลซีจีเอช ลำลูกกา",
    "en": "CGH Lamlukka Hospital",
@@ -4538,10 +4584,27 @@
    "provinceEn": "Pathum Thani",
    "type": "hospital",
    "care": [
-    "ipd"
+    "ipd",
+    "opd",
+    "dental"
    ],
    "personalHealth": true,
    "phone": "0 2926 9999"
+  },
+  {
+   "id": "thanyaburi_hospital",
+   "th": "โรงพยาบาลธัญบุรี",
+   "en": "Thanyaburi Hospital",
+   "district": "ธัญบุรี",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2577 2600-5"
   },
   {
    "id": "bangpakok-rangsit-2-hospital",
@@ -4560,6 +4623,22 @@
    "phone": "1745, 0 2028 1111, 0 2996 2214"
   },
   {
+   "id": "pathumthani_hospital",
+   "th": "โรงพยาบาลปทุมธานี",
+   "en": "Pathumthani_hospital",
+   "district": "เมืองปทุมธานี",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2598 8888"
+  },
+  {
    "id": "pathumvech-hospital",
    "th": "โรงพยาบาลปทุมเวช",
    "en": "Pathumvech Hospital",
@@ -4574,6 +4653,21 @@
    ],
    "personalHealth": true,
    "phone": "0 2958 4500-15, 0 2567 1991-1"
+  },
+  {
+   "id": "prachathipat-hospital",
+   "th": "โรงพยาบาลประชาธิปัตย์",
+   "en": "Prachathipat Hospital",
+   "district": "ธัญบุรี",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2567 4248"
   },
   {
    "id": "phatara-thonburi-hospital",
@@ -4592,6 +4686,38 @@
    "phone": "0 2901 8400-8, 09 7004 7046, 09 7007 0871"
   },
   {
+   "id": "lkh-hospital",
+   "th": "โรงพยาบาลลาดหลุมแก้ว",
+   "en": "LKH Hospital",
+   "district": "ลาดหลุมแก้ว",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2599 1650-1"
+  },
+  {
+   "id": "llk-hospital",
+   "th": "โรงพยาบาลลำลูกกา",
+   "en": "LLK Hospital",
+   "district": "ลำลูกกา",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2563 1080-1 ext.100"
+  },
+  {
    "id": "thamc-hospitals",
    "th": "โรงพยาบาลศูนย์การแพทย์ธรรมศาสตร์",
    "en": "Thamc Hospitals",
@@ -4608,6 +4734,22 @@
    "phone": "0 2078 0000"
   },
   {
+   "id": "samkhok-hospital",
+   "th": "โรงพยาบาลสามโคก",
+   "en": "Samkhok Hospital",
+   "district": "สามโคก",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2199 3791-2, 0 2199 3796-8"
+  },
+  {
    "id": "synphaet-lamlukka-hospital",
    "th": "โรงพยาบาลสินแพทย์ ลำลูกกา",
    "en": "Synphaet Lamlukka Hospital",
@@ -4622,6 +4764,22 @@
    ],
    "personalHealth": true,
    "phone": "0 2006 9999"
+  },
+  {
+   "id": "nongsue-hospital",
+   "th": "โรงพยาบาลหนองเสือ",
+   "en": "Nongsue Hospital",
+   "district": "หนองเสือ",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2549 1053-4, 0 2549 1331"
   },
   {
    "id": "rangsit-mother--child-hospital",
@@ -5007,6 +5165,21 @@
    ],
    "personalHealth": true,
    "phone": "0 5661 1407"
+  },
+  {
+   "id": "pch-hospital",
+   "th": "โรงพยาบาลพิจิตร",
+   "en": "PCH Hospital",
+   "district": "เมืองพิจิตร",
+   "province": "พิจิตร",
+   "provinceEn": "Phichit",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5661 1355"
   },
   {
    "id": "pitsanuvej-phichit-hospital",
@@ -7699,23 +7872,6 @@
    "phone": "0 4524 4999, 0 4525 0271-2 ,08 1999 3323"
   },
   {
-   "id": "rajavej-ubonratchathani-hospital",
-   "th": "โรงพยาบาลราชเวช อุบลราชธานี",
-   "en": "Rajavej Ubonratchathani Hospital",
-   "district": "เมืองอุบลราชธานี",
-   "province": "อุบลราชธานี",
-   "provinceEn": "Ubon Ratchathani",
-   "type": "hospital",
-   "care": [
-    "opd",
-    "ipd",
-    "dental",
-    "health-check"
-   ],
-   "personalHealth": true,
-   "phone": "0 4528 0040-55"
-  },
-  {
    "id": "sunpasitthiprasong-hospital",
    "th": "โรงพยาบาลสรรพสิทธิประสงค์",
    "en": "Sunpasitthiprasong Hospital",
@@ -7746,6 +7902,23 @@
    ],
    "personalHealth": true,
    "phone": "0 4542 9100"
+  },
+  {
+   "id": "rajavej-ubonratchathani-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์อินเตอร์เนชั่นแนล อุบลราชธานี",
+   "en": "Rajavej Ubonratchathani Hospital",
+   "district": "เมืองอุบลราชธานี",
+   "province": "อุบลราชธานี",
+   "provinceEn": "Ubon Ratchathani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4528 0040-55"
   },
   {
    "id": "chiwamitra-hospital",

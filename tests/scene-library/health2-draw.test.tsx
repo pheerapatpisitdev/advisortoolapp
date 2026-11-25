@@ -62,8 +62,8 @@ const SHOWS: KnowShow[] = [
   /* 24 */ { layout: "groupcost", title: LONG_TITLE, note: LONG_NOTE, perYear: NINE },
   /* 25 */ { layout: "groupcost", title: T, perYear: 12_047, band: "51-100" },
   /* 26 */ { layout: "groupcost", title: T, perYear: 5_017, band: "26-50" },
-  /* 27 */ { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], note: "ดูรายชื่อเต็มที่เว็บ", total: 537, rows: [{ province: "กรุงเทพมหานคร", count: 135 }, { province: "ชลบุรี", count: 49 }, { province: "ระยอง", count: 38 }, { province: "สมุทรปราการ", count: 25 }, { province: "นนทบุรี", count: 22 }] },
-  /* 28 */ { layout: "hospitals", title: T, total: 537, rows: [{ province: "เชียงใหม่", count: 14 }] },
+  /* 27 */ { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], note: "ดูรายชื่อเต็มที่เว็บ", total: 548, rows: [{ province: "กรุงเทพมหานคร", count: 136 }, { province: "ชลบุรี", count: 49 }, { province: "ระยอง", count: 38 }, { province: "ปทุมธานี", count: 30 }, { province: "สมุทรปราการ", count: 25 }] },
+  /* 28 */ { layout: "hospitals", title: T, total: 548, rows: [{ province: "เชียงใหม่", count: 14 }] },
   /* 29 */ { layout: "hospitals", title: LONG_TITLE, note: LONG_NOTE, total: NINE, rows: [{ province: "กรุงเทพมหานคร", count: NINE }, { province: "พระนครศรีอยุธยา", count: 5 }, { province: "ประจวบคีรีขันธ์", count: 2 }, { province: "นครศรีธรรมราช", count: 6 }, { province: "เลย", count: 1 }] },
   /* 30 */ { layout: "paclaim", title: ["อุบัติเหตุ", "หนึ่งครั้ง"], note: "ตามแผนที่เลือก", medical: 150_000, weekly: 3_000, weeks: 52 },
   /* 31 */ { layout: "paclaim", title: T, medical: 80_000 },
@@ -619,9 +619,9 @@ describe("groupcost", () => {
 describe("hospitals", () => {
   it("draws the total, each province with its count, the date as the sources give it in Thai with the Buddhist year, and the line", () => {
     const g = squash(html(hosps[0]));
-    for (const x of ["537", W.nationwide, provinceShort("กรุงเทพมหานคร"), "135", "ชลบุรี", "49", "นนทบุรี", "22", W.fullList]) expect(g, x).toContain(x);
-    expect(thaiDate(HEALTH2_FIXED.hospitals.fetchedAt)).toBe("2 ตุลาคม 2569");
-    expect(hospitalsFoot()).toBe("ข้อมูล ณ 2 ตุลาคม 2569");
+    for (const x of ["548", W.nationwide, provinceShort("กรุงเทพมหานคร"), "136", "ชลบุรี", "49", "สมุทรปราการ", "25", W.fullList]) expect(g, x).toContain(x);
+    expect(thaiDate(HEALTH2_FIXED.hospitals.fetchedAt)).toBe("24 พฤศจิกายน 2569");
+    expect(hospitalsFoot()).toBe("ข้อมูล ณ 24 พฤศจิกายน 2569");
     expect(g).toContain(hospitalsFoot().replace(/ /g, ""));
     expect(squash(html(hosps[2]))).toContain("123,456,789");
   });
@@ -640,7 +640,7 @@ describe("hospitals", () => {
   it("the bars are to one scale from zero: length over count is the same for every province (a few pixels at least for a tiny one)", () => {
     for (const size of SIZES) {
       const geo = hospitalsGeo(size, hosps[0]);
-      const k = geo.bars[0].w / 135;
+      const k = geo.bars[0].w / 136;
       for (const bar of geo.bars) expect(Math.abs(bar.w - bar.count * k), `${size} ${bar.name}`).toBeLessThanOrEqual(1.5);
       expect(geo.bars[0].w).toBe(geo.barRoom);
       for (const bar of geo.bars) expect(bar.x, "from the same zero").toBe(geo.barX);

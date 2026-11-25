@@ -27,7 +27,7 @@ const GOOD: Record<Health2Layout, DeviceScene> = {
   renew98: { layout: "renew98", title: ["ต่ออายุได้ถึง", "อายุที่แผนกำหนด"], to: 98, age: 35 },
   parentshealth: { layout: "parentshealth", title: ["ประกันให้พ่อแม่", "ลดหย่อนภาษีได้"], cap: 15_000 },
   groupcost: { layout: "groupcost", title: ["ต้นทุนต่อหัว", "ประกันกลุ่ม"], perYear: 2_552, band: "10-25" },
-  hospitals: { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], total: 537, rows: [{ province: "กรุงเทพมหานคร", count: 135 }, { province: "ชลบุรี", count: 49 }] },
+  hospitals: { layout: "hospitals", title: ["โรงพยาบาลในเครือ", "ทั่วประเทศ"], total: 548, rows: [{ province: "กรุงเทพมหานคร", count: 136 }, { province: "ชลบุรี", count: 49 }] },
   paclaim: { layout: "paclaim", title: ["อุบัติเหตุหนึ่งครั้ง", "ประกันจ่ายเท่าไร"], medical: 150_000, weekly: 3_000, weeks: 52 },
 };
 
@@ -185,14 +185,14 @@ describe("the system prompt for the eight สุขภาพเพิ่มเ�
     const system = await ASKED();
     const rule = system.split("\n").filter((l) => /^- (สุขภาพเพิ่มเติม|ipdopd|deductible|copay|renew98|parentshealth|groupcost|hospitals|paclaim):/.test(l)).join("\n");
     // fixed sources, as the owner's spec words them
-    for (const s of ["1,500", "21,000", "6,000", "60,000", "30,000", "50,000", "100,000", "20", "98", "15,000", "2,552", "537", "135", "150,000", "3,000", "52"]) expect(rule, s).toContain(s);
+    for (const s of ["1,500", "21,000", "6,000", "60,000", "30,000", "50,000", "100,000", "20", "98", "15,000", "2,552", "548", "136", "150,000", "3,000", "52"]) expect(rule, s).toContain(s);
     expect(rule).toContain("ห้ามคิดยอดเอง");
     expect(rule).toContain("รายวัน");
     expect(rule).toContain("ต่อสัปดาห์");
     expect(rule).toContain("ต่อคนต่อปี");
     // the example provinces are the biggest by count, most first (not the file's key order): the five the spec's stills use
     const hosp = rule.split("\n").find((l) => l.startsWith("- hospitals"))!;
-    const at = ["กรุงเทพมหานคร 135", "ชลบุรี 49", "ระยอง 38", "สมุทรปราการ 25", "นนทบุรี 22", "ปทุมธานี 22", "สุราษฎร์ธานี 16", "เชียงใหม่ 14"].map((x) => hosp.indexOf(x));
+    const at = ["กรุงเทพมหานคร 136", "ชลบุรี 49", "ระยอง 38", "ปทุมธานี 30", "สมุทรปราการ 25", "นนทบุรี 22", "สุราษฎร์ธานี 16", "เชียงใหม่ 14"].map((x) => hosp.indexOf(x));
     expect(at.every((i) => i > -1)).toBe(true);
     expect([...at].sort((x, y) => x - y)).toEqual(at);
     // the one-plan rules are told (final review 1 to 3)
@@ -216,8 +216,8 @@ describe("the script editor with the eight สุขภาพเพิ่มเ�
     expect(deviceFields(GOOD.parentshealth).numbers).toEqual([{ label: "เพดานลดหย่อน", value: "15,000" }]);
     expect(deviceFields(GOOD.groupcost).numbers).toEqual([{ label: "เบี้ยต่อคนต่อปี", value: "2,552" }, { label: "กลุ่มพนักงาน", value: "พนักงาน 10–25 คน" }]);
     expect(deviceFields(GOOD.hospitals).numbers).toEqual([
-      { label: "จำนวนโรงพยาบาล", value: "537" },
-      { label: "แถว 1 · จำนวนโรงพยาบาล", value: "135" }, { label: "แถว 2 · จำนวนโรงพยาบาล", value: "49" },
+      { label: "จำนวนโรงพยาบาล", value: "548" },
+      { label: "แถว 1 · จำนวนโรงพยาบาล", value: "136" }, { label: "แถว 2 · จำนวนโรงพยาบาล", value: "49" },
     ]);
     expect(labels(GOOD.hospitals)).toEqual([...T2, "บรรทัดใต้ภาพ", "แถว 1 · จังหวัด", "แถว 2 · จังหวัด"]);
     expect(deviceFields(GOOD.paclaim).numbers).toEqual([{ label: "ค่ารักษาต่ออุบัติเหตุ", value: "150,000" }, { label: "ชดเชยต่อสัปดาห์", value: "3,000" }, { label: "จำนวนสัปดาห์", value: "52" }]);
