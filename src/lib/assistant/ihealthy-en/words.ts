@@ -83,3 +83,24 @@ export const COMPANY_EN = "iHealthy Ultra is a policy from Krungthai-AXA Life In
 /** After the customer has told us about their condition, as the health answer asked them to. */
 export const HEALTH_THANKS_EN = "Thank you for sharing that 🙏 Let me look into it — I'll get back to you right here with an honest pre-check. "
   + "I can't promise the insurer's decision, but I'll tell you what to expect.";
+
+/**
+ * A customer of US nationality (./us.ts), in the words the owner approved (2026-11-26). The
+ * fees and benefits of AXA Insurance are the admin's to send: none of them is in this system.
+ */
+export const FATCA_EN = "With reference to FATCA policy, this package is not eligible for US nationality. However, our partner company, "
+  + "AXA Insurance Company, can provide a plan that meets your requirements. Let me know if you would like the information and fees.";
+export const FATCA_TH = "ตามนโยบาย FATCA แบบประกันนี้ไม่สามารถสมัครได้สำหรับผู้ถือสัญชาติสหรัฐฯ ครับ แต่บริษัทพันธมิตรของเรา AXA Insurance "
+  + "มีแบบที่รองรับความต้องการได้ หากสนใจรายละเอียดและค่าเบี้ย แจ้งแอดมินได้เลยครับ";
+export const US_WANTS_EN = "Thank you! 🙏 I'll prepare the AXA Insurance information and fees and get back to you right here in this chat.\n"
+  + "To help me prepare it, could you share your date of birth, gender, visa type, province, and any pre-existing condition? "
+  + "If you've told me some of these already, just the rest is fine.";
+export const US_WANTS_TH = "ขอบคุณครับ 🙏 เดี๋ยวแอดมินเตรียมรายละเอียดและค่าเบี้ยของ AXA Insurance แล้วกลับมาตอบในแชทนี้ครับ\n"
+  + "รบกวนขอวันเดือนปีเกิด เพศ ประเภทวีซ่า จังหวัดที่อยู่ และโรคประจำตัว (ถ้ามี) ครับ ข้อไหนแจ้งมาแล้ว ไม่ต้องแจ้งซ้ำครับ";
+export const US_PREPARING_EN = "I'm preparing the AXA Insurance information and fees — I'll get back to you right here in this chat 🙏";
+export const US_PREPARING_TH = "แอดมินกำลังเตรียมรายละเอียดและค่าเบี้ยของ AXA Insurance ให้ครับ เดี๋ยวกลับมาตอบในแชทนี้ครับ 🙏";
+export const US_DETAILS_EN = "Thank you! 🙏 I've got it — I'll get back to you right here in this chat with the AXA Insurance information and fees.";
+export const US_DETAILS_TH = "ขอบคุณครับ 🙏 รับข้อมูลแล้วครับ เดี๋ยวแอดมินกลับมาตอบพร้อมรายละเอียดและค่าเบี้ยของ AXA Insurance ในแชทนี้ครับ";
+export const US_CHECK_EN = "Let me check that for you — I'll get back to you right here in this chat.";
+export const US_CHECK_TH = "เดี๋ยวแอดมินเช็กให้แล้วกลับมาตอบในแชทนี้ครับ";
+export const US_STALL_TH = "ได้เลยครับ 🙏 สะดวกเมื่อไหร่ทักมาในแชทนี้ได้เลยครับ";

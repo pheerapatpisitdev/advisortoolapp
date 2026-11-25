@@ -33,6 +33,11 @@ export interface HealthSlots {
   healthAsked?: true;
   /** the last answer asked which province, so a bare "Phuket" is the reply (../hospitals) */
   hospitalAsked?: true;
+  /**
+   * Of US nationality, on an Expat Page: told that FATCA keeps the package from them, or has
+   * asked for the partner's information since (../ihealthy-en/us.ts). Nothing is quoted.
+   */
+  us?: "told" | "wants";
 }
 
 /**

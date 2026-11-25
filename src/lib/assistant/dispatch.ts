@@ -26,6 +26,7 @@ import { answerFromLibrary } from "@/lib/copilot/library";
 import { recruitReply } from "./recruit";
 import { asksForEnglish, isExpatPage } from "./expat";
 import { answerExpat, expatLanguage } from "./ihealthy-en/door";
+import { usTurn } from "./ihealthy-en/us";
 import { answerInEnglish, inEnglish, toEnglish } from "./ihealthy-en/switch";
 import type { PageWelcome } from "./page-welcome";
 import { matchLesson, type Lesson } from "./lessons";
@@ -199,12 +200,18 @@ async function answerTurn(
    * and their own door for everything else (./ihealthy-en/door).
    */
   if (isExpatPage(pageId)) {
-    const lang = expatLanguage(asked, slots);
+    /**
+     * A US customer, before the PDF: the package is not theirs to have, so neither is the file
+     * of a quote sent before they said so, and the memory of it is left behind.
+     */
+    const us = usTurn(history, slots);
+    if (us.answer) return us.answer;
+    const lang = expatLanguage(asked, us.slots);
     const asks = pdfTurn(asked, lastSaid, memory, channel, lang);
     if (asks) {
-      return { ...asks.reply, slots: { ...(slots ?? { product: "ihealthy", intent: "other" }), pdf: asks.memory } as WithPdf<AnySlots> };
+      return { ...asks.reply, slots: { ...(us.slots ?? { product: "ihealthy", intent: "other" }), pdf: asks.memory } as WithPdf<AnySlots> };
     }
-    return withPdfOffer(await answerExpat(history, slots), memory, lang);
+    return withPdfOffer(await answerExpat(history, us.slots), memory, lang);
   }
 
   /** English everywhere else, once the customer asks for it, until they ask for Thai (./ihealthy-en/switch). */
