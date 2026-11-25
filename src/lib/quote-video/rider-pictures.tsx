@@ -1,5 +1,5 @@
 import { Fragment, isValidElement, type CSSProperties, type ReactNode } from "react";
-import type { PayoutRow, QuoteVideoFacts, RiderScene } from "./script";
+import { lifeRow, type PayoutRow, type QuoteVideoFacts, type RiderScene } from "./script";
 
 /**
  * Life Protect's rider scenes (owner, 2026-11-21, ก ก ก on https://claude.ai/artifact/HvVdgdGq4oajv1Hjd1ZBv2):
@@ -99,7 +99,7 @@ function waiverPicture(r: Extract<RiderScene, { kind: "waiver" }>, f: QuoteVideo
       })} />
     );
   };
-  const cover = f.cover[0]?.amount ?? f.lead.amount;
+  const cover = lifeRow(f)?.amount ?? f.lead.amount;
   return (
     <div style={box({ flexDirection: "column", width: w })}>
       {d.piece("pic0", { fontSize: px(36, big), color: pal.ink, marginBottom: px(14, big) }, `เบี้ย ${n} ปี (อายุ ${r.startAge} → ${r.startAge + n - 1})`)}
@@ -328,7 +328,7 @@ export function packagePicture(f: QuoteVideoFacts, d: Draw, w: number, h: number
   };
   const shieldW = px(250, big);
   const shieldH = px(280, big);
-  const life = f.cover[0]?.amount ?? f.lead.amount;
+  const life = lifeRow(f)?.amount ?? f.lead.amount;
   const tints = [pal.red, pal.green, pal.fill, pal.sky, pal.red, pal.green];
   return (
     <div style={box({ position: "relative", width: w, height: h })}>

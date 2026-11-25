@@ -3,6 +3,7 @@ import { Fragment, type ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_EXTRA as X } from "@/lib/card-theme";
 import { CHART_WRITE, chartNotes } from "./chart-pen";
 import { beatCues, penBeats } from "./pen";
+import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
 import { riderIndex, type CoverRow, type QuoteVideoFacts, type SceneKey } from "./script";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
 import { pensionBars } from "./pension";
@@ -79,6 +80,15 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
           pen: a(Math.max(3.8, voiceSec * 0.72), "pop"), note: a(Math.max(4.2, voiceSec * 0.85), "fade"),
         };
       }
+      if (f.coverStyle === "cashback") {
+        // 12 พีแอล: the cash backs run out year by year and rise, then the maturity far above them, then what is certain in a card
+        const mat = Math.max(3.2, voiceSec * 0.5);
+        return {
+          kicker: a(0.2, "up"), sub: a(0.5, "fade"), ticks: a(0.8, "grow", Math.max(1.8, voiceSec * 0.3)), tickLabel: a(1.4, "fade"), fullLabel: a(Math.max(2.4, voiceSec * 0.3), "fade"),
+          ends: a(1.0, "fade"), mat: a(mat, "grow"), matLabel: a(mat + 0.6, "pop"), card: a(Math.max(4.4, voiceSec * 0.65), "up"),
+          pen: a(Math.max(5.2, voiceSec * 0.85), "pop"),
+        };
+      }
       if (f.coverStyle === "flat") {
         // Protection Life: the bar drawn out from the insured's age to the term's end, then the rule
         return { kicker: a(0.2, "up"), sub: a(0.5, "fade"), bar: a(0.8, "grow", 1.4), ends: a(1.6, "fade"), years: a(2.0, "pop"), rule: a(Math.max(2.6, voiceSec * 0.6), "up"), pen: a(Math.max(3.2, voiceSec * 0.8), "fade") };
@@ -150,6 +160,19 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       return {
         kicker: a(0.2, "up"), sub: a(0.5, "fade"), big: a(0.9, "pop"), count: a(0.9, "count"), bars: a(1.3, "grow", 1.4),
         on: a(Math.max(2.4, voiceSec * 0.35), "pop"), pill: a(Math.max(3.2, voiceSec * 0.7), "pop"), note: a(Math.max(3.6, voiceSec * 0.8), "fade"),
+      };
+    case "family":
+      // 12 พีแอล: the family's sum counted up, the insured's years drawn out, the years after the last premium said
+      return {
+        kicker: a(0.2, "up"), big: a(0.5, "pop"), count: a(0.5, "count"), sub: a(1.2, "fade"), road: a(Math.max(1.6, voiceSec * 0.3), "grow", 1.8),
+        roadLabel: a(Math.max(2.2, voiceSec * 0.45), "fade"), ages: a(Math.max(2.0, voiceSec * 0.4), "fade"), pill: a(Math.max(3.2, voiceSec * 0.7), "pop"), note: a(Math.max(3.8, voiceSec * 0.85), "fade"),
+      };
+    case "total":
+      // 12 พีแอล: what is paid, then what comes back for certain, then the dividend's outline
+      return {
+        kicker: a(0.2, "up"), sub: a(0.5, "fade"), paid: a(0.8, "grow"), paidLabel: a(1.3, "fade"), back: a(Math.max(2.0, voiceSec * 0.28), "grow", 1.2),
+        cashWord: a(Math.max(2.8, voiceSec * 0.38), "fade"), matWord: a(Math.max(3.0, voiceSec * 0.4), "fade"), div: a(Math.max(3.8, voiceSec * 0.6), "grow"), divWord: a(Math.max(4.4, voiceSec * 0.66), "fade"),
+        backLabel: a(f.twelvepl?.dividend ? Math.max(4.8, voiceSec * 0.72) : Math.max(3.4, voiceSec * 0.5), "pop"), pill: a(Math.max(5.2, voiceSec * 0.85), "pop"),
       };
     case "compare": {
       const s: Record<string, Anim> = { kicker: a(0.2, "up") };
@@ -416,7 +439,7 @@ function LegacyLead({ c, t }: { c: MotionContext; t: number }) {
 
 function Lead({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
-  if (f.legacy || f.plb || f.gsaving) return <LegacyLead c={c} t={t} />;
+  if (f.legacy || f.plb || f.gsaving || f.twelvepl) return <LegacyLead c={c} t={t} />;
   const s = motionSpec("lead", f, c.voiceSec);
   const shield = look(s.shield, t).p;
   const n = countAt(f.lead.baht, look(s.count, t).p);
@@ -502,7 +525,7 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
         ))}
       </div>
       {f.priceNotes.length > 0 && (
-        <El an={s.notes} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? pillsTop + 96 : 1120, flexDirection: "column", fontSize: 34, color: WHITE, opacity: 0.85 }}>
+        <El an={s.notes} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? pillsTop + (f.twelvepl && f.pills.length > 1 ? 186 : 96) : 1120, flexDirection: "column", fontSize: 34, color: WHITE, opacity: 0.85 }}>
           {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: 10 })}>{n}</div>)}
         </El>
       )}
@@ -1493,6 +1516,77 @@ export const motionDraw = (s: Record<string, Anim>, t: number): Draw => ({
   count: look(s.count, t).p,
 });
 
+/** how a Motion scene draws 12 พีแอล's pictures (twelvepl-pictures.tsx) */
+export const motionTpDraw = (s: Record<string, Anim>, t: number): TpDraw => ({ ...motionDraw(s, t), p: (name) => look(s[name], t).p });
+
+/** 12 พีแอล's cash backs and its maturity, then what is certain */
+function CoverCashback({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!f.twelvepl) return null;
+  const d = motionTpDraw(s, t);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 700, color: WHITE }}>{f.coverTitle}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 295, fontSize: 44, color: WHITE, opacity: 0.9 }}>ส่วนการันตี ได้แน่นอน</El>
+      <div style={abs({ left: SIDE, top: 400, width: w })}>{tpCashPicture(f.twelvepl, d, w)}</div>
+      <div style={abs({ left: SIDE, top: 1000, width: w })}>{tpSureCard(f, d, w)}</div>
+      <El an={s.pen} t={t} style={{ position: "absolute", left: 0, width: W, top: 1280, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 42, fontWeight: 600 })}>✓ การันตี ได้แน่นอน</div>
+      </El>
+    </>
+  );
+}
+
+/** 12 พีแอล's life cover: the family's sum, and the years it stands after the last premium */
+function FamilyScene({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.twelvepl;
+  const s = motionSpec("family", f, c.voiceSec);
+  if (!g) return null;
+  const n = countAt(g.sum, look(s.count, t).p);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: 0, width: W, top: 250, justifyContent: "center", fontSize: 56, fontWeight: 600, color: WHITE }}>ถ้าเป็นอะไรไป ครอบครัวได้</El>
+      <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 350, justifyContent: "center", fontSize: tpBigSize(g.sum), fontWeight: 700, color: GOLD, lineHeight: 1.2 }}>{n.toLocaleString("en-US")}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: 0, width: W, top: 560, justifyContent: "center", fontSize: 46, color: WHITE }}>{`บาท ทุกช่วงอายุ ถึงอายุ ${g.coverToAge}`}</El>
+      <div style={abs({ left: SIDE, top: 740, width: w })}>{tpRoad(f, g, motionTpDraw(s, t), w)}</div>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1080, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 42, fontWeight: 600 })}>{tpFamilyPill(f)}</div>
+      </El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 1200, justifyContent: "center", fontSize: 40, color: WHITE, opacity: 0.9 }}>หรือมูลค่าเวนคืน หากมากกว่า</El>
+    </>
+  );
+}
+/** a sum's size on the family scene: "1,000,000" large, "50,000,000" still inside the frame */
+export const tpBigSize = (sum: number) => (sum >= 10_000_000 ? 138 : 160);
+export const tpFamilyPill = (f: QuoteVideoFacts) => `ออมครบแล้ว ยังคุ้มครองต่ออีก ${f.coverToAge - f.age - (f.payYears ?? 0)} ปี`;
+
+/** 12 พีแอล's fifth scene: what the plan costs beside what comes back */
+function TotalScene({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.twelvepl;
+  const s = motionSpec("total", f, c.voiceSec);
+  if (!g) return null;
+  const head = tpTotalHead(f, g);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 700, color: WHITE }}>{head.kicker}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 295, fontSize: 38, color: WHITE, opacity: 0.9 }}>{head.sub}</El>
+      <div style={abs({ left: SIDE, top: 390, width: w })}>{tpTotalPicture(g, motionTpDraw(s, t), w, 860)}</div>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1300, justifyContent: "center" }}>
+        <div style={box({ background: head.sure ? GREEN : RED, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 42, fontWeight: 600 })}>{head.pill}</div>
+      </El>
+    </>
+  );
+}
+
 /** แพ็กเกจของคุณ: the life cover's shield, each rider joined to it */
 function RiderPackage({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
@@ -1552,12 +1646,14 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
     price: c.priceJar && jarFits(c.facts) ? <PriceJar c={c} t={t} /> : <Price c={c} t={t} />,
     cover: c.coverRoad && roadFits(c.facts) ? <CoverRoad c={c} t={t} /> : c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
       : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat c={c} t={t} />
-      : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : <CoverRows c={c} t={t} />,
+      : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : c.facts.coverStyle === "cashback" ? <CoverCashback c={c} t={t} /> : <CoverRows c={c} t={t} />,
     value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
     compare: <Compare c={c} t={t} />,
     critical: <Critical c={c} t={t} />,
     terms: <Terms c={c} t={t} />,
     index: <IndexScene c={c} t={t} />,
+    family: <FamilyScene c={c} t={t} />,
+    total: <TotalScene c={c} t={t} />,
     contact: c.loop ? <LoopEnd c={c} t={t} /> : <Contact c={c} t={t} />,
     story: <StoryScene c={c} t={t} />,
     qa: <QaScene c={c} t={t} />,
@@ -1567,6 +1663,11 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {body}
+      {c.facts.screenNote && key !== "contact" ? (
+        <div style={abs({ left: 0, width: W, bottom: 212, flexDirection: "column", alignItems: "center", fontSize: 28, color: WHITE, opacity: 0.75 })}>
+          {screenNoteLines(c.facts).map((l) => <div key={l} style={box({})}>{l}</div>)}
+        </div>
+      ) : null}
       <Subtitle words={c.words} t={t} voiceSec={c.voiceSec} />
       <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: 26, color: WHITE, opacity: 0.6 })}>Application by www.advisortool.app</div>
     </div>

@@ -5,6 +5,7 @@ import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import type { CardChart } from "@/lib/quote-card";
+import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
 import { riderIndex, type QuoteVideoFacts, type SceneKey } from "./script";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
 import type { Extra } from "./told";
@@ -127,7 +128,7 @@ const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 
 function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
-  if (f.legacy || f.plb || f.gsaving) return <LegacyLead c={c} layer={layer} s={s} />;
+  if (f.legacy || f.plb || f.gsaving || f.twelvepl) return <LegacyLead c={c} layer={layer} s={s} />;
   const vw = wordsOf(f);
   return (
     <>
@@ -306,7 +307,7 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
         ))}
       </div>
       {f.pills.length > 0 && (
-        <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1080, flexWrap: "wrap" }}>
+        <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1080, ...(f.twelvepl ? { flexDirection: "column" as const } : { flexWrap: "wrap" as const }) }}>
           {f.pills.map((pill, i) => (
             <div key={pill} style={box({ marginRight: i < f.pills.length - 1 ? 40 : 0 })}><Swept p={s.sweep[1] ?? 1} size={46}>{pill}</Swept></div>
           ))}
@@ -649,6 +650,7 @@ function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
   if (c.facts.coverStyle === "flat") return <FlatCover c={c} layer={layer} s={s} />;
   // Global Savings: the yearly table with three index examples, as the other plans' value scene (owner, 2026-10-20, ก ก)
   if (c.facts.coverStyle === "payback") return <GsTableCover c={c} layer={layer} />;
+  if (c.facts.coverStyle === "cashback") return <TwelvePlClassic c={c} layer={layer} k="cover" />;
   if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "steps") return <StepsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "bands") return <BandsCover c={c} layer={layer} s={s} />;
@@ -854,6 +856,47 @@ export const classicDraw: Draw = {
   count: 1,
 };
 
+/** 12 พีแอล's pictures in the classic card's colours, drawn whole (twelvepl-pictures.tsx) */
+export const classicTpDraw: TpDraw = { ...classicDraw, p: () => 1 };
+/** a green or red band under a picture, "✓ การันตี ได้แน่นอน" */
+export const classicPill = (good: boolean, size: number) => ({ display: "flex", background: good ? P.gain : P.pen, color: C.paper, borderRadius: 40, padding: "8px 32px", fontSize: size, fontWeight: 600 });
+
+/** 12 พีแอล's cash backs, its family's sum, and what is paid beside what comes back, in the classic look (owner, 2026-11-26) */
+function TwelvePlClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: "cover" | "family" | "total" }) {
+  const f = c.facts;
+  const g = f.twelvepl;
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  const head = tpTotalHead(f, g);
+  const title = (text: string) => <div style={box({ fontSize: 58, fontWeight: 700, color: P.figure })}>{text}</div>;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      {k === "cover" ? title(f.coverTitle) : k === "total" ? title(head.kicker) : title("ถ้าเป็นอะไรไป ครอบครัวได้")}
+      {k === "cover" ? (
+        <div style={box({ flexDirection: "column", marginTop: 20, width: w })}>
+          {tpCashPicture(g, classicTpDraw, w)}
+          <div style={box({ marginTop: 30, width: w })}>{tpSureCard(f, classicTpDraw, w)}</div>
+          <div style={box({ marginTop: 36, justifyContent: "center", width: w })}><div style={classicPill(true, 42)}>✓ การันตี ได้แน่นอน</div></div>
+        </div>
+      ) : k === "total" ? (
+        <div style={box({ flexDirection: "column", width: w })}>
+          <div style={box({ fontSize: 38, color: P.mute, marginTop: 8, marginBottom: 16 })}>{head.sub}</div>
+          {tpTotalPicture(g, classicTpDraw, w, 860)}
+          <div style={box({ marginTop: 30, justifyContent: "center", width: w })}><div style={classicPill(head.sure, 42)}>{head.pill}</div></div>
+        </div>
+      ) : (
+        <div style={box({ flexDirection: "column", width: w })}>
+          <div style={box({ fontSize: g.sum >= 10_000_000 ? 130 : 150, fontWeight: 700, color: P.figure, lineHeight: 1.25, marginTop: 10 })}>{g.sum.toLocaleString("en-US")}</div>
+          <div style={box({ fontSize: 44, color: P.ink, marginBottom: 70 })}>{`บาท ทุกช่วงอายุ ถึงอายุ ${g.coverToAge}`}</div>
+          {tpRoad(f, g, classicTpDraw, w)}
+          <div style={box({ marginTop: 60, justifyContent: "center", width: w })}><div style={classicPill(true, 42)}>{`ออมครบแล้ว ยังคุ้มครองต่ออีก ${f.coverToAge - f.age - g.payYears} ปี`}</div></div>
+          <div style={box({ marginTop: 30, justifyContent: "center", width: w, fontSize: 40, color: P.mute })}>หรือมูลค่าเวนคืน หากมากกว่า</div>
+        </div>
+      )}
+    </On>
+  );
+}
+
 /**
  * Life Protect's riders in the classic look (owner, 2026-11-21, ก ก ก): the package, a rider (its name and
  * price, its picture, what it pays), what each event pays — drawn whole on the still.
@@ -899,6 +942,8 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
     critical: <Critical c={c} layer={layer} s={state} />,
     terms: <TermsScene c={c} layer={layer} s={state} />,
     index: <IndexScene c={c} layer={layer} s={state} />,
+    family: <TwelvePlClassic c={c} layer={layer} k="family" />,
+    total: <TwelvePlClassic c={c} layer={layer} k="total" />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,
     value: <Value c={c} layer={layer} s={state} />,
@@ -912,6 +957,11 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: layer === "base" ? C.paper : "transparent", fontFamily: "Plex", color: P.ink }}>
       {(key !== "contact" || c.loop) && <Header f={c.facts} layer={layer} />}
       {body}
+      {c.facts.screenNote && key !== "contact" ? (
+        <On layer={layer} own="base" style={{ position: "absolute", left: 0, width: W, bottom: 232, flexDirection: "column", alignItems: "center", fontSize: 28, color: P.mute }}>
+          {screenNoteLines(c.facts).map((l) => <div key={l} style={box({})}>{l}</div>)}
+        </On>
+      ) : null}
       {layer === "over" && <Subtitle words={c.words} word={state.word} />}
       <Footer layer={layer} />
     </div>

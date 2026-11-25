@@ -4,6 +4,7 @@ import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import { cleanSetup } from "./ihealthy-setup";
 import { MODES } from "@/lib/ihealthy-quote";
 import type { Product } from "./script";
+import type { TwelvePlDividend } from "./twelvepl";
 import { readVideoLang, type VideoLang } from "./video-words";
 
 /**
@@ -34,12 +35,14 @@ export interface VideoStart {
   tier?: number;
   /** iHealthy: the language the page was read in, which the clip starts in (owner, 2026-10-15); absent = Thai */
   lang?: VideoLang;
-  /** Life Protect: the riders its page priced in, written as its card links write them (owner, 2026-10-17, 1ก) */
+  /** Life Protect and 12 พีแอล: the riders their page priced in, written as its card links write them (owner, 2026-10-17, 1ก) */
   riders?: CardRiders;
   /** Global Savings: the yearly premium, whole baht (owner, 2026-10-20) */
   premium?: number;
   /** Global Savings: "25/5" from the 25/5 page (owner, 2026-11-16); absent = 15/8 */
   gsPlan?: "25/5";
+  /** 12 พีแอล: the dividend example its page showed, 0 for none (owner, 2026-11-26) */
+  dividend?: TwelvePlDividend;
   /** iHealthy: วิดีโอเทียบ 4 แผน from the iHealthy Ultra Package page, in its instalment (owner chose ข, 2026-11-11) */
   allPlans?: PayMode;
 }
@@ -59,11 +62,12 @@ export function videoStartHref(s: VideoStart): string {
   if (s.product === "GSAVING" && s.gsPlan) q.set("gs", "25-5");
   if (s.allPlans) q.set("all", s.allPlans);
   if (s.lang && s.lang !== "th") q.set("lang", s.lang);
-  if (s.product === "LIFEPROTECT") writeRiders(q, s.riders);
+  if (s.product === "TWELVEPL" && s.dividend !== undefined) q.set("div", String(s.dividend));
+  if (s.product === "LIFEPROTECT" || s.product === "TWELVEPL") writeRiders(q, s.riders);
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
-const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING"];
+const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING", "TWELVEPL"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 /** Protection Life's terms and sums: only the /plb page's own are read from an address */
 const PLB_TERMS = ["PLB05", "PLB10", "PLB12", "PLB15"];
@@ -92,7 +96,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const setup = product === "IHEALTHY" ? cleanSetup(one(params.ihu)) : undefined;
   const lang = product === "IHEALTHY" ? readVideoLang(one(params.lang)) : "th";
   const plb = product === "PLB";
-  const riders = product === "LIFEPROTECT" ? readRiders((k) => one(params[k])) : undefined;
+  const riders = product === "LIFEPROTECT" || product === "TWELVEPL" ? readRiders((k) => one(params[k])) : undefined;
   return {
     product,
     ...(sex === "M" || sex === "F" ? { sex } : {}),
@@ -105,6 +109,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...(Number.isInteger(tier) && tier >= 1 && tier <= 10 ? { tier } : {}),
     ...(product === "GSAVING" && Number.isInteger(premium) && premium > 0 && premium <= 20_000_000 ? { premium } : {}),
     ...(product === "GSAVING" && one(params.gs) === "25-5" ? { gsPlan: "25/5" as const } : {}),
+    ...(product === "TWELVEPL" && ["0", "2", "3"].includes(one(params.div) ?? "") ? { dividend: Number(one(params.div)) as TwelvePlDividend } : {}),
     ...(setup ? { setup } : {}),
     ...(lang !== "th" ? { lang } : {}),
     ...(riders ? { riders } : {}),

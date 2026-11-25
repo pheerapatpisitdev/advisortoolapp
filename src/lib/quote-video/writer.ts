@@ -68,6 +68,16 @@ export function factLines(f: QuoteVideoFacts): string[] {
       "ยอดออมลดหย่อนภาษีได้ตามเกณฑ์สรรพากร",
       `มีโบนัสตามดัชนีโลก จ่าย${gsBonusWhen(g)} โบนัสไม่แน่นอน ห้ามบอกตัวเลขโบนัส และห้ามพูดว่าโบนัสได้แน่นอน`);
   }
+  if (f.twelvepl) {
+    const g = f.twelvepl;
+    const m = (n: number) => Math.round(n).toLocaleString("en-US");
+    out.push(`ออมสัญญาหลักปีละ ${g.annual} บาท ${g.payYears} ปี รวม ${m(g.paid)} บาท ครบสัญญาอายุ ${g.coverToAge}`,
+      `เงินคืนทุกปีตั้งแต่ปีที่ 2 เริ่ม ${m(g.cashFirst)} บาท เพิ่มจนได้ปีละ ${m(g.cashFull)} บาท ตั้งแต่ปีที่ ${g.cashFullYear}`,
+      `ครบอายุ ${g.coverToAge} รับ ${m(g.maturity)} บาท รวมเงินที่ได้แน่นอน ${m(g.guaranteed)} บาท เมื่อถือครบถึงอายุ ${g.coverToAge}`,
+      `ถ้าเป็นอะไรไป ครอบครัวได้ ${m(g.sum)} บาท ถึงอายุ ${g.coverToAge}`,
+      g.tax !== undefined ? "ยอดออมสัญญาหลักลดหย่อนภาษีได้ตามเกณฑ์สรรพากร" : "ห้ามพูดเรื่องภาษี",
+      "ห้ามพูดถึงปันผล และทุกครั้งที่พูดยอดรับรวม ต้องบอกว่าถือครบถึงอายุ " + g.coverToAge);
+  }
   if (f.pension) {
     const p = f.pension;
     out.push(`บำนาญเดือนละ ${p.monthly} บาท ตั้งแต่อายุ ${p.start} ถึงอายุ 95`, `รับประกันจ่าย 15 ปีแรก`, "ยอดออมลดหย่อนภาษีได้ตามเกณฑ์สรรพากร",

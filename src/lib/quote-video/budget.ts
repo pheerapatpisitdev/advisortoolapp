@@ -12,6 +12,7 @@ import { legacyFromBudget } from "./legacy";
 import { pensionFromBudget } from "./pension";
 import { plbFromBudget } from "./plb";
 import { gsFromBudget } from "./gsaving";
+import { twelvePlFromBudget } from "./twelvepl";
 import { setupQuery } from "./ihealthy-setup";
 import { iHealthyPlanCodes } from "./script";
 import type { VideoInput } from "./script";
@@ -80,6 +81,7 @@ export function resolveBudget(v: VideoInput, budget: Budget, today: Date = new D
   if (v.product === "PLB") return plbFromBudget(v, budget, today);
   // Global Savings: the budget is the yearly premium itself (gsaving.ts)
   if (v.product === "GSAVING") return gsFromBudget(v, budget);
+  if (v.product === "TWELVEPL") return twelvePlFromBudget(v, budget, today);
 
   const product = v.product === "ISHIELD" ? "ISHIELD" : "LIFEPROTECT";
   if (product === "ISHIELD") {

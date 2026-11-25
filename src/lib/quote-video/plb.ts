@@ -199,11 +199,13 @@ export function plbVideoFacts(v: PlbVideoInput, today: Date = new Date()): Quote
 /** the opening's big line: "คุ้มครองชีวิต 1 ล้าน" (PLB), "ออม 8 ปี" (Global Savings) or "มรดก 3 ล้าน" (มรดก) */
 export function leadBig(f: QuoteVideoFacts): string {
   if (f.gsaving) return `ออม ${f.gsaving.payYears} ปี`;
+  if (f.twelvepl) return `ออม ${f.twelvepl.payYears} ปี`;
   return f.plb ? `คุ้มครองชีวิต ${f.plb.sumShort}` : `มรดก ${f.legacy?.tier ?? ""} ล้าน`;
 }
 
 /** the opening's pill: who it is for, and for PLB until when ("ชาย 35 ปี · ถึงอายุ 47"); Global Savings its bonus, never as certain */
 export function leadPill(f: QuoteVideoFacts): string {
   if (f.gsaving) return `${f.insuredWho} · + โบนัสดัชนี (ไม่การันตี)`;
+  if (f.twelvepl) return f.twelvepl.dividend ? `${f.insuredWho} · + เงินปันผล (ไม่การันตี)` : `${f.insuredWho} · ${f.insuredLine.replace(/ บาท$/, "")}`;
   return f.plb ? `${f.insuredWho} · ถึงอายุ ${f.plb.endAge}` : f.insuredWho;
 }

@@ -19,6 +19,7 @@ import { checkedPension } from "@/lib/quote-video/pension";
 import { checkedLegacy } from "@/lib/quote-video/legacy";
 import { checkedPlb } from "@/lib/quote-video/plb";
 import { checkedGsaving } from "@/lib/quote-video/gsaving";
+import { checkedTwelvePl } from "@/lib/quote-video/twelvepl";
 import { cleanBrief, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
 import { readVideoLang } from "@/lib/quote-video/video-words";
 import { readLength } from "@/lib/quote-video/told";
@@ -28,6 +29,7 @@ import { MY_COLORS, type MyColor } from "@/lib/card-theme";
 import { recipeInput, recipeOf } from "@/lib/quote-video/recipes";
 import { prefsFor } from "@/lib/pay-prefs-store";
 import { hiddenModes } from "@/lib/pay-prefs";
+import { TWELVEPL_PLAN } from "@/lib/twelvepl-table";
 import type { PayMode } from "@/calc/types";
 
 /** the paying terms each product's clip offers, as its page names them */
@@ -69,7 +71,8 @@ export function checked(v: VideoInput, hide: PayMode[] = [], pen = true): VideoI
   const checkedAsked = checkedQuote(asked);
   if (typeof checkedAsked === "string") return checkedAsked;
   // Life Protect's riders picked on the form are part of what the budget pays for (owner, 2026-11-18, 1ก)
-  const budgetRiders = budget && productOf(v) === "LIFEPROTECT" && "riders" in v ? currentRiders(cleanRiders(v.riders)) : undefined;
+  const budgetRiders = budget && "riders" in v && (productOf(v) === "LIFEPROTECT" || v.product === "TWELVEPL")
+    ? currentRiders(cleanRiders(v.riders), new Date(), v.product === "TWELVEPL" ? TWELVEPL_PLAN : undefined) : undefined;
   const worked = budget
     ? resolveBudget(budgetRiders ? { ...checkedAsked, riders: budgetRiders } as VideoInput : checkedAsked, budget)
     : checkedAsked;
@@ -162,6 +165,7 @@ export function checkedQuote(v: VideoInput): VideoInput | string {
   if (v.product === "LEGACY") return checkedLegacy(v);
   if (v.product === "PLB") return checkedPlb(v);
   if (v.product === "GSAVING") return checkedGsaving(v);
+  if (v.product === "TWELVEPL") return checkedTwelvePl(v, cleanRiders(v.riders));
   const product = productOf(v);
   if (product !== "LIFEPROTECT" && product !== "ISHIELD") return "เลือกแบบประกัน";
   const term = TERMS[product].find((x) => x.variant === v.variant);

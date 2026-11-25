@@ -25,8 +25,11 @@ export interface SpokenQa { key: string; q: string; a: string }
 /** Global Savings' own figures for its answers (gsaving.ts GsVideoFacts); absent = 15/8's */
 export type GsQaFacts = { payYears: number; term: number; maturityPct: number; bonusYears: number[] };
 
+/** 12 พีแอล's own figures for its answers (twelvepl.ts TwelvePlVideoFacts); `tax` absent = no tax relief said */
+export type TpQaFacts = { payYears: number; coverToAge: number; maturityPct: number; tax?: number; dividend?: unknown };
+
 /** `variant`: Protection Life's term, which decides whether tax relief is answered at all */
-export function productQas(product: Product, variant?: string, gs?: GsQaFacts): SpokenQa[] {
+export function productQas(product: Product, variant?: string, gs?: GsQaFacts, tp?: TpQaFacts): SpokenQa[] {
   switch (product) {
     case "LIFEPROTECT":
       return [
@@ -88,6 +91,15 @@ export function productQas(product: Product, variant?: string, gs?: GsQaFacts): 
         { key: "years", q: "ต้องออมกี่ปี", a: `ออม ${gs?.payYears ?? 8} ปีค่ะ ครบสัญญาปีที่ ${gs?.term ?? 15} ระหว่างนั้นยังคุ้มครองชีวิตด้วย` },
         { key: "min", q: "ออมขั้นต่ำเท่าไหร่", a: "ขั้นต่ำปีละ 20,000 บาทค่ะ" },
       ];
+    // 12 พีแอล (owner, 2026-11-26): the plan's own rules, as the bots say them (src/lib/copilot/knowledge.ts)
+    case "TWELVEPL":
+      return [
+        { key: "sure", q: "ส่วนไหนได้แน่นอน", a: `เงินคืนทุกปี กับเงินครบสัญญา ${tp?.maturityPct ?? 115}% ของทุน ได้แน่นอนเมื่อถือครบถึงอายุ ${tp?.coverToAge ?? 85} ค่ะ${tp?.dividend ? " ส่วนปันผลไม่แน่นอน" : ""}` },
+        { key: "back", q: "เงินคืนเริ่มเมื่อไหร่", a: "เริ่มสิ้นปีที่ 2 ค่ะ ที่ 0.25% ของทุน เพิ่มขึ้นทุกปีจนถึง 1% ตั้งแต่ปีที่ 17" },
+        { key: "years", q: "ต้องออมกี่ปี", a: `ออม ${tp?.payYears ?? 12} ปีค่ะ แล้วคุ้มครองต่อจนถึงอายุ ${tp?.coverToAge ?? 85}` },
+        ...(tp?.tax !== undefined ? [{ key: "tax", q: "ลดหย่อนภาษีได้ไหม", a: "ได้ค่ะ ตามที่ออมจริง สูงสุด 100,000 บาทต่อปี นับรวมกับประกันชีวิตฉบับอื่น ตามเกณฑ์สรรพากร" }] : []),
+        { key: "life", q: "ถ้าเป็นอะไรไปก่อน ได้เท่าไหร่", a: "ครอบครัวได้เต็มทุนค่ะ" },
+      ];
     case "PENSION":
       return [
         { key: "pay", q: "ออม 6 ปี กับออมจนรับบำนาญ ต่างกันยังไง", a: "ทุนเท่ากันได้บำนาญเท่ากันค่ะ แบบ 6 ปีออมต่อปีมากกว่าแต่จบเร็ว อีกแบบออมน้อยกว่าแต่นานกว่า" },
@@ -107,12 +119,13 @@ const FIRST: Record<string, string[]> = {
   family: ["until", "after"], illness: ["after", "count"], light: ["rises", "monthly"],
   plbfamily: ["covers", "end"], plbburden: ["covers", "level"], plblight: ["level", "monthly"], plbtax: ["tax", "level"],
   gssure: ["sure", "years"], gsbonus: ["bonus", "sure"], gstax: ["tax", "years"], gsshort: ["years", "sure"],
+  tpback: ["back", "sure"], tpshort: ["years", "life"], tpfamily: ["life", "years"], tptax: ["tax", "years"],
 };
 
 /** the two questions a clip answers, for its product and story */
-export function pickQas(product: Product, story?: string, variant?: string, hide?: readonly string[], gs?: GsQaFacts): SpokenQa[] {
+export function pickQas(product: Product, story?: string, variant?: string, hide?: readonly string[], gs?: GsQaFacts, tp?: TpQaFacts): SpokenQa[] {
   // ตั้งค่าส่วนตัว: "จ่ายรายเดือนได้ไหม" names the instalments; never asked where the agent hid one
-  const all = productQas(product, variant, gs).filter((q) => !(q.key === "monthly" && hide?.length));
+  const all = productQas(product, variant, gs, tp).filter((q) => !(q.key === "monthly" && hide?.length));
   const first = FIRST[story ?? ""] ?? [];
   const ordered = [...first.map((k) => all.find((q) => q.key === k)).filter((q): q is SpokenQa => Boolean(q)), ...all];
   return ordered.filter((q, i) => ordered.findIndex((x) => x.key === q.key) === i).slice(0, 2);

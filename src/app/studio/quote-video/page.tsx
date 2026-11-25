@@ -9,6 +9,7 @@ import { iShieldTable } from "@/lib/ishield-table";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { legacyTable } from "@/lib/legacy-table";
 import { plbTable } from "@/lib/plb-table";
+import { twelvePlTable } from "@/lib/twelvepl-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { availablePensionAges, PENSION_LIMITS } from "@/calc/pension/engine";
 import { videoStartFrom } from "@/lib/quote-video/link";
@@ -48,6 +49,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
   const is = iShieldTable();
   const lg = legacyTable();
   const pb = plbTable();
+  const tp = twelvePlTable();
   const ages = {
     LIFEPROTECT: { min: lp.ageMin, max: lp.ageMax },
     ISHIELD: { min: is.ageMin, max: is.ageMax },
@@ -57,6 +59,8 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     PLB: { min: pb.ageMin, max: pb.ageMax },
     // Global Savings 15/8 (owner, 2026-10-20): the page's own range
     GSAVING: { min: GS_AGE_MIN, max: GS_AGE_MAX },
+    // 12 พีแอล (owner, 2026-11-26)
+    TWELVEPL: { min: tp.ageMin, max: tp.ageMax },
   };
   // บำนาญ 95: the pension ages each age may choose, for each way of paying (the engine's own plans)
   const pensionAges = Object.fromEntries((["6", "untilAnnuity"] as const).map((pay) => [pay, Object.fromEntries(
@@ -92,7 +96,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       </p>
       <p className="mt-1.5"><HelpLink clip="quote-video">ดูคลิปวิธีทำ</HelpLink></p>
       <ClosedNotice viewer={viewer} feature="quote-video" />
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} fx={fx} hide={hide} riderMenu={lpRiderMenu()} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} fx={fx} hide={hide} riderMenu={lpRiderMenu()} tpRiderMenu={lpRiderMenu(new Date(), tp)} />
     </div>
   );
 }

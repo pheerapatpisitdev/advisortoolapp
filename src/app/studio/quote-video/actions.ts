@@ -50,10 +50,11 @@ import { POST_TRIES, readTone, readVoice } from "@/lib/quote-video/post-tones";
 import { closedFor } from "@/lib/switches/store";
 import { hiddenFor } from "@/lib/pay-prefs-store";
 import { checked, lookOf, payAndPen, TERMS } from "@/lib/quote-video/check-input";
+import { TWELVEPL_PLAN } from "@/lib/twelvepl-table";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — a member's free clips or a UnitClub agent's starter credit, then the Studio wallet. */
 
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8", TWELVEPL: "12PL" };
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
@@ -358,8 +359,10 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
 }
 
 /** the riders a Life Protect clip is priced with, as the card's split names them */
-function riderWords(c: Extract<VideoInput, { variant: string }>): string {
-  const split = quoteCard(planInput(c))?.summary?.split;
+function riderWords(c: Extract<VideoInput, { variant: string }> | Extract<VideoInput, { product: "TWELVEPL" }>): string {
+  const split = quoteCard(c.product === "TWELVEPL"
+    ? { kind: "plan", planCode: TWELVEPL_PLAN, variant: TWELVEPL_PLAN, age: c.age, sex: c.sex, sumAssured: c.sumAssured, ...(c.riders ? { riders: c.riders } : {}) }
+    : planInput(c))?.summary?.split;
   return split ? split.rows.slice(1).map((r) => riderShort(r.label)).join(" · ") : "";
 }
 
@@ -565,6 +568,8 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         ? `${sumWords(input.sumAssured)} · ${input.variant.slice(3).replace(/^0/, "")} ปี`
         : input.product === "GSAVING"
         ? `ออมปีละ ${input.premium.toLocaleString("en-US")} · ดัชนี ${rateLabel(input.rate)}`
+        : input.product === "TWELVEPL"
+        ? `${sumWords(input.sumAssured)} · 12 ปี${input.riders ? " · + สัญญาเพิ่มเติม" : ""}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     // a สูตรคลิป Motion clip is named by its recipe, so an agent who got one by chance can ask for it again; its
     // length is the recipe's own, not the 15-second clip it is stored as. Named only where the row is still made

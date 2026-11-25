@@ -76,6 +76,7 @@ const FORMAT_WORD: Record<string, string> = { post: "เขียนโพสต
 
 const PRODUCT_NAME: Record<string, string> = {
   LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life",
+  GSAVING: "Global Savings", TWELVEPL: "12PL",
 };
 
 const VIDEO_STATE: Record<string, string> = { done: "เสร็จแล้ว", failed: "ไม่สำเร็จ", drawing: "กำลังทำ", rendering: "กำลังทำ" };

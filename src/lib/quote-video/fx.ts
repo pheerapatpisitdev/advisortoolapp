@@ -27,7 +27,7 @@ export type FxProps = {
 
 /** health and savings sound bright; the money check calm; life cover, pensions and stories warm */
 export function moodFor(product: string | undefined): MusicMood {
-  if (product === "IHEALTHY" || product === "ISHIELD" || product === "PLB" || product === "GSAVING") return "bright";
+  if (product === "IHEALTHY" || product === "ISHIELD" || product === "PLB" || product === "GSAVING" || product === "TWELVEPL") return "bright";
   if (product === "FHC") return "calm";
   return "warm";
 }
@@ -38,7 +38,7 @@ export function fxPropsOf(input: FxChoice & { product?: string }): FxProps {
 }
 
 /** the scenes that come in by the wipe instead of their usual way, one or two a clip */
-const WIPE = new Set(["value", "terms", "index", "fhcGaps", "storyHelp", "knowTwo"]);
+const WIPE = new Set(["value", "terms", "index", "total", "fhcGaps", "storyHelp", "knowTwo"]);
 
 /** how scene `key` comes in: the wipe on the new look's few, its own way (job.ts TRANSITIONS) otherwise */
 export function transitionOf(key: string, fx: boolean, own: Record<string, string>): string {
