@@ -5,6 +5,7 @@ import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import type { CardChart } from "@/lib/quote-card";
+import { EP_TOTAL_KICKER, epCoins, epDonePill, epFloorNote, epRoadWord, epTimesPill, epTotalPicture } from "./easyprotect-pictures";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
 import { riderIndex, type QuoteVideoFacts, type SceneKey } from "./script";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
@@ -650,6 +651,7 @@ function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
   if (c.facts.coverStyle === "flat") return <FlatCover c={c} layer={layer} s={s} />;
   // Global Savings: the yearly table with three index examples, as the other plans' value scene (owner, 2026-10-20, ก ก)
   if (c.facts.coverStyle === "payback") return <GsTableCover c={c} layer={layer} />;
+  if (c.facts.coverStyle === "paidup") return <EasyProtectClassic c={c} layer={layer} k="cover" />;
   if (c.facts.coverStyle === "cashback") return <TwelvePlClassic c={c} layer={layer} k="cover" />;
   if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "steps") return <StepsCover c={c} layer={layer} s={s} />;
@@ -861,6 +863,34 @@ export const classicTpDraw: TpDraw = { ...classicDraw, p: () => 1 };
 /** a green or red band under a picture, "✓ การันตี ได้แน่นอน" */
 export const classicPill = (good: boolean, size: number) => ({ display: "flex", background: good ? P.gain : P.pen, color: C.paper, borderRadius: 40, padding: "8px 32px", fontSize: size, fontWeight: 600 });
 
+/** อีซี่ โพรเทค 6's six premiums and what they buy, and what is paid beside what the family receives, in the classic look (owner, 2026-11-26) */
+function EasyProtectClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: "cover" | "total" }) {
+  const f = c.facts;
+  const g = f.easyprotect;
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  const pill = (text: string, size: number) => <div style={box({ justifyContent: "center", width: w })}><div style={classicPill(true, size)}>{text}</div></div>;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{k === "cover" ? f.coverTitle : EP_TOTAL_KICKER}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{k === "cover" ? f.coverNote : f.insuredLine}</div>
+      {k === "cover" ? (
+        <div style={box({ flexDirection: "column", width: w })}>
+          {epCoins(f, g, classicTpDraw, w)}
+          <div style={box({ marginTop: 50, marginBottom: 80 })}>{pill(epDonePill(g), 46)}</div>
+          {tpRoad(f, g, classicTpDraw, w, 1, epRoadWord(g))}
+          <div style={box({ marginTop: 40, justifyContent: "center", width: w, fontSize: 35, color: P.mute })}>{epFloorNote(g)}</div>
+        </div>
+      ) : (
+        <div style={box({ flexDirection: "column", width: w })}>
+          {epTotalPicture(g, classicTpDraw, w, 800)}
+          <div style={box({ marginTop: 40 })}>{pill(epTimesPill(g), 48)}</div>
+        </div>
+      )}
+    </On>
+  );
+}
+
 /** 12 พีแอล's cash backs, its family's sum, and what is paid beside what comes back, in the classic look (owner, 2026-11-26) */
 function TwelvePlClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: "cover" | "family" | "total" }) {
   const f = c.facts;
@@ -943,7 +973,7 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
     terms: <TermsScene c={c} layer={layer} s={state} />,
     index: <IndexScene c={c} layer={layer} s={state} />,
     family: <TwelvePlClassic c={c} layer={layer} k="family" />,
-    total: <TwelvePlClassic c={c} layer={layer} k="total" />,
+    total: c.facts.easyprotect ? <EasyProtectClassic c={c} layer={layer} k="total" /> : <TwelvePlClassic c={c} layer={layer} k="total" />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,
     value: <Value c={c} layer={layer} s={state} />,

@@ -67,7 +67,7 @@ export function videoStartHref(s: VideoStart): string {
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
-const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING", "TWELVEPL"];
+const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING", "TWELVEPL", "EASYPROTECT"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 /** Protection Life's terms and sums: only the /plb page's own are read from an address */
 const PLB_TERMS = ["PLB05", "PLB10", "PLB12", "PLB15"];

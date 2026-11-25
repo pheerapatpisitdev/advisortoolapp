@@ -39,7 +39,7 @@ export function factLines(f: QuoteVideoFacts): string[] {
     ...(f.riderNames?.length ? [`สัญญาเพิ่มเติมที่แนบ: ${f.riderNames.join(" · ")}`] : []),
     `คุ้มครองถึงอายุ ${f.coverToAge}`,
     ...f.cover.map((r) => `${r.label}: ${r.amount}`),
-    ...(f.breakEven ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),
+    ...(f.breakEven && !f.easyprotect ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),
     ...(f.illness ? [`โรคร้ายแรง ${f.illness.total} โรค ระยะเริ่มต้น ${f.illness.early} โรค ระยะรุนแรง ${f.illness.major} โรค โรคร้ายแรงคุ้มครองหลัง 90 วันแรก`] : []),
     ...(f.budget ? [`ลูกค้า${f.product === "LEGACY" || f.product === "PLB" ? "จ่ายไหว" : "ออมไหว"} ${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท`] : []),
   ];
@@ -67,6 +67,13 @@ export function factLines(f: QuoteVideoFacts): string[] {
       `ระหว่างสัญญาคุ้มครองชีวิตสูงสุด ${m(g.deathMax)} บาท`,
       "ยอดออมลดหย่อนภาษีได้ตามเกณฑ์สรรพากร",
       `มีโบนัสตามดัชนีโลก จ่าย${gsBonusWhen(g)} โบนัสไม่แน่นอน ห้ามบอกตัวเลขโบนัส และห้ามพูดว่าโบนัสได้แน่นอน`);
+  }
+  if (f.easyprotect) {
+    const g = f.easyprotect;
+    out.push(`ออม ${g.payYears} ปี รวม ${g.paid.toLocaleString("en-US")} บาท ปีที่ ${g.payYears + 1} เป็นต้นไปไม่ต้องจ่ายอีก`,
+      `ถ้าเป็นอะไรไป ครอบครัวได้${g.atLeast ? "อย่างน้อย" : ""} ${g.sum.toLocaleString("en-US")} บาท ถึงอายุ ${g.coverToAge}`,
+      ...(g.times ? [`คิดเป็น ${g.times} เท่าของที่ออม`] : ["ห้ามเทียบยอดออมรวมกับเงินที่ครอบครัวได้"]),
+      ...(f.breakEven ? [`มูลค่าเงินสดครบเท่าที่ออมตอนอายุ ${f.breakEven.age} ห้ามพูดว่ามากกว่าที่ออม`] : []), "ห้ามพูดเรื่องภาษี");
   }
   if (f.twelvepl) {
     const g = f.twelvepl;

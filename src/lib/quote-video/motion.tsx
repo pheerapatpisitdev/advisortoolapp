@@ -3,6 +3,7 @@ import { Fragment, type ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_EXTRA as X } from "@/lib/card-theme";
 import { CHART_WRITE, chartNotes } from "./chart-pen";
 import { beatCues, penBeats } from "./pen";
+import { breakEvenNote, EP_TOTAL_KICKER, epCoins, epDonePill, epFloorNote, epRoadWord, epTimesPill, epTotalPicture } from "./easyprotect-pictures";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
 import { riderIndex, type CoverRow, type QuoteVideoFacts, type SceneKey } from "./script";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
@@ -78,6 +79,14 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
           kicker: a(0.2, "up"), sub: a(0.5, "fade"), ticks: a(0.8, "grow", 1.6), tickLabel: a(1.6, "fade"), ends: a(1.0, "fade"),
           mat: a(mat, "grow"), matLabel: a(mat + 0.6, "pop"), card: a(Math.max(3.2, voiceSec * 0.55), "up"),
           pen: a(Math.max(3.8, voiceSec * 0.72), "pop"), note: a(Math.max(4.2, voiceSec * 0.85), "fade"),
+        };
+      }
+      if (f.coverStyle === "paidup") {
+        // อีซี่ โพรเทค 6: a coin a year, then nothing left to pay, then the years the cover stands
+        const road = Math.max(4.0, voiceSec * 0.6);
+        return {
+          kicker: a(0.2, "up"), sub: a(0.5, "fade"), ...spread("coin", f.payYears ?? 6, Math.max(2.5, voiceSec * 0.4), 0.8), pill: a(Math.max(3.2, voiceSec * 0.45), "pop"),
+          road: a(road, "grow", 1.8), roadLabel: a(road + 1.0, "fade"), ages: a(road + 0.4, "fade"), note: a(Math.max(5.6, voiceSec * 0.85), "fade"),
         };
       }
       if (f.coverStyle === "cashback") {
@@ -473,6 +482,11 @@ function Lead({ c, t }: { c: MotionContext; t: number }) {
       <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1130, justifyContent: "center" }}>
         <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "8px 34px", fontSize: 44, fontWeight: 600 })}>{f.leadMark}</div>
       </El>
+      {f.easyprotect && f.priceMark ? (
+        <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1240, justifyContent: "center" }}>
+          <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "4px 30px", fontSize: 40 })}>{f.priceMark}</div>
+        </El>
+      ) : null}
     </>
   );
 }
@@ -1300,7 +1314,7 @@ function Value({ c, t }: { c: MotionContext; t: number }) {
           <div style={box({ flexDirection: "column" })}>
             <div style={box({ fontSize: 38, fontWeight: 700, color: RED })}>{`จุดคุ้มทุน อายุ ${be.age}`}</div>
             <div style={box({ fontSize: 52, fontWeight: 700 })}>{`ขอคืนได้ ${be.cash} บาท`}</div>
-            <div style={box({ fontSize: 34 })}>{`มากกว่าที่จ่ายไป ${f.totalPaid} บาท`}</div>
+            <div style={box({ fontSize: 34 })}>{breakEvenNote(f)}</div>
           </div>
         ) : (
           <div style={box({ fontSize: 46, fontWeight: 700 })}>{`อายุ ${last?.age ?? f.coverToAge} มูลค่าเงินสด ${last?.cash ?? ""} บาท`}</div>
@@ -1566,9 +1580,53 @@ function FamilyScene({ c, t }: { c: MotionContext; t: number }) {
 export const tpBigSize = (sum: number) => (sum >= 10_000_000 ? 138 : 160);
 export const tpFamilyPill = (f: QuoteVideoFacts) => `ออมครบแล้ว ยังคุ้มครองต่ออีก ${f.coverToAge - f.age - (f.payYears ?? 0)} ปี`;
 
+/** อีซี่ โพรเทค 6: the six premiums, nothing after them, the cover to 99 */
+function CoverPaidUp({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.easyprotect;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!g) return null;
+  const d = motionTpDraw(s, t);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 66, fontWeight: 700, color: WHITE }}>{f.coverTitle}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 44, color: WHITE, opacity: 0.9 }}>{f.coverNote}</El>
+      <div style={abs({ left: SIDE, top: 420, width: w })}>{epCoins(f, g, d, w)}</div>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 690, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "10px 36px", fontSize: 46, fontWeight: 600 })}>{epDonePill(g)}</div>
+      </El>
+      <div style={abs({ left: SIDE, top: 900, width: w })}>{tpRoad(f, g, d, w, 1, epRoadWord(g))}</div>
+      <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 1210, justifyContent: "center", fontSize: 35, color: WHITE, opacity: 0.9 }}>{epFloorNote(g)}</El>
+    </>
+  );
+}
+
+/** อีซี่ โพรเทค 6's fourth scene: what is paid beside what the family receives */
+function EpTotalScene({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.easyprotect;
+  const s = motionSpec("total", f, c.voiceSec);
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 60, fontWeight: 700, color: WHITE }}>{EP_TOTAL_KICKER}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 295, fontSize: 40, color: WHITE, opacity: 0.9 }}>{f.insuredLine}</El>
+      <div style={abs({ left: SIDE, top: 390, width: w })}>{epTotalPicture(g, motionTpDraw(s, t), w, 840)}</div>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1270, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "10px 36px", fontSize: 48, fontWeight: 600 })}>{epTimesPill(g)}</div>
+      </El>
+    </>
+  );
+}
+
 /** 12 พีแอล's fifth scene: what the plan costs beside what comes back */
 function TotalScene({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
+  if (f.easyprotect) return <EpTotalScene c={c} t={t} />;
   const g = f.twelvepl;
   const s = motionSpec("total", f, c.voiceSec);
   if (!g) return null;
@@ -1646,7 +1704,7 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
     price: c.priceJar && jarFits(c.facts) ? <PriceJar c={c} t={t} /> : <Price c={c} t={t} />,
     cover: c.coverRoad && roadFits(c.facts) ? <CoverRoad c={c} t={t} /> : c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
       : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat c={c} t={t} />
-      : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : c.facts.coverStyle === "cashback" ? <CoverCashback c={c} t={t} /> : <CoverRows c={c} t={t} />,
+      : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : c.facts.coverStyle === "cashback" ? <CoverCashback c={c} t={t} /> : c.facts.coverStyle === "paidup" ? <CoverPaidUp c={c} t={t} /> : <CoverRows c={c} t={t} />,
     value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
     compare: <Compare c={c} t={t} />,
     critical: <Critical c={c} t={t} />,

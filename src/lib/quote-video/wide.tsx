@@ -6,6 +6,7 @@ import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
 import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
 import { abs, box, chartPaths, coverGroupStarts, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionDraw, motionSpec, motionTpDraw, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, tpFamilyPill, type Anim } from "./motion";
+import { breakEvenNote, EP_TOTAL_KICKER, epCoins, epDonePill, epFloorNote, epRoadWord, epTimesPill, epTotalPicture } from "./easyprotect-pictures";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture } from "./twelvepl-pictures";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat } from "./rider-pictures";
 import { leadBig, leadPill } from "./plb";
@@ -352,9 +353,56 @@ function FamilyScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   );
 }
 
+/** อีซี่ โพรเทค 6: the six premiums, nothing after them, the cover to 99 (motion.tsx CoverPaidUp) */
+function CoverPaidUp({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const ep = f.easyprotect;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!ep) return null;
+  const d = motionTpDraw(s, t);
+  const full = g.w - g.side * 2;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={f.coverTitle} />
+      <Body g={g} style={{ flexDirection: "column" }}>
+        <El an={s.sub} t={t} style={{ fontSize: g.px(30, 36), color: WHITE, opacity: 0.9, marginBottom: g.px(16, 18) }}>{f.coverNote}</El>
+        {epCoins(f, ep, d, full, g.px(0.9, 1))}
+        <El an={s.pill} t={t} style={{ ...tpPill(g, true), marginTop: g.px(16, 18), marginBottom: g.px(16, 14) }}>{epDonePill(ep)}</El>
+        {tpRoad(f, ep, d, full, g.px(0.76, 0.76), epRoadWord(ep))}
+        <El an={s.note} t={t} style={{ fontSize: g.px(26, 30), color: WHITE, opacity: 0.9, marginTop: 4 }}>{epFloorNote(ep)}</El>
+      </Body>
+    </>
+  );
+}
+
+/** อีซี่ โพรเทค 6's fourth scene (motion.tsx EpTotalScene) */
+function EpTotalScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const ep = f.easyprotect;
+  const s = motionSpec("total", f, c.voiceSec);
+  if (!ep) return null;
+  const full = g.w - g.side * 2;
+  const picW = g.wide ? 1000 : full;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={EP_TOTAL_KICKER} />
+      <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
+        {epTotalPicture(ep, motionTpDraw(s, t), picW, g.px(520, 630), g.px(0.66, 0.78))}
+        <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - picW - 60 } : { marginTop: 8 }) })}>
+          <El an={s.sub} t={t} style={{ fontSize: g.px(26, 36), color: WHITE, opacity: 0.9, marginBottom: g.px(6, 24) }}>{f.insuredLine}</El>
+          <El an={s.pill} t={t} style={{ ...tpPill(g, true), fontSize: g.px(30, 34) }}>{epTimesPill(ep)}</El>
+        </div>
+      </Body>
+    </>
+  );
+}
+
 /** 12 พีแอล's fifth scene: what the plan costs beside what comes back, the words beside (landscape) or above the bars */
 function TotalScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
+  if (f.easyprotect) return <EpTotalScene g={g} c={c} t={t} />;
   const tp = f.twelvepl;
   const s = motionSpec("total", f, c.voiceSec);
   if (!tp) return null;
@@ -879,7 +927,7 @@ function Value({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
             <div style={box({ flexDirection: "column" })}>
               <div style={box({ fontSize: g.px(28, 38), fontWeight: 700, color: RED })}>{`จุดคุ้มทุน อายุ ${be.age}`}</div>
               <div style={box({ fontSize: g.px(36, 52), fontWeight: 700 })}>{`ขอคืนได้ ${be.cash} บาท`}</div>
-              <div style={box({ fontSize: g.px(24, 32) })}>{`มากกว่าที่จ่ายไป ${f.totalPaid} บาท`}</div>
+              <div style={box({ fontSize: g.px(24, 32) })}>{breakEvenNote(f)}</div>
             </div>
           ) : (
             <div style={box({ fontSize: g.px(32, 44), fontWeight: 700 })}>{`อายุ ${last?.age ?? f.coverToAge} มูลค่าเงินสด ${last?.cash ?? ""} บาท`}</div>
@@ -1001,7 +1049,7 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
     price: <Price g={g} c={c} t={t} />,
     cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} />
       : c.facts.coverStyle === "bands" ? <CoverBands g={g} c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat g={g} c={c} t={t} />
-      : c.facts.coverStyle === "payback" ? <CoverPayback g={g} c={c} t={t} /> : c.facts.coverStyle === "cashback" ? <CoverCashback g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
+      : c.facts.coverStyle === "payback" ? <CoverPayback g={g} c={c} t={t} /> : c.facts.coverStyle === "cashback" ? <CoverCashback g={g} c={c} t={t} /> : c.facts.coverStyle === "paidup" ? <CoverPaidUp g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
     value: c.facts.pension ? <PensionValue g={g} c={c} t={t} /> : <Value g={g} c={c} t={t} />,
     compare: <Compare g={g} c={c} t={t} />,
     critical: <Critical g={g} c={c} t={t} />,

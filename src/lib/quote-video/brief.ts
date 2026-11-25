@@ -74,6 +74,10 @@ export const STORIES: StoryAngle[] = [
   { key: "gsbonus", product: "GSAVING", name: "โบนัสตามดัชนีโลก", about: "มีโบนัสตามดัชนีโลกเพิ่มจากเงินคืน จ่ายสิ้นปีที่ 10 และตอนครบสัญญา โบนัสส่วนนี้ไม่แน่นอน" },
   { key: "gstax", product: "GSAVING", name: "ลดหย่อนภาษี", about: "ระหว่างที่ออม ยอดออมนำไปลดหย่อนภาษีได้ตามเกณฑ์สรรพากร" },
   { key: "gsshort", product: "GSAVING", name: "ออมสั้น ครบเร็ว", about: "ออมแค่ 8 ปี ครบสัญญา 15 ปี ระหว่างนั้นยังคุ้มครองชีวิตด้วย" },
+  // อีซี่ โพรเทค 6 (owner, 2026-11-26)
+  { key: "epshort", product: "EASYPROTECT", name: "ออม 6 ปี แล้วจบ", about: "ออมแค่ 6 ปีแล้วไม่ต้องจ่ายอีก แต่คุ้มครองยาวถึงอายุ 99" },
+  { key: "epfamily", product: "EASYPROTECT", name: "เงินก้อนให้ครอบครัว", about: "ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อน ดูแลคนที่รักแทนเรา" },
+  { key: "epcash", product: "EASYPROTECT", name: "เงินออมไม่หาย", about: "เงินที่ออมไว้มีมูลค่าเงินสดโตทุกปี ถึงอายุหนึ่งขอคืนได้ครบเท่าที่ออม", when: (f) => Boolean(f.breakEven) },
   // 12 พีแอล (owner, 2026-11-26): the cash backs and the maturity are certain, the dividend is not said
   { key: "tpback", product: "TWELVEPL", name: "เงินคืนทุกปี", about: "มีเงินคืนทุกปีตั้งแต่ปีที่ 2 และเงินก้อนตอนครบอายุ 85 เมื่อถือครบสัญญา ส่วนนี้ได้แน่นอน" },
   { key: "tpshort", product: "TWELVEPL", name: "ออม 12 ปี คุ้มครองยาว", about: "ออมแค่ 12 ปี แต่คุ้มครองชีวิตยาวถึงอายุ 85" },
@@ -171,6 +175,11 @@ export function allowedNumbers(f: QuoteVideoFacts, note = ""): Set<number> {
     const g = f.gsaving;
     for (const n of [g.premium, g.perDay, g.payYears, g.term, g.paid, g.payback, g.maturity, g.guaranteed, g.deathMax, g.taxYearly, g.total, g.bonus10, g.bonus15, g.bonusAll, g.bonusAll - g.bonus15, g.maturityPct, ...g.bonusYears]) add(typeof n === "number" ? Math.round(n) : n);
   }
+  if (f.easyprotect) {
+    const g = f.easyprotect;
+    for (const n of [g.sum, g.payYears, g.payYears + 1, g.lastPayAge, g.coverToAge, g.paid, g.endCash, g.floorPercent]) add(n);
+    add(g.annual); add(g.times);
+  }
   if (f.twelvepl) {
     const g = f.twelvepl;
     for (const n of [g.sum, g.payYears, g.lastPayAge, g.coverToAge, g.paid, g.cashFirst, g.cashFull, g.cashFullYear, g.cashBacks, g.maturity, g.guaranteed, g.tax]) add(n === undefined ? n : Math.round(n));
@@ -239,6 +248,11 @@ export function lineProblem(text: string, f: QuoteVideoFacts, max: number, note 
     if (f.twelvepl && numbersIn(t).some((n) => n === Math.round(f.twelvepl!.guaranteed)) && !/ครบ/.test(t)) return "พูดยอดรับรวมโดยไม่บอกว่าถือครบสัญญา";
     if (f.twelvepl?.tax === undefined && /ภาษี/.test(t)) return "อายุนี้ไม่พูดเรื่องลดหย่อนภาษี";
   }
+  // อีซี่ โพรเทค 6: the page promises no tax relief, and the break-even year may pay back only what was paid
+  if (f.product === "EASYPROTECT") {
+    if (/ภาษี/.test(t)) return "แบบนี้ไม่พูดเรื่องลดหย่อนภาษี";
+    if (/มากกว่าที่ออม|เกินที่ออม/.test(t)) return "พูดว่าได้คืนมากกว่าที่ออม";
+  }
   // ตั้งค่าส่วนตัว (owner, 2026-11-14): never an instalment the agent hid; บำนาญ 95's own pension is paid monthly and may be said
   if (f.hide?.includes("monthly") && (f.product === "PENSION" ? /รายเดือน|(ออม|จ่าย|ค่าใช้จ่าย)\s*(ต่อ)?เดือนละ/ : /รายเดือน|เดือนละ|ต่อเดือน/).test(t)) return "พูดถึงการจ่ายรายเดือน (ตัวแทนปิดไว้)";
   if (f.hide?.includes("semi") && /ราย\s*6\s*เดือน|งวดละ/.test(t)) return "พูดถึงการจ่ายราย 6 เดือน (ตัวแทนปิดไว้)";
@@ -299,6 +313,7 @@ export function settleHook(b: VideoBrief, f: QuoteVideoFacts, seed = 0): Exclude
     lump: ["question", "shock"], room: ["shock", "list"], compare: ["list", "question"],
     salary: ["question", "story"], tax: ["shock", "list"], guarantee: ["myth", "list"], steps: ["list", "shock"],
     family: ["question", "story"], illness: ["myth", "question"], light: ["shock", "list"],
+    epshort: ["myth", "list"], epfamily: ["question", "story"], epcash: ["myth", "shock"],
     tpback: ["question", "list"], tpshort: ["myth", "shock"], tpfamily: ["story", "question"], tptax: ["list", "shock"],
     plbfamily: ["question", "story"], plbburden: ["story", "list"], plblight: ["shock", "myth"], plbtax: ["list", "shock"],
   };
@@ -327,6 +342,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: "ถ้าพรุ่งนี้คุณไม่อยู่ ครอบครัวจะมีเงินก้อนดูแลต่อไหมคะ",
       PLB: "ถ้าพรุ่งนี้คุณไม่อยู่ ภาระที่ยังผ่อนอยู่ ใครจะจ่ายต่อคะ",
       GSAVING: "เงินเก็บของคุณ ตอนนี้งอกเงยบ้างไหมคะ",
+      EASYPROTECT: "ถ้าออมแค่ 6 ปี แล้วครอบครัวมีเงินก้อนไปถึงอายุ 99 จะเริ่มวันนี้ไหมคะ",
       TWELVEPL: "ถ้ามีเงินคืนให้ทุกปี และมีก้อนใหญ่รอตอนครบสัญญา จะเริ่มออมวันนี้ไหมคะ",
     },
     shock: {
@@ -337,6 +353,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: perDay ? `ค่าใช้จ่ายปีแรกวันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
       PLB: perDay ? `ค่าใช้จ่ายวันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
       GSAVING: perDay ? `ออมวันละ ${perDay} บาท แค่ 8 ปี รับคืนรวม ${lead}` : `ออมแค่ 8 ปี รับคืนรวม ${lead}`,
+      EASYPROTECT: `ออมแค่ 6 ปี ครอบครัวได้${f.easyprotect?.atLeast ? "อย่างน้อย " : "เงินก้อน "}${lead}`,
       TWELVEPL: `ออมแค่ 12 ปี ถือครบถึงอายุ 85 รับคืนรวม ${lead}`,
     },
     myth: {
@@ -347,6 +364,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: "หลายคนคิดว่าประกันชีวิตดูแลแค่ครอบครัว แต่แผนนี้ ป่วยหนักก็ได้เงินก้อนไว้รักษาตัวเองค่ะ",
       PLB: perDay ? `หลายคนคิดว่าประกันชีวิตต้องแพง แต่แผนนี้ ค่าใช้จ่ายแค่วันละ ${perDay} บาทค่ะ` : "หลายคนคิดว่าประกันชีวิตต้องแพง แต่แผนนี้ ค่าใช้จ่ายเบาและเท่าเดิมทุกปีค่ะ",
       GSAVING: "หลายคนคิดว่าประกันออมทรัพย์ต้องออมนาน แต่แผนนี้ออมแค่ 8 ปีก็ครบค่ะ",
+      EASYPROTECT: "หลายคนคิดว่าประกันตลอดชีพต้องจ่ายไปจนแก่ แต่แผนนี้ออมแค่ 6 ปีก็ครบค่ะ",
       TWELVEPL: "หลายคนคิดว่าประกันชีวิตต้องออมยาวหลายสิบปี แต่แผนนี้ออมแค่ 12 ปี คุ้มครองถึงอายุ 85 ค่ะ",
     },
     story: {
@@ -357,6 +375,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: `ลองนึกภาพนะคะ ${aud?.scene ?? "คนที่คุณรักต้องใช้ชีวิตต่อ"} ถ้าวันหนึ่งคุณไม่อยู่ ใครจะดูแลต่อ`,
       PLB: `ลองนึกภาพนะคะ ${aud?.scene ?? "บ้านยังผ่อน ลูกยังเรียน"} ถ้าวันหนึ่งคุณไม่อยู่ ใครจะดูแลต่อ`,
       GSAVING: `ลองนึกภาพนะคะ ${aud?.scene ?? "อีก 15 ปีข้างหน้า"} มีเงินก้อนรออยู่ จากการออมแค่ 8 ปี`,
+      EASYPROTECT: `ลองนึกภาพนะคะ ${aud?.scene ?? "คนที่คุณรักต้องใช้ชีวิตต่อ"} ถ้าวันหนึ่งคุณไม่อยู่ ใครจะดูแลต่อ`,
       TWELVEPL: `ลองนึกภาพนะคะ ${aud?.scene ?? "หยุดออมไปนานแล้ว"} แต่ยังมีเงินคืนเข้ามาทุกปี`,
     },
     list: {
@@ -367,6 +386,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง เงินก้อนให้ครอบครัว ${lead} สอง ป่วยหนักได้เงินก้อนรักษาตัว สาม ประกันชีวิตยังอยู่ต่อ`,
       PLB: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง เงินก้อนให้ครอบครัว ${lead} สอง ค่าใช้จ่ายเท่าเดิมทุกปี สาม เลือกระยะได้ตามภาระ`,
       GSAVING: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ออมแค่ 8 ปี สอง ได้เงินคืนทุกปี สาม มีโบนัสตามดัชนีโลก",
+      EASYPROTECT: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ออมแค่ 6 ปี สอง ยอดออมเท่าเดิมทุกปี สาม คุ้มครองถึงอายุ 99",
       TWELVEPL: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ออมแค่ 12 ปี สอง ได้เงินคืนทุกปี สาม คุ้มครองถึงอายุ 85",
     },
   };
@@ -379,6 +399,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: ["ถ้าพรุ่งนี้คุณไม่อยู่", "ครอบครัวมีเงินก้อนไหม?"],
       PLB: ["ถ้าพรุ่งนี้คุณไม่อยู่", "ภาระใครจ่ายต่อ?"],
       GSAVING: ["เงินเก็บของคุณ", "งอกเงยบ้างไหม?"],
+      EASYPROTECT: ["ออมแค่ 6 ปี", "ดูแลถึงอายุ 99"],
       TWELVEPL: ["เงินคืนให้ทุกปี", "เริ่มวันนี้ดีไหม?"],
     },
     shock: {
@@ -389,6 +410,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: perDay ? [`ปีแรกวันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       PLB: perDay ? [`วันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       GSAVING: [perDay ? `ออมวันละ ${perDay} บาท` : "ออมแค่ 8 ปี", `รับคืนรวม ${lead}`],
+      EASYPROTECT: [perDay ? `วันละ ${perDay} บาท` : "ออมแค่ 6 ปี", `เงินก้อน ${lead}`],
       TWELVEPL: [perDay ? `ออมวันละ ${perDay} บาท` : "ออมแค่ 12 ปี", "มีเงินคืนทุกปี"],
     },
     myth: {
@@ -399,6 +421,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: ["ประกันชีวิต", "ดูแลแค่ครอบครัว จริงไหม?"],
       PLB: ["ประกันชีวิต", "ต้องแพง จริงไหม?"],
       GSAVING: ["ประกันออมทรัพย์", "ต้องออมนาน จริงไหม?"],
+      EASYPROTECT: ["ประกันตลอดชีพ", "ต้องจ่ายจนแก่ จริงไหม?"],
       TWELVEPL: ["ประกันชีวิต", "ต้องออมนาน จริงไหม?"],
     },
     story: {
@@ -409,6 +432,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: ["ถ้าวันหนึ่งคุณไม่อยู่", "ใครจะดูแลต่อ?"],
       PLB: ["ถ้าวันหนึ่งคุณไม่อยู่", "ใครจะดูแลต่อ?"],
       GSAVING: ["อีก 15 ปีข้างหน้า", "มีเงินก้อนรอไหม?"],
+      EASYPROTECT: ["ถ้าวันหนึ่งคุณไม่อยู่", "ใครจะดูแลต่อ?"],
       TWELVEPL: ["หยุดออมแล้ว", "ยังมีเงินคืนทุกปี"],
     },
     list: {
@@ -419,6 +443,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       LEGACY: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       PLB: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       GSAVING: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
+      EASYPROTECT: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       TWELVEPL: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
     },
   };
@@ -437,6 +462,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     LEGACY: "ยินดีช่วยดูแผนมรดกให้ครอบครัวของคุณค่ะ",
     PLB: "ยินดีช่วยเลือกระยะคุ้มครองให้พอดีกับภาระค่ะ",
     GSAVING: "ยินดีช่วยวางแผนออมให้ค่ะ",
+    EASYPROTECT: "ยินดีช่วยดูแผนให้ครอบครัวของคุณค่ะ",
     TWELVEPL: "ยินดีช่วยวางแผนออมให้ค่ะ",
   };
   const tails: Record<Product, string> = {
@@ -447,6 +473,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     LEGACY: "แผนนี้คือเงินก้อนที่ดูแลคนที่คุณรัก และดูแลตัวคุณเองตอนป่วยหนักค่ะ",
     PLB: "แผนนี้คือเงินก้อนที่ดูแลคนที่คุณรัก ในช่วงที่ภาระยังอยู่ค่ะ",
     GSAVING: "แผนนี้คือเงินออมที่ได้คืนแน่นอน และมีโอกาสโตตามดัชนีโลกค่ะ",
+    EASYPROTECT: "แผนนี้คือเงินก้อนที่ดูแลคนที่คุณรักแทนคุณ โดยออมแค่ 6 ปีค่ะ",
     TWELVEPL: "แผนนี้คือเงินออมที่คืนให้ทุกปี และดูแลคนที่คุณรักไปด้วยค่ะ",
   };
   const points: Record<Product, string[]> = {
@@ -457,6 +484,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     LEGACY: ["ภาระยังอยู่", "ป่วยหนักต้องใช้เงินก้อน", "มรดกดูแลทั้งสองทาง"],
     PLB: ["ภาระยังผ่อนอยู่", "คนที่รักยังต้องใช้เงิน", "เงินก้อนดูแลแทนคุณ"],
     GSAVING: ["ออมสั้นแค่ 8 ปี", "เงินคืนทุกปี", "โบนัสตามดัชนีโลก"],
+    EASYPROTECT: ["ออมแค่ 6 ปี", "ยอดเท่าเดิมทุกปี", "คุ้มครองถึงอายุ 99"],
     TWELVEPL: ["ออมแค่ 12 ปี", "เงินคืนทุกปี", "คุ้มครองถึงอายุ 85"],
   };
   return {

@@ -71,6 +71,11 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     // 12 พีแอล (owner, 2026-11-26): the plan's own premiums against what comes back for certain by 85
     : f.product === "TWELVEPL" && f.twelvepl
       ? { left: { label: `ออม ${f.twelvepl.payYears} ปี รวม${f.riders ? " (สัญญาหลัก)" : ""}`, amount: f.totalPaid ?? "", unit: "บาท" }, right: { label: `ถือครบถึงอายุ ${f.twelvepl.coverToAge} รับการันตี`, amount: f.lead.amount, unit: "บาท" }, note: `+ คุ้มครองชีวิต ${f.twelvepl.sum.toLocaleString("en-US")} บาท ตลอดทาง` }
+    // อีซี่ โพรเทค 6 (owner, 2026-11-26): the premiums against what the family receives; where they reach the sum, what the plan is for
+    : f.product === "EASYPROTECT" && f.easyprotect
+      ? f.easyprotect.times
+        ? { left: { label: `เก็บเงินเอง ${f.easyprotect.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" }, right: { label: `ครอบครัวได้${f.easyprotect.atLeast ? "อย่างน้อย" : "เงินก้อน"}`, amount: bahtSaid(f.easyprotect.sum), unit: "บาท" }, note: f.breakEven ? `อายุ ${f.breakEven.age} ขอคืนได้ ${f.breakEven.cash} บาท` : "เงินที่ออมไม่หายไปไหน" }
+        : { left: { label: "แผนนี้ จ่ายแค่", amount: String(f.easyprotect.payYears), unit: "ปี" }, right: { label: "คุ้มครองถึงอายุ", amount: String(f.easyprotect.coverToAge), unit: "ปี" }, note: "ไม่ต้องจ่ายอีกหลังจ่ายครบ" }
       : {
         left: { label: f.payToEnd ? `เก็บเงินเองถึงอายุ ${f.lastPayAge}` : `เก็บเงินเอง ${f.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" },
         right: { label: f.product === "ISHIELD" ? "รับเงินก้อนสูงสุด" : "ครอบครัวได้เงินก้อน", amount: bahtSaid(f.lead.baht), unit: "บาท" },
@@ -107,6 +112,12 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
       }
       if (f.product === "GSAVING" && f.gsaving) {
         return `ออม ${f.gsaving.payYears} ปี รวม ${x.versus.left.amount} บาท แผนนี้รับคืนการันตี ${x.versus.right.amount} บาท ระหว่างนั้นยังคุ้มครองชีวิต และมีโอกาสได้โบนัสตามดัชนีโลกอีกค่ะ`;
+      }
+      if (f.product === "EASYPROTECT" && f.easyprotect) {
+        const g = f.easyprotect;
+        return g.times
+          ? `ถ้าเก็บเงินเอง ${g.payYears} ปี จะมีเงิน ${x.versus.left.amount} บาท แต่แผนนี้ ครอบครัวได้${g.atLeast ? "อย่างน้อย" : "เงินก้อน"} ${x.versus.right.amount}บาท ตั้งแต่ปีแรกค่ะ`.replace(/(\d)บาท/, "$1 บาท")
+          : `ออมแค่ ${g.payYears} ปี หลังจากนั้นไม่ต้องจ่ายอีก แต่คุ้มครองไปถึงอายุ ${g.coverToAge} ค่ะ`;
       }
       if (f.product === "TWELVEPL" && f.twelvepl) {
         return `${f.riders ? "เฉพาะสัญญาหลัก " : ""}ออม ${f.twelvepl.payYears} ปี รวม ${x.versus.left.amount} บาท ถือครบถึงอายุ ${f.twelvepl.coverToAge} รับการันตี ${x.versus.right.amount} บาท ระหว่างนั้นยังคุ้มครองชีวิต ${f.twelvepl.sum.toLocaleString("en-US")} บาทด้วยค่ะ`;

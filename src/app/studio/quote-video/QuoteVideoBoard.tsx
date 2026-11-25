@@ -14,7 +14,7 @@ import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_LABELS, type ThemeKey 
 import { festivalOn } from "@/lib/quote-video/festival";
 import { QUOTE_VIDEO_COLORS, RECIPE_COLORS, VIDEO_FESTIVAL_COLORS } from "@/lib/card-theme";
 import { nextRecipe, readRecipe, RECIPE_NAMES, type RecipeKey } from "@/lib/quote-video/recipe-keys";
-import { PLB_SUMS } from "@/lib/quote-pdf/pages";
+import { EASYPROTECT_SUMS, PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 import { formatBaht } from "@/lib/wallet/money";
@@ -76,6 +76,7 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   // one entry for both plans: the form's แบบ picks 15/8 or 25/5 (owner, 2026-11-16)
   { code: "GSAVING", name: "Global Savings", page: "/global-saving" },
   { code: "TWELVEPL", name: "12PL", page: "/12pl" },
+  { code: "EASYPROTECT", name: "Easy Protect 6", page: "/easyprotect" },
 ];
 /** Global Savings' index returns the agent picks the clip's example at (owner, 2026-10-20): −1% to +5% */
 const GS_RATE_CHOICES = [-1, 0, 1, 2, 3, 4, 5];
@@ -498,6 +499,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         : product === "GSAVING"
           // a budget works the premium out itself
           ? { product, sex, age: Number(age), premium: Number(gsPremium.replace(/[^\d]/g, "")), rate: gsRate, ...(gsPlan === "25/5" ? { plan: gsPlan } : {}), ...look }
+        : product === "EASYPROTECT"
+          ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
         : product === "TWELVEPL"
           ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), dividend, ...(lpRiders ? { riders: lpRiders } : {}), ...look }
           : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...(lpRiders ? { riders: lpRiders } : {}), ...look };
@@ -509,6 +512,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     setAge((a) => String(Math.min(ages[p].max, Math.max(ages[p].min, Number(a) || 35))));
     if (termed(p)) setVariant(DEFAULT_TERM[p]);
     // Protection Life's sums are its page's steps: anything else opens on its page's 1 ล้าน
+    if (p === "EASYPROTECT") setSum((was) => (EASYPROTECT_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
     if (p === "PLB") setSum((was) => (PLB_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
   }
   function toggleCompare(code: string) {
@@ -708,8 +712,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ? `${source === "sum" ? `บำนาญเดือนละ ${monthly}` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · รับ ${pensionStart} · ${pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
       : product === "LEGACY"
         ? (source === "sum" ? `มรดก ${tier} ล้าน` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
-      : product === "TWELVEPL"
-        ? `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · 12 ปี`
+      : product === "TWELVEPL" || product === "EASYPROTECT"
+        ? `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${product === "EASYPROTECT" ? 6 : 12} ปี`
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
       kind === "quote" && !recipeOn ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
@@ -964,7 +968,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                         : product === "LEGACY" ? "ระบบเลือกขนาดมรดกที่ใหญ่ที่สุดที่ค่าใช้จ่ายปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท"
                         : product === "PLB" ? "ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า Protection Life) ที่ค่าใช้จ่ายไม่เกินงบ ในระยะที่เลือก · รายเดือนขั้นต่ำ 1,000 บาท"
                         : product === "GSAVING" ? "แบบนี้จ่ายรายปี งบต่อเดือนคิดเป็นเบี้ยปีละ 12 เท่า · ขั้นต่ำปีละ 20,000 บาท"
-                        : product === "TWELVEPL" ? "ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า 12PL) ที่เบี้ยไม่เกินงบ" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+                        : product === "TWELVEPL" || product === "EASYPROTECT" ? `ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า ${product === "TWELVEPL" ? "12PL" : "Easy Protect 6"}) ที่เบี้ยไม่เกินงบ` : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
                     </div>
                   ) : product === "PENSION" ? (
                     <div>
@@ -990,7 +994,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                     <div>
                       <label htmlFor="qv-sum" className={label}>ทุนประกัน (บาท)</label>
                       <input id="qv-sum" inputMode="numeric" className={field} value={sum} onChange={(e) => setSum(money(e))} />
-                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "LIFEPROTECT" ? "150,000 – 50,000,000 ใส่ได้ทุกบาท เหมือนหน้า Life Protect" : product === "TWELVEPL" ? "100,000 – 50,000,000 เหมือนหน้า 12PL · รับอายุ 0–60 ปี" : "ทีละ 50,000"}</p>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "LIFEPROTECT" ? "150,000 – 50,000,000 ใส่ได้ทุกบาท เหมือนหน้า Life Protect" : product === "EASYPROTECT" ? "500,000 – 10,000,000 ทีละแสน เกิน 3 ล้านทีละห้าแสน · รับอายุ 0–80 ปี" : product === "TWELVEPL" ? "100,000 – 50,000,000 เหมือนหน้า 12PL · รับอายุ 0–60 ปี" : "ทีละ 50,000"}</p>
                     </div>
                   )}
                   {termed(product) && (

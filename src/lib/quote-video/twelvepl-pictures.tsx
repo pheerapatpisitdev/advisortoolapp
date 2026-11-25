@@ -80,7 +80,7 @@ export function tpSureCard(f: QuoteVideoFacts, d: TpDraw, w: number, big = 1): R
 }
 
 /** the family's sum along the insured's years: the years paid, then the years covered with nothing left to pay */
-export function tpRoad(f: QuoteVideoFacts, g: TwelvePlVideoFacts, d: TpDraw, w: number, big = 1): ReactNode {
+export function tpRoad(f: QuoteVideoFacts, g: Pick<TwelvePlVideoFacts, "payYears" | "coverToAge">, d: TpDraw, w: number, big = 1, words?: string): ReactNode {
   const { pal } = d;
   const span = g.coverToAge - f.age;
   const paidTo = f.age + g.payYears;
@@ -94,7 +94,7 @@ export function tpRoad(f: QuoteVideoFacts, g: TwelvePlVideoFacts, d: TpDraw, w: 
       {d.piece("roadLabel", { width: w, justifyContent: "space-between", marginBottom: px(14, big), fontSize: px(36, big), color: pal.ink }, (
         <>
           <div style={box({})}>{inside ? "" : `ออม ${g.payYears} ปี`}</div>
-          <div style={box({})}>{`คุ้มครองต่ออีก ${g.coverToAge - paidTo} ปี`}</div>
+          <div style={box({})}>{words ?? `คุ้มครองต่ออีก ${g.coverToAge - paidTo} ปี`}</div>
         </>
       ))}
       <div style={box({ position: "relative", width: w, height: bar })}>

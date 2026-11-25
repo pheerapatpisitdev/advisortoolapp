@@ -91,6 +91,14 @@ export function productQas(product: Product, variant?: string, gs?: GsQaFacts, t
         { key: "years", q: "ต้องออมกี่ปี", a: `ออม ${gs?.payYears ?? 8} ปีค่ะ ครบสัญญาปีที่ ${gs?.term ?? 15} ระหว่างนั้นยังคุ้มครองชีวิตด้วย` },
         { key: "min", q: "ออมขั้นต่ำเท่าไหร่", a: "ขั้นต่ำปีละ 20,000 บาทค่ะ" },
       ];
+    // อีซี่ โพรเทค 6 (owner, 2026-11-26): its page's own lines (EasyProtectCalculator.tsx, plan-notes.ts)
+    case "EASYPROTECT":
+      return [
+        { key: "years", q: "ต้องออมกี่ปี", a: "ออม 6 ปีค่ะ หลังจากนั้นไม่ต้องจ่ายอีก แต่คุ้มครองไปถึงอายุ 99" },
+        { key: "level", q: "ยอดออมขึ้นตามอายุไหม", a: "ไม่ขึ้นค่ะ ล็อกตามอายุวันที่เริ่ม เท่าเดิมตลอด 6 ปี" },
+        { key: "floor", q: "ถ้าเป็นอะไรไป ครอบครัวได้เท่าไหร่", a: "ได้ตามทุนค่ะ และไม่น้อยกว่า 101% ของที่ออมมาแล้ว" },
+        { key: "back", q: "ถ้าอยากได้เงินคืนล่ะ", a: "มีมูลค่าเงินสดโตทุกปีค่ะ ขอคืนได้ตามตาราง แต่ถ้าขอคืนเร็วอาจได้น้อยกว่าที่ออม" },
+      ];
     // 12 พีแอล (owner, 2026-11-26): the plan's own rules, as the bots say them (src/lib/copilot/knowledge.ts)
     case "TWELVEPL":
       return [
@@ -119,6 +127,7 @@ const FIRST: Record<string, string[]> = {
   family: ["until", "after"], illness: ["after", "count"], light: ["rises", "monthly"],
   plbfamily: ["covers", "end"], plbburden: ["covers", "level"], plblight: ["level", "monthly"], plbtax: ["tax", "level"],
   gssure: ["sure", "years"], gsbonus: ["bonus", "sure"], gstax: ["tax", "years"], gsshort: ["years", "sure"],
+  epshort: ["years", "level"], epfamily: ["floor", "years"], epcash: ["back", "years"],
   tpback: ["back", "sure"], tpshort: ["years", "life"], tpfamily: ["life", "years"], tptax: ["tax", "years"],
 };
 
