@@ -1,7 +1,8 @@
 "use client";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { Who } from "@/lib/shell/menu";
+import Link from "next/link";
+import { WHATS_NEW, type Who } from "@/lib/shell/menu";
 import { freshHere, type FreshItem } from "@/lib/updates/rules";
 import { markOpened, useWho, wasOpened } from "./who-client";
 
@@ -29,18 +30,27 @@ export function FreshStrip({ who: given }: { who?: Who | null }) {
   }, [path, fresh, shown]);
 
   if (shown.path !== path || shown.items.length === 0) return null;
+  // One line, as the mockup drew it: the newest change in full, the rest as a count that leads to the list.
+  // A page with nine changes in the fortnight would otherwise push its calculator off a phone's screen.
+  const [first, ...rest] = shown.items;
   return (
     <aside className="shell-fresh print:hidden" aria-label="มีอะไรใหม่ในหน้านี้">
       <ul>
-        {shown.items.map((f) => (
-          <li key={f.id}>
-            <span className="shell-new">New</span>
-            <span className="min-w-0">
-              <b>{f.title}</b>
-              {f.body && <> · {f.body}</>}
-            </span>
-          </li>
-        ))}
+        <li>
+          <span className="shell-new">New</span>
+          <span className="min-w-0">
+            <b>{first.title}</b>
+            {first.body && <> · {first.body}</>}
+            {rest.length > 0 && (
+              <>
+                {" "}
+                <Link href={WHATS_NEW.href} className="whitespace-nowrap underline">
+                  และอีก {rest.length} เรื่องในหน้านี้
+                </Link>
+              </>
+            )}
+          </span>
+        </li>
       </ul>
     </aside>
   );
