@@ -191,9 +191,9 @@ const under = (next: string, path: string) => next === path || next.startsWith(`
 
 /**
  * the pages an outside member needs a live pass for: หน้าหลัก, ถาม AI and Studio (owner,
- * 2026-10-13; /ask since 2026-10-14), and the calculators (2026-10-20)
+ * 2026-10-13; /ask since 2026-10-14), the calculators (2026-10-20) and โรงพยาบาลในเครือ (2026-11-25)
  */
-const passPage = (next: string) => ["/home", "/ask", "/studio", ...CALC_PATHS].some((p) => under(next, p));
+const passPage = (next: string) => ["/home", "/ask", "/studio", "/hospitals", ...CALC_PATHS].some((p) => under(next, p));
 
 /** สมัครสมาชิก: where a member gives their name and สำนักงาน before anything else (owner, 2026-10-27) */
 export const PROFILE_PAGE = "/signup";

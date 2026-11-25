@@ -54,7 +54,8 @@ export type MenuIcon =
   | "send"
   | "coins"
   | "play"
-  | "bell";
+  | "bell"
+  | "hospital";
 
 export interface MenuLink {
   href: string;
@@ -200,6 +201,14 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     ],
   },
   {
+    // not a plan: where the health plans above are used, the insurer's own list by region and
+    // province (owner, 2026-11-25, ก ×5), named as the owner named it
+    title: "โรงพยาบาล",
+    links: [
+      { href: "/hospitals", label: "โรงพยาบาลในเครือ", icon: "hospital", hue: "#2b6a73" },
+    ],
+  },
+  {
     // Krungthai-AXA's PA, its own heading after health (owner, 2026-11-14, ก): an accident
     // cover is asked for as such, not as a hospital bill
     title: "ประกันอุบัติเหตุ",
@@ -307,6 +316,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#612d7e" },
       // มีอะไรใหม่: Claude's drafts from each push, published to the agents (owner chose 2ก, 2026-11-14)
       { href: "/admin/updates", label: "มีอะไรใหม่", icon: "bell", hue: "#672c7c" },
+      // the departments' numbers on /hospitals, filled in by hand (owner chose 5ก, 2026-11-25)
+      { href: "/admin/hospitals", label: "โรงพยาบาลในเครือ", icon: "hospital", hue: "#6d2b7a" },
     ],
   },
 ];

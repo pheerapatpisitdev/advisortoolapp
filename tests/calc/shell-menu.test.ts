@@ -37,7 +37,7 @@ describe("every place the menu says you can go", () => {
     // find from inside their own tool
     const onDisk = [
       "lifeprotect", "legacy", "plb", "easyprotect", "lifetreasure", "ishield", "ihealthy-ultra",
-      "ihealthy-ultra/compare", "group-insurance", "bumnan95", "ci123", "cancer", "fhc", "global-saving", "global-saving-25-5", "survey", "pa", "tax", "12pl",
+      "ihealthy-ultra/compare", "group-insurance", "bumnan95", "ci123", "cancer", "fhc", "global-saving", "global-saving-25-5", "survey", "pa", "tax", "12pl", "hospitals",
     ];
     expect(SALES_PAGES.map((p) => p.href).sort()).toEqual(onDisk.map((s) => `/${s}`).sort());
   });
@@ -66,7 +66,7 @@ describe("every place the menu says you can go", () => {
   it("deals the sales pages into the kinds of cover, losing none", () => {
     // the planner comes first: it is the page for a customer who does not yet know which kind
     expect(SALES_SECTIONS.map((s) => s.title))
-      .toEqual(["วางแผนประกัน", "ประกันชีวิต", "ประกันออมทรัพย์", "ประกันโรคร้ายแรง", "ประกันสุขภาพ", "ประกันอุบัติเหตุ", "ประกันบำนาญ", "ประกันกลุ่ม", "วางแผนภาษี"]);
+      .toEqual(["วางแผนประกัน", "ประกันชีวิต", "ประกันออมทรัพย์", "ประกันโรคร้ายแรง", "ประกันสุขภาพ", "โรงพยาบาล", "ประกันอุบัติเหตุ", "ประกันบำนาญ", "ประกันกลุ่ม", "วางแผนภาษี"]);
     expect(SALES_SECTIONS.flatMap((s) => s.links)).toEqual(SALES_PAGES);
     // and no page is filed under two kinds at once
     expect(new Set(SALES_PAGES.map((p) => p.href)).size).toBe(SALES_PAGES.length);
@@ -81,13 +81,19 @@ describe("every place the menu says you can go", () => {
   it("names every sales page in English, under headings that stay Thai", () => {
     const THAI = /[\u0E00-\u0E7F]/;
     // สำรวจความคุ้มครอง (2026-10-22) keeps the Thai the owner gave it; คำนวณภาษี 2569
-    // (2026-11-14) is not a plan with an English name of the company's, and is Thai as approved
-    for (const page of SALES_PAGES.filter((p) => p.href !== "/survey" && p.href !== "/tax")) {
+    // (2026-11-14) is not a plan with an English name of the company's, and is Thai as approved;
+    // โรงพยาบาลในเครือ (2026-11-25) is the name the owner gave it
+    for (const page of SALES_PAGES.filter((p) => p.href !== "/survey" && p.href !== "/tax" && p.href !== "/hospitals")) {
       expect(page.label, page.href).not.toMatch(THAI);
     }
     for (const section of SALES_SECTIONS) {
       expect(section.title, section.title).toMatch(THAI);
     }
+  });
+
+  it("lists โรงพยาบาลในเครือ under a heading of its own, right after ประกันสุขภาพ (owner chose ก ×5, 2026-11-25)", () => {
+    const at = SALES_SECTIONS.findIndex((s) => s.title === "ประกันสุขภาพ");
+    expect(SALES_SECTIONS[at + 1]).toEqual({ title: "โรงพยาบาล", links: [{ href: "/hospitals", label: "โรงพยาบาลในเครือ", icon: "hospital", hue: "#2b6a73" }] });
   });
 
   it("lists no destination twice inside one group", () => {
@@ -182,13 +188,14 @@ describe("what the menu shows to somebody who has not signed in", () => {
       // and LINE OA (/admin/line) since 2026-10-15 (เสียงของตัวแทน /admin/voices gone 2026-10-17),
       // กำไรค่า AI (/admin/ai-profit) the same day too (คลังภาพคอลลาจ /admin/collage 2026-10-17, gone 2026-10-20),
       // เปิด-ปิดฟังก์ชัน (/admin/switches) the same day, ประวัติเติมเงิน (/admin/topups) 2026-10-19,
-      // การเชื่อมต่อ (/admin/connections) 2026-11-03, มีอะไรใหม่ (/admin/updates) 2026-11-14
+      // การเชื่อมต่อ (/admin/connections) 2026-11-03, มีอะไรใหม่ (/admin/updates) 2026-11-14,
+      // โรงพยาบาลในเครือ (/admin/hospitals) 2026-11-25
       ["/home", "/admin", "/admin/crm", "/admin/pages", "/admin/line", "/admin/teach", "/admin/ads", "/admin/team", "/admin/members", "/admin/history", "/admin/switches",
-        "/admin/connections", "/admin/wallet", "/admin/prices", "/admin/stats", "/admin/ai", "/admin/updates"].sort(),
+        "/admin/connections", "/admin/wallet", "/admin/prices", "/admin/stats", "/admin/ai", "/admin/updates", "/admin/hospitals"].sort(),
     );
   });
 
-  it("groups the back office's sixteen pages by the job, each with a mark of its own (owner chose ข, 2026-10-15)", () => {
+  it("groups the back office's seventeen pages by the job, each with a mark of its own (owner chose ข, 2026-10-15)", () => {
     const superAdmin = { name: "x", room: "Super Admin", publish: true, connect: true, admin: true, owner: true, super: true };
     const groups = menuGroups(true, superAdmin);
     expect(groups.map((g) => g.title ?? null)).toEqual([null, "1 API ราคา โมเดล", "2 AI Bot", "3 LINE OA", "4 เชื่อมต่อเพจ", "5 ประวัติผู้ใช้", "งานอื่น"]);
@@ -199,10 +206,10 @@ describe("what the menu shows to somebody who has not signed in", () => {
       ["LINE OA"],
       ["เพจและช่องทาง", "ทีมงานและสิทธิ์"],
       ["ประวัติผู้ใช้", "การใช้งานและค่า AI"],
-      ["โฆษณา", "สมาชิกทั่วไป", "มีอะไรใหม่"],
+      ["โฆษณา", "สมาชิกทั่วไป", "มีอะไรใหม่", "โรงพยาบาลในเครือ"],
     ]);
     const links = groups.flatMap((g) => g.links);
-    expect(links).toHaveLength(16);
+    expect(links).toHaveLength(17);
     expect(new Set(links.map((l) => l.icon)).size).toBe(links.length);
     expect(new Set(links.map((l) => l.hue)).size).toBe(links.length);
   });
@@ -211,7 +218,7 @@ describe("what the menu shows to somebody who has not signed in", () => {
     const nobody = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const pages = (w: typeof nobody) => menuGroups(true, w).flatMap((g) => g.links.map((l) => l.href)).filter((h) => h.startsWith("/admin"));
     expect(pages(nobody)).toEqual(pages({ ...nobody, owner: true, admin: true, connect: true, publish: true }));
-    expect(pages(nobody)).toHaveLength(16);
+    expect(pages(nobody)).toHaveLength(17);
   });
 
   it("gives no agent a way to the back office, the owner's own account included (owner, 2026-10-15)", () => {

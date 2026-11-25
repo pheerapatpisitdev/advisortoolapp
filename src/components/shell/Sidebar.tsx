@@ -153,6 +153,9 @@ function Icon({ name }: { name: MenuIcon }) {
     // the way back to the main system, from Studio and the back office
     case "back":
       return <svg {...common}><path d="M10 6.5 4.5 12l5.5 5.5M5 12h14.5" /></svg>;
+    // โรงพยาบาลในเครือ: a building with a cross on it (owner, 2026-11-25)
+    case "hospital":
+      return <svg {...common}><path d="M6 20.5V4.5h12v16M4 20.5h16M12 7.5v5M9.5 10h5M10.5 20.5v-4h3v4" /></svg>;
     // มีอะไรใหม่: a bell (owner chose 1ข, 2026-11-14)
     case "bell":
       return <svg {...common}><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 2H5zM10 20.5a2.2 2.2 0 0 0 4 0" /></svg>;
