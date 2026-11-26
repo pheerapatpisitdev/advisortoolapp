@@ -1,3 +1,4 @@
+import { CPR_STAGES } from "@/lib/cancer-benefits";
 import { iHealthyFacts } from "@/lib/ihealthy-facts";
 import { iShieldFacts } from "@/lib/ishield-facts";
 import { legacyTable } from "@/lib/legacy-table";
@@ -117,6 +118,18 @@ export function productQas(product: Product, variant?: string, gs?: GsQaFacts, t
         { key: "base", q: "ทำ CI 123 อย่างเดียวได้ไหม", a: "ต้องคู่กับแบบหลักค่ะ ชุดนี้คู่กับ Life Protect x2 ทุน 150,000 บาท ยอดออมรวมทั้งสองสัญญาแล้ว" },
         { key: "lump", q: "จ่ายเป็นค่ารักษาหรือเงินก้อน", a: "เป็นเงินก้อนค่ะ ตามระยะของโรคที่ตรวจพบ" },
       ];
+    // ประกันมะเร็ง (owner, 2026-11-26): the page's own lines (CancerCalculator.tsx, cancer-benefits.ts)
+    case "CANCER": {
+      const days = CPR_STAGES.map((s) => s.waitingDays);
+      const again = CPR_STAGES.flatMap((s, i) => (s.repeatable ? [i + 1] : []));
+      return [
+        { key: "waiting", q: "ทำแล้วคุ้มครองมะเร็งเลยไหม", a: `มีระยะรอคอย ${Math.min(...days)} ถึง ${Math.max(...days)} วันแล้วแต่ขั้นค่ะ เป็นเงื่อนไขปกติของประกันมะเร็ง` },
+        { key: "again", q: "เคลมได้หลายครั้งไหม", a: `ขั้น ${again.join(" และขั้น ")} เคลมซ้ำได้ค่ะ รวมกันไม่เกินทุน ระยะลุกลามจ่ายเต็มทุน หักส่วนที่รับไปแล้ว` },
+        { key: "rises", q: "ยอดออมขึ้นทุกปีไหม", a: "ส่วนคุ้มครองมะเร็งและค่าชดเชยรายวัน ปรับตามอายุทุกปีค่ะ ตัวเลขในคลิปนี้คือปีแรก" },
+        { key: "base", q: "ทำประกันมะเร็งอย่างเดียวได้ไหม", a: "ต้องคู่กับแบบหลักค่ะ ชุดนี้คู่กับ Life Protect x2 ยอดออมรวมทุกสัญญาไว้แล้ว" },
+        { key: "lump", q: "จ่ายเป็นค่ารักษาหรือเงินก้อน", a: "ส่วนมะเร็งจ่ายเป็นเงินก้อนตามขั้นที่ตรวจพบค่ะ และยังมีค่าชดเชยรายวันตอนนอนโรงพยาบาลอีก" },
+      ];
+    }
     // 12 พีแอล (owner, 2026-11-26): the plan's own rules, as the bots say them (src/lib/copilot/knowledge.ts)
     case "TWELVEPL":
       return [
@@ -148,6 +161,7 @@ const FIRST: Record<string, string[]> = {
   epshort: ["years", "level"], epfamily: ["floor", "years"], epcash: ["back", "years"],
   ltlegacy: ["share", "floor"], ltterms: ["years", "level"], ltcash: ["back", "floor"],
   ciearly: ["again", "waiting"], cistages: ["again", "lump"], cilife: ["base", "rises"],
+  caearly: ["again", "waiting"], cadaily: ["lump", "rises"], cafamily: ["base", "again"],
   tpback: ["back", "sure"], tpshort: ["years", "life"], tpfamily: ["life", "years"], tptax: ["tax", "years"],
 };
 

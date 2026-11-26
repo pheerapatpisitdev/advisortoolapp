@@ -86,6 +86,10 @@ export const STORIES: StoryAngle[] = [
   { key: "ciearly", product: "CI123", name: "เจอเร็ว ได้เร็ว", about: "ตรวจพบโรคร้ายแรงตั้งแต่ระยะก่อนเริ่มต้นก็รับเงินก้อนแล้ว ไม่ต้องรอให้ถึงระยะรุนแรง" },
   { key: "cistages", product: "CI123", name: "จ่ายหลายระยะ", about: "เคลมระยะแรกแล้ว ยังเคลมระยะถัดไปได้ ระยะรุนแรงจ่ายเต็มทุน หักส่วนที่รับไปแล้ว" },
   { key: "cilife", product: "CI123", name: "มีแบบหลักคุ้มครองชีวิตด้วย", about: "นอกจากเงินก้อนเมื่อป่วยหนัก ยังมีแบบหลักคุ้มครองชีวิต ดูแลครอบครัวด้วย" },
+  // ประกันมะเร็ง (owner, 2026-11-26): paid by the stage of a cancer, a daily sum in hospital — no cash value, so nothing about money back
+  { key: "caearly", product: "CANCER", name: "เจอระยะแรกก็ได้เงิน", about: "ตรวจพบมะเร็งตั้งแต่ขั้นแรกก็รับเงินก้อนแล้ว ไม่ต้องรอให้ลุกลาม ระยะลุกลามรับเต็มทุน" },
+  { key: "cadaily", product: "CANCER", name: "นอนโรงพยาบาลก็ได้รายวัน", about: "นอกจากเงินก้อน ยังมีค่าชดเชยทุกวันที่นอนโรงพยาบาลเพราะมะเร็ง ช่วยค่าใช้จ่ายระหว่างรักษา" },
+  { key: "cafamily", product: "CANCER", name: "ครอบครัวได้จากทุกสัญญา", about: "มีแบบหลักคุ้มครองชีวิตด้วย ถ้าพบมะเร็งลุกลามแล้วจากไป ครอบครัวได้ทั้งทุนมะเร็งและทุนแบบหลัก" },
   // 12 พีแอล (owner, 2026-11-26): the cash backs and the maturity are certain, the dividend is not said
   { key: "tpback", product: "TWELVEPL", name: "เงินคืนทุกปี", about: "มีเงินคืนทุกปีตั้งแต่ปีที่ 2 และเงินก้อนตอนครบอายุ 85 เมื่อถือครบสัญญา ส่วนนี้ได้แน่นอน" },
   { key: "tpshort", product: "TWELVEPL", name: "ออม 12 ปี คุ้มครองยาว", about: "ออมแค่ 12 ปี แต่คุ้มครองชีวิตยาวถึงอายุ 85" },
@@ -204,6 +208,15 @@ export function allowedNumbers(f: QuoteVideoFacts, note = ""): Set<number> {
     // "5 แสน": a sum under a million said in แสน
     if (g.sum < 1_000_000 && g.sum % 100_000 === 0) add(g.sum / 100_000);
   }
+  if (f.cancer) {
+    const g = f.cancer;
+    // the stages by number, their waits, the daily sum's days, the age the base steps down at
+    for (const n of [g.cpr, g.hic, g.baseSum, g.death.beforeAge, g.death.sumBefore, g.death.sumFrom, g.perDay, g.annual, g.hicDays, g.hicExtraDays, g.waiting.min, g.waiting.max]) add(n);
+    for (const s of g.stages) { add(s.no); add(s.amount); add(s.waitingDays); }
+    for (const r of g.totals) add(r.amount);
+    // "5 แสน": a sum under a million said in แสน
+    if (g.cpr < 1_000_000 && g.cpr % 100_000 === 0) add(g.cpr / 100_000);
+  }
   if (f.twelvepl) {
     const g = f.twelvepl;
     for (const n of [g.sum, g.payYears, g.lastPayAge, g.coverToAge, g.paid, g.cashFirst, g.cashFull, g.cashFullYear, g.cashBacks, g.maturity, g.guaranteed, g.tax]) add(n === undefined ? n : Math.round(n));
@@ -284,6 +297,13 @@ export function lineProblem(text: string, f: QuoteVideoFacts, max: number, note 
     if (/เท่าเดิม|ไม่ขึ้น|คงที่/.test(t)) return "พูดว่ายอดออมเท่าเดิม (ส่วน CI 123 ปรับตามอายุ)";
     if (/ภาษี/.test(t)) return "แบบนี้ไม่พูดเรื่องลดหย่อนภาษี";
   }
+  // the cancer set builds no value, waits 60 to 120 days, and its CPR and HIC rise with age (cancer-table.ts, the page's own note)
+  if (f.product === "CANCER") {
+    if (/เงินคืน|ขอคืน|ได้คืน|มูลค่าเงินสด/.test(t)) return "พูดถึงเงินคืน (แบบนี้ไม่มีมูลค่าเงินสด)";
+    if (/รับเลย|ได้เลยตั้งแต่วันแรก|ตั้งแต่วันแรก/.test(t)) return "สัญญาว่ารับได้ตั้งแต่วันแรก";
+    if (/เท่าเดิม|ไม่ขึ้น|คงที่/.test(t)) return "พูดว่ายอดออมเท่าเดิม (ส่วนมะเร็งปรับตามอายุ)";
+    if (/ภาษี/.test(t)) return "แบบนี้ไม่พูดเรื่องลดหย่อนภาษี";
+  }
   // ตั้งค่าส่วนตัว (owner, 2026-11-14): never an instalment the agent hid; บำนาญ 95's own pension is paid monthly and may be said
   if (f.hide?.includes("monthly") && (f.product === "PENSION" ? /รายเดือน|(ออม|จ่าย|ค่าใช้จ่าย)\s*(ต่อ)?เดือนละ/ : /รายเดือน|เดือนละ|ต่อเดือน/).test(t)) return "พูดถึงการจ่ายรายเดือน (ตัวแทนปิดไว้)";
   if (f.hide?.includes("semi") && /ราย\s*6\s*เดือน|งวดละ/.test(t)) return "พูดถึงการจ่ายราย 6 เดือน (ตัวแทนปิดไว้)";
@@ -347,6 +367,7 @@ export function settleHook(b: VideoBrief, f: QuoteVideoFacts, seed = 0): Exclude
     epshort: ["myth", "list"], epfamily: ["question", "story"], epcash: ["myth", "shock"],
     ltlegacy: ["question", "story"], ltterms: ["list", "myth"], ltcash: ["myth", "shock"],
     ciearly: ["myth", "question"], cistages: ["list", "shock"], cilife: ["story", "question"],
+    caearly: ["myth", "question"], cadaily: ["list", "shock"], cafamily: ["story", "question"],
     tpback: ["question", "list"], tpshort: ["myth", "shock"], tpfamily: ["story", "question"], tptax: ["list", "shock"],
     plbfamily: ["question", "story"], plbburden: ["story", "list"], plblight: ["shock", "myth"], plbtax: ["list", "shock"],
   };
@@ -378,6 +399,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: "ถ้าออมแค่ 6 ปี แล้วครอบครัวมีเงินก้อนไปถึงอายุ 99 จะเริ่มวันนี้ไหมคะ",
       LIFETREASURE: "อยากส่งต่อเงินก้อนให้ครอบครัว แบบรู้จำนวนแน่นอนตั้งแต่วันนี้ไหมคะ",
       CI123: "ถ้าวันหนึ่งหมอบอกว่าเป็นโรคร้ายแรง คุณมีเงินก้อนพร้อมรักษาหรือยังคะ",
+      CANCER: "ถ้าวันหนึ่งตรวจพบมะเร็ง คุณมีเงินก้อนพร้อมรักษาหรือยังคะ",
       TWELVEPL: "ถ้ามีเงินคืนให้ทุกปี และมีก้อนใหญ่รอตอนครบสัญญา จะเริ่มออมวันนี้ไหมคะ",
     },
     shock: {
@@ -391,6 +413,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: `ออมแค่ 6 ปี ครอบครัวได้${f.easyprotect?.atLeast ? "อย่างน้อย " : "เงินก้อน "}${lead}`,
       LIFETREASURE: `ส่งต่อให้ครอบครัว${f.lifetreasure?.atLeast ? "อย่างน้อย " : " "}${lead} จ่ายแค่ ${f.lifetreasure?.payYears ?? 12} ปี`,
       CI123: perDay ? `ปีแรกวันละ ${perDay} บาท แลกกับเงินก้อนสูงสุด ${lead} ตอนป่วยหนัก` : `เงินก้อนสูงสุด ${lead} ตอนป่วยหนัก`,
+      CANCER: perDay ? `ปีแรกวันละ ${perDay} บาท แลกกับเงินก้อนสูงสุด ${lead} ตอนพบมะเร็ง` : `เงินก้อนสูงสุด ${lead} ตอนพบมะเร็ง`,
       TWELVEPL: `ออมแค่ 12 ปี ถือครบถึงอายุ 85 รับคืนรวม ${lead}`,
     },
     myth: {
@@ -404,6 +427,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: "หลายคนคิดว่าประกันตลอดชีพต้องจ่ายไปจนแก่ แต่แผนนี้ออมแค่ 6 ปีก็ครบค่ะ",
       LIFETREASURE: "หลายคนคิดว่ามรดกต้องรอขายทรัพย์สิน แต่แผนนี้ระบุจำนวนเงินก้อนไว้ได้ตั้งแต่วันนี้ค่ะ",
       CI123: "หลายคนคิดว่าต้องป่วยหนักก่อนถึงจะได้เงิน แต่แผนนี้จ่ายตั้งแต่ระยะก่อนเริ่มต้นค่ะ",
+      CANCER: "หลายคนคิดว่ามะเร็งต้องลุกลามก่อนถึงจะได้เงิน แต่แผนนี้จ่ายตั้งแต่ขั้นแรกค่ะ",
       TWELVEPL: "หลายคนคิดว่าประกันชีวิตต้องออมยาวหลายสิบปี แต่แผนนี้ออมแค่ 12 ปี คุ้มครองถึงอายุ 85 ค่ะ",
     },
     story: {
@@ -417,6 +441,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: `ลองนึกภาพนะคะ ${aud?.scene ?? "คนที่คุณรักต้องใช้ชีวิตต่อ"} ถ้าวันหนึ่งคุณไม่อยู่ ใครจะดูแลต่อ`,
       LIFETREASURE: `ลองนึกภาพนะคะ ${aud?.scene ?? "วันที่ต้องส่งต่อสิ่งที่สร้างมา"} ครอบครัวได้เงินก้อนตามจำนวนที่คุณตั้งไว้`,
       CI123: `ลองนึกภาพนะคะ ${aud?.scene ?? "ชีวิตกำลังไปได้ดี"} แล้ววันหนึ่งหมอบอกว่าต้องรักษาตัวยาว`,
+      CANCER: `ลองนึกภาพนะคะ ${aud?.scene ?? "ชีวิตกำลังไปได้ดี"} แล้ววันหนึ่งหมอบอกว่าเป็นมะเร็ง ต้องรักษาตัวยาว`,
       TWELVEPL: `ลองนึกภาพนะคะ ${aud?.scene ?? "หยุดออมไปนานแล้ว"} แต่ยังมีเงินคืนเข้ามาทุกปี`,
     },
     list: {
@@ -430,6 +455,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ออมแค่ 6 ปี สอง ยอดออมเท่าเดิมทุกปี สาม คุ้มครองถึงอายุ 99",
       LIFETREASURE: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ระบุจำนวนเงินก้อนไว้ล่วงหน้า สอง เลือกระยะจ่ายได้ สาม คุ้มครองถึงอายุ 99",
       CI123: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง คุ้มครอง ${f.ci123?.diseaseCount ?? ""} โรค สอง จ่ายตั้งแต่ระยะก่อนเริ่มต้น สาม เคลมระยะถัดไปได้อีก`.replace("  ", " "),
+      CANCER: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง จ่ายตั้งแต่ขั้นแรก สอง ระยะลุกลามรับเต็มทุน สาม นอนโรงพยาบาลมีค่าชดเชยรายวัน",
       TWELVEPL: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ออมแค่ 12 ปี สอง ได้เงินคืนทุกปี สาม คุ้มครองถึงอายุ 85",
     },
   };
@@ -445,6 +471,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: ["ออมแค่ 6 ปี", "ดูแลถึงอายุ 99"],
       LIFETREASURE: ["เงินก้อนให้ครอบครัว", "รู้จำนวนตั้งแต่วันนี้"],
       CI123: ["ถ้าป่วยหนักวันนี้", "มีเงินก้อนพร้อมไหม?"],
+      CANCER: ["ถ้าพบมะเร็งวันนี้", "มีเงินก้อนพร้อมไหม?"],
       TWELVEPL: ["เงินคืนให้ทุกปี", "เริ่มวันนี้ดีไหม?"],
     },
     shock: {
@@ -458,6 +485,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: [perDay ? `วันละ ${perDay} บาท` : "ออมแค่ 6 ปี", `เงินก้อน ${lead}`],
       LIFETREASURE: [`จ่าย ${f.lifetreasure?.payYears ?? 12} ปี`, `ส่งต่อ ${lead}`],
       CI123: perDay ? [`ปีแรกวันละ ${perDay} บาท`, `เงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
+      CANCER: perDay ? [`ปีแรกวันละ ${perDay} บาท`, `เงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       TWELVEPL: [perDay ? `ออมวันละ ${perDay} บาท` : "ออมแค่ 12 ปี", "มีเงินคืนทุกปี"],
     },
     myth: {
@@ -471,6 +499,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: ["ประกันตลอดชีพ", "ต้องจ่ายจนแก่ จริงไหม?"],
       LIFETREASURE: ["มรดก", "ต้องรอขายทรัพย์สิน?"],
       CI123: ["ต้องป่วยหนักก่อน", "ถึงจะได้เงิน จริงไหม?"],
+      CANCER: ["มะเร็งต้องลุกลามก่อน", "ถึงจะได้เงิน จริงไหม?"],
       TWELVEPL: ["ประกันชีวิต", "ต้องออมนาน จริงไหม?"],
     },
     story: {
@@ -484,6 +513,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: ["ถ้าวันหนึ่งคุณไม่อยู่", "ใครจะดูแลต่อ?"],
       LIFETREASURE: ["วันที่ต้องส่งต่อ", "ครอบครัวได้เท่าไร?"],
       CI123: ["ถ้าต้องรักษาตัวยาว", "เงินก้อนมาจากไหน?"],
+      CANCER: ["ถ้าต้องรักษามะเร็งยาว", "เงินก้อนมาจากไหน?"],
       TWELVEPL: ["หยุดออมแล้ว", "ยังมีเงินคืนทุกปี"],
     },
     list: {
@@ -497,6 +527,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       EASYPROTECT: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       LIFETREASURE: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       CI123: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
+      CANCER: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       TWELVEPL: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
     },
   };
@@ -518,6 +549,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     EASYPROTECT: "ยินดีช่วยดูแผนให้ครอบครัวของคุณค่ะ",
     LIFETREASURE: "ยินดีช่วยวางแผนส่งต่อให้ครอบครัวของคุณค่ะ",
     CI123: "ยินดีช่วยดูแผนให้คุณพร้อมทุกเมื่อค่ะ",
+    CANCER: "ยินดีช่วยดูแผนให้คุณพร้อมทุกเมื่อค่ะ",
     TWELVEPL: "ยินดีช่วยวางแผนออมให้ค่ะ",
   };
   const tails: Record<Product, string> = {
@@ -531,6 +563,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     EASYPROTECT: "แผนนี้คือเงินก้อนที่ดูแลคนที่คุณรักแทนคุณ โดยออมแค่ 6 ปีค่ะ",
     LIFETREASURE: "แผนนี้คือเงินก้อนที่ส่งต่อให้คนที่คุณรัก ตามจำนวนที่คุณตั้งไว้ค่ะ",
     CI123: "แผนนี้คือเงินก้อนที่ให้คุณรักษาตัวได้เต็มที่ ตั้งแต่ระยะแรกที่ตรวจพบค่ะ",
+    CANCER: "แผนนี้คือเงินก้อนที่ให้คุณรักษามะเร็งได้เต็มที่ ตั้งแต่ขั้นแรกที่ตรวจพบค่ะ",
     TWELVEPL: "แผนนี้คือเงินออมที่คืนให้ทุกปี และดูแลคนที่คุณรักไปด้วยค่ะ",
   };
   const points: Record<Product, string[]> = {
@@ -544,6 +577,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     EASYPROTECT: ["ออมแค่ 6 ปี", "ยอดเท่าเดิมทุกปี", "คุ้มครองถึงอายุ 99"],
     LIFETREASURE: ["ระบุจำนวนไว้ล่วงหน้า", "เลือกระยะจ่ายได้", "คุ้มครองถึงอายุ 99"],
     CI123: ["ป่วยหนักต้องใช้เงินก้อน", "เจอเร็วก็ได้เร็ว", "เคลมระยะถัดไปได้อีก"],
+    CANCER: ["รักษามะเร็งใช้เงินก้อน", "จ่ายตั้งแต่ขั้นแรก", "นอน รพ. มีเงินรายวัน"],
     TWELVEPL: ["ออมแค่ 12 ปี", "เงินคืนทุกปี", "คุ้มครองถึงอายุ 85"],
   };
   return {

@@ -15,6 +15,7 @@ import { Highlighted } from "@/components/Highlighted";
 import { cardPath } from "@/lib/card-link";
 import { showModes, shows } from "@/lib/pay-prefs";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import type { CancerTable } from "@/lib/cancer-table";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
 import { PremiumSummary } from "@/components/sales/PremiumSummary";
@@ -145,7 +146,9 @@ export function CancerCalculator({ table, sticky = false, hide = [], shareTempla
         </div>
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">
-          <ContactButtons copyText={quoteText} cardPath={card} />
+          <ContactButtons copyText={quoteText} cardPath={card}
+            // วิดีโอนำเสนอ on this package, age and sex (owner, 2026-11-26)
+            videoHref={typeof age === "number" && headline ? videoStartHref({ product: "CANCER", sex, age, sumAssured: t.cpr }) : undefined} />
         </div>
       </div>
 

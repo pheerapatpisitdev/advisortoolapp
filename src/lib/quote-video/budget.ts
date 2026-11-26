@@ -15,6 +15,7 @@ import { gsFromBudget } from "./gsaving";
 import { easyProtectFromBudget } from "./easyprotect";
 import { lifeTreasureFromBudget } from "./lifetreasure";
 import { ci123FromBudget } from "./ci123";
+import { cancerFromBudget } from "./cancer";
 import { twelvePlFromBudget } from "./twelvepl";
 import { setupQuery } from "./ihealthy-setup";
 import { iHealthyPlanCodes } from "./script";
@@ -87,6 +88,7 @@ export function resolveBudget(v: VideoInput, budget: Budget, today: Date = new D
   if (v.product === "EASYPROTECT") return easyProtectFromBudget(v, budget, today);
   if (v.product === "LIFETREASURE") return lifeTreasureFromBudget(v, budget, today);
   if (v.product === "CI123") return ci123FromBudget(v, budget, today);
+  if (v.product === "CANCER") return cancerFromBudget(v, budget, today);
   if (v.product === "TWELVEPL") return twelvePlFromBudget(v, budget, today);
 
   const product = v.product === "ISHIELD" ? "ISHIELD" : "LIFEPROTECT";

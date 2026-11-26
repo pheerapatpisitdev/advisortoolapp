@@ -17,6 +17,7 @@ import { gsavingVideoFacts, gsIndexLine, gsLeadLine, gsMoney, rateLabel, type Gs
 import { easyProtectVideoFacts, epFamily, epMoney, epSixLine, epTotalLine, epValueLine, type EasyProtectVideoFacts } from "./easyprotect";
 import { lifeTreasureVideoFacts, ltFamily, ltLeadLine, ltMoney, ltPriceLine, ltTermsLine, ltTotalLine, ltValueLine, type LifeTreasureVariant, type LifeTreasureVideoFacts } from "./lifetreasure";
 import { ci123VideoFacts, ciBaseLine, ciLeadLine, ciMoney, ciMoreLine, ciPriceLine, ciStairsLine, type Ci123VideoFacts } from "./ci123";
+import { caDailyLine, caLeadLine, caMoney, caPriceLine, caStairsLine, caTotalLine, cancerVideoFacts, type CancerVideoFacts } from "./cancer";
 import { tpCashLine, tpFamilyLine, tpLeadLine, tpMoney, tpPriceLine, tpTotalLine, twelvePlVideoFacts, type TwelvePlDividend, type TwelvePlVideoFacts } from "./twelvepl";
 import type { SceneMotion, VideoSize } from "./timeline";
 import type { VideoBrief, WrittenLines } from "./brief";
@@ -49,12 +50,13 @@ import { shows } from "@/lib/pay-prefs";
  * อีซี่ โพรเทค 6 is the ninth (owner, 2026-11-26; easyprotect.ts): the /easyprotect plan, six years paid and covered to 99.
  * ไลฟ์เทรเชอร์ is the tenth (owner, 2026-11-26; lifetreasure.ts): the /lifetreasure plan, a sum set for the family, 6, 12 or 18 years paid.
  * CI 123 is the eleventh (owner, 2026-11-26; ci123.ts): the /ci123 set, the critical-illness rider paid by stage on Life Protect x2.
+ * ประกันมะเร็ง is the twelfth (owner, 2026-11-26; cancer.ts): the /cancer set, CPR paid by the stage of a cancer and HIC's daily sum.
  * iHealthy Ultra, มรดก and Protection Life keep "ค่าใช้จ่าย": none builds anything to save. The screen keeps the
  * cards' own words. Words in a line are separated by single spaces: the subtitles light up one
  * of those pieces at a time.
  */
 
-export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY" | "PLB" | "GSAVING" | "TWELVEPL" | "EASYPROTECT" | "LIFETREASURE" | "CI123";
+export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY" | "PLB" | "GSAVING" | "TWELVEPL" | "EASYPROTECT" | "LIFETREASURE" | "CI123" | "CANCER";
 export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact"
   /** มรดก's fourth scene, where the others have their value table: the critical-illness lump sum (CI 123's third: its stages as stairs; its fourth, "cover", what else it pays; its fifth, "family", the base contract's life cover) */
   | "critical"
@@ -139,6 +141,8 @@ export type VideoInput = (
   | { product: "LIFETREASURE"; variant: LifeTreasureVariant; age: number; sex: "M" | "F"; sumAssured: number }
   /** CI 123: one of its page's seven CI sums, on the base the set always has (ci123.ts) */
   | { product: "CI123"; age: number; sex: "M" | "F"; sumAssured: number }
+  /** ประกันมะเร็ง: one of its page's eight packages, named by its CPR sum (cancer.ts) */
+  | { product: "CANCER"; age: number; sex: "M" | "F"; sumAssured: number }
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
@@ -329,6 +333,8 @@ export interface QuoteVideoFacts {
   lifetreasure?: LifeTreasureVideoFacts;
   /** CI 123: the stages, what else it pays, the base contract's life cover, the first year's price (ci123.ts) */
   ci123?: Ci123VideoFacts;
+  /** ประกันมะเร็ง: the four stages, the daily sum, what every contract pays together, the first year's price (cancer.ts) */
+  cancer?: CancerVideoFacts;
   /** วิดีโอเทียบ 4 แผน: the iHealthy Ultra Package page's table (ihealthy-all-plans.ts) */
   allPlans?: AllPlansFacts;
   /** ตั้งค่าส่วนตัว: what the agent hid (src/lib/pay-prefs.ts); present only when something is */
@@ -612,6 +618,7 @@ export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteV
     : v.product === "EASYPROTECT" ? easyProtectVideoFacts(v, today)
     : v.product === "LIFETREASURE" ? lifeTreasureVideoFacts(v, today)
     : v.product === "CI123" ? ci123VideoFacts(v, today)
+    : v.product === "CANCER" ? cancerVideoFacts(v, today)
     : planFacts(v, today);
   const paid = built && hide.length ? hidePay(built, hide) : built;
   // แสดงคำอธิบายในตาราง: a table drawn without its pen notes (table-pen.tsx, pension-table.tsx, gsaving-table.tsx)
@@ -995,6 +1002,9 @@ function leadFact(f: QuoteVideoFacts, name: string): string {
   if (f.product === "CI123" && f.ci123) {
     return `แผนนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ถ้าออม")}${ciLeadLine(f.ci123, spokenWithBaht).replace(/ค่ะ$/, "")} จ่ายตั้งแต่ระยะก่อนเริ่มต้นค่ะ`;
   }
+  if (f.product === "CANCER" && f.cancer) {
+    return `แผนนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ถ้าออม")}${caLeadLine(f.cancer, spokenWithBaht)}`;
+  }
   if (f.product === "IHEALTHY") {
     return `แผน ${f.planName} ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`;
   }
@@ -1065,6 +1075,14 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
       { key: "contact", voice: ask },
     ];
   }
+  if (f.product === "CANCER" && f.cancer) {
+    const g = f.cancer;
+    return [
+      { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}ตรวจพบมะเร็ง รับเงินก้อนตามขั้น สูงสุด ${spokenWithBaht(g.cpr)} พร้อมชดเชยนอนโรงพยาบาลวันละ ${caMoney(g.hic)} บาทค่ะ` },
+      { key: "price", voice: `ปีแรกออมแค่วันละ ${g.perDay} บาท รวมแบบหลักไว้แล้วค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
   if (f.product === "CI123" && f.ci123) {
     const g = f.ci123;
     return [
@@ -1112,6 +1130,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   if (f.product === "EASYPROTECT" && f.easyprotect) return epScript(f, f.easyprotect, hello, who, closing);
   if (f.product === "LIFETREASURE" && f.lifetreasure) return ltScript(f, f.lifetreasure, hello, who, closing);
   if (f.product === "CI123" && f.ci123) return ciScript(f, f.ci123, hello, who, closing);
+  if (f.product === "CANCER" && f.cancer) return caScript(f, f.cancer, hello, who, closing);
 
   if (f.product === "IHEALTHY") {
     const others = (f.compare ?? []).filter((p) => !p.main);
@@ -1395,6 +1414,22 @@ function ciScript(f: QuoteVideoFacts, g: Ci123VideoFacts, hello: string, who: st
 }
 
 /**
+ * ประกันมะเร็ง's six lines (owner, 2026-11-26, mockup https://claude.ai/artifact/K8A3uLFEDt1XqYnUKnqr3p, "ca"): the lump
+ * sum a cancer pays and the daily sum, the first year's saving, the four stages, the daily sum and how long it
+ * pays, what every contract pays together.
+ */
+function caScript(f: QuoteVideoFacts, g: CancerVideoFacts, hello: string, who: string, closing: string): SceneScript[] {
+  return [
+    { key: "lead", voice: `${hello} มะเร็งรักษานาน ค่าใช้จ่ายก็สูง ${budgetLead(f, "ถ้าออม")}${caLeadLine(g, spokenWithBaht)}` },
+    { key: "price", voice: caPriceLine(f, g, who) },
+    { key: "critical", voice: caStairsLine(g, spokenWithBaht) },
+    { key: "cover", voice: caDailyLine(g) },
+    { key: "family", voice: caTotalLine(g, spokenWithBaht) },
+    { key: "contact", voice: `เตรียมไว้ก่อน ใจสบายกว่าค่ะ ${closing}` },
+  ];
+}
+
+/**
  * 12 พีแอล's six lines (owner, 2026-11-26, ก ก ข, mockup https://claude.ai/artifact/7eC8eVjT4mFAsSaPie4kfm): the
  * guarantee held to 85, the level saving, the cash backs and the maturity, the family's sum, what is paid beside
  * what comes back; then its riders a scene each, as Life Protect's (twelvepl.ts).
@@ -1527,6 +1562,16 @@ export function pageCaption(f: QuoteVideoFacts): string {
       `${f.planLine} ประกันโรคร้ายแรง ทุน ${f.lead.amount} บาท คุ้มครอง ${g.diseaseCount} โรค จ่ายตามระยะ`,
       `${who} ออมปีแรก ${f.prices.find((r) => r.label === "รายปี")?.amount ?? g.annual} บาท (ตกวันละ ${g.perDay} บาท) รวมแบบหลัก Life Protect x2`,
       g.stairs.map((r) => `${r.short} ${ciMoney(r.amount)}`).join(" · "),
+      "",
+      ask,
+    ].join("\n");
+  }
+  if (f.product === "CANCER" && f.cancer) {
+    const g = f.cancer;
+    return [
+      `${f.planLine} ทุน ${f.lead.amount} บาท จ่ายตามขั้นของมะเร็ง ชดเชยนอนโรงพยาบาลวันละ ${caMoney(g.hic)} บาท`,
+      `${who} ออมปีแรก ${f.prices.find((r) => r.label === "รายปี")?.amount ?? g.annual} บาท (ตกวันละ ${g.perDay} บาท) รวมแบบหลัก Life Protect x2`,
+      g.stages.map((s) => `ขั้น ${s.no} ${caMoney(s.amount)}`).join(" · "),
       "",
       ask,
     ].join("\n");

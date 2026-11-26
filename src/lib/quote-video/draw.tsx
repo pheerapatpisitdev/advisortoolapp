@@ -8,8 +8,8 @@ import type { CardChart } from "@/lib/quote-card";
 import { paidUpOf } from "./easyprotect";
 import { epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
 import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
-import { amountRows, stairsPicture } from "./stage-pictures";
-import { CI_BASE_KICKER, CI_BASE_SUB, CI_MORE_KICKER, CI_STAIRS_FOOT, CI_STAIRS_KICKER, CI_STAIRS_SUB, ciBaseFoot, ciBaseRows, ciMoreRows, ciStairs } from "./ci123-pictures";
+import { amountRows, bigFigure, stairsPicture } from "./stage-pictures";
+import { stageView } from "./stage-views";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
 import { riderIndex, type QuoteVideoFacts, type SceneKey } from "./script";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
@@ -657,7 +657,7 @@ function Highlit({ children }: { children: ReactNode }) {
 }
 
 function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
-  if (c.facts.ci123) return <CiRowsClassic c={c} layer={layer} k="cover" />;
+  if (stageView("cover", c.facts)) return <StageClassic c={c} layer={layer} k="cover" />;
   if (c.facts.coverStyle === "flat") return <FlatCover c={c} layer={layer} s={s} />;
   // Global Savings: the yearly table with three index examples, as the other plans' value scene (owner, 2026-10-20, ก ก)
   if (c.facts.coverStyle === "payback") return <GsTableCover c={c} layer={layer} />;
@@ -911,34 +911,22 @@ function PaidBesideClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
   );
 }
 
-/** CI 123's stages as stairs, the top in the highlighter's yellow (ci123-pictures.tsx) */
-function CiStairsClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
-  const f = c.facts;
-  const g = f.ci123;
-  if (!g) return null;
+/** a staged plan's scene (stage-views.ts): stairs, the top in the highlighter's yellow, or a column of rows under a big figure where there is one */
+function StageClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: SceneKey }) {
+  const v = stageView(k, c.facts);
+  if (!v) return null;
   const w = W - SIDE * 2;
+  const [pill, ...more] = v.pills ?? [];
   return (
     <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
-      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{CI_STAIRS_KICKER}</div>
-      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 50 })}>{CI_STAIRS_SUB}</div>
-      {stairsPicture(ciStairs(g), classicTpDraw, w, 1.1, 560)}
-      <div style={box({ marginTop: 50, justifyContent: "center", width: w })}><div style={classicPill(true, 40)}>{CI_STAIRS_FOOT}</div></div>
-    </On>
-  );
-}
-
-/** CI 123's fourth and fifth scenes: what else it pays, the base contract's life cover (ci123-pictures.tsx) */
-function CiRowsClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: "cover" | "family" }) {
-  const f = c.facts;
-  const g = f.ci123;
-  if (!g) return null;
-  const w = W - SIDE * 2;
-  return (
-    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
-      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{k === "cover" ? CI_MORE_KICKER : CI_BASE_KICKER}</div>
-      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{k === "cover" ? `ทุน CI 123 ${f.lead.amount} บาท` : CI_BASE_SUB}</div>
-      {amountRows(k === "cover" ? ciMoreRows(g) : ciBaseRows(g), classicTpDraw, w, 1.1, 36)}
-      {k === "family" ? <div style={box({ marginTop: 16, justifyContent: "center", width: w, fontSize: 38, color: P.mute })}>{ciBaseFoot(g)}</div> : null}
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{v.kicker}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: v.stairs ? 50 : 40 })}>{v.sub}</div>
+      {v.stairs ? stairsPicture(v.stairs, classicTpDraw, w, 1.1, 560) : null}
+      {pill ? <div style={box({ marginTop: 50, justifyContent: "center", width: w })}><div style={classicPill(true, 40)}>{pill}</div></div> : null}
+      {more.map((m) => <div key={m} style={box({ marginTop: 14, justifyContent: "center", width: w, fontSize: 36, color: P.mute })}>{m}</div>)}
+      {v.big ? <div style={box({ width: w, marginTop: 120, marginBottom: 60 })}>{bigFigure(v.big.amount, v.big.unit, classicTpDraw, w, 1.1)}</div> : null}
+      {v.rows ? amountRows(v.rows, classicTpDraw, w, 1.1, 36) : null}
+      {v.foot ? <div style={box({ marginTop: 16, justifyContent: "center", width: w, fontSize: 38, color: P.mute })}>{v.foot}</div> : null}
     </On>
   );
 }
@@ -1037,10 +1025,10 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
   const body = rider ? <RiderClassic c={c} layer={layer} k={key} /> : {
     lead: <Lead c={c} layer={layer} s={state} />,
     compare: <Compare c={c} layer={layer} s={state} />,
-    critical: c.facts.ci123 ? <CiStairsClassic c={c} layer={layer} /> : <Critical c={c} layer={layer} s={state} />,
+    critical: stageView("critical", c.facts) ? <StageClassic c={c} layer={layer} k="critical" /> : <Critical c={c} layer={layer} s={state} />,
     terms: c.facts.lifetreasure ? <LtTermsClassic c={c} layer={layer} /> : <TermsScene c={c} layer={layer} s={state} />,
     index: <IndexScene c={c} layer={layer} s={state} />,
-    family: c.facts.ci123 ? <CiRowsClassic c={c} layer={layer} k="family" /> : <TwelvePlClassic c={c} layer={layer} k="family" />,
+    family: stageView("family", c.facts) ? <StageClassic c={c} layer={layer} k="family" /> : <TwelvePlClassic c={c} layer={layer} k="family" />,
     total: paidUpOf(c.facts) ? <PaidBesideClassic c={c} layer={layer} /> : <TwelvePlClassic c={c} layer={layer} k="total" />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,

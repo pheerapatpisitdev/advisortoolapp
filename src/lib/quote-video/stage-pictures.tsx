@@ -14,8 +14,17 @@ const box = (s: CSSProperties = {}): CSSProperties => ({ display: "flex", ...s }
 const px = (n: number, big: number) => Math.round(n * big);
 const money = (n: number) => Math.round(n).toLocaleString("en-US");
 
-/** one step of the stairs: what it is, the line under it, what it pays */
-export interface Stair { label: string; sub?: string; amount: number }
+/** one step of the stairs: what it is, the line (or lines) under it, what it pays */
+export interface Stair { label: string; sub?: string | string[]; amount: number }
+
+/**
+ * A figure's font size kept inside `width`: Plex's bold digits are about 0.6 of the size wide, a comma
+ * or point about 0.28 (four stairs to a frame are narrower than three: the cancer plan's 5,000,000).
+ */
+export function fitSize(text: string, size: number, width: number): number {
+  const ems = [...text].reduce((n, ch) => n + (/[,.]/.test(ch) ? 0.28 : /\d/.test(ch) ? 0.6 : 0.55), 0);
+  return ems > 0 ? Math.min(size, Math.floor(width / ems)) : size;
+}
 
 /**
  * The steps side by side, each bar as tall as what it pays against the largest (the smallest kept readable),
@@ -42,7 +51,7 @@ export function stairsPicture(steps: Stair[], d: TpDraw, w: number, big = 1, tal
           const last = i === n - 1;
           return (
             <div key={i} style={box({ width: colW, marginRight: i < n - 1 ? gap : 0, height: full + figH, flexDirection: "column", justifyContent: "flex-end", alignItems: "center" })}>
-              {d.piece(`amt${i}`, { height: figH, alignItems: "flex-end", paddingBottom: px(10, big), fontSize: px(last ? 54 : 44, big), fontWeight: 700, color: last ? pal.figure : pal.ink }, money(s.amount))}
+              {d.piece(`amt${i}`, { height: figH, alignItems: "flex-end", paddingBottom: px(10, big), fontSize: fitSize(money(s.amount), px(last ? 54 : 44, big), colW + Math.floor(gap / 2)), fontWeight: 700, color: last ? pal.figure : pal.ink }, money(s.amount))}
               <div style={box({ width: colW, height: full, alignItems: "flex-end" })}>
                 {h > 0 ? <div style={box({ width: colW, height: h, ...shade(i), borderRadius: `${px(20, big)}px ${px(20, big)}px 0 0` })} /> : null}
               </div>
@@ -55,7 +64,9 @@ export function stairsPicture(steps: Stair[], d: TpDraw, w: number, big = 1, tal
         {steps.map((s, i) => d.piece(`lab${i}`, { width: colW, marginRight: i < n - 1 ? gap : 0, flexDirection: "column", alignItems: "center" }, (
           <>
             <div style={box({ fontSize: px(36, big), fontWeight: 700, color: pal.ink, textAlign: "center", justifyContent: "center" })}>{s.label}</div>
-            {s.sub ? <div style={box({ fontSize: px(30, big), color: pal.ink, opacity: 0.8, marginTop: px(2, big), textAlign: "center", justifyContent: "center" })}>{s.sub}</div> : null}
+            {(Array.isArray(s.sub) ? s.sub : s.sub ? [s.sub] : []).map((line, j) => (
+              <div key={j} style={box({ fontSize: px(30, big), color: pal.ink, opacity: 0.8, marginTop: px(2, big), textAlign: "center", justifyContent: "center" })}>{line}</div>
+            ))}
           </>
         )))}
       </div>
@@ -63,8 +74,8 @@ export function stairsPicture(steps: Stair[], d: TpDraw, w: number, big = 1, tal
   );
 }
 
-/** one case and what it pays: its name, up to two lines under it, the figure; `on` lights it */
-export interface AmountRow { label: string; sub?: string; note?: string; amount: number; on?: boolean }
+/** one case and what it pays: its name, up to two lines under it, the figure and its unit (บาท unless said); `on` lights it */
+export interface AmountRow { label: string; sub?: string; note?: string; amount: number; unit?: string; on?: boolean }
 
 /** the cases in a column, `rowGap` under each: the lit one filled, the others outlined */
 export function amountRows(rows: AmountRow[], d: TpDraw, w: number, big = 1, rowGap = 24): ReactNode {
@@ -84,10 +95,21 @@ export function amountRows(rows: AmountRow[], d: TpDraw, w: number, big = 1, row
           </div>
           <div style={box({ flexShrink: 0, alignItems: "baseline", fontSize: px(58, big), fontWeight: 700, color: r.on ? pal.onFill : pal.figure })}>
             {money(r.amount)}
-            <div style={box({ fontSize: px(30, big), fontWeight: 400, marginLeft: px(8, big), color: r.on ? pal.onFill : pal.ink })}>บาท</div>
+            <div style={box({ fontSize: px(30, big), fontWeight: 400, marginLeft: px(8, big), color: r.on ? pal.onFill : pal.ink })}>{r.unit ?? "บาท"}</div>
           </div>
         </>
       )))}
     </div>
   );
+}
+
+/** one figure said big, its unit after it (the cancer plan's daily sum): the piece `big` */
+export function bigFigure(amount: number, unit: string, d: TpDraw, w: number, big = 1): ReactNode {
+  const { pal } = d;
+  return d.piece("big", { width: w, alignItems: "baseline", flexWrap: "wrap" }, (
+    <>
+      <div style={box({ fontSize: px(150, big), fontWeight: 700, color: pal.figure, lineHeight: 1.1 })}>{money(amount)}</div>
+      <div style={box({ fontSize: px(46, big), color: pal.ink, marginLeft: px(18, big) })}>{unit}</div>
+    </>
+  ));
 }

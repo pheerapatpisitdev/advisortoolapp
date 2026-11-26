@@ -51,10 +51,11 @@ import { closedFor } from "@/lib/switches/store";
 import { hiddenFor } from "@/lib/pay-prefs-store";
 import { checked, lookOf, payAndPen, TERMS } from "@/lib/quote-video/check-input";
 import { TWELVEPL_PLAN } from "@/lib/twelvepl-table";
+import { CANCER_TIERS } from "@/lib/cancer-cta";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — a member's free clips or a UnitClub agent's starter credit, then the Studio wallet. */
 
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง" };
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
@@ -574,6 +575,8 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         ? `${sumWords(input.sumAssured)} · ${Number(input.variant.slice(4, 6))} ปี`
         : input.product === "CI123"
         ? `ทุน ${sumWords(input.sumAssured)}`
+        : input.product === "CANCER"
+        ? `ทุน ${sumWords(input.sumAssured)} · วันละ ${(CANCER_TIERS.find((x) => x.cpr === input.sumAssured)?.hic ?? 0).toLocaleString("en-US")}`
         : input.product === "TWELVEPL"
         ? `${sumWords(input.sumAssured)} · 12 ปี${input.riders ? " · + สัญญาเพิ่มเติม" : ""}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");

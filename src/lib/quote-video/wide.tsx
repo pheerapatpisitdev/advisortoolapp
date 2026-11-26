@@ -9,8 +9,8 @@ import { abs, box, chartPaths, coverGroupStarts, easeBack, El, gsIndexBars, gsIn
 import { paidUpOf } from "./easyprotect";
 import { breakEvenNote, epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
 import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
-import { amountRows, stairsPicture } from "./stage-pictures";
-import { CI_BASE_KICKER, CI_BASE_SUB, CI_MORE_KICKER, CI_STAIRS_FOOT, CI_STAIRS_KICKER, CI_STAIRS_SUB, ciBaseFoot, ciBaseRows, ciMoreRows, ciStairs } from "./ci123-pictures";
+import { amountRows, bigFigure, stairsPicture } from "./stage-pictures";
+import { stageView, type StageView } from "./stage-views";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture } from "./twelvepl-pictures";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat } from "./rider-pictures";
 import { leadBig, leadPill } from "./plb";
@@ -476,51 +476,63 @@ function IndexScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   );
 }
 
-/** CI 123's stages as stairs (motion.tsx CiStairs): the stairs, and beside them (landscape) or under them the words */
-function CiStairsWide({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+/** a staged plan's stairs (motion.tsx StageStairs): the stairs, and beside them (landscape) or under them the words */
+function StageStairsWide({ g, c, t, v }: { g: Geo; c: WideQuoteContext; t: number; v: StageView }) {
   const f = c.facts;
-  const ci = f.ci123;
   const s = motionSpec("critical", f, c.voiceSec);
-  if (!ci) return null;
   const full = g.w - g.side * 2;
   const picW = g.wide ? 980 : full;
+  const [pill, ...more] = v.pills ?? [];
   return (
     <>
       <Header g={g} left={f.planLine} right={f.insuredWho} />
-      <Kicker g={g} an={s.kicker} t={t} text={CI_STAIRS_KICKER} />
+      <Kicker g={g} an={s.kicker} t={t} text={v.kicker} />
       <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
-        {stairsPicture(ciStairs(ci), motionTpDraw(s, t), picW, g.px(0.62, 0.8), g.px(460, 500))}
+        {stairsPicture(v.stairs ?? [], motionTpDraw(s, t), picW, g.px(0.62, 0.8), g.px(460, 500))}
         <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - picW - 60 } : { marginTop: 18, width: full }) })}>
-          <El an={s.sub} t={t} style={{ fontSize: g.px(28, 36), color: WHITE, opacity: 0.9, marginBottom: g.px(12, 26) }}>{CI_STAIRS_SUB}</El>
-          <El an={s.foot} t={t} style={{ ...tpPill(g, true), alignSelf: "flex-start", fontSize: g.px(28, 30) }}>{CI_STAIRS_FOOT}</El>
+          <El an={s.sub} t={t} style={{ fontSize: g.px(28, 36), color: WHITE, opacity: 0.9, marginBottom: g.px(12, 26) }}>{v.sub}</El>
+          {pill ? (
+            <El an={s.foot} t={t} style={{ flexDirection: "column", alignItems: "flex-start" }}>
+              <div style={box({ ...tpPill(g, true), fontSize: g.px(28, 30) })}>{pill}</div>
+              {more.map((m) => <div key={m} style={box({ fontSize: g.px(26, 30), color: WHITE, opacity: 0.9, marginTop: g.px(8, 16) })}>{m}</div>)}
+            </El>
+          ) : null}
         </div>
       </Body>
     </>
   );
 }
 
-/** CI 123's fourth and fifth scenes (motion.tsx CiRows): the rows, and beside them (landscape) or under them the words */
-function CiRowsWide({ g, c, t, k }: { g: Geo; c: WideQuoteContext; t: number; k: "cover" | "family" }) {
+/** a staged plan's column of rows (motion.tsx StageRows): the rows, and beside them (landscape) or under them the words */
+function StageRowsWide({ g, c, t, k, v }: { g: Geo; c: WideQuoteContext; t: number; k: SceneKey; v: StageView }) {
   const f = c.facts;
-  const ci = f.ci123;
   const s = motionSpec(k, f, c.voiceSec);
-  if (!ci) return null;
   const full = g.w - g.side * 2;
   const listW = g.wide ? 1100 : full;
-  const rows = k === "cover" ? ciMoreRows(ci) : ciBaseRows(ci);
+  const d = motionTpDraw(s, t);
   return (
     <>
       <Header g={g} left={f.planLine} right={f.insuredWho} />
-      <Kicker g={g} an={s.kicker} t={t} text={k === "cover" ? CI_MORE_KICKER : CI_BASE_KICKER} />
+      <Kicker g={g} an={s.kicker} t={t} text={v.kicker} />
       <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
-        {amountRows(rows, motionTpDraw(s, t), listW, g.px(0.7, 0.86), 22)}
+        <div style={box({ flexDirection: "column", width: listW })}>
+          {v.big ? <div style={box({ width: listW, marginBottom: g.px(14, 26) })}>{bigFigure(v.big.amount, v.big.unit, d, listW, g.px(0.62, 0.8))}</div> : null}
+          {amountRows(v.rows ?? [], d, listW, g.px(0.7, 0.86), 22)}
+        </div>
         <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - listW - 60 } : { width: full }) })}>
-          <El an={s.sub} t={t} style={{ fontSize: g.px(28, 36), color: WHITE, opacity: 0.9 }}>{k === "cover" ? `ทุน CI 123 ${f.lead.amount} บาท` : CI_BASE_SUB}</El>
-          {k === "family" ? <El an={s.foot} t={t} style={{ fontSize: g.px(28, 34), color: WHITE, opacity: 0.85, marginTop: g.px(6, 20) }}>{ciBaseFoot(ci)}</El> : null}
+          <El an={s.sub} t={t} style={{ fontSize: g.px(28, 36), color: WHITE, opacity: 0.9 }}>{v.sub}</El>
+          {v.foot ? <El an={s.foot} t={t} style={{ fontSize: g.px(28, 34), color: WHITE, opacity: 0.85, marginTop: g.px(6, 20) }}>{v.foot}</El> : null}
         </div>
       </Body>
     </>
   );
+}
+
+/** a staged plan's scene, stairs or rows, where its plan has one */
+function StageSceneWide({ g, c, t, k }: { g: Geo; c: WideQuoteContext; t: number; k: SceneKey }) {
+  const v = stageView(k, c.facts);
+  if (!v) return null;
+  return v.stairs ? <StageStairsWide g={g} c={c} t={t} v={v} /> : <StageRowsWide g={g} c={c} t={t} k={k} v={v} />;
 }
 
 /** Protection Life's terms (motion.tsx plbTermCards): the cards on the left, the total and the tax on the right of a landscape frame */
@@ -1127,15 +1139,15 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
   const body = {
     lead: <Lead g={g} c={c} t={t} />,
     price: <Price g={g} c={c} t={t} />,
-    cover: c.facts.ci123 ? <CiRowsWide g={g} c={c} t={t} k="cover" /> : c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} />
+    cover: stageView("cover", c.facts) ? <StageSceneWide g={g} c={c} t={t} k="cover" /> : c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} />
       : c.facts.coverStyle === "bands" ? <CoverBands g={g} c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat g={g} c={c} t={t} />
       : c.facts.coverStyle === "payback" ? <CoverPayback g={g} c={c} t={t} /> : c.facts.coverStyle === "cashback" ? <CoverCashback g={g} c={c} t={t} /> : c.facts.coverStyle === "paidup" ? <CoverPaidUp g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
     value: c.facts.pension ? <PensionValue g={g} c={c} t={t} /> : <Value g={g} c={c} t={t} />,
     compare: <Compare g={g} c={c} t={t} />,
-    critical: c.facts.ci123 ? <CiStairsWide g={g} c={c} t={t} /> : <Critical g={g} c={c} t={t} />,
+    critical: stageView("critical", c.facts) ? <StageSceneWide g={g} c={c} t={t} k="critical" /> : <Critical g={g} c={c} t={t} />,
     terms: <Terms g={g} c={c} t={t} />,
     index: <IndexScene g={g} c={c} t={t} />,
-    family: c.facts.ci123 ? <CiRowsWide g={g} c={c} t={t} k="family" /> : <FamilyScene g={g} c={c} t={t} />,
+    family: stageView("family", c.facts) ? <StageSceneWide g={g} c={c} t={t} k="family" /> : <FamilyScene g={g} c={c} t={t} />,
     total: <TotalScene g={g} c={c} t={t} />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} /> : (
