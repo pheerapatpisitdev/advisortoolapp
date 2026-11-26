@@ -22,6 +22,7 @@ import { LookStep, type Look } from "./LookStep";
 import { geminiVoice } from "@/lib/voice/gemini";
 import { ScriptEditor, type Draft, type LibraryPart } from "./ScriptEditor";
 import type { PromptStart } from "@/lib/scene-library/links";
+import { shelfSize } from "../quote-video/shelf";
 
 /**
  * คลิปตามโจทย์ (owner, 2026-10-16, mockup https://claude.ai/artifact/4SfQNZjNuNR86jKo83D4Bn): the
@@ -127,7 +128,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   }, [quota]);
 
   // links renewed when the agent comes back to a board left open past the hour they last
-  useFreshLinks(() => { myVideos("prompt").then(setItems).catch(() => undefined); });
+  useFreshLinks(() => { myVideos("prompt", shelfSize("prompt")).then(setItems).catch(() => undefined); });
   // a clip still being made is asked after every few seconds, alone (useClipWatch); when it ends:
   useClipWatch("prompt", items, setItems, () => {
     myCost().then(setCost).catch(() => undefined);
@@ -184,7 +185,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
         // the draft is the clip's now: a second press would be refused
         setDraft(null);
         setWritten(null);
-        setItems(await myVideos("prompt"));
+        setItems(await myVideos("prompt", shelfSize("prompt")));
       }
       setCost(await myCost());
     } catch {
@@ -310,7 +311,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
 
       <section aria-label="บทและวิดีโอ" className="studio-desk min-w-0 space-y-4 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
         {draft && <ScriptEditor draft={draft} notes={notes} onChange={setDraft} forDevice={forDevice} tax={tax} assets={assets} startAsset={startAsset} />}
-        <ClipList items={items} setItems={setItems} pages={pages} />
+        <ClipList board="prompt" items={items} setItems={setItems} pages={pages} />
       </section>
     </div>
   );

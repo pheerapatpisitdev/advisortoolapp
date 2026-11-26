@@ -11,6 +11,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkMoneyLow } from "@/lib/line/agent-line";
 import { releaseWallet, settleWallet, walletStatus } from "@/lib/wallet/store";
 import { tellMakerClipDone, tellMakerClipFailed, tellOwnerClipFailed } from "./fail-alert";
+import type { Board } from "./board";
 import type { FhcVideoInput } from "./fhc";
 import { failReason, renderThbFor, secondsBetween, type ClipEngine, type CostParts } from "./run-record";
 import type { VideoInput } from "./script";
@@ -314,10 +315,28 @@ export async function clipStates(agentId: string, ids: string[]): Promise<Pick<V
   return list;
 }
 
-/** An agent's clips, newest first; any stuck past the time limit, theirs or anyone's, is marked failed on the way. */
-export async function listVideos(agentId: string, limit = 30): Promise<VideoRow[]> {
+/**
+ * Narrows a query to one board's clips, told apart in the database the way boardOf tells them in
+ * code: an ad clip carries its plan (input.ad), คลิปตามโจทย์ is FREESTORY, คลิปเล่าเรื่อง is STORY,
+ * and every other clip is วิดีโอนำเสนอ's.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the PostgREST builder's generics differ per select
+function onBoard<Q extends { eq: any; is: any; not: any; or: any }>(q: Q, board: Board): Q {
+  // ->> reads a missing plan and a plan saved as null alike, as boardOf does
+  if (board === "ad") return q.not("input->>ad", "is", null);
+  if (board === "prompt") return q.eq("input->>product", "FREESTORY").is("input->>ad", null);
+  if (board === "story") return q.eq("input->>product", "STORY").is("input->>ad", null);
+  return q.or("input->>product.is.null,input->>product.not.in.(FREESTORY,STORY)").is("input->>ad", null);
+}
+
+/**
+ * An agent's clips, newest first, all of them or one board's; any stuck past the time limit,
+ * theirs or anyone's, is marked failed on the way.
+ */
+export async function listVideos(agentId: string, limit = 30, board?: Board): Promise<VideoRow[]> {
   await sweepStuckVideos().catch((e) => console.error("stuck clip sweep failed:", e instanceof Error ? e.message : e));
-  const { data, error } = await rows().select("*").eq("agent_id", agentId).is("deleted_at", null).order("created_at", { ascending: false }).limit(limit);
+  const all = rows().select("*").eq("agent_id", agentId).is("deleted_at", null);
+  const { data, error } = await (board ? onBoard(all, board) : all).order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`videos not read: ${error.message}`);
   const list = (data ?? []) as VideoRow[];
   const now = Date.now();
@@ -329,4 +348,15 @@ export async function listVideos(agentId: string, limit = 30): Promise<VideoRow[
     }
   }
   return list;
+}
+
+/**
+ * Every clip one board holds for an agent, only its state and day (owner, 2026-11-27): the
+ * board's tabs and day buttons count them all, though the list shows only the newest.
+ */
+export async function boardClipDays(agentId: string, board: Board): Promise<Pick<VideoRow, "id" | "status" | "created_at">[]> {
+  const { data, error } = await onBoard(rows().select("id, status, created_at").eq("agent_id", agentId).is("deleted_at", null), board)
+    .order("created_at", { ascending: false }).limit(5000);
+  if (error) throw new Error(`clip days not read: ${error.message}`);
+  return (data ?? []) as Pick<VideoRow, "id" | "status" | "created_at">[];
 }

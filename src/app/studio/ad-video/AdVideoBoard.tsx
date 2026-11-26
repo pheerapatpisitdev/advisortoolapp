@@ -18,6 +18,7 @@ import { useFreshLinks } from "../quote-video/fresh-links";
 import { VoicePicker, type VoicePick } from "../quote-video/VoicePicker";
 import { myCost, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
 import { draftAdPlan, makeAdVideo, myAdVideos, previewAd, redraftAdPart } from "./actions";
+import { shelfSize } from "../quote-video/shelf";
 import {
   AD_HOOKS, AD_TERMS, adCostLine, draftStep, figureParts, hookName, LINE_MAX, makeStep, offeredBodies, offeredCtas,
   photoSatang, previewStep, ranged, reduce, refreshAfter, redraftStep, sceneCount, shownFor, startState,
@@ -455,7 +456,7 @@ export function AdVideoBoard({ ages, ihuPlans, prices, cost: firstCost, eleven, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.stamp, s.product, s.art, count, s.voice, range]);
 
-  useFreshLinks(() => { myAdVideos().then(setItems).catch(() => undefined); });
+  useFreshLinks(() => { myAdVideos(shelfSize("ad")).then(setItems).catch(() => undefined); });
   // a clip still being made is asked after every few seconds (board "ad"); when it ends, the money and the voice
   useClipWatch("ad", items, setItems, () => {
     myCost().then(setCost).catch(() => undefined);
@@ -479,7 +480,7 @@ export function AdVideoBoard({ ages, ihuPlans, prices, cost: firstCost, eleven, 
       const made = acts.some((a) => a.type === "made");
       // the desk and the money read again apart from the press: a failed read never says "try again" over a started clip
       const after = await refreshAfter(made, async () => {
-        if (made) setItems(await myAdVideos());
+        if (made) setItems(await myAdVideos(shelfSize("ad")));
         else void refreshQuota();
         setCost(await myCost());
       });
@@ -496,7 +497,7 @@ export function AdVideoBoard({ ages, ihuPlans, prices, cost: firstCost, eleven, 
         ages={ages} ihuPlans={ihuPlans} prices={prices} cost={cost} eleven={eleven} quota={quota} elevenIsOff={elevenIsOff}
       />
       <section aria-label="วิดีโอที่สร้างแล้ว" className="studio-desk min-w-0 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
-        <ClipList items={items} setItems={setItems} pages={pages} />
+        <ClipList board="ad" items={items} setItems={setItems} pages={pages} />
       </section>
     </div>
   );

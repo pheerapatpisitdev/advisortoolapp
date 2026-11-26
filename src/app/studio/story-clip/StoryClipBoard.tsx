@@ -24,6 +24,7 @@ import { costLine, SizePicker, Step } from "../quote-video/QuoteVideoBoard";
 import { geminiOf, VoicePicker } from "../quote-video/VoicePicker";
 import { GEMINI_DEFAULT, geminiVoice } from "@/lib/voice/gemini";
 import { startLook, type StoryStart } from "@/lib/scene-library/links";
+import { shelfSize } from "../quote-video/shelf";
 
 /**
  * คลิปเล่าเรื่อง's form (owner, 2026-10-15, mockup https://claude.ai/artifact/FmDZmdTf6Mwgb2Dza8hQtM):
@@ -451,7 +452,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   }, [quota]);
 
   // links renewed when the agent comes back to a board left open past the hour they last
-  useFreshLinks(() => { myVideos("story").then(setItems).catch(() => undefined); });
+  useFreshLinks(() => { myVideos("story", shelfSize("story")).then(setItems).catch(() => undefined); });
   // a clip still being made is asked after every few seconds, alone (useClipWatch); when it ends:
   useClipWatch("story", items, setItems, () => {
     myCost().then(setCost).catch(() => undefined);
@@ -523,7 +524,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
         voiceQuota().then(setQuota).catch(() => undefined);
-      } else setItems(await myVideos("story"));
+      } else setItems(await myVideos("story", shelfSize("story")));
       setCost(await myCost());
     } catch {
       setError({ text: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" });
@@ -950,7 +951,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
         </aside>
 
       <section aria-label="วิดีโอที่สร้างแล้ว" className="studio-desk min-w-0 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
-        <ClipList items={items} setItems={setItems} pages={pages} />
+        <ClipList board="story" items={items} setItems={setItems} pages={pages} />
       </section>
     </div>
   );

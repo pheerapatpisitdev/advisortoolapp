@@ -22,7 +22,7 @@ import { priceBaht } from "@/lib/wallet/prices";
 import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
 import { paidLine } from "@/lib/quote-video/paid-line";
-import { clipStates } from "@/lib/quote-video/rows";
+import { boardClipDays, clipStates } from "@/lib/quote-video/rows";
 import { clipEstimates, clipSize, langOfInput, costView, createVideo, videoPrice, deleteVideo, listVideos, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, googleInPlace, VOICE_FULL } from "@/lib/quote-video/voice-quota";
@@ -509,13 +509,29 @@ export async function clipsMaking(ids: string[]): Promise<{ id: string; status: 
   return list.map((v) => ({ id: v.id, status: v.status, progress: progressAt(v, est, now) }));
 }
 
+/** how many clips a board lists at first, and how many more each แสดงเพิ่ม brings */
+const SHELF_STEP = 30;
+const SHELF_MAX = 600;
+
+/**
+ * Every clip a board holds for the agent, only its state and when it was made (owner, 2026-11-27,
+ * 1ก ข): the tabs and the day buttons count all of them, though the list shows only the newest.
+ */
+export async function myClipDays(board: Board = "quote"): Promise<ClipDay[]> {
+  const viewer = await requireMember();
+  return (await boardClipDays(viewer.agentId, board)).map((v) => ({ id: v.id, status: v.status, createdAt: v.created_at }));
+}
+export interface ClipDay { id: string; status: VideoStatus; createdAt: string }
+
 /**
  * The agent's clips for one board: วิดีโอนำเสนอ's quotes and FHC summaries, or คลิปเล่าเรื่อง's
  * stories (owner, 2026-10-15), or คลิปตามโจทย์'s — each board lists its own.
  */
-export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
+export async function myVideos(board: Board = "quote", size: number = SHELF_STEP): Promise<VideoItem[]> {
   const viewer = await requireMember();
-  const list = (await listVideos(viewer.agentId, 60)).filter((v) => boardOf(v.input) === board).slice(0, 30);
+  // แสดงเพิ่ม asks for 30 more each time (owner, 2026-11-27); never more than the shelf may hold
+  const want = Math.min(SHELF_MAX, Math.max(SHELF_STEP, Math.floor(Number(size) || SHELF_STEP)));
+  const list = (await listVideos(viewer.agentId, want, board)).filter((v) => boardOf(v.input) === board);
   const making = (v: VideoRow) => v.status === "drawing" || v.status === "rendering";
   const est = list.some(making) ? await clipEstimates().catch(() => DEFAULT_ESTIMATES) : DEFAULT_ESTIMATES;
   const now = Date.now();

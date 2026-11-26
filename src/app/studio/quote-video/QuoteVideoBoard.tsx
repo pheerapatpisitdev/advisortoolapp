@@ -39,6 +39,7 @@ import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "./useElevenOff";
 import { VIDEO_LANGS, type VideoLang } from "@/lib/quote-video/video-words";
 import { LANG_NAME } from "@/lib/ihealthy-lang";
+import { shelfSize } from "./shelf";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
@@ -637,7 +638,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   }
 
   // links renewed when the agent comes back to a board left open past the hour they last
-  useFreshLinks(() => { myVideos().then(setItems).catch(() => undefined); });
+  useFreshLinks(() => { myVideos("quote", shelfSize("quote")).then(setItems).catch(() => undefined); });
   // a clip still being made is asked after every few seconds, alone (useClipWatch); when it ends:
   useClipWatch("quote", items, setItems, () => {
     // a clip that ended may have given a free clip or money back, or found the voice used up
@@ -659,7 +660,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         refreshQuota();
       } else {
         if (recipe) try { localStorage.setItem(LAST_RECIPE_KEY, recipe); } catch { /* not remembered: the next pick may repeat it */ }
-        setItems(await myVideos());
+        setItems(await myVideos("quote", shelfSize("quote")));
         // the next clip gets its own three tries
         setRewrites(REWRITES);
         setScript(null);
@@ -1378,7 +1379,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       </aside>
 
       <section aria-label="วิดีโอที่สร้างแล้ว" className="studio-desk min-w-0 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
-        <ClipList items={items} setItems={setItems} pages={pages} />
+        <ClipList board="quote" items={items} setItems={setItems} pages={pages} />
       </section>
     </div>
   );
