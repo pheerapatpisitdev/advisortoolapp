@@ -73,6 +73,7 @@ ElevenLabs word timing; an AI check of rendered frames; library stills of the lo
 
 ## Shipping
 
-One `REMOTION_DRAWING` change. `remotion/prepare/prepare.test.ts` downloads Prompt and gains a โมชันกราฟิก free clip
-(with a device scene) so the push hook renders it. After merge the owner runs `remotion/cloudrun/ship.sh` from the Mac
-before Vercel serves it; until then โมชันกราฟิก and every other Remotion clip fail uncharged.
+One `REMOTION_DRAWING` change (f9d4370809ae). `remotion/prepare/prepare.test.ts` downloads Prompt and gains a
+โมชันกราฟิก free clip (with a device scene) so the ship script renders it. The เครื่องวาดคลิป workflow
+(`.github/workflows/remotion-job.yml`) runs `remotion/cloudrun/ship.sh` on the pull request and built the job
+`remotion-f9d4370809ae` there, so the merge needs no step from the Mac; merge only while that check is green.
