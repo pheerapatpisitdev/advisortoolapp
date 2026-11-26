@@ -120,7 +120,9 @@ describe("คลิปตามโจทย์ opened from a link", () => {
   it("draws the styles in two labelled groups: the system-drawn seven, then the seven AI styles with their line", () => {
     const html = prompt();
     const drawnAt = html.indexOf(">หน้าตาที่ระบบวาด<");
-    const aiAt = html.indexOf(">สไตล์ภาพ AI<");
+    // the form opens on โมชันกราฟิก: สไตล์ภาพ AI heads both groups, so the second group is named by what it is
+    expect(html.indexOf(">สไตล์ภาพ AI<")).toBeLessThan(drawnAt);
+    const aiAt = html.indexOf(">ภาพวาดโดย AI<");
     const lineAt = html.indexOf(">คำบนจอใช้แถบกระดาษเรียบ ภาพวาดโดย AI<");
     expect(drawnAt).toBeGreaterThan(-1);
     expect(aiAt).toBeGreaterThan(drawnAt);

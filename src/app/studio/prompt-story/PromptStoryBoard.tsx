@@ -19,6 +19,7 @@ import { Step } from "../quote-video/QuoteVideoBoard";
 import { makePromptStory, writePromptStory, type FigureNums } from "./actions";
 import { DEFAULT_FIGURE, FigurePicker, type FigureChoice } from "./FigurePicker";
 import { LookStep, type Look } from "./LookStep";
+import { designArg, makeArgs, readDesign, writeArgs, type FormDesign } from "@/lib/prompt-story/form-design";
 import { geminiVoice } from "@/lib/voice/gemini";
 import { ScriptEditor, type Draft, type LibraryPart } from "./ScriptEditor";
 import type { PromptStart } from "@/lib/scene-library/links";
@@ -34,12 +35,22 @@ const chip = (on: boolean) =>
 /** the picture styles in the form's two groups: what the system draws around the picture, then สไตล์ภาพ AI on the plain band */
 const STYLE_GROUPS = [
   { label: "หน้าตาที่ระบบวาด", styles: PICTURE_STYLES.filter((s) => !s.ai) },
-  { label: "สไตล์ภาพ AI", styles: PICTURE_STYLES.filter((s) => s.ai), note: "คำบนจอใช้แถบกระดาษเรียบ ภาพวาดโดย AI" },
+  { label: "สไตล์ภาพ AI", styles: PICTURE_STYLES.filter((s) => s.ai), note: "คำบนจอใช้แถบกระดาษเรียบ ภาพวาดโดย AI", ai: true },
 ];
+const DESIGNS: { id: FormDesign; name: string }[] = [{ id: "motion", name: "โมชันกราฟิก (ใหม่)" }, { id: "classic", name: "หน้าตาเดิม" }];
 const PAINTERS: { id: PromptStoryInput["painter"]; name: string }[] = [{ id: "standard", name: "มาตรฐาน" }, { id: "sharp", name: "คมชัด" }, { id: "gemini", name: "Gemini" }];
 const SCENES = SCENE_COUNTS;
 const LOOK_KEY = "prompt-story-look";
 const DEFAULT_LOOK: Look = { size: "portrait", narrator: "F", voice: "", gemini: "" };
+
+/** the remembered look and, with it, the remembered design (read from the same stored object) */
+function readDesignKept(): FormDesign {
+  try {
+    return readDesign((JSON.parse(localStorage.getItem(LOOK_KEY) ?? "null") as { design?: unknown } | null)?.design);
+  } catch {
+    return "motion";
+  }
+}
 
 function readLook(): Look {
   try {
@@ -60,6 +71,7 @@ interface Written {
   scenes: SceneCount;
   figure: FigureChoice | null;
   format: PromptFormat;
+  design: FormDesign;
   /** the figure's numbers a device may show, as the server worked them out when writing; null with no figure */
   nums: FigureNums | null;
 }
@@ -93,6 +105,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const [premium, setPremium] = useState<{ annual: number; monthly: number } | null>(null);
   const [format, setFormat] = useState<PromptFormat>(start?.format ?? "free");
   const [look, setLook] = useState<Look>(DEFAULT_LOOK);
+  const [design, setDesign] = useState<FormDesign>("motion");
   const [customer, setCustomer] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [notes, setNotes] = useState<number[]>([]);
@@ -109,14 +122,19 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     // a voice no longer listed (the cloned ones, gone 2026-10-17) falls back to Gemini's
     const kept = readLook();
     setLook(eleven.some((v) => v.id === kept.voice) ? kept : { ...kept, voice: "" });
+    setDesign(readDesignKept());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- read once, as the page opens
   }, []);
   function pickLook(next: Partial<Look>) {
     setLook((was) => {
       const l = { ...was, ...next };
-      try { localStorage.setItem(LOOK_KEY, JSON.stringify(l)); } catch { /* not remembered, still used */ }
+      try { localStorage.setItem(LOOK_KEY, JSON.stringify({ ...l, design })); } catch { /* not remembered, still used */ }
       return l;
     });
+  }
+  function pickDesign(next: FormDesign) {
+    setDesign(next);
+    try { localStorage.setItem(LOOK_KEY, JSON.stringify({ ...look, design: next })); } catch { /* not remembered, still used */ }
   }
 
   // Gemini's voice used up for the day: the warning goes by itself when the day turns over
@@ -136,14 +154,16 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
 
   const figureAsked = withFigure ? figure : null;
   const briefOk = brief.trim().length > 0 && brief.length <= BRIEF_MAX;
-  const stale = Boolean(written) && (written!.brief !== brief || written!.scenes !== scenes || written!.format !== format || JSON.stringify(written!.figure) !== JSON.stringify(figureAsked));
+  const stale = Boolean(written) && (written!.brief !== brief || written!.scenes !== scenes || written!.format !== format || written!.design !== design || JSON.stringify(written!.figure) !== JSON.stringify(figureAsked));
   // the figures a device may show, from what the script was written from: the server's very test (checkedPromptStory)
   const forDevice = useMemo(() => (written ? deviceAllowed(written.brief, written.nums ?? undefined) : new Set<number>()), [written]);
   // a taxback's bracket and premium: the brief's own, never the plan's (briefTax)
   const tax = useMemo(() => briefTax(written?.brief ?? ""), [written]);
   // a device that fails is a picture scene to the server, and is charged as one
-  const pictures = draft ? pictureCount(draft.scenes, forDevice, tax) : undefined;
-  const missing = draft ? missingPicture(draft.scenes, forDevice, tax) : null;
+  // the draft keeps the design it was written with, as the clip is made from it
+  const draftDesign = designArg(written?.design ?? design);
+  const pictures = draft ? pictureCount(draft.scenes, forDevice, tax, draftDesign) : undefined;
+  const missing = draft ? missingPicture(draft.scenes, forDevice, tax, draftDesign) : null;
   const elevenIsOff = useElevenOff(eleven.length > 0);
   const notice = look.voice && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && !look.voice ? voiceNotice(quota, true) : null;
   const voiceBlocked = Boolean(notice?.blocked);
@@ -154,12 +174,12 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     setWriting(true);
     setError(null);
     try {
-      const r = await writePromptStory({ brief, scenes, format, ...(figureAsked ? { figure: figureAsked } : {}) });
+      const r = await writePromptStory(writeArgs({ brief, scenes, format, figure: figureAsked, design }));
       if (!r.ok) { setError({ text: r.error }); return; }
       setDraft({ id: r.id, title: r.title, caption: r.caption, scenes: r.scenes, left: REWRITES_PER_DRAFT });
       setNotes(r.notes);
       // the server's own figure, never the page's preview: devices are checked against what the clip will use
-      setWritten({ brief, scenes, figure: figureAsked, format, nums: r.figureNums });
+      setWritten({ brief, scenes, figure: figureAsked, format, design, nums: r.figureNums });
     } catch {
       setError({ text: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" });
     } finally {
@@ -175,7 +195,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       const r = await makePromptStory({
         draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption, scenes: draft.scenes, format: written.format,
         style, ...(styleRef ? { styleRef } : {}), painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
-        faces: { narrator: narratorFaceFor(look.narrator) }, ...(written.figure ? { figure: written.figure } : {}),
+        ...makeArgs(written.design), faces: { narrator: narratorFaceFor(look.narrator) }, ...(written.figure ? { figure: written.figure } : {}),
       }, customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
@@ -216,15 +236,19 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           </div>
           {format === "claimreview" && <p className="text-xs text-[var(--ct-warn-ink)]">ไม่ใส่ชื่อลูกค้า ตัวเลขตามที่คุณพิมพ์</p>}
         </Step>
-        <Step n={2} title="จำนวนฉาก และสไตล์รูป" summary={`${scenes} ฉาก`}>
+        <Step n={2} title="หน้าตาคลิป และสไตล์รูป" summary={`${scenes} ฉาก`}>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="หน้าตาคลิป">
+            {DESIGNS.map((d) => <button key={d.id} type="button" role="radio" aria-checked={design === d.id} className={chip(design === d.id)} onClick={() => pickDesign(d.id)}>{d.name}</button>)}
+          </div>
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="จำนวนฉาก">
             {SCENES.map((n) => <button key={n} type="button" role="radio" aria-checked={scenes === n} className={chip(scenes === n)} onClick={() => setScenes(n)}>{n} ฉาก</button>)}
           </div>
           {/* one choice in two groups (owner, 2026-11-14, spec 2026-11-14-ai-picture-styles-design): the looks the system draws, then สไตล์ภาพ AI */}
+          {design === "motion" && <p className="text-sm font-semibold">สไตล์ภาพ AI</p>}
           <div className="space-y-3" role="radiogroup" aria-label="สไตล์รูป">
             {STYLE_GROUPS.map((g) => (
               <div key={g.label} className="space-y-1.5">
-                <p className="text-xs font-medium">{g.label}</p>
+                <p className="text-xs font-medium">{design === "motion" && g.ai ? "ภาพวาดโดย AI" : g.label}</p>
                 <div className="flex flex-wrap gap-2">
                   {g.styles.map((s) => <button key={s.id} type="button" role="radio" aria-checked={style === s.id} className={chip(style === s.id)} onClick={() => setStyle(s.id)}>{s.name}</button>)}
                 </div>
@@ -309,7 +333,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       </aside>
 
       <section aria-label="บทและวิดีโอ" className="studio-desk min-w-0 space-y-4 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
-        {draft && <ScriptEditor draft={draft} notes={notes} onChange={setDraft} forDevice={forDevice} tax={tax} assets={assets} startAsset={startAsset} />}
+        {draft && <ScriptEditor draft={draft} design={designArg(written?.design ?? design)} size={look.size} notes={notes} onChange={setDraft} forDevice={forDevice} tax={tax} assets={assets} startAsset={startAsset} />}
         <ClipList items={items} setItems={setItems} pages={pages} />
       </section>
     </div>
