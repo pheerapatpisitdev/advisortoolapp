@@ -2,8 +2,8 @@ import { isUploadId } from "@/lib/scene-library/upload-rules";
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
-import { briefTax, checkDevice, deviceAllowed } from "./check";
-import { BRIEF_MAX, isPromptFormat, REWRITES_DONE, REWRITES_PER_DRAFT, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
+import { allowedFor, briefTax, checkDevice, checkMotion, deviceAllowed } from "./check";
+import { BRIEF_MAX, isPromptFormat, paints, REWRITES_DONE, REWRITES_PER_DRAFT, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
  * คลิปตามโจทย์'s form, checked on the server before anything is held: the brief and the script as
@@ -47,6 +47,7 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
     if (typeof f === "string") return f;
     figure = f;
   }
+  const design = v.design === "motion" ? ("motion" as const) : undefined;
   const scenes: PromptScene[] = [];
   let shown = false;
   // a device's figures as the brief and plan write them, never the spoken millions
@@ -64,18 +65,25 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
     };
     if (!sc.voice || len(sc.voice) > VOICE_MAX) return `ฉากที่ ${i + 1}: ใส่คำพูด ไม่เกิน ${VOICE_MAX} ตัวอักษร`;
     if (!sc.screen || len(sc.screen) > SCREEN_MAX) return `ฉากที่ ${i + 1}: ใส่ข้อความบนจอ ไม่เกิน ${SCREEN_MAX} ตัวอักษร`;
-    // a picture scene needs its words for the painter; a device scene is drawn by the system, a part laid in
-    if (!sc.device && !sc.asset && !sc.picture) return `ใส่คำบรรยายภาพของฉากที่ ${i + 1}`;
-    if (len(sc.picture) > PICTURE_MAX) return `ฉากที่ ${i + 1}: ใส่ภาพที่อยากได้ ไม่เกิน ${PICTURE_MAX} ตัวอักษร`;
     // the figure card is drawn on one scene at most, and only when a plan was priced
     if (o.showFigure === true && figure && !shown) {
       sc.showFigure = true;
       shown = true;
     }
+    // a layout (โมชันกราฟิก only) that fails its check refuses the request; without the look it is dropped
+    if (design && o.motion !== undefined && o.motion !== null) {
+      const m = checkMotion(o.motion, allowedFor(brief, figure), allowed);
+      if (Array.isArray(m)) return `ฉากที่ ${i + 1}: ${m[0]}`;
+      sc.motion = m;
+    }
+    // a picture scene needs its words for the painter; a device scene is drawn by the system, a part laid in
+    if (paints(sc, design) && !sc.picture) return `ใส่คำบรรยายภาพของฉากที่ ${i + 1}`;
+    if (len(sc.picture) > PICTURE_MAX) return `ฉากที่ ${i + 1}: ใส่ภาพที่อยากได้ ไม่เกิน ${PICTURE_MAX} ตัวอักษร`;
     scenes.push(sc);
   }
   const face = v.faces && typeof v.faces === "object" ? (v.faces as Record<string, unknown>).narrator : undefined;
   return {
+    ...(design ? { design } : {}),
     product: "FREESTORY", draftId: v.draftId, brief, title, caption, scenes,
     ...(isPromptFormat(v.format) ? { format: v.format } : {}),
     style: v.style as PictureStyle, painter: v.painter as PromptStoryInput["painter"],
