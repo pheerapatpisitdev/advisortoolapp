@@ -4,7 +4,7 @@ import { cropHere } from "@/lib/content/crop-here";
 import { drawPngHere, laidOutHeightHere } from "@/lib/draw/core";
 import { DRAW_CORE } from "@/lib/draw/version";
 import { fromTree, fromWireFonts, type WireFont } from "@/lib/draw/wire";
-import { printPdfHere } from "@/lib/quote-pdf/print";
+import { printPdfHere, shootPagesHere } from "@/lib/quote-pdf/print";
 import type { PrintCookie } from "@/lib/draw/remote";
 import type { PrintedLang } from "@/lib/quote-pdf/langs";
 
@@ -18,6 +18,7 @@ import type { PrintedLang } from "@/lib/quote-pdf/langs";
  *   POST /height  { tree, width, fonts }       → { height }
  *   POST /crop?aspect=9:16   the image's bytes → the cut, its type in content-type
  *   POST /pdf     { url, timeoutMs, lang?, cookies } → the PDF
+ *   POST /shot    { url, timeoutMs, cookies }   → { pages: [base64 PNG, one per A4 sheet] }
  *   GET  /health                               → { ok, core }
  *
  * Who may call is Cloud Run's to say: the service lets in only the account of the app's Google
@@ -88,6 +89,12 @@ async function answer(req: IncomingMessage, res: ServerResponse) {
       if (!/^https?:\/\//.test(page)) throw new Refused(400, "url");
       const pdf = await printPdfHere(page, { timeoutMs: Math.min(Number(timeoutMs) || 45_000, 55_000), cookies, ...(lang ? { lang } : {}) });
       return send(res, 200, "application/pdf", pdf);
+    }
+    case "/shot": {
+      const { url: page, timeoutMs, cookies } = asJson(raw) as { url: string; timeoutMs: number; cookies: PrintCookie[] };
+      if (!/^https?:\/\//.test(page)) throw new Refused(400, "url");
+      const shots = await shootPagesHere(page, { timeoutMs: Math.min(Number(timeoutMs) || 45_000, 55_000), cookies });
+      return send(res, 200, "application/json", JSON.stringify({ pages: shots.map((b) => b.toString("base64")) }));
     }
     default:
       throw new Refused(404, "no such route");

@@ -1,6 +1,6 @@
 import { refuseUnless } from "@/lib/auth/viewer";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
-import { encodePrintQuote, pdfFileName, readPrintQuote } from "@/lib/group-insurance/print-link";
+import { decodePrintQuote, encodePrintQuote, pdfFileName, readPrintQuote, type PrintQuote } from "@/lib/group-insurance/print-link";
 import { renderQuotePdf } from "@/lib/quote-pdf/render";
 import { siteOrigin } from "@/lib/site-url";
 
@@ -39,7 +39,24 @@ export async function POST(req: Request): Promise<Response> {
   }
   const quote = readPrintQuote(body);
   if (!quote) return refused(400, "ทำไฟล์จากใบเสนอราคานี้ไม่ได้ครับ");
+  return pdfOf(quote);
+}
 
+/**
+ * The same file at an address (?q= as the sheet page's), for a browser with no share sheet for
+ * files — LINE's, Facebook's (owner, 2026-11-26): the button there is a link the agent taps, so
+ * the file opens in a page of its own, where the app's own share or save is.
+ */
+export async function GET(req: Request): Promise<Response> {
+  const refusal = await refuseUnless();
+  if (refusal) return refusal;
+  if (!allow(clientIp(req.headers))) return refused(429, "รอสักครู่แล้วลองใหม่นะครับ");
+  const quote = decodePrintQuote(new URL(req.url).searchParams.get("q") ?? undefined);
+  if (!quote) return refused(400, "ทำไฟล์จากใบเสนอราคานี้ไม่ได้ครับ");
+  return pdfOf(quote);
+}
+
+async function pdfOf(quote: PrintQuote): Promise<Response> {
   const target = `${siteOrigin()}/group-insurance/sheet?q=${encodePrintQuote(quote)}`;
   try {
     const pdf = await renderQuotePdf(target, { timeoutMs: 45_000 });

@@ -4,4 +4,4 @@
  * a picture from code it does not have. tests/draw/core-fingerprint.test.ts says when it must
  * change; the push to main then builds and deploys that service (draw/ship.sh).
  */
-export const DRAW_CORE = "4b1fb6b2c218";
+export const DRAW_CORE = "f06bd56ba3fc";

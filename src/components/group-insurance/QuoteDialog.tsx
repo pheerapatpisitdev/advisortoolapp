@@ -6,12 +6,17 @@ import { preparePrint } from "@/lib/quote-pdf/prepare";
 import { Icon } from "./Icon";
 import { useLang } from "./lang";
 import { QuoteSheetDoc } from "./QuoteSheetDoc";
-import { SharePdfButton } from "./SharePdfButton";
+import { QuoteFileButton } from "./QuoteFileButton";
 
 const SHEET_WIDTH = 794;
 
-/** a finger rather than a mouse: a phone or a tablet */
-const onPhone = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+/**
+ * a finger rather than a mouse: a phone or a tablet. An iPad with a keyboard or a trackpad says
+ * its pointer is fine and calls itself a Mac, so a touch screen counts too — it got the print
+ * button, which does nothing from a home-screen icon, LINE or Facebook (owner, 2026-11-26).
+ */
+const onPhone = () =>
+  typeof window !== "undefined" && (window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 1);
 
 /**
  * The quotation, before it is handed over.
@@ -188,11 +193,20 @@ export function QuoteDialog({
           >
             {t("close")}
           </button>
+          {/* "บันทึกรูป": a picture per page, made by the server for every device (owner, 2026-11-26) */}
+          <QuoteFileButton
+            kind="image"
+            quote={printQuote}
+            download={!phone}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold shadow-sm transition-opacity hover:opacity-90 disabled:opacity-90"
+            style={{ borderColor: "var(--gi-navy)", color: "var(--gi-navy)" }}
+          />
           {/* A phone's print sheet is missing from a home-screen icon, LINE and Facebook, so a
               phone has the server make the file and shares it (owner, 2026-11-20); a computer
               keeps the browser's own print dialog. */}
           {phone ? (
-            <SharePdfButton
+            <QuoteFileButton
+              kind="pdf"
               quote={printQuote}
               className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-90"
               style={{ background: "var(--gi-navy)" }}

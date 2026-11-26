@@ -118,7 +118,19 @@ export function decodePrintQuote(q: string | undefined): PrintQuote | null {
  * or the quotation's number when none was (owner, 2026-11-20).
  */
 export function pdfFileName(quote: Pick<PrintQuote, "lang" | "customerName" | "quoteNo">): string {
+  return `${fileStem(quote)}.pdf`;
+}
+
+/**
+ * A picture's name (owner, 2026-11-26, ข: a picture per page): the PDF's, with the page's
+ * number when there is more than one.
+ */
+export function imageFileName(quote: Pick<PrintQuote, "lang" | "customerName" | "quoteNo">, page: number, pages: number): string {
+  return pages > 1 ? `${fileStem(quote)}-${page}.png` : `${fileStem(quote)}.png`;
+}
+
+function fileStem(quote: Pick<PrintQuote, "lang" | "customerName" | "quoteNo">): string {
   // the letters a phone's file system or a chat app refuses in a name
   const who = quote.customerName.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim() || quote.quoteNo;
-  return quote.lang === "en" ? `Group-Insurance-Quote-${who}.pdf` : `ใบเสนอราคา-ประกันกลุ่ม-${who}.pdf`;
+  return quote.lang === "en" ? `Group-Insurance-Quote-${who}` : `ใบเสนอราคา-ประกันกลุ่ม-${who}`;
 }

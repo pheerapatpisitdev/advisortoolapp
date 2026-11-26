@@ -80,3 +80,13 @@ export async function printPdfThere(
   const res = await call("/pdf", json({ url, ...opts }), "application/json", opts.timeoutMs + 5_000);
   return Buffer.from(await res.arrayBuffer());
 }
+
+/** the page as one PNG per A4 sheet (draw/server.ts /shot) */
+export async function shootPagesThere(url: string, opts: { timeoutMs: number; cookies: PrintCookie[] }): Promise<Buffer[]> {
+  const res = await call("/shot", json({ url, ...opts }), "application/json", opts.timeoutMs + 5_000);
+  const { pages } = (await res.json()) as { pages?: unknown };
+  if (!Array.isArray(pages) || !pages.length || !pages.every((p) => typeof p === "string")) {
+    throw new DrawUnavailable("draw service /shot: no pages");
+  }
+  return pages.map((p) => Buffer.from(p as string, "base64"));
+}
