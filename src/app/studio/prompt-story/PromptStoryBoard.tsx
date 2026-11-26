@@ -6,7 +6,7 @@ import type { CostView } from "@/lib/quote-video/make";
 import { totalLine } from "@/lib/prompt-story/total";
 import { BRIEF_MAX, PICTURE_STYLES, PROMPT_FORMATS, REWRITES_PER_DRAFT, SCENE_COUNTS, type PictureStyle, type PromptFormat, type PromptStoryInput, type SceneCount } from "@/lib/prompt-story/types";
 import { briefTax, deviceAllowed } from "@/lib/prompt-story/check";
-import { missingPicture, needPictureWords, pictureCount } from "@/lib/prompt-story/editor-state";
+import { missingPicture, motionGapAt, needLayoutWords, needPictureWords, pictureCount } from "@/lib/prompt-story/editor-state";
 import { narratorFaceFor } from "@/lib/story/faces";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
@@ -19,7 +19,7 @@ import { Step } from "../quote-video/QuoteVideoBoard";
 import { makePromptStory, writePromptStory, type FigureNums } from "./actions";
 import { DEFAULT_FIGURE, FigurePicker, type FigureChoice } from "./FigurePicker";
 import { LookStep, type Look } from "./LookStep";
-import { designArg, makeArgs, readDesign, writeArgs, type FormDesign } from "@/lib/prompt-story/form-design";
+import { designArg, makeArgs, readDesign, staleWords, writeArgs, type FormDesign } from "@/lib/prompt-story/form-design";
 import { geminiVoice } from "@/lib/voice/gemini";
 import { ScriptEditor, type Draft, type LibraryPart } from "./ScriptEditor";
 import type { PromptStart } from "@/lib/scene-library/links";
@@ -32,10 +32,10 @@ import type { PromptStart } from "@/lib/scene-library/links";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
-/** the picture styles in the form's two groups: what the system draws around the picture, then สไตล์ภาพ AI on the plain band */
+/** หน้าตาเดิม's picture styles in the form's two groups: what the system draws around the picture, then สไตล์ภาพ AI on the plain band */
 const STYLE_GROUPS = [
   { label: "หน้าตาที่ระบบวาด", styles: PICTURE_STYLES.filter((s) => !s.ai) },
-  { label: "สไตล์ภาพ AI", styles: PICTURE_STYLES.filter((s) => s.ai), note: "คำบนจอใช้แถบกระดาษเรียบ ภาพวาดโดย AI", ai: true },
+  { label: "สไตล์ภาพ AI", styles: PICTURE_STYLES.filter((s) => s.ai), note: "คำบนจอใช้แถบกระดาษเรียบ ภาพวาดโดย AI" },
 ];
 const DESIGNS: { id: FormDesign; name: string }[] = [{ id: "motion", name: "โมชันกราฟิก (ใหม่)" }, { id: "classic", name: "หน้าตาเดิม" }];
 const PAINTERS: { id: PromptStoryInput["painter"]; name: string }[] = [{ id: "standard", name: "มาตรฐาน" }, { id: "sharp", name: "คมชัด" }, { id: "gemini", name: "Gemini" }];
@@ -63,6 +63,36 @@ function readLook(): Look {
   } catch {
     return DEFAULT_LOOK;
   }
+}
+
+/**
+ * สไตล์รูป. หน้าตาเดิม: the two groups as they were (owner, 2026-11-14, spec 2026-11-14-ai-picture-styles-design), the
+ * looks the system draws, then สไตล์ภาพ AI on the plain band. โมชันกราฟิก (spec 2026-11-26): the clip's words and colours
+ * are the look's own, so the fourteen are one group headed สไตล์ภาพ AI, deciding only how the pictures are painted.
+ */
+export function StyleChips({ design, style, onPick }: { design: FormDesign; style: PictureStyle; onPick: (s: PictureStyle) => void }) {
+  const button = (s: (typeof PICTURE_STYLES)[number]) => (
+    <button key={s.id} type="button" role="radio" aria-checked={style === s.id} className={chip(style === s.id)} onClick={() => onPick(s.id)}>{s.name}</button>
+  );
+  if (design === "motion") {
+    return (
+      <>
+        <p className="text-sm font-semibold">สไตล์ภาพ AI</p>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="สไตล์รูป">{PICTURE_STYLES.map(button)}</div>
+      </>
+    );
+  }
+  return (
+    <div className="space-y-3" role="radiogroup" aria-label="สไตล์รูป">
+      {STYLE_GROUPS.map((g) => (
+        <div key={g.label} className="space-y-1.5">
+          <p className="text-xs font-medium">{g.label}</p>
+          <div className="flex flex-wrap gap-2">{g.styles.map(button)}</div>
+          {g.note && <p className="text-xs text-[var(--ct-mute)]">{g.note}</p>}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** what the script was written from: the clip is made from these, not from a form edited since */
@@ -164,6 +194,8 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const draftDesign = designArg(written?.design ?? design);
   const pictures = draft ? pictureCount(draft.scenes, forDevice, tax, draftDesign) : undefined;
   const missing = draft ? missingPicture(draft.scenes, forDevice, tax, draftDesign) : null;
+  // a layout with an empty box: the server would refuse it (checkMotion), so สร้างคลิป waits, as for picture words
+  const gap = draft ? motionGapAt(draft.scenes, draftDesign) : null;
   const elevenIsOff = useElevenOff(eleven.length > 0);
   const notice = look.voice && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && !look.voice ? voiceNotice(quota, true) : null;
   const voiceBlocked = Boolean(notice?.blocked);
@@ -243,19 +275,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="จำนวนฉาก">
             {SCENES.map((n) => <button key={n} type="button" role="radio" aria-checked={scenes === n} className={chip(scenes === n)} onClick={() => setScenes(n)}>{n} ฉาก</button>)}
           </div>
-          {/* one choice in two groups (owner, 2026-11-14, spec 2026-11-14-ai-picture-styles-design): the looks the system draws, then สไตล์ภาพ AI */}
-          {design === "motion" && <p className="text-sm font-semibold">สไตล์ภาพ AI</p>}
-          <div className="space-y-3" role="radiogroup" aria-label="สไตล์รูป">
-            {STYLE_GROUPS.map((g) => (
-              <div key={g.label} className="space-y-1.5">
-                <p className="text-xs font-medium">{design === "motion" && g.ai ? "ภาพวาดโดย AI" : g.label}</p>
-                <div className="flex flex-wrap gap-2">
-                  {g.styles.map((s) => <button key={s.id} type="button" role="radio" aria-checked={style === s.id} className={chip(style === s.id)} onClick={() => setStyle(s.id)}>{s.name}</button>)}
-                </div>
-                {g.note && <p className="text-xs text-[var(--ct-mute)]">{g.note}</p>}
-              </div>
-            ))}
-          </div>
+          <StyleChips design={design} style={style} onPick={setStyle} />
           {styles.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs font-medium">ภาพอ้างอิงสไตล์จากคลัง (ไม่บังคับ)</p>
@@ -307,14 +327,15 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           )}
           {draft && (
             <>
-              {stale && <p role="status" className="text-xs text-[var(--ct-warn-ink)]">แก้โจทย์หรือตัวเลือกหลังเขียนบทแล้ว คลิปจะทำจากบทนี้ กด “เขียนใหม่” ถ้าอยากให้เขียนตามที่แก้</p>}
+              {stale && <p role="status" className="text-xs text-[var(--ct-warn-ink)]">{staleWords(written!.design, design)}</p>}
               {missing !== null && <p role="status" className="text-xs text-[var(--ct-alert)]">{needPictureWords(missing + 1)}</p>}
+              {gap !== null && <p role="status" className="text-xs text-[var(--ct-alert)]">{needLayoutWords(gap + 1)}</p>}
               <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm tabular-nums">
                 <b>ยอดตอนกดสร้างคลิป</b><br />{total.text}
                 {cost?.kind === "wallet" && <><br /><span className="text-xs text-[var(--ct-mute)]">ยอดคงเหลือ {cost.balance}</span></>}
               </p>
               <button
-                type="button" onClick={make} disabled={making || writing || closed || voiceBlocked || Boolean(total.blocked) || missing !== null}
+                type="button" onClick={make} disabled={making || writing || closed || voiceBlocked || Boolean(total.blocked) || missing !== null || gap !== null}
                 className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
               >
                 {making ? "กำลังเริ่ม…" : total.baht === "0" || total.blocked ? "สร้างคลิป" : `สร้างคลิป ฿${total.baht}`}

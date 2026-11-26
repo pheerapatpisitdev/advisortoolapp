@@ -24,3 +24,15 @@ export function makeArgs(d: FormDesign): { design?: PromptDesign } {
   const design = designArg(d);
   return design ? { design } : {};
 }
+
+/** the looks as the notices name them */
+const LOOK_NAME: Record<FormDesign, string> = { motion: "โมชันกราฟิก", classic: "หน้าตาเดิม" };
+
+/**
+ * the notice when the form changed after the script was written: the clip is made from the script, so a design
+ * changed since names the look the clip will still be made in, and the one a rewrite would give
+ */
+export function staleWords(written: FormDesign, now: FormDesign): string {
+  if (written !== now) return `บทนี้เขียนสำหรับ${LOOK_NAME[written]} คลิปจะทำเป็น${LOOK_NAME[written]} กด “เขียนใหม่” ถ้าจะใช้${LOOK_NAME[now]}`;
+  return "แก้โจทย์หรือตัวเลือกหลังเขียนบทแล้ว คลิปจะทำจากบทนี้ กด “เขียนใหม่” ถ้าอยากให้เขียนตามที่แก้";
+}

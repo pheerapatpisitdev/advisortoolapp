@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: 
 
 const { StoryClipBoard, readLook } = await import("@/app/studio/story-clip/StoryClipBoard");
 const { STORY_CLIP_COLORS } = await import("@/lib/card-theme");
-const { PromptStoryBoard } = await import("@/app/studio/prompt-story/PromptStoryBoard");
+const { PromptStoryBoard, StyleChips } = await import("@/app/studio/prompt-story/PromptStoryBoard");
 const { storyStartFrom, promptStartFrom } = await import("@/lib/scene-library/links");
 
 const prices = {} as never;
@@ -117,12 +117,24 @@ describe("คลิปตามโจทย์ opened from a link", () => {
       expect(html.match(/aria-checked="true"[^>]*>[^<]*</g)?.filter((m) => [...DRAWN, ...AI_STYLES.map(([, n]) => n)].some((n) => m.endsWith(`>${n}<`))), id).toHaveLength(1);
     }
   });
-  it("draws the styles in two labelled groups: the system-drawn seven, then the seven AI styles with their line", () => {
+  it("in โมชันกราฟิก (the form's default) draws the fourteen in one group under สไตล์ภาพ AI, in the form's order, no sub-label nor band line", () => {
     const html = prompt();
+    const headAt = html.indexOf(">สไตล์ภาพ AI<");
+    expect(headAt).toBeGreaterThan(-1);
+    expect(html.match(/สไตล์ภาพ AI/g)).toHaveLength(1);
+    for (const gone of [">หน้าตาที่ระบบวาด<", ">ภาพวาดโดย AI<", ">คำบนจอใช้แถบกระดาษเรียบ ภาพวาดโดย AI<"]) expect(html, gone).not.toContain(gone);
+    const chipAt = (name: string) => html.indexOf(`>${name}</button>`);
+    const order = [...DRAWN, ...AI_STYLES.map(([, n]) => n)].map(chipAt);
+    for (const [i, at] of order.entries()) expect(at, String(i)).toBeGreaterThan(headAt);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    for (const [, name] of AI_STYLES) expect(html, name).toMatch(new RegExp(`aria-checked="false"[^>]*>${name}</button>`));
+    // the retired and the dropped are not offered
+    for (const gone of ["ลายไทยร่วมสมัย", "ภาพสมจริง", "มินิมอลแบน"]) expect(html, gone).not.toContain(`>${gone}</button>`);
+  });
+  it("in หน้าตาเดิม draws the styles in two labelled groups: the system-drawn seven, then the seven AI styles with their line", () => {
+    const html = renderToStaticMarkup(createElement(StyleChips, { design: "classic", style: "paper", onPick: () => {} }));
     const drawnAt = html.indexOf(">หน้าตาที่ระบบวาด<");
-    // the form opens on โมชันกราฟิก: สไตล์ภาพ AI heads both groups, so the second group is named by what it is
-    expect(html.indexOf(">สไตล์ภาพ AI<")).toBeLessThan(drawnAt);
-    const aiAt = html.indexOf(">ภาพวาดโดย AI<");
+    const aiAt = html.indexOf(">สไตล์ภาพ AI<");
     const lineAt = html.indexOf(">คำบนจอใช้แถบกระดาษเรียบ ภาพวาดโดย AI<");
     expect(drawnAt).toBeGreaterThan(-1);
     expect(aiAt).toBeGreaterThan(drawnAt);
@@ -135,13 +147,7 @@ describe("คลิปตามโจทย์ opened from a link", () => {
     for (const [, name] of AI_STYLES) {
       expect(chipAt(name), name).toBeGreaterThan(aiAt);
       expect(chipAt(name), name).toBeLessThan(lineAt);
-      expect(html, name).toMatch(new RegExp(`aria-checked="false"[^>]*>${name}</button>`));
     }
-    // in the form's order
-    const order = [...DRAWN, ...AI_STYLES.map(([, n]) => n)].map(chipAt);
-    expect(order).toEqual([...order].sort((a, b) => a - b));
-    // the retired and the dropped are not offered
-    for (const gone of ["ลายไทยร่วมสมัย", "ภาพสมจริง", "มินิมอลแบน"]) expect(html, gone).not.toContain(`>${gone}</button>`);
   });
   it("opens as today with no link or an unknown one", () => {
     for (const html of [prompt(), prompt({ format: "x", style: "real" })]) {
