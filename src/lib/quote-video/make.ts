@@ -461,7 +461,9 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const narrator = narratorOf(row.input);
   if (row.input.ad) return adParts(facts, row.input, row.input.ad, contact, narrator, secs);
   const recipe = recipeOf(row.input, facts);
-  if (recipe) return recipeParts(recipe, facts, row.input.sex, narrator, contact, secs);
+  // the chat clip's asker is the insured; a plan priced by plan alone has none, so a woman asks, as the narrator is by default
+  const asker = facts.sex ?? "F";
+  if (recipe) return recipeParts(recipe, facts, asker, narrator, contact, secs);
   const size = clipSize(row.input);
   // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
   const length = readLength(row.input.length);
@@ -510,7 +512,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     : {};
   return {
     script, motion, plans, size,
-    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...myColorOf(theme, row.input.myColor), ...extrasOf(row.input), ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}), ...(priceJar ? { priceJar } : {}), ...(coverRoad ? { coverRoad } : {}) } } } : {}),
+    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...myColorOf(theme, row.input.myColor), ...extrasOf(row.input), ...(size !== "portrait" ? { size } : {}), sex: asker, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}), ...(priceJar ? { priceJar } : {}), ...(coverRoad ? { coverRoad } : {}) } } } : {}),
     ...(!motion ? { classic$: { size, facts, narrator, customer, contact, ...(chart ? { chart } : {}), ...(pen?.notes.length ? { notes: pen.notes } : {}), shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) }, layers } } : {}),
     ...(script$.script ? { scriptFace: script$.script } : {}),
   };

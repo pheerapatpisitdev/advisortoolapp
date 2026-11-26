@@ -71,8 +71,9 @@ function Header({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer }) {
         <div style={box({ fontSize: g.px(24, 28), color: P.mute })}>{f.insuredLine}</div>
       </div>
       <div style={box({ alignItems: "center", flexShrink: 0 })}>
-        {insuredFace(f.sex, g.px(54, 64))}
-        <div style={box({ fontSize: g.px(36, 44), fontWeight: 600, color: P.figure, marginLeft: 12 })}>{f.insuredWho}</div>
+        {/* a plan priced by plan alone has no insured to picture (script.ts pricedByPlan) */}
+        {f.sex ? insuredFace(f.sex, g.px(54, 64)) : null}
+        <div style={box({ fontSize: g.px(36, 44), fontWeight: 600, color: P.figure, marginLeft: f.sex ? 12 : 0 })}>{f.insuredWho}</div>
       </div>
     </On>
   );
@@ -645,7 +646,7 @@ function StoryScene({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; 
     <div style={abs({ left: g.side, width: g.w - g.side * 2, top: g.top - 20, height: g.bottom - g.top + 20, alignItems: "center" })}>
       <On layer={layer} own="base" style={{ flexDirection: "column", alignItems: "center", marginRight: g.px(36, 80), flexShrink: 0 }}>
         <div style={box({ ...kickerStyle(g), marginBottom: 20 })}>ลองนึกภาพ</div>
-        {insuredFace(c.facts.sex, g.px(200, 300))}
+        {c.facts.sex ? insuredFace(c.facts.sex, g.px(200, 300)) : null}
       </On>
       <div style={box({ flexDirection: "column", flex: 1 })}>
         {pts.map((pt, i) => (

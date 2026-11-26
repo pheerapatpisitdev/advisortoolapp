@@ -89,6 +89,7 @@ export function resolveBudget(v: VideoInput, budget: Budget, today: Date = new D
   if (v.product === "LIFETREASURE") return lifeTreasureFromBudget(v, budget, today);
   if (v.product === "CI123") return ci123FromBudget(v, budget, today);
   if (v.product === "CANCER") return cancerFromBudget(v, budget, today);
+  if (v.product === "PA") return PA_NO_BUDGET;
   if (v.product === "TWELVEPL") return twelvePlFromBudget(v, budget, today);
 
   const product = v.product === "ISHIELD" ? "ISHIELD" : "LIFEPROTECT";
@@ -127,6 +128,9 @@ export function resolveBudget(v: VideoInput, budget: Budget, today: Date = new D
     ? RIDERS_NOT_SOLD
     : `งบนี้ยังไม่พอสำหรับทุนต่ำสุด ${first.toLocaleString("en-US")} รวมสัญญาเพิ่มเติม (เริ่มที่${word(budget.per)} ${formatBaht(at.total)} บาท) ลดสัญญาเพิ่มเติมหรือเพิ่มงบ`;
 }
+
+/** a PA clip asked from a budget (an older tab): its plans are few and priced by class, so the agent picks the plan (owner, 2026-11-26) */
+export const PA_NO_BUDGET = "PA เลือกแผนเอง ไม่คิดจากงบ";
 
 /** said by the form's check too (actions.ts): riders picked that this insured cannot buy */
 export const RIDERS_NOT_SOLD = "สัญญาเพิ่มเติมที่เลือกซื้อไม่ได้ในอายุหรือทุนนี้ เอาสัญญานั้นออก หรือเปลี่ยนอายุ / ทุน";

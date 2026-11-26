@@ -18,6 +18,7 @@ import { easyProtectVideoFacts, epFamily, epMoney, epSixLine, epTotalLine, epVal
 import { lifeTreasureVideoFacts, ltFamily, ltLeadLine, ltMoney, ltPriceLine, ltTermsLine, ltTotalLine, ltValueLine, type LifeTreasureVariant, type LifeTreasureVideoFacts } from "./lifetreasure";
 import { ci123VideoFacts, ciBaseLine, ciLeadLine, ciMoney, ciMoreLine, ciPriceLine, ciStairsLine, type Ci123VideoFacts } from "./ci123";
 import { caDailyLine, caLeadLine, caMoney, caPriceLine, caStairsLine, caTotalLine, cancerVideoFacts, type CancerVideoFacts } from "./cancer";
+import { paCoverLine, paInjuryLine, paLeadLine, paPriceLine, paRenewLine, paSixth, paVideoFacts, type PaVideoFacts } from "./pa";
 import { tpCashLine, tpFamilyLine, tpLeadLine, tpMoney, tpPriceLine, tpTotalLine, twelvePlVideoFacts, type TwelvePlDividend, type TwelvePlVideoFacts } from "./twelvepl";
 import type { SceneMotion, VideoSize } from "./timeline";
 import type { VideoBrief, WrittenLines } from "./brief";
@@ -51,12 +52,14 @@ import { shows } from "@/lib/pay-prefs";
  * ไลฟ์เทรเชอร์ is the tenth (owner, 2026-11-26; lifetreasure.ts): the /lifetreasure plan, a sum set for the family, 6, 12 or 18 years paid.
  * CI 123 is the eleventh (owner, 2026-11-26; ci123.ts): the /ci123 set, the critical-illness rider paid by stage on Life Protect x2.
  * ประกันมะเร็ง is the twelfth (owner, 2026-11-26; cancer.ts): the /cancer set, CPR paid by the stage of a cancer and HIC's daily sum.
+ * PA is the thirteenth (owner, 2026-11-26; pa.ts): the /pa accident plans, the first priced by plan and occupation class
+ * alone — its input has no age or sex, and its clip says none (personOf, pricedByPlan).
  * iHealthy Ultra, มรดก and Protection Life keep "ค่าใช้จ่าย": none builds anything to save. The screen keeps the
  * cards' own words. Words in a line are separated by single spaces: the subtitles light up one
  * of those pieces at a time.
  */
 
-export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY" | "PLB" | "GSAVING" | "TWELVEPL" | "EASYPROTECT" | "LIFETREASURE" | "CI123" | "CANCER";
+export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY" | "PLB" | "GSAVING" | "TWELVEPL" | "EASYPROTECT" | "LIFETREASURE" | "CI123" | "CANCER" | "PA";
 export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact"
   /** มรดก's fourth scene, where the others have their value table: the critical-illness lump sum (CI 123's third: its stages as stairs; its fourth, "cover", what else it pays; its fifth, "family", the base contract's life cover) */
   | "critical"
@@ -143,6 +146,11 @@ export type VideoInput = (
   | { product: "CI123"; age: number; sex: "M" | "F"; sumAssured: number }
   /** ประกันมะเร็ง: one of its page's eight packages, named by its CPR sum (cancer.ts) */
   | { product: "CANCER"; age: number; sex: "M" | "F"; sumAssured: number }
+  /**
+   * PA: a plan by its company code ("PAP02") and an occupation class, 1–3 (pa.ts). No age, no sex: the price is the
+   * plan's and the class's alone (personOf answers undefined); the group plan is the next of this kind
+   */
+  | { product: "PA"; plan: string; cls: number }
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
@@ -225,6 +233,17 @@ export function spokenBy(line: string, narrator: "F" | "M" = "F"): string {
 
 export const productOf = (v: VideoInput): Product => v.product ?? "LIFEPROTECT";
 
+/**
+ * The insured an input is priced for: its age and sex; undefined for a plan priced by plan alone (PA, by plan and
+ * occupation class; the group plan next), whose input carries neither (owner, 2026-11-26).
+ */
+export function personOf(v: VideoInput): { age: number; sex: "M" | "F" } | undefined {
+  return "age" in v && "sex" in v ? { age: v.age, sex: v.sex } : undefined;
+}
+
+/** a clip of a plan priced by plan alone: no face is drawn, no age said, `insuredWho` names what the price is by */
+export const pricedByPlan = (f: QuoteVideoFacts): boolean => f.sex === undefined;
+
 /** `per`: the instalment a row is, where its label is not the Thai one (a clip in another language) */
 export interface PriceRow { label: string; amount: string; main: boolean; per?: "month" | "year" | "half" }
 export interface CoverRow { label: string; amount: string; mark: boolean }
@@ -239,7 +258,12 @@ export interface QuoteVideoFacts {
   planLine: string;
   insuredWho: string;
   insuredLine: string;
-  sex: "M" | "F";
+  /**
+   * The insured, where the price is a person's (owner, 2026-11-26): absent where it is by plan alone (PA, by plan and
+   * occupation class; the group plan after it) — then no face is drawn, `insuredWho` names what the price is by, and
+   * `age` is only the youngest the plan takes, never shown or said (pricedByPlan).
+   */
+  sex?: "M" | "F";
   age: number;
   /** the figure the clip opens on, counted up: มรดก, the lump sum, the yearly ceiling */
   lead: { label: string; amount: string; baht: number; note?: string };
@@ -335,6 +359,8 @@ export interface QuoteVideoFacts {
   ci123?: Ci123VideoFacts;
   /** ประกันมะเร็ง: the four stages, the daily sum, what every contract pays together, the first year's price (cancer.ts) */
   cancer?: CancerVideoFacts;
+  /** PA: the plan, the class, what it covers, the injury cover, the sum each renewal year (pa.ts) */
+  pa?: PaVideoFacts;
   /** วิดีโอเทียบ 4 แผน: the iHealthy Ultra Package page's table (ihealthy-all-plans.ts) */
   allPlans?: AllPlansFacts;
   /** ตั้งค่าส่วนตัว: what the agent hid (src/lib/pay-prefs.ts); present only when something is */
@@ -619,6 +645,7 @@ export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteV
     : v.product === "LIFETREASURE" ? lifeTreasureVideoFacts(v, today)
     : v.product === "CI123" ? ci123VideoFacts(v, today)
     : v.product === "CANCER" ? cancerVideoFacts(v, today)
+    : v.product === "PA" ? paVideoFacts(v)
     : planFacts(v, today);
   const paid = built && hide.length ? hidePay(built, hide) : built;
   // แสดงคำอธิบายในตาราง: a table drawn without its pen notes (table-pen.tsx, pension-table.tsx, gsaving-table.tsx)
@@ -977,7 +1004,8 @@ export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator
 
 /** The plan's lead sentence without a greeting: what follows a written hook. */
 function leadFact(f: QuoteVideoFacts, name: string): string {
-  const who = name ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;
+  if (f.product === "PA" && f.pa) return `แผนนี้ ${paLeadLine(f.pa, spokenWithBaht).replace(/^อุบัติเหตุไม่เลือกวัน /, "")}`;
+  const who = name || !f.sex ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;
   if (f.product === "PENSION" && f.pension) {
     return `แผนนี้ ${name ? "" : `${who} `}${budgetLead(f, "ถ้าออม")}ตั้งแต่อายุ ${f.pension.start} รับบำนาญเดือนละ ${f.pension.monthly} บาท ไปจนถึงอายุ 95 เลยค่ะ`;
   }
@@ -1075,6 +1103,14 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
       { key: "contact", voice: ask },
     ];
   }
+  if (f.product === "PA" && f.pa) {
+    const g = f.pa;
+    return [
+      { key: "lead", voice: `อุบัติเหตุไม่เลือกวัน คุ้มครองอุบัติเหตุ ทุน ${spokenWithBaht(g.death)} ต่ออายุทุกปีค่ะ` },
+      { key: "price", voice: `ตกวันละ ${g.perDay} บาท ราคาเท่ากันทุกอายุค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
   if (f.product === "CANCER" && f.cancer) {
     const g = f.cancer;
     return [
@@ -1117,7 +1153,8 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
 function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   const name = cleanCustomerName(customer);
   const hello = name ? `สวัสดีค่ะ คุณ${name}` : "สวัสดีค่ะ";
-  const who = name ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;
+  // a plan priced by plan alone names no one (pricedByPlan): its lines never say `who`
+  const who = name || !f.sex ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;
   const closing = name
     ? `คุณ${name}สนใจ ทักมาคุยกันได้เลยนะคะ ยินดีช่วยดูแผนให้ค่ะ`
     : "สนใจ ทักมาคุยกันได้เลยนะคะ ยินดีช่วยดูแผนให้ค่ะ";
@@ -1131,6 +1168,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   if (f.product === "LIFETREASURE" && f.lifetreasure) return ltScript(f, f.lifetreasure, hello, who, closing);
   if (f.product === "CI123" && f.ci123) return ciScript(f, f.ci123, hello, who, closing);
   if (f.product === "CANCER" && f.cancer) return caScript(f, f.cancer, hello, who, closing);
+  if (f.product === "PA" && f.pa) return paScript(f, f.pa, hello, closing);
 
   if (f.product === "IHEALTHY") {
     const others = (f.compare ?? []).filter((p) => !p.main);
@@ -1430,6 +1468,24 @@ function caScript(f: QuoteVideoFacts, g: CancerVideoFacts, hello: string, who: s
 }
 
 /**
+ * PA's lines (owner, 2026-11-26, mockup https://claude.ai/artifact/K8A3uLFEDt1XqYnUKnqr3p, "pa"): the accident cover and
+ * that it renews, the year's price the same at every age, what it covers, the injury cover where the plan has it
+ * (Classic: the medical sum only; Max: none, so five scenes), the sum growing on renewal. No one is named: the price
+ * is the plan's and the class's.
+ */
+function paScript(f: QuoteVideoFacts, g: PaVideoFacts, hello: string, closing: string): SceneScript[] {
+  const injury = paInjuryLine(g);
+  return [
+    { key: "lead", voice: `${hello} ${paLeadLine(g, spokenWithBaht)}` },
+    { key: "price", voice: paPriceLine(f, g) },
+    { key: "cover", voice: paCoverLine(g, spokenWithBaht) },
+    ...(injury ? [{ key: "family" as const, voice: injury }] : []),
+    { key: "critical", voice: paRenewLine(g, spokenWithBaht) },
+    { key: "contact", voice: `เดินทางทุกวัน มีไว้อุ่นใจค่ะ ${closing}` },
+  ];
+}
+
+/**
  * 12 พีแอล's six lines (owner, 2026-11-26, ก ก ข, mockup https://claude.ai/artifact/7eC8eVjT4mFAsSaPie4kfm): the
  * guarantee held to 85, the level saving, the cash backs and the maturity, the family's sum, what is paid beside
  * what comes back; then its riders a scene each, as Life Protect's (twelvepl.ts).
@@ -1482,8 +1538,21 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
  * the customer's name — a clip that carries one does not go to a Page at all. The admin edits it.
  */
 export function pageCaption(f: QuoteVideoFacts): string {
-  const who = `${SEX_WHO[f.sex]}อายุ ${f.age}`;
+  const who = f.sex ? `${SEX_WHO[f.sex]}อายุ ${f.age}` : "";
   const ask = "ทักแชทขอใบเสนอของคุณได้เลย";
+  if (f.product === "PA" && f.pa) {
+    const g = f.pa;
+    return [
+      `${f.planLine} คุ้มครองอุบัติเหตุ ทุน ${f.lead.amount} บาท คุ้มครอง 24 ชั่วโมง ทั่วโลก`,
+      `อาชีพชั้น ${g.cls} จ่ายปีละ ${f.prices.find((r) => r.label === "รายปี")?.amount ?? g.annual.toLocaleString("en-US")} บาท (ตกวันละ ${g.perDay} บาท) ราคาเท่ากันทุกอายุ`,
+      [`ถูกฆาตกรรม ลอบทำร้าย ${g.murder.toLocaleString("en-US")}`, `มอเตอร์ไซค์ ${g.motorcycle.toLocaleString("en-US")}`,
+        ...(g.medical ? [`ค่ารักษาต่ออุบัติเหตุ ${g.medical.toLocaleString("en-US")}`] : []),
+        ...(g.weekly ? [`ชดเชยหยุดงานสัปดาห์ละ ${g.weekly.toLocaleString("en-US")}`] : [])].join(" · "),
+      `ต่ออายุต่อเนื่อง ทุนเพิ่มปีละ ${g.stepPercent}% ปีที่ ${g.years.length} ทุน ${paSixth(g).toLocaleString("en-US")} บาท`,
+      "",
+      ask,
+    ].join("\n");
+  }
   if (f.product === "PENSION" && f.pension) {
     const p = f.pension;
     return [

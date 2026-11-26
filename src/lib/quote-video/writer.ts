@@ -26,10 +26,11 @@ type Field = "hook" | "headline" | "close" | "loopClose" | "story" | "points";
 export function factLines(f: QuoteVideoFacts): string[] {
   const out = [
     `แบบประกัน: ${f.planLine}`,
-    `ผู้เอาประกัน: ${f.insuredWho}`,
+    // a plan priced by plan alone names what the price is by, not an insured (script.ts pricedByPlan)
+    `${f.sex ? "ผู้เอาประกัน" : "ราคาตาม"}: ${f.insuredWho}`,
     `${f.lead.label}: ${f.lead.amount} บาท${f.lead.note ? ` (${f.lead.note})` : ""}`,
     ...(f.perDayAmount ? [`ตกวันละ: ${f.perDayAmount} บาท`] : []),
-    `${f.product === "LEGACY" ? "ค่าใช้จ่าย (ปีแรก)" : f.product === "PLB" ? "ค่าใช้จ่าย (เท่าเดิมทุกปี)" : `ยอดออม${f.product === "IHEALTHY" ? " (ปีแรก)" : ""}`}: ${f.prices.map((p) => `${p.label} ${p.amount} บาท`).join(" · ")}`,
+    `${f.product === "LEGACY" ? "ค่าใช้จ่าย (ปีแรก)" : f.product === "PLB" ? "ค่าใช้จ่าย (เท่าเดิมทุกปี)" : f.product === "PA" ? "ค่าใช้จ่าย (เท่ากันทุกอายุ)" : `ยอดออม${f.product === "IHEALTHY" ? " (ปีแรก)" : ""}`}: ${f.prices.map((p) => `${p.label} ${p.amount} บาท`).join(" · ")}`,
     ...(f.payYears && !f.payToEnd ? [`ออม ${f.payYears} ปี ครบตอนอายุ ${f.lastPayAge}`] : []),
     ...(f.payToEnd ? [`ออมถึงอายุ ${f.coverToAge} ${f.riders?.rises ? "เบี้ยสัญญาหลักเท่าเดิมตลอด" : "ยอดเท่าเดิมตลอด"}`] : []),
     ...(f.riders ? [`ยอดออมรวม${f.riders.said}ไว้แล้ว${f.riders.rises ? ` ${f.riders.rises}ปรับตามอายุ` : ""}`] : []),
@@ -37,7 +38,8 @@ export function factLines(f: QuoteVideoFacts): string[] {
     ...(f.riders?.split ? [`แยกตามสัญญา: ${f.riders.split.map((p) => `${p.name} ${p.baht} บาท`).join(" · ")}`] : []),
     ...(f.riders?.parts ?? []).map((p) => `สัญญาเพิ่มเติม ${p.name}: ${p.what}`),
     ...(f.riderNames?.length ? [`สัญญาเพิ่มเติมที่แนบ: ${f.riderNames.join(" · ")}`] : []),
-    `คุ้มครองถึงอายุ ${f.coverToAge}`,
+    // PA is a one-year contract renewed yearly: it covers to no age
+    ...(f.product === "PA" ? [] : [`คุ้มครองถึงอายุ ${f.coverToAge}`]),
     ...f.cover.map((r) => `${r.label}: ${r.amount}`),
     ...(f.breakEven && !f.easyprotect && !f.lifetreasure ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),
     ...(f.illness ? [`โรคร้ายแรง ${f.illness.total} โรค ระยะเริ่มต้น ${f.illness.early} โรค ระยะรุนแรง ${f.illness.major} โรค โรคร้ายแรงคุ้มครองหลัง 90 วันแรก`] : []),
@@ -109,6 +111,18 @@ export function factLines(f: QuoteVideoFacts): string[] {
       ...g.totals.map((r) => `${r.label}${g.beforeAge ? ` ก่อนอายุ ${g.beforeAge}` : ""} ครอบครัวได้รวม ${m(r.amount)} บาท`),
       "ยอดออมที่ให้คือปีแรก ส่วน CPR และ HIC คิดตามอายุ ปรับขึ้นทุกปี ห้ามพูดว่ายอดออมเท่าเดิม",
       "ไม่มีมูลค่าเงินสด ห้ามพูดถึงเงินคืน", "ห้ามพูดเรื่องภาษี");
+  }
+  if (f.pa) {
+    const g = f.pa;
+    const m = (n: number) => n.toLocaleString("en-US");
+    out.push(`ประกันอุบัติเหตุส่วนบุคคล ${g.familyName} แผน ${g.plan} (${g.code}) อาชีพชั้น ${g.cls} จ่ายปีละ ${m(g.annual)} บาท ตกวันละ ${g.perDay} บาท`,
+      "ราคาตามแผนและขั้นอาชีพ ไม่ขึ้นกับอายุหรือเพศ ห้ามพูดถึงอายุหรือเพศของลูกค้า",
+      `อุบัติเหตุทำให้จากไป สูญเสียอวัยวะ หรือทุพพลภาพถาวรสิ้นเชิง ${m(g.death)} บาท`,
+      `ถูกฆาตกรรมหรือลอบทำร้าย ${m(g.murder)} บาท`, `ขับขี่หรือโดยสารมอเตอร์ไซค์ ${m(g.motorcycle)} บาท`,
+      ...(g.medical ? [`ค่ารักษาพยาบาลต่ออุบัติเหตุ ${m(g.medical)} บาท รวมมอเตอร์ไซค์`] : ["แผนนี้ไม่มีค่ารักษาพยาบาล"]),
+      ...(g.weekly ? [`ชดเชยทุพพลภาพชั่วคราว สัปดาห์ละ ${m(g.weekly)} บาท สูงสุด ${g.weeks} สัปดาห์`] : []),
+      `สัญญา 1 ปี ต่ออายุปีต่อปี ต่อเนื่องปีที่ 2 ถึง ${g.years.length} ทุนเพิ่มขึ้นทุกปี ปีที่ ${g.years.length} ทุน ${m(g.years[g.years.length - 1].sum)} บาท`,
+      "คุ้มครอง 24 ชั่วโมง ทั่วโลก", "ไม่มีมูลค่าเงินสด ห้ามใช้คำว่าออม ห้ามพูดถึงเงินคืน", "ห้ามพูดว่าคุ้มครองถึงอายุเท่าไร", "ห้ามพูดเรื่องภาษี");
   }
   if (f.twelvepl) {
     const g = f.twelvepl;

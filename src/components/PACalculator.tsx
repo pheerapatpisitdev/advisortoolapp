@@ -10,6 +10,7 @@ import { WORDS } from "@/lib/ihealthy-words";
 import { figure, type Lang } from "@/lib/ihealthy-lang";
 import { Highlighted } from "@/components/Highlighted";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import { Watermark } from "@/components/sales/Watermark";
 
 /**
@@ -62,6 +63,9 @@ export function PACalculator({ sticky = false, lang = "th" }: { sticky?: boolean
   const ask = quoteText ? { code: plan.code, cls, age } : undefined;
   const card = ask && paCardPath(ask);
   const tableCard = ask && paTablePath(ask);
+  // วิดีโอนำเสนอ on this plan and class (owner, 2026-11-26): no age or sex — the price is the plan's and the class's.
+  // The clip is told in Thai only, so the button is on the Thai page
+  const video = quoteText && lang === "th" ? videoStartHref({ product: "PA", plan: plan.code, cls }) : undefined;
 
   const pickFamily = (id: PaFamilyId) => {
     setFamilyId(id);
@@ -138,7 +142,7 @@ export function PACalculator({ sticky = false, lang = "th" }: { sticky?: boolean
           </p>
         </div>
         <div className="order-2">
-          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางทุกแผน" words={contact} />
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางทุกแผน" words={contact} videoHref={video} />
         </div>
       </div>
 
@@ -203,7 +207,7 @@ export function PACalculator({ sticky = false, lang = "th" }: { sticky?: boolean
 
       {sticky && quoteText && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
-          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางทุกแผน" words={contact} compact />
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางทุกแผน" words={contact} videoHref={video} compact />
         </div>
       )}
     </div>

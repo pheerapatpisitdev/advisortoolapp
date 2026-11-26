@@ -130,6 +130,16 @@ export function productQas(product: Product, variant?: string, gs?: GsQaFacts, t
         { key: "lump", q: "จ่ายเป็นค่ารักษาหรือเงินก้อน", a: "ส่วนมะเร็งจ่ายเป็นเงินก้อนตามขั้นที่ตรวจพบค่ะ และยังมีค่าชดเชยรายวันตอนนอนโรงพยาบาลอีก" },
       ];
     }
+    // PA (owner, 2026-11-26): the /pa page's own lines (pa-words.ts: its facts, small print and footnote; pa-plans.ts),
+    // and the bot's rule that the company sets the class on applying (copilot/pa-price.ts)
+    case "PA":
+      return [
+        { key: "age", q: "อายุมากขึ้น ราคาขึ้นไหม", a: "ไม่ขึ้นค่ะ ราคาตามแผนและขั้นอาชีพ ไม่ขึ้นกับอายุหรือเพศ" },
+        { key: "where", q: "คุ้มครองที่ไหนบ้าง", a: "คุ้มครอง 24 ชั่วโมง ทั่วโลกค่ะ" },
+        { key: "renew", q: "ต้องต่ออายุทุกปีไหม", a: "เป็นสัญญาปีต่อปีค่ะ ต่ออายุต่อเนื่อง ทุนเพิ่มขึ้นทุกปีจนถึงปีที่ 6 ถ้าต่อเกิน 31 วันหลังครบกำหนด ถือเป็นการซื้อใหม่" },
+        { key: "class", q: "ขั้นอาชีพดูจากอะไร", a: "ดูจากลักษณะงานค่ะ บริษัทเป็นผู้กำหนดขั้นอาชีพตอนสมัคร ขั้น 4 ไม่รับทุกแบบ" },
+        { key: "bike", q: "ขี่มอเตอร์ไซค์คุ้มครองไหม", a: "คุ้มครองค่ะ ทั้งขับขี่และโดยสาร ตามทุนมอเตอร์ไซค์ของแผน" },
+      ];
     // 12 พีแอล (owner, 2026-11-26): the plan's own rules, as the bots say them (src/lib/copilot/knowledge.ts)
     case "TWELVEPL":
       return [
@@ -162,6 +172,7 @@ const FIRST: Record<string, string[]> = {
   ltlegacy: ["share", "floor"], ltterms: ["years", "level"], ltcash: ["back", "floor"],
   ciearly: ["again", "waiting"], cistages: ["again", "lump"], cilife: ["base", "rises"],
   caearly: ["again", "waiting"], cadaily: ["lump", "rises"], cafamily: ["base", "again"],
+  paday: ["where", "bike"], painjury: ["class", "where"], pagrow: ["renew", "age"], pafamily: ["age", "renew"],
   tpback: ["back", "sure"], tpshort: ["years", "life"], tpfamily: ["life", "years"], tptax: ["tax", "years"],
 };
 

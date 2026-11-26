@@ -71,7 +71,7 @@ export const ROUND_TOOL: Record<string, ToolKey> = {
 
 const VIDEO_PLAN: Record<string, string> = {
   LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life",
-  GSAVING: "Global Savings", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง",
+  GSAVING: "Global Savings", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง", PA: "PA อุบัติเหตุ",
 };
 
 export interface StatsInput {

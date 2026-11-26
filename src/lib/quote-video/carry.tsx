@@ -20,10 +20,12 @@ export function carryFigure(key: string, f: QuoteVideoFacts): string | null {
       const main = f.prices.find((p) => p.main);
       return main ? `${main.amount} บาท` : null;
     }
-    // CI 123's fourth scene is what else it pays, not an age it covers to; the cancer plan's, its daily sum
-    case "cover": return f.ci123 ? null : f.cancer ? `วันละ ${f.cancer.hic.toLocaleString("en-US")} บาท` : `คุ้มครองถึง ${f.coverToAge}`;
+    // CI 123's fourth scene is what else it pays, not an age it covers to; the cancer plan's, its daily sum; PA's, its
+    // rows (a one-year contract covers to no age)
+    case "cover": return f.ci123 || f.pa ? null : f.cancer ? `วันละ ${f.cancer.hic.toLocaleString("en-US")} บาท` : `คุ้มครองถึง ${f.coverToAge}`;
     case "value": return f.breakEven ? `คืน ${f.breakEven.cash}` : null;
-    case "critical": return `${f.lead.amount} บาท`;
+    // PA's stairs climb to the sixth year's sum
+    case "critical": return f.pa ? `ปีที่ ${f.pa.years.length} ${f.pa.years[f.pa.years.length - 1].sum.toLocaleString("en-US")} บาท` : `${f.lead.amount} บาท`;
     default: return null;
   }
 }

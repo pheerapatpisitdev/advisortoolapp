@@ -27,7 +27,8 @@ import { clipEstimates, clipSize, langOfInput, costView, createVideo, videoPrice
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, googleInPlace, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
-import { cleanCustomerName, pageCaption, planInput, productOf, quoteVideoFacts, riderShort, type Product, type VideoInput } from "@/lib/quote-video/script";
+import { cleanCustomerName, pageCaption, personOf, planInput, productOf, quoteVideoFacts, riderShort, type Product, type VideoInput } from "@/lib/quote-video/script";
+import { paPlanOf } from "@/lib/quote-video/pa";
 import { quoteCard } from "@/lib/quote-card";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
 import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, previewHealth, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
@@ -55,7 +56,7 @@ import { CANCER_TIERS } from "@/lib/cancer-cta";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — a member's free clips or a UnitClub agent's starter credit, then the Studio wallet. */
 
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง", PA: "PA อุบัติเหตุ" };
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
@@ -352,7 +353,9 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
     resolved: c.product === "IHEALTHY" ? { plan: c.plan }
       : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht }
       : c.product === "LEGACY" ? { tier: c.tier }
-      : c.product === "GSAVING" ? { sum: f.gsaving?.sa, premium: c.premium } : { sum: c.sumAssured },
+      : c.product === "GSAVING" ? { sum: f.gsaving?.sa, premium: c.premium }
+      // PA is picked, never worked out from a budget: nothing to carry back
+      : c.product === "PA" ? {} : { sum: c.sumAssured },
     ...(c.product === "IHEALTHY" && c.setup ? { setup: setupWords(c) } : {}),
     ...("riders" in c && c.riders ? { riders: riderWords(c) } : {}),
     ...(await walletPrices().then((p) => ({ clipSatang: videoPrice(c, p) })).catch(() => ({}))),
@@ -579,19 +582,23 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         ? `ทุน ${sumWords(input.sumAssured)} · วันละ ${(CANCER_TIERS.find((x) => x.cpr === input.sumAssured)?.hic ?? 0).toLocaleString("en-US")}`
         : input.product === "TWELVEPL"
         ? `${sumWords(input.sumAssured)} · 12 ปี${input.riders ? " · + สัญญาเพิ่มเติม" : ""}`
+        : input.product === "PA"
+        ? `${paPlanOf(input.plan)?.plan.name ?? input.plan} · อาชีพชั้น ${input.cls}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     // a สูตรคลิป Motion clip is named by its recipe, so an agent who got one by chance can ask for it again; its
     // length is the recipe's own, not the 15-second clip it is stored as. Named only where the row is still made
     // with it (recipeOf, as make.ts reads it), so the title never names a recipe the clip does not tell
     const facts = input.style === "motion" && readRecipe(input.recipe) ? quoteVideoFacts(input) : undefined;
     const recipe = facts ? recipeOf(input, facts) : undefined;
+    // the insured, where the price is a person's; PA's is its plan and class, already in `what` (script.ts personOf)
+    const person = personOf(input);
     // วิดีโอโฆษณา (owner chose ก ×6, 2026-11-22): named as its own kind, always the 15-second portrait Motion clip
     const who = input.ad
-      ? `วิดีโอโฆษณา · ${clipName}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`
+      ? `วิดีโอโฆษณา · ${clipName}${voiceWord(input)}${person ? ` · ${SEX[person.sex]} ${person.age}` : ""} · ${what}`
       : recipe
-      ? `${clipName} (Motion · ${RECIPE_NAMES[recipe]})${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`
-      : `${clipName}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
-    const file = `${clipName.replace(/[\s/]+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
+      ? `${clipName} (Motion · ${RECIPE_NAMES[recipe]})${voiceWord(input)}${person ? ` · ${SEX[person.sex]} ${person.age}` : ""} · ${what}`
+      : `${clipName}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)}${person ? ` · ${SEX[person.sex]} ${person.age}` : ""} · ${what}`;
+    const file = `${clipName.replace(/[\s/]+/g, "")}-${v.customer_name || (person ? `${SEX[person.sex]}${person.age}` : what.replace(/[\s·]+/g, ""))}.mp4`;
     return {
       id: v.id,
       named: Boolean(v.customer_name),

@@ -84,7 +84,8 @@ export function adParts(
   return {
     size: "portrait", script, motion: true, plans,
     motion$: {
-      theme: adTheme(input.theme), sex: input.sex, facts: f, customer: "", narrator, contact,
+      // an ad is only ever of a plan priced for a person (keys.ts AD_PRODUCTS): its facts carry the sex
+      theme: adTheme(input.theme), sex: f.sex ?? "F", facts: f, customer: "", narrator, contact,
       shown: { headline: plan.hook.headline, loop: false, extra: extraOf(f, {}) },
       ad: { photos: script.map((_, i) => input.pictures?.[i] ?? null), cta: adCta(plan.cta.voice) },
     },

@@ -41,6 +41,8 @@ const num = (s: string | undefined): number => Number((s ?? "").replace(/[^\d.]/
  * `per` is "วันละ" when that quote has a daily figure, else its spoken instalment's word.
  */
 export function nextYear(v: VideoInput, today: Date = new Date()): { said: string; per: string } | undefined {
+  // a plan priced by plan alone (PA) costs the same next year
+  if (!("age" in v)) return undefined;
   const here = quoteVideoFacts(v, today);
   const there = quoteVideoFacts({ ...v, age: v.age + 1 }, today);
   if (!here || !there) return undefined;

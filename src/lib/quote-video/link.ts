@@ -3,6 +3,7 @@ import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import { CI123_SUMS } from "@/lib/ci123-cta";
 import { CANCER_SUMS } from "@/lib/cancer-cta";
+import { PA_CLASSES, PA_FAMILIES } from "@/lib/pa-plans";
 import { cleanSetup } from "./ihealthy-setup";
 import { MODES } from "@/lib/ihealthy-quote";
 import type { Product } from "./script";
@@ -26,8 +27,10 @@ export interface VideoStart {
   age?: number;
   sumAssured?: number;
   variant?: string;
-  /** iHealthy's plan code */
+  /** iHealthy's plan code; PA's ("PAP02"), which names its family too */
   plan?: string;
+  /** PA: the occupation class, 1–3 (owner, 2026-11-26) */
+  cls?: number;
   /** iHealthy: the page's base, sum, territory, coverage and riders, as its address writes them (ihealthy-setup.ts) */
   setup?: string;
   /** บำนาญ 95: the age the pension starts, and how the premiums are paid */
@@ -56,6 +59,7 @@ export function videoStartHref(s: VideoStart): string {
   if (s.sumAssured !== undefined) q.set("sum", String(s.sumAssured));
   if (s.variant) q.set("variant", s.variant);
   if (s.plan) q.set("plan", s.plan);
+  if (s.product === "PA" && s.cls !== undefined) q.set("cls", String(s.cls));
   if (s.setup) q.set("ihu", s.setup);
   if (s.annuityAge !== undefined) q.set("start", String(s.annuityAge));
   if (s.pay) q.set("pay", s.pay);
@@ -69,7 +73,9 @@ export function videoStartHref(s: VideoStart): string {
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
-const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING", "TWELVEPL", "EASYPROTECT", "LIFETREASURE", "CI123", "CANCER"];
+const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING", "TWELVEPL", "EASYPROTECT", "LIFETREASURE", "CI123", "CANCER", "PA"];
+/** PA's plan codes, the /pa page's own: only those are read from an address */
+const PA_CODES = PA_FAMILIES.flatMap((f) => f.plans.map((p) => p.code));
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 /** Protection Life's terms and sums: only the /plb page's own are read from an address */
 const PLB_TERMS = ["PLB05", "PLB10", "PLB12", "PLB15"];
@@ -97,6 +103,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const pay = one(params.pay);
   const tier = Number(one(params.tier));
   const premium = Number(one(params.premium));
+  const cls = Number(one(params.cls));
   const setup = product === "IHEALTHY" ? cleanSetup(one(params.ihu)) : undefined;
   const lang = product === "IHEALTHY" ? readVideoLang(one(params.lang)) : "th";
   const plb = product === "PLB";
@@ -111,7 +118,9 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...(Number.isInteger(age) && age >= 0 && age <= 99 ? { age } : {}),
     ...(Number.isInteger(sum) && sum > 0 && sum <= 100_000_000 && (!sums || sums.includes(sum)) ? { sumAssured: sum } : {}),
     ...(variant && /^[A-Z0-9]{3,12}$/.test(variant) && (!terms || terms.includes(variant)) ? { variant } : {}),
-    ...(plan && /^[A-Z]{3,12}$/.test(plan) ? { plan } : {}),
+    ...(plan && (product === "PA" ? PA_CODES.includes(plan) : /^[A-Z]{3,12}$/.test(plan)) ? { plan } : {}),
+    // PA's class: whether this plan takes it is the form's to say
+    ...(product === "PA" && (PA_CLASSES as readonly number[]).includes(cls) ? { cls } : {}),
     ...([55, 60, 65, 70].includes(start) ? { annuityAge: start } : {}),
     ...(pay === "6" || pay === "untilAnnuity" ? { pay } : {}),
     ...(Number.isInteger(tier) && tier >= 1 && tier <= 10 ? { tier } : {}),

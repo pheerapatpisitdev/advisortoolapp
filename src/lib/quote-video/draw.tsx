@@ -87,8 +87,9 @@ function Header({ f, layer }: { f: QuoteVideoFacts; layer: Layer }) {
         <div style={box({ fontSize: f.insuredLine.length > 30 ? 30 : 36, color: P.mute })}>{f.insuredLine}</div>
       </div>
       <div style={box({ alignItems: "center", flexShrink: 0 })}>
-        {insuredFace(f.sex, 76)}
-        <div style={box({ fontSize: 52, fontWeight: 600, color: P.figure, marginLeft: 14 })}>{f.insuredWho}</div>
+        {/* a plan priced by plan alone has no insured to picture (script.ts pricedByPlan) */}
+        {f.sex ? insuredFace(f.sex, 76) : null}
+        <div style={box({ fontSize: f.sex ? 52 : 44, fontWeight: 600, color: P.figure, marginLeft: f.sex ? 14 : 0 })}>{f.insuredWho}</div>
       </div>
     </On>
   );
@@ -210,7 +211,7 @@ function StoryScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
   return (
     <>
       {kicker(layer, "ลองนึกภาพ")}
-      <On layer={layer} own="base" style={{ position: "absolute", left: (W - 240) / 2, top: 360 }}>{insuredFace(c.facts.sex, 240)}</On>
+      {c.facts.sex ? <On layer={layer} own="base" style={{ position: "absolute", left: (W - 240) / 2, top: 360 }}>{insuredFace(c.facts.sex, 240)}</On> : null}
       <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 700, flexDirection: "column" })}>
         {pts.map((pt, i) => (
           <div key={i} style={box({ alignItems: "center", marginBottom: 56 })}>

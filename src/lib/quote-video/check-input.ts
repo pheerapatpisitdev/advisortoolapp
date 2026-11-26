@@ -5,7 +5,7 @@
  */
 import { elevenVoice } from "@/lib/voice/elevenlabs";
 import { geminiVoice } from "@/lib/voice/gemini";
-import { RIDERS_NOT_SOLD, cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
+import { PA_NO_BUDGET, RIDERS_NOT_SOLD, cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { cleanSetup } from "@/lib/quote-video/ihealthy-setup";
 import { isAllPlansMode } from "@/lib/quote-video/ihealthy-all-plans";
@@ -23,6 +23,7 @@ import { checkedEasyProtect } from "@/lib/quote-video/easyprotect";
 import { checkedLifeTreasure } from "@/lib/quote-video/lifetreasure";
 import { checkedCi123 } from "@/lib/quote-video/ci123";
 import { checkedCancer } from "@/lib/quote-video/cancer";
+import { checkedPa } from "@/lib/quote-video/pa";
 import { checkedTwelvePl } from "@/lib/quote-video/twelvepl";
 import { cleanBrief, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
 import { readVideoLang } from "@/lib/quote-video/video-words";
@@ -65,6 +66,8 @@ export function checked(v: VideoInput, hide: PayMode[] = [], pen = true): VideoI
   // from a budget: the form is checked with a stand-in sum, then the budget works out the real one
   // วิดีโอเทียบ 4 แผน shows the page's own prices: no budget, Motion Graphic only, portrait, the whole length, no brief
   const all = v.product === "IHEALTHY" && isAllPlansMode(v.allPlans);
+  // PA's plans are few and priced by class (owner, 2026-11-26): the agent picks the plan, the form offers no budget
+  if (v.product === "PA" && v.budget) return PA_NO_BUDGET;
   const budget = v.budget && !all ? cleanBudget(v.budget) : undefined;
   if (typeof budget === "string") return budget;
   // the stand-in sum is checked without riders: whether they can be bought is the budget's own question, sum by sum
@@ -150,6 +153,8 @@ function cleanLines(raw: WrittenLines): WrittenLines {
 }
 
 export function checkedQuote(v: VideoInput): VideoInput | string {
+  // PA is priced by plan and occupation class alone: it asks for no age or sex (personOf)
+  if (v.product === "PA") return checkedPa(v);
   if (v.sex !== "M" && v.sex !== "F") return "เลือกเพศ";
   if (!Number.isInteger(v.age) || v.age < 0 || v.age > 99) return "ใส่อายุให้ถูกต้อง";
   if (v.product === "IHEALTHY") {
