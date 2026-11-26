@@ -10,6 +10,7 @@ import { ci123QuoteText, stagePays, sumWords, type Ci123Age } from "@/lib/ci123-
 import { cardPath, diseaseCardPath } from "@/lib/card-link";
 import { showModes, shows } from "@/lib/pay-prefs";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import type { Ci123Table } from "@/lib/ci123-table";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
@@ -140,7 +141,9 @@ export function Ci123Calculator({ table, sticky = false, hide = [], shareTemplat
         </div>
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">
-          <ContactButtons copyText={quoteText} cardPath={card} diseaseCardPath={diseaseCardPath("CI123")} />
+          <ContactButtons copyText={quoteText} cardPath={card} diseaseCardPath={diseaseCardPath("CI123")}
+            // วิดีโอนำเสนอ on this sum, age and sex (owner, 2026-11-26)
+            videoHref={typeof age === "number" && headline ? videoStartHref({ product: "CI123", sex, age, sumAssured: sum }) : undefined} />
         </div>
       </div>
 

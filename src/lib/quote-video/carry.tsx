@@ -20,7 +20,8 @@ export function carryFigure(key: string, f: QuoteVideoFacts): string | null {
       const main = f.prices.find((p) => p.main);
       return main ? `${main.amount} บาท` : null;
     }
-    case "cover": return `คุ้มครองถึง ${f.coverToAge}`;
+    // CI 123's fourth scene is what else it pays, not an age it covers to
+    case "cover": return f.ci123 ? null : `คุ้มครองถึง ${f.coverToAge}`;
     case "value": return f.breakEven ? `คืน ${f.breakEven.cash}` : null;
     case "critical": return `${f.lead.amount} บาท`;
     default: return null;

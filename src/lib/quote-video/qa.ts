@@ -108,6 +108,15 @@ export function productQas(product: Product, variant?: string, gs?: GsQaFacts, t
         { key: "share", q: "แบ่งให้หลายคนได้ไหม", a: "ได้ค่ะ แบ่งให้ใครเท่าไรก็ระบุได้" },
         { key: "back", q: "ถ้าอยากได้เงินคืนล่ะ", a: "มีมูลค่าเงินสดโตทุกปีค่ะ ขอคืนได้ตามตาราง แต่ถ้าขอคืนเร็วอาจได้น้อยกว่าที่ออม" },
       ];
+    // CI 123 (owner, 2026-11-26): the page's and the chat's own lines (Ci123Calculator.tsx, copilot/knowledge.ts CI123_SECTION)
+    case "CI123":
+      return [
+        { key: "waiting", q: "ทำแล้วคุ้มครองโรคร้ายแรงเลยไหม", a: "โรคร้ายแรงเริ่มคุ้มครองหลัง 90 วันแรก เป็นเงื่อนไขมาตรฐานของประกันโรคร้ายแรงค่ะ" },
+        { key: "again", q: "เคลมได้หลายครั้งไหม", a: "ได้ค่ะ เคลมระยะแรกแล้ว ยังเคลมระยะถัดไปได้ ระยะรุนแรงจ่ายเต็มทุน หักส่วนที่รับไปแล้ว" },
+        { key: "rises", q: "ยอดออมขึ้นทุกปีไหม", a: "ส่วน CI 123 ปรับตามอายุทุกปีค่ะ ตัวเลขในคลิปนี้คือปีแรก" },
+        { key: "base", q: "ทำ CI 123 อย่างเดียวได้ไหม", a: "ต้องคู่กับแบบหลักค่ะ ชุดนี้คู่กับ Life Protect x2 ทุน 150,000 บาท ยอดออมรวมทั้งสองสัญญาแล้ว" },
+        { key: "lump", q: "จ่ายเป็นค่ารักษาหรือเงินก้อน", a: "เป็นเงินก้อนค่ะ ตามระยะของโรคที่ตรวจพบ" },
+      ];
     // 12 พีแอล (owner, 2026-11-26): the plan's own rules, as the bots say them (src/lib/copilot/knowledge.ts)
     case "TWELVEPL":
       return [
@@ -138,6 +147,7 @@ const FIRST: Record<string, string[]> = {
   gssure: ["sure", "years"], gsbonus: ["bonus", "sure"], gstax: ["tax", "years"], gsshort: ["years", "sure"],
   epshort: ["years", "level"], epfamily: ["floor", "years"], epcash: ["back", "years"],
   ltlegacy: ["share", "floor"], ltterms: ["years", "level"], ltcash: ["back", "floor"],
+  ciearly: ["again", "waiting"], cistages: ["again", "lump"], cilife: ["base", "rises"],
   tpback: ["back", "sure"], tpshort: ["years", "life"], tpfamily: ["life", "years"], tptax: ["tax", "years"],
 };
 

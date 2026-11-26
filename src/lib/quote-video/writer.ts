@@ -86,6 +86,18 @@ export function factLines(f: QuoteVideoFacts): string[] {
       ...(f.breakEven ? [`มูลค่าเงินสดครบเท่าที่ออมตอนอายุ ${f.breakEven.age} ห้ามพูดว่ามากกว่าที่ออม`] : []),
       `ถึงอายุ ${g.coverToAge} มูลค่าเงินสด ${m(g.endCash)} บาท`, "ห้ามพูดเรื่องภาษี");
   }
+  if (f.ci123) {
+    const g = f.ci123;
+    const m = (n: number) => n.toLocaleString("en-US");
+    out.push(`CI 123 สัญญาเพิ่มเติมโรคร้ายแรง ทุน ${m(g.sum)} บาท คุ้มครอง ${g.diseaseCount} โรค จ่ายเป็นเงินก้อนตามระยะของโรค`,
+      `ชุดนี้คู่กับแบบหลัก Life Protect x2 ทุน ${m(g.baseSum)} บาท คุ้มครองชีวิตถึงอายุ 99 ยอดออมรวมทั้งสองสัญญาแล้ว`,
+      ...g.stairs.map((r) => `${r.label} (${r.count} โรค) รับ ${m(r.amount)} บาท`),
+      ...g.more.map((r) => `${r.label} รับ ${m(r.amount)} บาท${r.note ? ` (${r.note})` : ""}`),
+      "เคลมระยะแรกแล้ว ยังเคลมระยะถัดไปได้ ระยะรุนแรงจ่ายเต็มทุน หักส่วนที่รับไปแล้ว",
+      ...g.deathRows.map((r) => `แบบหลัก ถ้าเป็นอะไรไป${r.label === "ตลอดสัญญา" ? "" : `${r.label}`} ครอบครัวได้ ${m(r.amount)} บาท`),
+      "ยอดออมที่ให้คือปีแรก ส่วน CI 123 คิดตามอายุ ปรับขึ้นทุกปี ห้ามพูดว่ายอดออมเท่าเดิม",
+      "โรคร้ายแรงเริ่มคุ้มครองหลัง 90 วันแรก", "ไม่มีมูลค่าเงินสด ห้ามพูดถึงเงินคืน", "ห้ามพูดเรื่องภาษี");
+  }
   if (f.twelvepl) {
     const g = f.twelvepl;
     const m = (n: number) => Math.round(n).toLocaleString("en-US");

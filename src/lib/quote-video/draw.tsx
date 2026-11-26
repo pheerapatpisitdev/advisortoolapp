@@ -8,6 +8,8 @@ import type { CardChart } from "@/lib/quote-card";
 import { paidUpOf } from "./easyprotect";
 import { epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
 import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
+import { amountRows, stairsPicture } from "./stage-pictures";
+import { CI_BASE_KICKER, CI_BASE_SUB, CI_MORE_KICKER, CI_STAIRS_FOOT, CI_STAIRS_KICKER, CI_STAIRS_SUB, ciBaseFoot, ciBaseRows, ciMoreRows, ciStairs } from "./ci123-pictures";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
 import { riderIndex, type QuoteVideoFacts, type SceneKey } from "./script";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
@@ -294,6 +296,8 @@ function StepsScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
 function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   const baht = wordsOf(f).baht;
+  // a pill that says the highlighted line again is not drawn twice (CI 123's day's price)
+  const pills = f.pills.filter((p) => p !== (f.priceMark ?? f.leadMark));
   return (
     <>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.priceTitle}</On>
@@ -312,10 +316,10 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
           </div>
         ))}
       </div>
-      {f.pills.length > 0 && (
+      {pills.length > 0 && (
         <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1080, ...(f.twelvepl ? { flexDirection: "column" as const } : { flexWrap: "wrap" as const }) }}>
-          {f.pills.map((pill, i) => (
-            <div key={pill} style={box({ marginRight: i < f.pills.length - 1 ? 40 : 0 })}><Swept p={s.sweep[1] ?? 1} size={46}>{pill}</Swept></div>
+          {pills.map((pill, i) => (
+            <div key={pill} style={box({ marginRight: i < pills.length - 1 ? 40 : 0 })}><Swept p={s.sweep[1] ?? 1} size={46}>{pill}</Swept></div>
           ))}
         </On>
       )}
@@ -326,7 +330,7 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
       )}
       {f.priceNotes.length > 0 && (
         // a Life Protect price split by contract (owner, 2026-10-17) is four lines: set closer, clear of the subtitle
-        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? (f.priceNotes.length > 2 ? 1310 : 1330) : 1080, flexDirection: "column", fontSize: f.priceNotes.length > 2 ? 30 : 34, color: P.mute }}>
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: pills.length ? (f.priceNotes.length > 2 ? 1310 : 1330) : 1080, flexDirection: "column", fontSize: f.priceNotes.length > 2 ? 30 : 34, color: P.mute }}>
           {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: f.priceNotes.length > 2 ? 2 : 10 })}>{n}</div>)}
         </On>
       )}
@@ -653,6 +657,7 @@ function Highlit({ children }: { children: ReactNode }) {
 }
 
 function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  if (c.facts.ci123) return <CiRowsClassic c={c} layer={layer} k="cover" />;
   if (c.facts.coverStyle === "flat") return <FlatCover c={c} layer={layer} s={s} />;
   // Global Savings: the yearly table with three index examples, as the other plans' value scene (owner, 2026-10-20, ก ก)
   if (c.facts.coverStyle === "payback") return <GsTableCover c={c} layer={layer} />;
@@ -906,6 +911,38 @@ function PaidBesideClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
   );
 }
 
+/** CI 123's stages as stairs, the top in the highlighter's yellow (ci123-pictures.tsx) */
+function CiStairsClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
+  const f = c.facts;
+  const g = f.ci123;
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{CI_STAIRS_KICKER}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 50 })}>{CI_STAIRS_SUB}</div>
+      {stairsPicture(ciStairs(g), classicTpDraw, w, 1.1, 560)}
+      <div style={box({ marginTop: 50, justifyContent: "center", width: w })}><div style={classicPill(true, 40)}>{CI_STAIRS_FOOT}</div></div>
+    </On>
+  );
+}
+
+/** CI 123's fourth and fifth scenes: what else it pays, the base contract's life cover (ci123-pictures.tsx) */
+function CiRowsClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: "cover" | "family" }) {
+  const f = c.facts;
+  const g = f.ci123;
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{k === "cover" ? CI_MORE_KICKER : CI_BASE_KICKER}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{k === "cover" ? `ทุน CI 123 ${f.lead.amount} บาท` : CI_BASE_SUB}</div>
+      {amountRows(k === "cover" ? ciMoreRows(g) : ciBaseRows(g), classicTpDraw, w, 1.1, 36)}
+      {k === "family" ? <div style={box({ marginTop: 16, justifyContent: "center", width: w, fontSize: 38, color: P.mute })}>{ciBaseFoot(g)}</div> : null}
+    </On>
+  );
+}
+
 /** ไลฟ์เทรเชอร์'s three paying terms, the chosen one in the highlighter's yellow (lifetreasure-pictures.tsx) */
 function LtTermsClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
   const f = c.facts;
@@ -1000,10 +1037,10 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
   const body = rider ? <RiderClassic c={c} layer={layer} k={key} /> : {
     lead: <Lead c={c} layer={layer} s={state} />,
     compare: <Compare c={c} layer={layer} s={state} />,
-    critical: <Critical c={c} layer={layer} s={state} />,
+    critical: c.facts.ci123 ? <CiStairsClassic c={c} layer={layer} /> : <Critical c={c} layer={layer} s={state} />,
     terms: c.facts.lifetreasure ? <LtTermsClassic c={c} layer={layer} /> : <TermsScene c={c} layer={layer} s={state} />,
     index: <IndexScene c={c} layer={layer} s={state} />,
-    family: <TwelvePlClassic c={c} layer={layer} k="family" />,
+    family: c.facts.ci123 ? <CiRowsClassic c={c} layer={layer} k="family" /> : <TwelvePlClassic c={c} layer={layer} k="family" />,
     total: paidUpOf(c.facts) ? <PaidBesideClassic c={c} layer={layer} /> : <TwelvePlClassic c={c} layer={layer} k="total" />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,

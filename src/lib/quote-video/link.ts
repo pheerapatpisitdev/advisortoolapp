@@ -1,6 +1,7 @@
 import type { PayMode } from "@/calc/types";
 import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
+import { CI123_SUMS } from "@/lib/ci123-cta";
 import { cleanSetup } from "./ihealthy-setup";
 import { MODES } from "@/lib/ihealthy-quote";
 import type { Product } from "./script";
@@ -67,7 +68,7 @@ export function videoStartHref(s: VideoStart): string {
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
-const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING", "TWELVEPL", "EASYPROTECT", "LIFETREASURE"];
+const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING", "TWELVEPL", "EASYPROTECT", "LIFETREASURE", "CI123"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 /** Protection Life's terms and sums: only the /plb page's own are read from an address */
 const PLB_TERMS = ["PLB05", "PLB10", "PLB12", "PLB15"];
@@ -100,12 +101,14 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const plb = product === "PLB";
   // the terms a plan's page offers, where only those are read from an address
   const terms = plb ? PLB_TERMS : product === "LIFETREASURE" ? LT_TERMS : undefined;
+  // the sums a plan's page offers, where only those are read from an address (CI 123: its seven)
+  const sums = plb ? PLB_SUMS : product === "CI123" ? CI123_SUMS : undefined;
   const riders = product === "LIFEPROTECT" || product === "TWELVEPL" ? readRiders((k) => one(params[k])) : undefined;
   return {
     product,
     ...(sex === "M" || sex === "F" ? { sex } : {}),
     ...(Number.isInteger(age) && age >= 0 && age <= 99 ? { age } : {}),
-    ...(Number.isInteger(sum) && sum > 0 && sum <= 100_000_000 && (!plb || PLB_SUMS.includes(sum)) ? { sumAssured: sum } : {}),
+    ...(Number.isInteger(sum) && sum > 0 && sum <= 100_000_000 && (!sums || sums.includes(sum)) ? { sumAssured: sum } : {}),
     ...(variant && /^[A-Z0-9]{3,12}$/.test(variant) && (!terms || terms.includes(variant)) ? { variant } : {}),
     ...(plan && /^[A-Z]{3,12}$/.test(plan) ? { plan } : {}),
     ...([55, 60, 65, 70].includes(start) ? { annuityAge: start } : {}),

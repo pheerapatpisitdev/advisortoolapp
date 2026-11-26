@@ -16,6 +16,7 @@ import { festivalOn } from "@/lib/quote-video/festival";
 import { QUOTE_VIDEO_COLORS, RECIPE_COLORS, VIDEO_FESTIVAL_COLORS } from "@/lib/card-theme";
 import { nextRecipe, readRecipe, RECIPE_NAMES, type RecipeKey } from "@/lib/quote-video/recipe-keys";
 import { EASYPROTECT_SUMS, LIFETREASURE_SUMS, PLB_SUMS } from "@/lib/quote-pdf/pages";
+import { CI123_SUMS, sumWords as ciSumWords } from "@/lib/ci123-cta";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 import { formatBaht } from "@/lib/wallet/money";
@@ -79,6 +80,7 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   { code: "TWELVEPL", name: "12PL", page: "/12pl" },
   { code: "EASYPROTECT", name: "Easy Protect 6", page: "/easyprotect" },
   { code: "LIFETREASURE", name: "Life Treasure", page: "/lifetreasure" },
+  { code: "CI123", name: "CI 123", page: "/ci123" },
 ];
 /** Global Savings' index returns the agent picks the clip's example at (owner, 2026-10-20): −1% to +5% */
 const GS_RATE_CHOICES = [-1, 0, 1, 2, 3, 4, 5];
@@ -507,6 +509,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
         : product === "LIFETREASURE"
           ? { product, variant: variant as LifeTreasureVariant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
+        : product === "CI123"
+          ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
         : product === "TWELVEPL"
           ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), dividend, ...(lpRiders ? { riders: lpRiders } : {}), ...look }
           : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...(lpRiders ? { riders: lpRiders } : {}), ...look };
@@ -522,6 +526,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     // ไลฟ์เทรเชอร์'s sums start at ten million: anything else opens on its page's first
     if (p === "LIFETREASURE") setSum((was) => (LIFETREASURE_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "10,000,000"));
     if (p === "PLB") setSum((was) => (PLB_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
+    // CI 123's sums are its page's seven: anything else opens on its page's 1 ล้าน
+    if (p === "CI123") setSum((was) => (CI123_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
   }
   function toggleCompare(code: string) {
     if (code === plan) return;
@@ -720,6 +726,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ? `${source === "sum" ? `บำนาญเดือนละ ${monthly}` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · รับ ${pensionStart} · ${pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
       : product === "LEGACY"
         ? (source === "sum" ? `มรดก ${tier} ล้าน` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
+      : product === "CI123"
+        ? (source === "sum" ? `ทุน ${ciSumWords(Number(sum.replace(/[^\d]/g, "")) || 0)}` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
       : product === "TWELVEPL" || product === "EASYPROTECT"
         ? `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${product === "EASYPROTECT" ? 6 : 12} ปี`
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
@@ -976,6 +984,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                         : product === "LEGACY" ? "ระบบเลือกขนาดมรดกที่ใหญ่ที่สุดที่ค่าใช้จ่ายปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท"
                         : product === "PLB" ? "ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า Protection Life) ที่ค่าใช้จ่ายไม่เกินงบ ในระยะที่เลือก · รายเดือนขั้นต่ำ 1,000 บาท"
                         : product === "GSAVING" ? "แบบนี้จ่ายรายปี งบต่อเดือนคิดเป็นเบี้ยปีละ 12 เท่า · ขั้นต่ำปีละ 20,000 บาท"
+                        : product === "CI123" ? "ระบบเลือกทุน CI 123 สูงสุด (ตามขั้นของหน้า CI 123) ที่ยอดออมปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท"
                         : product === "TWELVEPL" || product === "EASYPROTECT" || product === "LIFETREASURE" ? `ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า ${product === "TWELVEPL" ? "12PL" : product === "EASYPROTECT" ? "Easy Protect 6" : "Life Treasure"}) ที่เบี้ยไม่เกินงบ${product === "LIFETREASURE" ? " ในระยะจ่ายที่เลือก" : ""}` : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
                     </div>
                   ) : product === "PENSION" ? (
@@ -989,6 +998,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                       <label htmlFor="qv-gs-premium" className={label}>เบี้ยต่อปี (บาท)</label>
                       <input id="qv-gs-premium" inputMode="numeric" className={field} value={gsPremium} onChange={(e) => setGsPremium(money(e))} />
                       <p className="mt-1 text-xs text-[var(--ct-mute)]">ขั้นต่ำ 20,000 · {gsPlanTerms(gsPlan)}</p>
+                    </div>
+                  ) : product === "CI123" ? (
+                    <div>
+                      <span className={label}>ทุน CI 123</span>
+                      <div className="flex flex-wrap gap-2">
+                        {CI123_SUMS.map((n) => <button key={n} type="button" className={chip(Number(sum.replace(/[^\d]/g, "")) === n)} onClick={() => setSum(n.toLocaleString("en-US"))}>{ciSumWords(n)}</button>)}
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">คู่แบบหลัก Life Protect x2 ทุน 150,000 · รับอายุแรกเกิด–75 ปี</p>
                     </div>
                   ) : product === "PLB" ? (
                     <div>

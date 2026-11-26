@@ -38,7 +38,8 @@ export function thaiNumberWords(n: number): string {
  * "หนึ่งล้านห้าแสน", "99" → "เก้าสิบเก้า", "27.50" → "ยี่สิบเจ็ดจุดห้าศูนย์".
  */
 export function sayNumbers(line: string): string {
-  return line.replace(/(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?:\s*(ล้าน|แสน|หมื่น|พัน))?/g, (_m, int: string, frac: string | undefined, unit: string | undefined) => {
+  // a plan's name is not a figure: CI 123 is read digit by digit, as its name is said (owner, 2026-11-26)
+  return line.replace(/\bCI\s*123\b/g, "ซีไอ หนึ่งสองสาม").replace(/(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?:\s*(ล้าน|แสน|หมื่น|พัน))?/g, (_m, int: string, frac: string | undefined, unit: string | undefined) => {
     const whole = Number(int.replace(/,/g, ""));
     if (unit) return thaiNumberWords(Number(`${whole}.${frac ?? 0}`) * UNIT[unit]);
     const said = thaiNumberWords(whole);

@@ -6,6 +6,8 @@ import { beatCues, penBeats } from "./pen";
 import { paidUpOf } from "./easyprotect";
 import { breakEvenNote, epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
 import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
+import { amountRows, stairsPicture } from "./stage-pictures";
+import { CI_BASE_KICKER, CI_BASE_SUB, CI_MORE_KICKER, CI_STAIRS_FOOT, CI_STAIRS_KICKER, CI_STAIRS_SUB, ciBaseFoot, ciBaseRows, ciMoreRows, ciStairs } from "./ci123-pictures";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
 import { riderIndex, type CoverRow, type QuoteVideoFacts, type SceneKey } from "./script";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
@@ -55,6 +57,8 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
   // วิดีโอเทียบ 4 แผน draws its own scenes but the contact card (ihealthy-all-plans-motion.tsx)
   const all = allPlansSpec(key, f, voiceSec);
   if (all) return all;
+  const ci = ciSpec(key, f, voiceSec);
+  if (ci) return ci;
   switch (key) {
     case "lead":
       return {
@@ -212,6 +216,36 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       // a rider: its name and price, its picture piece by piece, its lump sum counted, what it pays
       return riderSpec(voiceSec);
   }
+}
+
+/**
+ * CI 123's own three scenes (ci123-pictures.tsx; stage-pictures.tsx names the pieces): the stairs grown one after
+ * another as the voice runs, the figure popped over each; what else it pays, a row at a time; the base contract's
+ * cover, its two ages. Undefined for any other scene or plan.
+ */
+export function ciSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number): Record<string, Anim> | undefined {
+  const g = f.ci123;
+  if (!g) return undefined;
+  const late = (share: number, min: number) => Math.max(min, voiceSec * share);
+  if (key === "critical") {
+    const s: Record<string, Anim> = { kicker: a(0.2, "up"), sub: a(0.5, "fade") };
+    const n = g.stairs.length;
+    for (let i = 0; i < n; i++) {
+      const at = 0.9 + (i * Math.max(1, voiceSec * 0.7 - 0.9)) / Math.max(1, n);
+      s[`bar${i}`] = a(at, "grow");
+      s[`lab${i}`] = a(at, "fade");
+      s[`amt${i}`] = a(at + 0.5, "pop");
+    }
+    s.foot = a(late(0.85, 3.6), "up");
+    return s;
+  }
+  if (key === "cover" || key === "family") {
+    const n = key === "cover" ? g.more.length : g.deathRows.length;
+    const s: Record<string, Anim> = { kicker: a(0.2, "up"), sub: a(0.5, "fade"), ...spread("row", n, Math.max(voiceSec, 2), 0.8) };
+    s.foot = a(late(0.8, 2.6), "fade");
+    return s;
+  }
+  return undefined;
 }
 
 /** one rider's scene (rider-pictures.tsx names its pieces kicker, sub, price, pic0–4, day0–4, big, what) */
@@ -545,7 +579,7 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
         ))}
       </div>
       {f.priceNotes.length > 0 && (
-        <El an={s.notes} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? pillsTop + (f.twelvepl && f.pills.length > 1 ? 186 : 96) : 1120, flexDirection: "column", fontSize: 34, color: WHITE, opacity: 0.85 }}>
+        <El an={s.notes} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? pillsTop + ((f.twelvepl || f.ci123) && f.pills.length > 1 ? 186 : 96) : 1120, flexDirection: "column", fontSize: 34, color: WHITE, opacity: 0.85 }}>
           {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: 10 })}>{n}</div>)}
         </El>
       )}
@@ -910,6 +944,47 @@ export function plbTermCards(f: QuoteVideoFacts, s: Record<string, Anim>, t: num
         </El>
       ))}
     </div>
+  );
+}
+
+/** CI 123's third scene: the stages that climb to the whole sum (ci123-pictures.tsx) */
+function CiStairs({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.ci123;
+  const s = motionSpec("critical", f, c.voiceSec);
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 66, fontWeight: 700, color: WHITE }}>{CI_STAIRS_KICKER}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 40, color: WHITE, opacity: 0.9 }}>{CI_STAIRS_SUB}</El>
+      <div style={abs({ left: SIDE, top: 430, width: w })}>{stairsPicture(ciStairs(g), motionTpDraw(s, t), w, 1.1, 560)}</div>
+      <El an={s.foot} t={t} style={{ position: "absolute", left: 0, width: W, top: 1400, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 40, fontWeight: 600 })}>{CI_STAIRS_FOOT}</div>
+      </El>
+    </>
+  );
+}
+
+/** CI 123's fourth and fifth scenes: what else it pays, and the base contract's life cover (ci123-pictures.tsx) */
+function CiRows({ c, t, k }: { c: MotionContext; t: number; k: "cover" | "family" }) {
+  const f = c.facts;
+  const g = f.ci123;
+  const s = motionSpec(k, f, c.voiceSec);
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  const rows = k === "cover" ? ciMoreRows(g) : ciBaseRows(g);
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 66, fontWeight: 700, color: WHITE }}>{k === "cover" ? CI_MORE_KICKER : CI_BASE_KICKER}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 40, color: WHITE, opacity: 0.9 }}>{k === "cover" ? `ทุน CI 123 ${f.lead.amount} บาท` : CI_BASE_SUB}</El>
+      <div style={abs({ left: SIDE, top: 420, width: w, flexDirection: "column" })}>
+        {amountRows(rows, motionTpDraw(s, t), w, 1.1, 36)}
+        {k === "family" ? <El an={s.foot} t={t} style={{ justifyContent: "center", width: w, marginTop: 16, fontSize: 40, color: WHITE, opacity: 0.85 }}>{ciBaseFoot(g)}</El> : null}
+      </div>
+    </>
   );
 }
 
@@ -1731,15 +1806,15 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
     : undefined) ?? {
     lead: <Lead c={c} t={t} />,
     price: c.priceJar && jarFits(c.facts) ? <PriceJar c={c} t={t} /> : <Price c={c} t={t} />,
-    cover: c.coverRoad && roadFits(c.facts) ? <CoverRoad c={c} t={t} /> : c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
+    cover: c.facts.ci123 ? <CiRows c={c} t={t} k="cover" /> : c.coverRoad && roadFits(c.facts) ? <CoverRoad c={c} t={t} /> : c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
       : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat c={c} t={t} />
       : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : c.facts.coverStyle === "cashback" ? <CoverCashback c={c} t={t} /> : c.facts.coverStyle === "paidup" ? <CoverPaidUp c={c} t={t} /> : <CoverRows c={c} t={t} />,
     value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
     compare: <Compare c={c} t={t} />,
-    critical: <Critical c={c} t={t} />,
+    critical: c.facts.ci123 ? <CiStairs c={c} t={t} /> : <Critical c={c} t={t} />,
     terms: <Terms c={c} t={t} />,
     index: <IndexScene c={c} t={t} />,
-    family: <FamilyScene c={c} t={t} />,
+    family: c.facts.ci123 ? <CiRows c={c} t={t} k="family" /> : <FamilyScene c={c} t={t} />,
     total: <TotalScene c={c} t={t} />,
     contact: c.loop ? <LoopEnd c={c} t={t} /> : <Contact c={c} t={t} />,
     story: <StoryScene c={c} t={t} />,

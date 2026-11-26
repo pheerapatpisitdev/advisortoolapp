@@ -64,6 +64,9 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     // มรดก (owner, 2026-10-14): one year's money kept against what the family receives, as iHealthy's — no value to compare
     : f.product === "LEGACY"
       ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "ครอบครัวได้เงินก้อนสูงสุด", amount: f.lead.amount, unit: "บาท" }, note: "ค่าใช้จ่ายปีแรก ส่วนโรคร้ายแรงปรับตามอายุ" }
+    // CI 123 (owner, 2026-11-26): one year's money kept against the lump sum on a critical illness — no value to compare
+    : f.product === "CI123"
+      ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "ตรวจพบโรคร้ายแรง รับสูงสุด", amount: f.lead.amount, unit: "บาท" }, note: "ยอดออมปีแรก ส่วน CI 123 ปรับตามอายุ" }
     // Protection Life (owner, 2026-10-14): the whole term's money kept against what the family receives within it; the screen says it pays nothing at the end
     : f.product === "PLB" && f.plb
       ? { left: { label: `เก็บเงินเอง ${f.plb.years} ปี`, amount: f.plb.total, unit: "บาท" }, right: { label: `ครอบครัวได้ภายใน ${f.plb.years} ปี`, amount: f.lead.amount, unit: "บาท" }, note: "ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน" }
@@ -85,7 +88,7 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
       };
   const third = f.product === "PENSION"
     ? `อนุมัติแล้วเริ่มออม รับบำนาญตั้งแต่อายุ ${f.pension?.start ?? ""}`
-    : f.product === "ISHIELD" ? "อนุมัติแล้วเริ่มคุ้มครอง โรคร้ายแรงหลัง 90 วัน"
+    : f.product === "ISHIELD" || f.product === "CI123" ? "อนุมัติแล้วเริ่มคุ้มครอง โรคร้ายแรงหลัง 90 วัน"
     // Protection Life: when its cover starts is not confirmed (assistant/plb/faq.ts PLB_WAITING), so nothing is said of it
     : f.product === "PLB" ? "บริษัทพิจารณาแล้วรับกรมธรรม์" : "อนุมัติแล้วเริ่มคุ้มครอง";
   return {
@@ -127,6 +130,9 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
       }
       if (f.product === "PLB" && f.plb) {
         return `ถ้าเก็บเงินเอง ${f.plb.years} ปี ก็มีเงิน ${f.plb.total} บาท แต่แผนนี้ ถ้าเป็นอะไรไปในช่วง ${f.plb.years} ปีนี้ ครอบครัวได้เงินก้อนถึง ${x.versus.right.amount} บาทค่ะ`;
+      }
+      if (f.product === "CI123") {
+        return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าตรวจพบโรคร้ายแรง รับเงินก้อนสูงสุดถึง ${x.versus.right.amount} บาทค่ะ`;
       }
       if (f.product === "LEGACY") {
         return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนถึง ${x.versus.right.amount} บาทค่ะ`;
