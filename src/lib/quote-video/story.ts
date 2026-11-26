@@ -97,7 +97,7 @@ export interface StoryVideoInput {
    * the hand-drawn faces as cut paper on a wooden table, moved 12 poses a second. It took การ์ตูนหน้าคน's
    * place on the form; a row with no art is an older clip, still drawn as it was.
    */
-  art?: "minimal" | "info" | "paper" | InfoArt | "line";
+  art?: "minimal" | "info" | "paper" | InfoArt | "line" | "motion";
   ground?: FigureGround;
   cast?: { hero: FigureLook; narrator: FigureLook };
   /** ตั้งค่าส่วนตัว (owner, 2026-11-14; src/lib/pay-prefs.ts): the instalments the agent switched off; absent = none */

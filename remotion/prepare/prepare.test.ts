@@ -57,6 +57,8 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets
   // สูตรคลิป Motion (recipes-draw.tsx): เปิดด้วยคำถาม's Kanit and เส้นชีวิต's Trirong, at the weights their frames use
   for (const wt of [500, 800, 900]) await googleFont("Kanit", wt, join(PUB, `fonts/Kanit-${wt}.ttf`));
   for (const wt of [400, 600, 700]) await googleFont("Trirong", wt, join(PUB, `fonts/Trirong-${wt}.ttf`));
+  // โมชันกราฟิก (prompt-story design "motion"): Prompt at the weights the look draws in (Clip.tsx FONTS)
+  for (const wt of [400, 600, 800]) await googleFont("Prompt", wt, join(PUB, `fonts/Prompt-${wt}.ttf`));
   // the symbols satori draws from Noto Sans Symbols 2 (draw-png.ts FALLBACK): ☐ ✓ ✗ (Clip.tsx SYMBOLS)
   await googleFont("Noto Sans Symbols 2", 400, join(PUB, "fonts/NotoSansSymbols2-400.ttf"));
   copyFileSync(join(APP, "public/collage/paper-light.jpg"), join(PUB, "collage/paper-light.jpg"));

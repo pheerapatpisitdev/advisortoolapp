@@ -32,6 +32,8 @@ export function lookGround(look: ReturnType<typeof freeLook>): string {
   if (look.art === "board") return C.boardBoard;
   if (look.art === "neon") return C.neonCentre;
   if (look.art === "blueprint") return C.bpGround;
+  // โมชันกราฟิก (design "motion"): the navy
+  if (look.art === "motion") return C.mgNavy;
   return C.paper;
 }
 

@@ -81,6 +81,13 @@ const BLUEPRINT_KIT: Kit = {
   ground: S.bpInk, dim: S.bpMuted, on: "transparent", onLine: S.bpAmber, tick: S.bpCyan, card: "transparent", mute: S.bpMuted, underline: false,
   dress: { band: S.bpSub, words: S.bpInk, spoken: S.bpAmber, foot: S.bpMuted, cardEdge: S.bpInk },
 };
-const KITS: Partial<Record<string, Kit>> = { plot: PLOT_KIT, board: BOARD_KIT, neon: NEON_KIT, blueprint: BLUEPRINT_KIT };
+/** โมชันกราฟิก (owner, 2026-11-26): the navy ground, cream cards and gold, written in Prompt; a device scene is drawn with it */
+export const MOTION_KIT: Kit = {
+  drawn: false, page: S.mgNavy, hand: "Prompt", bold: 600, reveal: "fade", machine: false, hollowTitle: false, shade: false, hatch: false, glow: false, dims: false, line: 1, tilt: 0, strike: 0.62,
+  gold: S.mgGold, sub: S.white, sky: S.white, red: S.mgCoral, green: S.mgTeal, white: S.white, tile: "rgba(255,255,255,0.08)", tileLine: "rgba(255,255,255,0.2)", soft: "rgba(255,255,255,0.82)",
+  ground: S.mgNavy, dim: "rgba(255,255,255,0.45)", on: "rgba(242,199,92,0.12)", onLine: S.mgGold, tick: S.mgTeal, card: S.mgCream, mute: S.mgMute, underline: false,
+  dress: { band: S.mgScrim, words: S.white, spoken: S.mgGold, foot: S.mgFoot, cardEdge: S.mgGold },
+};
+const KITS: Partial<Record<string, Kit>> = { plot: PLOT_KIT, board: BOARD_KIT, neon: NEON_KIT, blueprint: BLUEPRINT_KIT, motion: MOTION_KIT };
 /** the Kit a clip is drawn with, from its look; อินโฟกราฟิก's for "info" and any other */
 export const kitFor = (input: Pick<StoryVideoInput, "art">): Kit => KITS[input.art ?? ""] ?? INFO_KIT;
