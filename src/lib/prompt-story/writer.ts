@@ -52,7 +52,30 @@ const defaultAsk = (count: number, design?: PromptDesign): Ask => async (system,
 };
 
 /** a scene's layout when the writer's failed twice or the cap took its picture: its screen words as an opening line, free */
-export const plainMotion = (screen: string): MotionLayout => ({ kind: "hook", lines: [screen], key: -1, icon: "heart" });
+export function plainMotion(screen: string): MotionLayout {
+  const max = L.line;
+  const mark = /[ัิ-ฺ็-๎]/;
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of screen.split(/\s+/).filter(Boolean)) {
+    let w = [...word];
+    if (cur && [...cur].length + 1 + w.length <= max) { cur += ` ${word}`; continue; }
+    if (cur) lines.push(cur);
+    // a piece longer than a line is cut at the limit, never just before a combining mark
+    while (w.length > max) {
+      let cut = max;
+      while (cut > 1 && mark.test(w[cut])) cut--;
+      lines.push(w.slice(0, cut).join(""));
+      w = w.slice(cut);
+    }
+    cur = w.join("");
+  }
+  if (cur) lines.push(cur);
+  return { kind: "hook", lines: lines.length ? lines.slice(0, 3) : ["ดูแลคนที่เรารัก"], key: -1, icon: "heart" };
+}
+
+/** the fixed outline's opening lines in โมชันกราฟิก, broken where no word is cut (scene i % 3, as PLAIN) */
+const PLAIN_MOTION_LINES: string[][] = [["ดูแลคนที่เรารัก"], ["ช่วยให้ครอบครัว", "ไปต่อได้"], ["ทักมาคุยกันได้"]];
 const PLAIN: PromptScene[] = [
   { voice: "ทุกครอบครัวมีคนที่เรารักและอยากดูแลให้ดีที่สุด", screen: "ดูแลคนที่เรารัก", picture: "ครอบครัวนั่งยิ้มด้วยกันในบ้าน" },
   { voice: "ประกันช่วยให้ครอบครัวยังไปต่อได้ เมื่อมีเรื่องไม่คาดคิดเกิดขึ้น", screen: "ช่วยให้ครอบครัวไปต่อได้", picture: "พ่อแม่ลูกจับมือกันอย่างอบอุ่น" },
@@ -370,7 +393,7 @@ export async function writeStory(input: { brief: string; scenes: SceneCount; fig
   const notes = [...bad.keys()].sort((a, b) => a - b);
   for (const i of notes) {
     scenes[i] = plainLine(i);
-    if (design === "motion") scenes[i].motion = plainMotion(scenes[i].screen);
+    if (design === "motion") scenes[i].motion = { kind: "hook", lines: [...PLAIN_MOTION_LINES[i % PLAIN_MOTION_LINES.length]], key: -1, icon: "heart" };
   }
   // half the scenes at most as devices, whichever survived both asks
   capDevices(scenes, deviceMax(count));

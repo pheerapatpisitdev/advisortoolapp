@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkMotion } from "@/lib/prompt-story/check";
 import { pictureScenes, MOTION_KINDS, type PromptScene } from "@/lib/prompt-story/types";
 
 const chat = vi.hoisted(() => vi.fn());
@@ -57,7 +58,8 @@ describe("writer: โมชันกราฟิก layouts", () => {
     expect(ask).toHaveBeenCalledTimes(2);
     expect(ask.mock.calls[1].join("\n")).toContain("motion.value");
     expect(r.notes).toEqual([1]);
-    expect(r.scenes[1].motion).toEqual(plainMotion(r.scenes[1].screen));
+    expect(r.scenes[1].motion).toEqual({ kind: "hook", lines: ["ช่วยให้ครอบครัว", "ไปต่อได้"], key: -1, icon: "heart" });
+    expect(checkMotion(r.scenes[1].motion, new Set(), new Set())).toEqual(r.scenes[1].motion);
     expect(r.scenes[0].motion?.kind).toBe("hook");
   });
 
@@ -76,6 +78,7 @@ describe("writer: โมชันกราฟิก layouts", () => {
     expect(pictureScenes({ scenes: r.scenes, design: "motion" })).toBe(3);
     expect(r.scenes[4].motion).toEqual(plainMotion(r.scenes[4].screen));
     expect(r.scenes[4].picture).toBe("");
+    expect(Array.isArray(checkMotion(r.scenes[4].motion, new Set(), new Set()))).toBe(false);
     expect(r.scenes[4].voice).toBe("วันนี้มาคุยเรื่องดูแลครอบครัว");
     expect(r.scenes[3].motion?.kind).toBe("card");
   });
@@ -86,6 +89,27 @@ describe("writer: โมชันกราฟิก layouts", () => {
     expect(ask).toHaveBeenCalledTimes(2);
     expect(ask.mock.calls[1].join("\n")).toContain("ฉากที่ 2");
     expect(ask.mock.calls[1].join("\n")).not.toContain("ฉากที่ 1:");
+  });
+
+  it("plainMotion always passes checkMotion: wrapped on spaces, cut clear of combining marks", () => {
+    const spaced = "ช่วยให้ครอบครัว ไปต่อได้ อย่างมั่นคง";
+    expect([...spaced].length).toBeLessThanOrEqual(40);
+    const a = plainMotion(spaced);
+    expect(Array.isArray(checkMotion(a, new Set(), new Set()))).toBe(false);
+    if (a.kind !== "hook") throw new Error("kind");
+    for (const l of a.lines) expect([...l].length).toBeLessThanOrEqual(22);
+    const long = "ครอบครัวที่มั่นคงปลอดภัยทุกวันเวลานี้ดี".slice(0, 30);
+    const b = plainMotion(long);
+    expect(Array.isArray(checkMotion(b, new Set(), new Set()))).toBe(false);
+    if (b.kind !== "hook") throw new Error("kind");
+    for (const l of b.lines.slice(0, -1)) expect([...l].length).toBeLessThanOrEqual(22);
+    b.lines.slice(1).forEach((l) => expect(l).not.toMatch(/^[ัิ-ฺ็-๎]/));
+    // a cut that would land before a mark moves back
+    const marked = "ก".repeat(21) + "ิ" + "ข".repeat(5);
+    const c = plainMotion(marked);
+    if (c.kind !== "hook") throw new Error("kind");
+    expect(c.lines[1].startsWith("ิ")).toBe(false);
+    expect(Array.isArray(checkMotion(c, new Set(), new Set()))).toBe(false);
   });
 
   it("the model: Sonnet 5 first for motion, the video-script lane for หน้าตาเดิม", async () => {
