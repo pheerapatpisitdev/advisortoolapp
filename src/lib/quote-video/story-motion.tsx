@@ -263,7 +263,7 @@ export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(i
  * อินโฟกราฟิก's route (story-info-motion.tsx), no faces: อินโฟกราฟิก's tiles and icons on วิดีโอนำเสนอ Motion's navy, and
  * the looks drawn with its drawers in their own Kit (topics.ts INFO_ARTS: ปากกาพล็อตเตอร์, ไวต์บอร์ด, นีออน, บลูพริ้นท์)
  */
-export const info = (input: StoryVideoInput) => input.art === "info" || infoArt(input.art);
+export const info = (input: StoryVideoInput) => input.art === "info" || input.art === "motion" || infoArt(input.art);
 /** ปากกาพล็อตเตอร์ (owner, 2026-11-12): อินโฟกราฟิก's scenes on cream paper, written by one pen as the voice goes */
 export const plot = (input: StoryVideoInput) => input.art === "plot";
 /**
@@ -734,6 +734,10 @@ function dressedGround(size: VideoSize, input: StoryVideoInput) {
         <div style={abs({ left: m, top, width: w - m * 2, height: foot - top, border: `${tube}px solid ${C.neonPink}`, borderRadius: Math.round(60 * k), boxShadow: `0 0 10px ${C.neonPink}, 0 0 24px ${C.neonPink}`, opacity: 0.85 })} />
       </div>
     );
+  }
+  if (input.art === "motion") {
+    // โมชันกราฟิก: the navy, lit from the top left (the mockup's 165deg, navy2 to navy at 70%)
+    return <div style={{ display: "flex", position: "relative", width: w, height: h, background: `linear-gradient(165deg, ${C.mgNavy2}, ${C.mgNavy} 70%)` }} />;
   }
   // บลูพริ้นท์: the blue, a fine grid every 60 px and a coarse one every 300 (the sketch's 12 and 60 at 216 wide), a
   // thin white border, and the title block in its bottom right corner

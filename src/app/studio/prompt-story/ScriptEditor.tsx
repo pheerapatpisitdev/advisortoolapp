@@ -1,9 +1,19 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { deviceFields, keptRewrite, missingPicture, needPictureWords, rewritesLeft, sceneKind, scenePart, setDeviceWord, toAsset, toPicture } from "@/lib/prompt-story/editor-state";
-import { REWRITES_DONE, REWRITES_PER_DRAFT, SCREEN_MAX, TITLE_MAX, type DeviceScene, type PromptScene } from "@/lib/prompt-story/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  deviceFields, editMotionAt, keptRewrite, missingPicture, motionAside, needPictureWords, pictureCount, rewritesLeft, sceneKind, scenePart, setDeviceWord,
+  toAsset, toKindAt, toPicture, type ParkedMotion,
+} from "@/lib/prompt-story/editor-state";
+import {
+  MOTION_KINDS, paints, REWRITES_DONE, REWRITES_PER_DRAFT, SCREEN_MAX, TITLE_MAX, type DeviceScene, type MotionKind, type MotionLayout, type PromptDesign,
+  type PromptScene,
+} from "@/lib/prompt-story/types";
 import type { TaxSources } from "@/lib/prompt-story/check";
+import type { VideoSize } from "@/lib/quote-video/timeline";
 import { rewritePromptScene } from "./actions";
+import { chip, field, PICTURE_MAX } from "./editor-ui";
+import { MotionFields } from "./MotionFields";
+import { MotionPreview, PREVIEW_W } from "./MotionPreview";
 
 /**
  * The script the AI wrote, every box editable (owner's mockup, 2026-10-16, state 2): per scene the
@@ -18,13 +28,33 @@ import { rewritePromptScene } from "./actions";
  * ภาพจากคลัง (คลังแอนิเมชัน phase 3, spec 2026-11-14-library-uploads): a third choice, one of the library's
  * approved parts picked from a row of thumbnails, laid on the look's ground when the clip is made; no
  * picture words, not charged. A part the link named (?asset=) comes first; each scene names its own part.
+ *
+ * โมชันกราฟิก (owner, 2026-11-26, mockup ข round 2's หน้าแก้บท): with `design` the choice is แบบฉาก, the six layouts then
+ * อุปกรณ์ and ภาพจากคลัง; the boxes under it follow the layout (MotionFields), and a small preview of the scene plays
+ * beside them (MotionPreview, free, no voice), under them on a phone. A layout switched away from is parked and comes
+ * back as it was left. Without `design` the editor is exactly what it was.
  */
 
-const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm disabled:opacity-60";
-const chip = (on: boolean) =>
-  `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
 const VOICE_MAX = 400;
-const PICTURE_MAX = 300;
+const KIND_NAME = Object.fromEntries(MOTION_KINDS.map((k) => [k.id, k.name])) as Record<MotionKind, string>;
+const CARD = "grid grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3";
+/** โมชันกราฟิก: the preview a third column, or under the words on a phone */
+const MOTION_CARD = `${CARD} sm:grid-cols-[24px_minmax(0,1fr)_auto]`;
+
+/** a failing device's scene as the server keeps it (the device dropped), for its preview */
+function withoutDevice(s: PromptScene): PromptScene {
+  const { device: _gone, ...rest } = s;
+  void _gone;
+  return rest;
+}
+
+/** what a scene becomes when its device fails: the words of the warning */
+function fallbackWords(s: PromptScene, design?: PromptDesign): string {
+  if (!design || (!s.motion && !s.showFigure)) return "ฉากนี้จะใช้ภาพ AI (คิดค่ารูป)";
+  if (s.showFigure) return "ฉากนี้จะใช้การ์ดเบี้ยจริง (ระบบวาด ไม่คิดค่ารูป)";
+  const kept = withoutDevice(s);
+  return `ฉากนี้จะใช้แบบ${KIND_NAME[s.motion!.kind]} (${paints(kept, design) ? "คิดค่ารูป" : "ไม่คิดค่ารูป"})`;
+}
 
 export interface Draft {
   id: string;
@@ -35,12 +65,14 @@ export interface Draft {
   left?: number;
   /** a device the agent turned into ภาพ AI, by scene (from 0): อุปกรณ์ brings it back */
   parked?: Record<number, DeviceScene>;
+  /** โมชันกราฟิก: the layouts a scene was switched away from, by scene and kind: that แบบฉาก brings each back */
+  parkedMotion?: ParkedMotion;
 }
 
 /** a library part the agent may pick: an approved upload's id and name */
 export interface LibraryPart { id: string; name: string }
 
-export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = [], startAsset }: {
+export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = [], startAsset, design, size = "portrait" }: {
   draft: Draft;
   /** scenes (from 0) the writer had to make plain: the agent is told */
   notes: number[];
@@ -53,6 +85,10 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
   assets?: LibraryPart[];
   /** the part a library link named (?asset=): first in the row when it is in the list */
   startAsset?: string;
+  /** หน้าตาคลิป: "motion" is โมชันกราฟิก, a layout a scene; none is หน้าตาเดิม */
+  design?: PromptDesign;
+  /** the clip's shape, for the previews */
+  size?: VideoSize;
 }) {
   const [busy, setBusy] = useState<number | null>(null);
   const [said, setSaid] = useState<Record<number, string>>({});
@@ -60,6 +96,8 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
   const [asked, setAsked] = useState<Record<number, boolean>>({});
   /** scenes whose ภาพจากคลัง was pressed with no part in the library: told where to upload */
   const [noParts, setNoParts] = useState<Record<number, boolean>>({});
+  /** โมชันกราฟิก: scenes whose แบบฉาก could not be chosen (ตัวเลขใหญ่ with no figure), and why */
+  const [refused, setRefused] = useState<Record<number, string>>({});
   // the draft as it is now, for an answer that comes back after the agent kept typing
   const latest = useRef(draft);
   useEffect(() => { latest.current = draft; });
@@ -70,7 +108,12 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
   const fromLibrary = kinds.filter((k) => k.kind === "asset").length;
   const linked = assets.find((p) => p.id === startAsset);
   const parts = linked ? [linked, ...assets.filter((p) => p !== linked)] : assets;
-  const missing = missingPicture(draft.scenes, forDevice, tax);
+  const missing = missingPicture(draft.scenes, forDevice, tax, design);
+  const motion = design === "motion";
+  // โมชันกราฟิก: the scenes the painter draws, as the clip charges them; the rest but the parts the system draws
+  const painted = motion ? pictureCount(draft.scenes, forDevice, tax, design) : 0;
+  // the figures ตัวเลขใหญ่ may show: the very ones checkMotion takes
+  const numbers = useMemo(() => [...forDevice], [forDevice]);
 
   const setScene = (i: number, patch: Partial<PromptScene>) =>
     onChange({ ...draft, scenes: draft.scenes.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
@@ -89,7 +132,10 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
       return;
     }
     if (s.asset === pick && !s.device) return;
-    onChange({ ...draft, scenes: draft.scenes.map((x, j) => (j === i ? toAsset(x, pick) : x)), ...(s.device ? { parked: { ...draft.parked, [i]: s.device } } : {}) });
+    // a layout gives way to the part, kept for its แบบฉาก
+    const base = motion ? motionAside(draft, i) : draft;
+    onChange({ ...base, scenes: base.scenes.map((x, j) => (j === i ? toAsset(x, pick) : x)), ...(s.device ? { parked: { ...base.parked, [i]: s.device } } : {}) });
+    setRefused((m) => ({ ...m, [i]: "" }));
   }
   function toDeviceAt(i: number) {
     const kept = draft.parked?.[i];
@@ -98,7 +144,9 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
       setAsked((a) => ({ ...a, [i]: true }));
       return;
     }
-    const parked = { ...draft.parked };
+    // a layout gives way to the device, kept for its แบบฉาก
+    const base = motion ? motionAside(draft, i) : draft;
+    const parked = { ...base.parked };
     delete parked[i];
     // the device in place of a part, if one was chosen meanwhile
     const back = (x: PromptScene): PromptScene => {
@@ -106,8 +154,20 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
       void _part;
       return { ...rest, device: kept };
     };
-    onChange({ ...draft, scenes: draft.scenes.map((x, j) => (j === i ? back(x) : x)), parked });
+    onChange({ ...base, scenes: base.scenes.map((x, j) => (j === i ? back(x) : x)), parked });
+    setRefused((m) => ({ ...m, [i]: "" }));
   }
+  /** แบบฉาก pressed: the layout parked for it, else one begun from the scene's words; ตัวเลขใหญ่ with no figure says why */
+  function pickKind(i: number, kind: MotionKind) {
+    const r = toKindAt(draft, i, kind, numbers);
+    if (typeof r === "string") {
+      setRefused((m) => ({ ...m, [i]: r }));
+      return;
+    }
+    setRefused((m) => ({ ...m, [i]: "" }));
+    if (r !== draft) onChange(r);
+  }
+  const editLayout = (i: number, m: MotionLayout) => onChange(editMotionAt(draft, i, m));
 
   async function rewrite(i: number) {
     const id = draft.id;
@@ -122,8 +182,12 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
       if (r.ok) {
         const parked = { ...now.parked };
         delete parked[i];
-        onChange({ ...now, scenes: now.scenes.map((x, j) => (j === i ? keptRewrite(x, r.scene) : x)), left: nextLeft, parked });
+        // the layouts parked were for the words the writer has replaced
+        const shelf = now.parkedMotion ? { ...now.parkedMotion } : undefined;
+        if (shelf) delete shelf[i];
+        onChange({ ...now, scenes: now.scenes.map((x, j) => (j === i ? keptRewrite(x, r.scene) : x)), left: nextLeft, parked, ...(shelf ? { parkedMotion: shelf } : {}) });
         setAsked((a) => ({ ...a, [i]: false }));
+        setRefused((m) => ({ ...m, [i]: "" }));
       } else {
         onChange({ ...now, left: nextLeft });
         setSaid((m) => ({ ...m, [i]: r.error }));
@@ -148,7 +212,11 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
         </label>
         <p className="text-xs text-[var(--ct-mute)]">เห็นเฉพาะบท รูปจะวาดตอนกดสร้างคลิป · ตรวจแล้ว: เลขทุกตัวมาจากโจทย์หรือตาราง</p>
         <p className="text-xs text-[var(--ct-mute)] tabular-nums">
-          ภาพ AI {draft.scenes.length - devices - fromLibrary} ฉาก{devices > 0 && ` · อุปกรณ์ ${devices} ฉาก (ระบบวาด ไม่คิดค่ารูป)`}
+          {motion ? (
+            `ภาพ AI ${painted} ฉาก · แบบฉากที่ระบบวาด ${draft.scenes.length - painted - fromLibrary} ฉาก (ไม่คิดค่ารูป)`
+          ) : (
+            <>ภาพ AI {draft.scenes.length - devices - fromLibrary} ฉาก{devices > 0 && ` · อุปกรณ์ ${devices} ฉาก (ระบบวาด ไม่คิดค่ารูป)`}</>
+          )}
           {fromLibrary > 0 && ` · ภาพจากคลัง ${fromLibrary} ฉาก`}
           {" · "}เขียนฉากนี้ใหม่ได้อีก {left} ครั้ง (ฟรี นับแม้เขียนไม่สำเร็จ)
         </p>
@@ -164,18 +232,34 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
         const isAsset = k.kind === "asset";
         const fields = s.device ? deviceFields(s.device) : null;
         const chosen = isAsset ? scenePart(s, assets) : undefined;
+        // โมชันกราฟิก: the scene's layout, unless a device that passes or a part stands in its place, or the premium card
+        // (it draws the figure, and the server drops a layout under it: its chips are shut)
+        const card = motion && Boolean(s.showFigure);
+        const laid = motion && !isDevice && !isAsset && !card ? s.motion : undefined;
         return (
-          <div key={i} className="grid grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3">
+          <div key={i} className={motion ? MOTION_CARD : CARD}>
             <b className="text-[var(--ct-accent)]">{i + 1}</b>
             <div className="min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`ภาพของฉาก ${i + 1}`}>
-                  <button type="button" role="radio" aria-checked={!isDevice && !isAsset} className={chip(!isDevice && !isAsset)} onClick={() => toPictureAt(i)}>ภาพ AI</button>
-                  <button type="button" role="radio" aria-checked={isDevice} className={chip(isDevice)} onClick={() => toDeviceAt(i)}>
-                    {isDevice ? k.name : "อุปกรณ์"}
-                  </button>
-                  <button type="button" role="radio" aria-checked={isAsset} className={chip(isAsset)} onClick={() => toAssetAt(i)}>ภาพจากคลัง</button>
-                </div>
+                {motion ? (
+                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`แบบของฉาก ${i + 1}`}>
+                    {MOTION_KINDS.map((x) => (
+                      <button key={x.id} type="button" role="radio" aria-checked={laid?.kind === x.id} disabled={card} className={`${chip(laid?.kind === x.id)} disabled:opacity-50`} onClick={() => pickKind(i, x.id)}>{x.name}</button>
+                    ))}
+                    <button type="button" role="radio" aria-checked={isDevice} className={chip(isDevice)} onClick={() => toDeviceAt(i)}>
+                      {isDevice ? k.name : "อุปกรณ์"}
+                    </button>
+                    <button type="button" role="radio" aria-checked={isAsset} className={chip(isAsset)} onClick={() => toAssetAt(i)}>ภาพจากคลัง</button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`ภาพของฉาก ${i + 1}`}>
+                    <button type="button" role="radio" aria-checked={!isDevice && !isAsset} className={chip(!isDevice && !isAsset)} onClick={() => toPictureAt(i)}>ภาพ AI</button>
+                    <button type="button" role="radio" aria-checked={isDevice} className={chip(isDevice)} onClick={() => toDeviceAt(i)}>
+                      {isDevice ? k.name : "อุปกรณ์"}
+                    </button>
+                    <button type="button" role="radio" aria-checked={isAsset} className={chip(isAsset)} onClick={() => toAssetAt(i)}>ภาพจากคลัง</button>
+                  </div>
+                )}
                 <button
                   type="button" onClick={() => rewrite(i)} disabled={busy !== null || left <= 0} aria-label={`เขียนฉาก ${i + 1} ใหม่ (เหลือ ${left})`}
                   className="ml-auto min-h-11 rounded-lg border border-[var(--ct-accent)] px-3 text-sm text-[var(--ct-accent)] hover:bg-[var(--ct-soft)] disabled:opacity-50"
@@ -183,11 +267,14 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
                   {busy === i ? "กำลังเขียน…" : left <= 0 ? "เขียนฉากใหม่ครบแล้ว" : `เขียนฉากนี้ใหม่ (เหลือ ${left})`}
                 </button>
               </div>
+              {refused[i] && <p role="status" className="text-xs text-[var(--ct-mute)]">{refused[i]}</p>}
               <textarea aria-label={`บทพูดฉาก ${i + 1}`} className={field} rows={2} maxLength={VOICE_MAX} value={s.voice} onChange={(e) => setScene(i, { voice: e.target.value })} />
               {/* a device draws its own heading, never the screen words nor the premium card */}
               {isDevice ? (
                 <p className="text-xs text-[var(--ct-mute)]">ฉากนี้ใช้หัวข้อของอุปกรณ์แทนคำบนจอ</p>
-              ) : (
+              ) : laid ? (
+                <MotionFields scene={{ ...s, motion: laid }} n={i + 1} onEdit={(m) => editLayout(i, m)} onPicture={(picture) => setScene(i, { picture })} />
+              ) : motion && isAsset ? null : (
                 <input
                   aria-label={`คำบนจอฉาก ${i + 1}`} className={field} maxLength={SCREEN_MAX} disabled={s.showFigure}
                   value={s.showFigure ? "การ์ดเบี้ยจริง (ระบบวาด)" : s.screen} onChange={(e) => setScene(i, { screen: e.target.value })}
@@ -214,7 +301,7 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
               )}
               {k.kind === "broken" && (
                 <p role="status" className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-xs text-[var(--ct-warn-ink)]">
-                  อุปกรณ์นี้ใช้ไม่ได้: {k.reason}, ฉากนี้จะใช้ภาพ AI (คิดค่ารูป)
+                  อุปกรณ์นี้ใช้ไม่ได้: {k.reason}, {fallbackWords(s, design)}
                 </p>
               )}
               {(isAsset || (noParts[i] && !assets.length)) && (
@@ -243,7 +330,8 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
                   )}
                 </div>
               )}
-              {!isDevice && !isAsset && (
+              {/* โมชันกราฟิก: a layout asks its own picture words, the premium card none */}
+              {!isDevice && !isAsset && !(motion && (laid || s.showFigure)) && (
                 <input
                   aria-label={`ภาพฉาก ${i + 1}`} className={field} maxLength={PICTURE_MAX} value={s.picture} placeholder="คำบรรยายภาพที่อยากได้"
                   onChange={(e) => setScene(i, { picture: e.target.value })}
@@ -255,6 +343,12 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
               )}
               {said[i] && <p role="alert" className="text-xs text-[var(--ct-alert)]">{said[i]}</p>}
             </div>
+            {motion && (
+              <div className="col-start-2 space-y-1 sm:col-start-3 sm:row-start-1" style={{ width: PREVIEW_W[size] }}>
+                <MotionPreview scene={k.kind === "broken" ? withoutDevice(s) : s} size={size} label={`ภาพตัวอย่างฉาก ${i + 1}`} />
+                <span className="block text-xs text-[var(--ct-mute)]">ตัวอย่างฉาก</span>
+              </div>
+            )}
           </div>
         );
       })}

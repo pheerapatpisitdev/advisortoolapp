@@ -54,7 +54,7 @@ export type WrittenPromptStory =
   | { ok: true; id: string; title: string; caption: string; scenes: PromptScene[]; notes: number[]; figureNums: FigureNums | null }
   | { ok: false; error: string };
 
-export async function writePromptStory(v: { brief: string; scenes: SceneCount; figure?: unknown; format?: unknown }): Promise<WrittenPromptStory> {
+export async function writePromptStory(v: { brief: string; scenes: SceneCount; figure?: unknown; format?: unknown; design?: unknown }): Promise<WrittenPromptStory> {
   const viewer = await requireMember();
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
   const closed = await closedFor(viewer, "prompt-story");
@@ -75,7 +75,9 @@ export async function writePromptStory(v: { brief: string; scenes: SceneCount; f
 
   // ตามโจทย์ · ละครสั้น 3 ฉาก · รีวิวเคสเคลม; anything else is written as ตามโจทย์
   const format = isPromptFormat(v.format) ? v.format : undefined;
-  const asked = { brief, scenes: v.scenes, figure: figure ?? null, ...(format ? { format } : {}) };
+  // โมชันกราฟิก only as the exact word; anything else is หน้าตาเดิม and nothing is kept
+  const design = v.design === "motion" ? ("motion" as const) : undefined;
+  const asked = { brief, scenes: v.scenes, figure: figure ?? null, ...(format ? { format } : {}), ...(design ? { design } : {}) };
   // the draft's row is taken first and then counted, so presses at once each see the others
   // and the hour's cap holds (owner, 2026-10-18); one over the cap gives its row back
   const id = await saveDraft(viewer.agentId, asked, { pending: true });
@@ -84,7 +86,7 @@ export async function writePromptStory(v: { brief: string; scenes: SceneCount; f
     return { ok: false, error: `เขียนบทครบ ${HOURLY_LIMIT} ครั้งในชั่วโมงนี้แล้ว รอสักครู่แล้วลองใหม่นะครับ` };
   }
 
-  const w = await writeStory({ brief, scenes: v.scenes, figure, format });
+  const w = await writeStory({ brief, scenes: v.scenes, figure, format, ...(design ? { design } : {}) });
   // a refused brief cost a model call too: kept, marked refused, so the hour counts it
   if (!w.ok) {
     await writeDraft(id, { refused: true, refusal: w.refusal });
@@ -184,6 +186,7 @@ export async function rewritePromptScene(draftId: string, scene: number): Promis
       scene,
       figure: typeof f === "object" ? withoutMonthly(f, await hiddenFor(viewer.agentId)) : undefined,
       format: isPromptFormat(a.format) ? a.format : undefined,
+      ...(a.design === "motion" ? { design: "motion" as const } : {}),
     });
     if (!r.ok) return { ...r, left };
     await keepRewrite(viewer.agentId, draftId, taken.n, scene, r.scene).catch((e) =>

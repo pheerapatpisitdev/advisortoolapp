@@ -49,7 +49,9 @@ const GEO: Record<VideoSize, { top: number; side: number; size: number; note: { 
  * words' band, the subtitle, the figure card and the agent's card are drawn as that look draws them. A style
  * with none ("real", and the two that left the form) keeps the plain paper band.
  */
-export function freeLook(input: Pick<PromptStoryInput, "style">): { art?: "paper" | "minimal" | "line" | InfoArt; ground?: "warm" } {
+export function freeLook(input: Pick<PromptStoryInput, "style" | "design">): { art?: "paper" | "minimal" | "line" | "motion" | InfoArt; ground?: "warm" } {
+  // โมชันกราฟิก (owner, 2026-11-26): its own look whatever the picture style
+  if (input.design === "motion") return { art: "motion" };
   switch (input.style) {
     case "paper": return { art: "paper" };
     case "warm": return { art: "minimal", ground: "warm" };
@@ -112,14 +114,19 @@ function deviceContext(c: FreeContext): StoryContext {
   return { ...c, input };
 }
 
-/** A device scene at scene time t: the device in the clip's look on the look's ground (StoryClip), the subtitle under it. */
+/** A device scene's body at scene time t: the device in the clip's look on the look's ground (StoryClip), no subtitle. */
+export function deviceBody(device: DeviceScene, c: FreeContext, t: number) {
+  const dc = deviceContext(c);
+  return info(dc.input) ? infoDrawn(device, dc, t) : showBody(device, dc, t);
+}
+
+/** A device scene at scene time t: deviceBody, the subtitle under it. */
 function deviceFrame(device: DeviceScene, c: FreeContext, t: number) {
   const { w, h } = SIZES[c.size];
-  const dc = deviceContext(c);
   return (
     <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex", overflow: "hidden" }}>
-      {info(dc.input) ? infoDrawn(device, dc, t) : showBody(device, dc, t)}
-      <Subtitle c={dc} t={t} />
+      {deviceBody(device, c, t)}
+      <Subtitle c={deviceContext(c)} t={t} />
     </div>
   );
 }

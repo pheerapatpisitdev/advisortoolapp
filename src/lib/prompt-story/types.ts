@@ -46,7 +46,57 @@ export type DeviceScene = Extract<KnowShow, { layout: DeviceLayout }>;
  * (`asset`, an approved upload's id, คลังแอนิเมชัน phase 3: laid on the look's ground, never painted, never
  * charged); then they may be empty. Never both: the device wins.
  */
-export type PromptScene = { voice: string; screen: string; picture: string; showFigure?: boolean; device?: DeviceScene; asset?: string };
+export type PromptScene = { voice: string; screen: string; picture: string; showFigure?: boolean; device?: DeviceScene; asset?: string; motion?: MotionLayout };
+
+/**
+ * หน้าตาคลิป (owner, 2026-11-26): none on a row is หน้าตาเดิม, exactly as every clip was made before; "motion" is
+ * โมชันกราฟิก (ใหม่), drawn from a layout per scene. Named `design`, never a `style` value: `style` already says
+ * what the painter draws and `input.style === "motion"` is a วิดีโอนำเสนอ clip.
+ */
+export type PromptDesign = "motion";
+
+/** the six icons a hook scene may carry: ปรอท โรงพยาบาล เงิน หัวใจ โล่ บ้าน */
+export const MOTION_ICONS = ["fever", "hospital", "money", "heart", "shield", "home"] as const;
+export type MotionIcon = (typeof MOTION_ICONS)[number];
+
+/** one side of a เทียบสองฝั่ง scene: a heading and two lines */
+export type MotionSide = { head: string; lines: [string, string] };
+
+/**
+ * a scene's layout in โมชันกราฟิก. Named `motion`, not `layout`: a device scene already carries `device.layout`.
+ * Every number is a figure from the brief or the plan, checked by check.ts; the drawing never works one out.
+ */
+export type MotionLayout =
+  | { kind: "hook"; lines: string[]; key: number; icon: MotionIcon }
+  | { kind: "card"; tag: string; chips: [string, string] }
+  | { kind: "number"; value: number; unit: string; tag: string; bill: string }
+  | { kind: "compare"; title: string; bad: MotionSide; good: MotionSide }
+  | { kind: "check"; lines: [string, string]; ticks: [string, string, string]; photo: boolean }
+  | { kind: "full"; lines: string[]; key: number };
+
+export type MotionKind = MotionLayout["kind"];
+/** the layouts the writer and the editor offer, in the owner's order (อุปกรณ์ and ภาพจากคลัง are the existing device and part scenes) */
+export const MOTION_KINDS: { id: MotionKind; name: string }[] = [
+  { id: "hook", name: "เปิดเรื่อง" }, { id: "card", name: "ภาพการ์ด" }, { id: "number", name: "ตัวเลขใหญ่" },
+  { id: "compare", name: "เทียบสองฝั่ง" }, { id: "check", name: "เช็กลิสต์" }, { id: "full", name: "ภาพเต็มจอ" },
+];
+
+/** the longest text, in characters, each slot of a layout holds */
+export const MOTION_LIMITS = { line: 22, tag: 24, chip: 16, unit: 10, bill: 22, title: 24, head: 16, side: 22, tick: 28 };
+
+/**
+ * does this scene carry an AI picture, and so is it charged? A device or a library part never; with no design
+ * (หน้าตาเดิม) every other scene, a figure scene too; in motion only the layouts that show a picture: a card, a
+ * full screen, a check with its photo, or a scene the writer gave no layout. A figure scene paints nothing there.
+ */
+export function paints(scene: PromptScene, design?: PromptDesign): boolean {
+  if (scene.device || scene.asset) return false;
+  if (!design) return true;
+  if (scene.showFigure) return false;
+  const m = scene.motion;
+  if (!m) return true;
+  return m.kind === "card" || m.kind === "full" || (m.kind === "check" && m.photo);
+}
 
 /** how the writer shapes the script (owner, 2026-11-13, 2ก): none on a row means ตามโจทย์ */
 export type PromptFormat = "free" | "drama3" | "claimreview";
@@ -73,6 +123,8 @@ export interface PromptStoryInput {
   /** the writer's structure; none on rows made before 2026-11-13 */
   format?: PromptFormat;
   style: PictureStyle;
+  /** หน้าตาคลิป: none = หน้าตาเดิม (every clip before 2026-11-26) */
+  design?: PromptDesign;
   /**
    * ภาพสไตล์ (คลังแอนิเมชัน phase 3): an approved style picture's upload id, sent to the painter as the
    * reference whose palette and line it follows; the words, subtitles and cards still follow `style`
@@ -101,8 +153,8 @@ export const isPromptStory = (v: { product?: string }): v is PromptStoryInput =>
 /** one of the clip's pictures, at its painter's price (a redraw costs this) */
 export const promptPicturePrice = (v: Pick<PromptStoryInput, "painter">, prices: Prices): number => pictureSatang(prices, v.painter) ?? 0;
 
-/** the scenes the painter draws: every scene but a device's or a library part's */
-export const pictureScenes = (v: Pick<PromptStoryInput, "scenes">): number => v.scenes.filter((s) => !s.device && !s.asset).length;
+/** the scenes the painter draws (paints): in หน้าตาเดิม every scene but a device's or a library part's */
+export const pictureScenes = (v: Pick<PromptStoryInput, "scenes" | "design">): number => v.scenes.filter((s) => paints(s, v.design)).length;
 
 /** every picture scene's picture (a device scene is drawn by the system, a library part laid in, at no charge) */
 export const promptPicturesPrice = (v: PromptStoryInput, prices: Prices): number => pictureScenes(v) * promptPicturePrice(v, prices);
