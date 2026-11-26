@@ -232,8 +232,10 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
         const isAsset = k.kind === "asset";
         const fields = s.device ? deviceFields(s.device) : null;
         const chosen = isAsset ? scenePart(s, assets) : undefined;
-        // โมชันกราฟิก: the scene's layout, unless a device that passes or a part stands in its place
-        const laid = motion && !isDevice && !isAsset ? s.motion : undefined;
+        // โมชันกราฟิก: the scene's layout, unless a device that passes or a part stands in its place, or the premium card
+        // (it draws the figure, and the server drops a layout under it: its chips are shut)
+        const card = motion && Boolean(s.showFigure);
+        const laid = motion && !isDevice && !isAsset && !card ? s.motion : undefined;
         return (
           <div key={i} className={motion ? MOTION_CARD : CARD}>
             <b className="text-[var(--ct-accent)]">{i + 1}</b>
@@ -242,7 +244,7 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
                 {motion ? (
                   <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`แบบของฉาก ${i + 1}`}>
                     {MOTION_KINDS.map((x) => (
-                      <button key={x.id} type="button" role="radio" aria-checked={laid?.kind === x.id} className={chip(laid?.kind === x.id)} onClick={() => pickKind(i, x.id)}>{x.name}</button>
+                      <button key={x.id} type="button" role="radio" aria-checked={laid?.kind === x.id} disabled={card} className={`${chip(laid?.kind === x.id)} disabled:opacity-50`} onClick={() => pickKind(i, x.id)}>{x.name}</button>
                     ))}
                     <button type="button" role="radio" aria-checked={isDevice} className={chip(isDevice)} onClick={() => toDeviceAt(i)}>
                       {isDevice ? k.name : "อุปกรณ์"}
@@ -270,7 +272,7 @@ export function ScriptEditor({ draft, notes, onChange, forDevice, tax, assets = 
               {/* a device draws its own heading, never the screen words nor the premium card */}
               {isDevice ? (
                 <p className="text-xs text-[var(--ct-mute)]">ฉากนี้ใช้หัวข้อของอุปกรณ์แทนคำบนจอ</p>
-              ) : laid && !s.showFigure ? (
+              ) : laid ? (
                 <MotionFields scene={{ ...s, motion: laid }} n={i + 1} onEdit={(m) => editLayout(i, m)} onPicture={(picture) => setScene(i, { picture })} />
               ) : motion && isAsset ? null : (
                 <input

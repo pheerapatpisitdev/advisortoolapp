@@ -227,12 +227,21 @@ describe("โมชันกราฟิก clip", () => {
     expect(rowOf(id).held_satang).toBe(promptStoryPrice(motion(), DEFAULT_PRICES) - pictureSatang(DEFAULT_PRICES, "standard")!);
   });
 
-  it("names a layout fault by แบบฉาก", async () => {
+  it("names a layout fault by แบบฉาก and the box, as the editor labels it", async () => {
     const v = motion();
     v.scenes[0] = { ...v.scenes[0], motion: { kind: "hook", lines: ["ก".repeat(23)], key: 0, icon: "home" } };
     const made = await createPromptStory(agent, v, "");
-    expect("refusal" in made && made.refusal).toMatch(/ฉากที่ 1 .*แบบฉาก: /);
+    expect("refusal" in made && made.refusal).toBe("ฉากที่ 1 ใช้ไม่ได้ — แบบฉาก บรรทัดที่ 1: ยาวเกิน 22 ตัวอักษร แก้แล้วกดสร้างอีกครั้ง");
     expect(db.rows).toHaveLength(0);
+  });
+
+  it("names every failing box of a layout, never a field's path", async () => {
+    const v = motion();
+    v.scenes[3] = { ...v.scenes[3], motion: { kind: "compare", title: "เทียบกัน", bad: { head: "", lines: ["ลำบาก", "เครียด"] }, good: { head: "มี", lines: ["สบายใจ", "99999 บาท"] } } };
+    const made = await createPromptStory(agent, v, "");
+    const refusal = "refusal" in made ? made.refusal : "";
+    expect(refusal).toBe("ฉากที่ 4 ใช้ไม่ได้ — แบบฉาก ฝั่งแรก (✕): ว่างอยู่, แบบฉาก ฝั่งสอง (✓) บรรทัด 2: ตัวเลข 99999 ไม่อยู่ในโจทย์หรือแผน แก้แล้วกดสร้างอีกครั้ง");
+    expect(refusal).not.toContain("motion");
   });
 
   it("refuses to draw again a scene that does not paint, and takes nothing", async () => {

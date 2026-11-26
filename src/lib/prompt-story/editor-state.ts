@@ -297,6 +297,20 @@ export function motionGaps(m: MotionLayout): number {
   return words.filter((w) => !w.trim()).length;
 }
 
+/** what a layout with an empty box says, in its scene (MotionFields) and by สร้างคลิป, which it shuts */
+export const MOTION_GAP = "ยังมีช่องว่าง ใส่ให้ครบก่อนกดสร้างคลิป";
+export const needLayoutWords = (n: number): string => `ฉากที่ ${n} ${MOTION_GAP}`;
+
+/**
+ * the first scene (from 0) whose layout still has an empty box, as the server would refuse it (checkMotion); null when
+ * none. Only in โมชันกราฟิก, and never the premium card's scene: it draws the figure, its layout dropped (checkedPromptStory).
+ */
+export function motionGapAt(scenes: PromptScene[], design?: PromptDesign): number | null {
+  if (design !== "motion") return null;
+  const i = scenes.findIndex((s) => s.motion && !s.showFigure && motionGaps(s.motion) > 0);
+  return i < 0 ? null : i;
+}
+
 /** a headline's layouts, and how many lines each holds (checkMotion) */
 type Lined = Extract<MotionLayout, { kind: "hook" | "full" }>;
 export const LINES_MAX: Record<Lined["kind"], number> = { hook: 3, full: 2 };

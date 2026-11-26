@@ -26,7 +26,8 @@ import { mixNarration, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcSceneKey, type FhcVideoInput } from "./fhc";
 import { fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
-import { isPromptStory, paints, pictureScenes, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { isPromptStory, paints, pictureScenes, promptFreePrice, promptPicturePrice, promptStoryPrice, type MotionKind, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { motionReason } from "@/lib/prompt-story/motion-words";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
 import { assetPicture } from "@/lib/prompt-story/asset-picture";
@@ -949,8 +950,9 @@ const renderKeyOf = (): Promise<string | null> => providerKey("gcp");
 
 /** the script's fields as the agent knows them */
 const FIELD: Record<string, string> = { voice: "คำพูด", screen: "ข้อความบนจอ", picture: "ภาพ", device: "อุปกรณ์" };
-// a โมชันกราฟิก layout's reason ("motion.line: ยาวเกิน 22") is the แบบฉาก's, the field's own name dropped
-const reasonWords = (r: string) => r.replace(/^motion\.[^:]+: /, "แบบฉาก: ").replace(/^(voice|screen|picture|device): /, (_, f: string) => `${FIELD[f]}: `);
+// a โมชันกราฟิก layout's reason ("motion.lines[0]: ยาวเกิน 22") is the แบบฉาก's, its box named as the editor labels it
+const reasonWords = (r: string, kind?: MotionKind) =>
+  /^motion[.:]/.test(r) ? motionReason(r, kind) : r.replace(/^(voice|screen|picture|device): /, (_, f: string) => `${FIELD[f]}: `);
 
 /**
  * Starts a คลิปตามโจทย์ (spec 2026-10-16, Money): the script, as the agent may have edited it, is
@@ -961,7 +963,7 @@ const reasonWords = (r: string) => r.replace(/^motion\.[^:]+: /, "แบบฉ�
  */
 export async function createPromptStory(viewer: Viewer, input: PromptStoryInput, customer: string): Promise<{ id: string } | { refusal: string }> {
   const bad = checkScript(input.scenes, input.brief, input.figure)[0];
-  if (bad) return { refusal: `ฉากที่ ${bad.scene + 1} ใช้ไม่ได้ — ${bad.reasons.map(reasonWords).join(", ")} แก้แล้วกดสร้างอีกครั้ง` };
+  if (bad) return { refusal: `ฉากที่ ${bad.scene + 1} ใช้ไม่ได้ — ${bad.reasons.map((r) => reasonWords(r, input.scenes[bad.scene].motion?.kind)).join(", ")} แก้แล้วกดสร้างอีกครั้ง` };
   const allowed = allowedFor(input.brief, input.figure);
   const title = checkScene({ voice: "", screen: input.title, picture: "" }, allowed);
   if (title.length) return { refusal: `ชื่อคลิปใช้ไม่ได้ — ${title.map((r) => r.replace(/^screen: /, "")).join(", ")}` };

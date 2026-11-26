@@ -3,7 +3,8 @@ import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
 import { allowedFor, briefTax, checkDevice, checkMotion, deviceAllowed } from "./check";
-import { BRIEF_MAX, isPromptFormat, paints, REWRITES_DONE, REWRITES_PER_DRAFT, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
+import { motionReasons } from "./motion-words";
+import { BRIEF_MAX, isPromptFormat, MOTION_KINDS, paints, REWRITES_DONE, REWRITES_PER_DRAFT, SCENE_COUNTS, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
  * คลิปตามโจทย์'s form, checked on the server before anything is held: the brief and the script as
@@ -70,12 +71,15 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
       sc.showFigure = true;
       shown = true;
     }
-    // a layout (โมชันกราฟิก only) that fails its check refuses the request; without the look it is dropped
-    if (design && o.motion !== undefined && o.motion !== null) {
+    // a layout (โมชันกราฟิก only) that fails its check refuses the request, naming each box as the editor does; without
+    // the look it is dropped, and so it is under the premium card, which draws the figure in its place
+    if (design && !sc.showFigure && o.motion !== undefined && o.motion !== null) {
       const m = checkMotion(o.motion, allowedFor(brief, figure), allowed);
-      if (Array.isArray(m)) return `ฉากที่ ${i + 1}: ${m[0]}`;
+      if (Array.isArray(m)) return `ฉากที่ ${i + 1}: ${motionReasons(m, MOTION_KINDS.find((k) => k.id === (o.motion as { kind?: unknown }).kind)?.id)}`;
       sc.motion = m;
     }
+    // in โมชันกราฟิก a scene that paints nothing has no picture box in the editor: words left on it are not kept
+    if (design && !paints(sc, design)) sc.picture = "";
     // a picture scene needs its words for the painter; a device scene is drawn by the system, a part laid in
     if (paints(sc, design) && !sc.picture) return `ใส่คำบรรยายภาพของฉากที่ ${i + 1}`;
     if (len(sc.picture) > PICTURE_MAX) return `ฉากที่ ${i + 1}: ใส่ภาพที่อยากได้ ไม่เกิน ${PICTURE_MAX} ตัวอักษร`;

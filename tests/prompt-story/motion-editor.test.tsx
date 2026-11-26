@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { checkMotion } from "@/lib/prompt-story/check";
 import {
-  addLine, dropLine, editMotionAt, motionAside, motionDefault, motionGaps, NUMBER_NEEDS, pictureCount, starLine, toKindAt, toMotion, type MotionDraft,
+  addLine, dropLine, editMotionAt, MOTION_GAP, motionAside, motionDefault, motionGapAt, motionGaps, needLayoutWords, NUMBER_NEEDS, pictureCount, starLine, toKindAt, toMotion,
+  type MotionDraft,
 } from "@/lib/prompt-story/editor-state";
 import { MOTION_KINDS, MOTION_LIMITS, type MotionLayout, type PromptScene } from "@/lib/prompt-story/types";
 
@@ -65,6 +66,18 @@ describe("motionDefault", () => {
     });
     expect(motionDefault("check", scene(), [])).toEqual({ kind: "check", lines: ["ลูกป่วย", "ค่ารักษาเท่าไหร่"], ticks: ["", "", ""], photo: false });
     expect(motionDefault("check", scene({ screen: "เลือกแผนให้ลูก" }), [])).toEqual({ kind: "check", lines: ["เลือกแผนให้ลูก", ""], ticks: ["", "", ""], photo: false });
+  });
+
+  it("the first scene whose layout still has an empty box shuts สร้างคลิป, as the server would refuse it; the premium card's hidden layout never does", () => {
+    const empty = motionDefault("compare", scene(), []) as MotionLayout;
+    expect(motionGapAt([scene({ motion: hook }), scene({ motion: card })], "motion")).toBeNull();
+    expect(motionGapAt([scene({ motion: hook }), scene({ motion: empty }), scene({ motion: { ...card, tag: " " } })], "motion")).toBe(1);
+    // the premium card draws the figure: the server drops the layout under it (checkedPromptStory)
+    expect(motionGapAt([scene({ motion: empty, showFigure: true }), scene({ motion: hook })], "motion")).toBeNull();
+    // หน้าตาเดิม draws no layout at all
+    expect(motionGapAt([scene({ motion: empty })])).toBeNull();
+    expect(needLayoutWords(2)).toBe(`ฉากที่ 2 ${MOTION_GAP}`);
+    expect(MOTION_GAP).toBe("ยังมีช่องว่าง ใส่ให้ครบก่อนกดสร้างคลิป");
   });
 
   it("counts the words still to write, which the server would refuse", () => {
@@ -228,6 +241,19 @@ describe("ScriptEditor in โมชันกราฟิก", () => {
   it("the premium scene shows the system's card in place of its fields and preview", () => {
     expect(html.match(/การ์ดเบี้ยจริง \(ระบบวาด\)/g)?.length).toBeGreaterThanOrEqual(2);
     expect(html).not.toContain('aria-label="บรรทัดที่ 1 ฉาก 7"');
+  });
+
+  it("the premium scene's layout chips are shut (the card is its drawing); อุปกรณ์ and ภาพจากคลัง answer as before", () => {
+    const group = (n: number) => new RegExp(`aria-label="แบบของฉาก ${n}">(.*?)</div>`).exec(html)?.[1] ?? "";
+    const seven = group(7);
+    for (const k of MOTION_KINDS) {
+      expect(seven, k.name).toMatch(new RegExp(`<button[^>]*disabled=""[^>]*>${k.name}</button>`));
+      expect(seven, k.name).toMatch(new RegExp(`<button[^>]*aria-checked="false"[^>]*>${k.name}</button>`));
+    }
+    expect(seven).not.toMatch(/disabled=""[^>]*>อุปกรณ์</);
+    expect(seven).not.toMatch(/disabled=""[^>]*>ภาพจากคลัง</);
+    // every other scene's chips answer
+    expect(group(1)).not.toContain('disabled=""');
   });
 
   it("has a preview beside every scene, a device's said in words, in Prompt", () => {

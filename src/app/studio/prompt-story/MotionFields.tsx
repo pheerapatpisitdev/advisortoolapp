@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { addLine, dropLine, LINES_MAX, motionGaps, starLine } from "@/lib/prompt-story/editor-state";
+import { addLine, dropLine, LINES_MAX, MOTION_GAP, motionGaps, starLine } from "@/lib/prompt-story/editor-state";
 import { MOTION_ICONS, MOTION_KINDS, MOTION_LIMITS as L, paints, type MotionIcon, type MotionLayout, type MotionSide, type PromptScene } from "@/lib/prompt-story/types";
 import { chip, field, PICTURE_MAX } from "./editor-ui";
 
@@ -170,7 +170,7 @@ export function MotionFields({ scene, n, onEdit, onPicture }: {
     <div className="space-y-1.5 rounded-lg border border-dashed border-[var(--ct-line)] p-2">
       <p className="text-xs font-medium text-[var(--ct-accent)]">{title}</p>
       {body}
-      {motionGaps(m) > 0 && <p className="text-xs text-[var(--ct-alert)]">ยังมีช่องว่าง ใส่ให้ครบก่อนกดสร้างคลิป</p>}
+      {motionGaps(m) > 0 && <p className="text-xs text-[var(--ct-alert)]">{MOTION_GAP}</p>}
     </div>
   );
 }
