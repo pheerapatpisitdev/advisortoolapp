@@ -656,7 +656,7 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
           ) : null}
           <El an={s.kicker} t={t} style={{ fontSize: g.px(44, 64), fontWeight: 600, color: WHITE }}>{f.lead.label}</El>
           <El an={s.big} t={t} style={{ fontSize: big, fontWeight: 700, color: GOLD, lineHeight: 1.15 }}>{figure(n0, f.lang ?? "th")}</El>
-          <El an={s.note} t={t} style={{ fontSize: g.px(28, 40), color: WHITE, opacity: 0.85 }}>{`${vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
+          <El an={s.note} t={t} style={{ fontSize: g.px(28, 40), color: WHITE, opacity: 0.85 }}>{`${f.lead.unit ?? vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
           <El an={s.mark} t={t} style={{ marginTop: g.px(20, 30) }}>
             <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "6px 30px", fontSize: g.px(34, 48), fontWeight: 600 })}>{f.leadMark}</div>
           </El>

@@ -95,6 +95,11 @@ export const STORIES: StoryAngle[] = [
   { key: "painjury", product: "PA", name: "บาดเจ็บก็ช่วย", about: "บาดเจ็บจากอุบัติเหตุ มีค่ารักษาต่ออุบัติเหตุ ถ้าแผนมีชดเชยรายสัปดาห์ หยุดงานก็ยังมีรายได้ช่วย", when: (f) => Boolean(f.pa?.medical) },
   { key: "pagrow", product: "PA", name: "ต่ออายุ ทุนโตทุกปี", about: "ต่ออายุต่อเนื่องทุกปี ทุนคุ้มครองอุบัติเหตุเพิ่มขึ้นทุกปีจนถึงปีที่ 6 ราคาเท่าเดิมทุกอายุ" },
   { key: "pafamily", product: "PA", name: "เงินก้อนให้ครอบครัว", about: "ถ้าอุบัติเหตุร้ายแรงทำให้จากไปหรือทุพพลภาพถาวร ครอบครัวได้เงินก้อนเต็มทุน" },
+  // ประกันกลุ่ม (owner, 2026-11-26, ข): told to the employer — the team, what a head costs, the first group's cover
+  { key: "grteam", product: "GROUP", name: "ดูแลทีม รักษาคนเก่ง", about: "สวัสดิการที่ดีทำให้พนักงานอุ่นใจเวลาเจ็บป่วยหรือเกิดอุบัติเหตุ และช่วยรักษาคนเก่งไว้กับบริษัท" },
+  { key: "grcost", product: "GROUP", name: "ค่าสวัสดิการต่อคน", about: "ค่าสวัสดิการต่อคนต่อปีและเฉลี่ยต่อเดือนไม่สูง ทั้งบริษัทรู้ยอดชัดเจน ยิ่งพนักงานรวมมาก อัตราต่อคนยิ่งถูกลง" },
+  { key: "grhosp", product: "GROUP", name: "นอนโรงพยาบาล ไม่ต้องควักเอง", about: "พนักงานป่วยต้องนอนโรงพยาบาล มีค่าห้อง ค่าผ่าตัด ค่ารักษาให้ ถ้ามี OPD ไปหาหมอแบบไม่นอนโรงพยาบาลก็เบิกได้", when: (f) => f.group?.kind === "health" },
+  { key: "graccident", product: "GROUP", name: "อุบัติเหตุไม่เลือกเวลา", about: "อุบัติเหตุเกิดได้ทั้งระหว่างทำงานและเดินทาง ถ้าร้ายแรงพนักงานและครอบครัวได้เงินก้อน ถ้ามี ME บาดเจ็บก็เบิกค่ารักษาได้", when: (f) => f.group?.kind === "pa" },
   // 12 พีแอล (owner, 2026-11-26): the cash backs and the maturity are certain, the dividend is not said
   { key: "tpback", product: "TWELVEPL", name: "เงินคืนทุกปี", about: "มีเงินคืนทุกปีตั้งแต่ปีที่ 2 และเงินก้อนตอนครบอายุ 85 เมื่อถือครบสัญญา ส่วนนี้ได้แน่นอน" },
   { key: "tpshort", product: "TWELVEPL", name: "ออม 12 ปี คุ้มครองยาว", about: "ออมแค่ 12 ปี แต่คุ้มครองชีวิตยาวถึงอายุ 85" },
@@ -229,6 +234,13 @@ export function allowedNumbers(f: QuoteVideoFacts, note = ""): Set<number> {
     for (const y of g.years) { add(y.year); add(y.sum); }
     add(g.plan.match(/\d+/)?.[0]);
   }
+  if (f.group) {
+    const g = f.group;
+    // the head counts, the kind's limits, the plan and the rider, the business type, a head's price and the company's
+    for (const n of [g.count, g.total, g.groups, g.min, g.max, g.plan, g.rider, g.bizNo, g.main, g.riderPremium, g.perPerson, g.perMonth, g.subtotal, g.grandTotal]) add(n);
+    if (g.health) for (const n of Object.values(g.health)) add(n);
+    if (g.pa) for (const n of Object.values(g.pa)) add(n);
+  }
   if (f.twelvepl) {
     const g = f.twelvepl;
     for (const n of [g.sum, g.payYears, g.lastPayAge, g.coverToAge, g.paid, g.cashFirst, g.cashFull, g.cashFullYear, g.cashBacks, g.maturity, g.guaranteed, g.tax]) add(n === undefined ? n : Math.round(n));
@@ -316,6 +328,16 @@ export function lineProblem(text: string, f: QuoteVideoFacts, max: number, note 
     if (/ภาษี/.test(t)) return "แบบนี้ไม่พูดเรื่องลดหย่อนภาษี";
     if (/ผู้ชาย|ผู้หญิง|อายุ\s*\d/.test(t)) return "พูดถึงเพศหรืออายุ (ราคาตามแผนและขั้นอาชีพ)";
   }
+  // a group plan builds no value, is priced by plan, business type and head count — no one's age or sex — and has
+  // only the cover its kind and rider buy (group.ts)
+  if (f.product === "GROUP") {
+    if (/ออม|เงินคืน|ขอคืน|ได้คืน|มูลค่าเงินสด/.test(t)) return "ใช้คำว่า ออม หรือเงินคืน (แบบนี้ใช้คำว่า ค่าสวัสดิการ)";
+    if (/ถึงอายุ/.test(t)) return "พูดว่าคุ้มครองถึงอายุ";
+    if (/ภาษี/.test(t)) return "แบบนี้ไม่พูดเรื่องภาษี";
+    if (/ผู้ชาย|ผู้หญิง|อายุ\s*\d/.test(t)) return "พูดถึงเพศหรืออายุ (ราคาตามแผน ลักษณะธุรกิจ และจำนวนพนักงาน)";
+    if (f.group?.kind === "health" && !f.group.health?.opd && /OPD|ผู้ป่วยนอก/.test(t)) return "แผนนี้ไม่มี OPD";
+    if (f.group?.kind === "pa" && !f.group.pa?.me && /ค่ารักษา/.test(t)) return "แผนนี้ไม่มีค่ารักษา (ME)";
+  }
   // the cancer set builds no value, waits 60 to 120 days, and its CPR and HIC rise with age (cancer-table.ts, the page's own note)
   if (f.product === "CANCER") {
     if (/เงินคืน|ขอคืน|ได้คืน|มูลค่าเงินสด/.test(t)) return "พูดถึงเงินคืน (แบบนี้ไม่มีมูลค่าเงินสด)";
@@ -387,6 +409,7 @@ export function settleHook(b: VideoBrief, f: QuoteVideoFacts, seed = 0): Exclude
     ltlegacy: ["question", "story"], ltterms: ["list", "myth"], ltcash: ["myth", "shock"],
     ciearly: ["myth", "question"], cistages: ["list", "shock"], cilife: ["story", "question"],
     caearly: ["myth", "question"], cadaily: ["list", "shock"], cafamily: ["story", "question"],
+    grteam: ["question", "story"], grcost: ["shock", "myth"], grhosp: ["list", "shock"], graccident: ["question", "story"],
     paday: ["question", "story"], painjury: ["list", "shock"], pagrow: ["myth", "list"], pafamily: ["story", "question"],
     tpback: ["question", "list"], tpshort: ["myth", "shock"], tpfamily: ["story", "question"], tptax: ["list", "shock"],
     plbfamily: ["question", "story"], plbburden: ["story", "list"], plblight: ["shock", "myth"], plbtax: ["list", "shock"],
@@ -407,6 +430,10 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
   const lead = said(f.lead.baht);
   const perDay = f.perDayAmount;
   const monthly = f.spokenPrice.amount;
+  // ประกันกลุ่ม's lines are the employer's: health or PA, the first group's cover
+  const gr = f.group;
+  const m = (n: number) => n.toLocaleString("en-US");
+  const health = gr?.kind === "health";
   const hooks: Record<typeof kind, Record<Product, string>> = {
     question: {
       LIFEPROTECT: "ถ้าพรุ่งนี้คุณไม่อยู่ ครอบครัวจะมีเงินใช้ต่ออีกกี่ปีคะ",
@@ -421,6 +448,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: "ถ้าวันหนึ่งหมอบอกว่าเป็นโรคร้ายแรง คุณมีเงินก้อนพร้อมรักษาหรือยังคะ",
       CANCER: "ถ้าวันหนึ่งตรวจพบมะเร็ง คุณมีเงินก้อนพร้อมรักษาหรือยังคะ",
       PA: "ถ้าวันพรุ่งนี้เกิดอุบัติเหตุ ค่าใช้จ่ายที่ตามมา คุณพร้อมรับมือหรือยังคะ",
+      GROUP: health ? "ถ้าพนักงานคนเก่งป่วยต้องนอนโรงพยาบาล บริษัทดูแลเขาได้แค่ไหนคะ" : "ถ้าพนักงานเกิดอุบัติเหตุระหว่างทำงาน บริษัทพร้อมดูแลเขาแค่ไหนคะ",
       TWELVEPL: "ถ้ามีเงินคืนให้ทุกปี และมีก้อนใหญ่รอตอนครบสัญญา จะเริ่มออมวันนี้ไหมคะ",
     },
     shock: {
@@ -436,6 +464,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: perDay ? `ปีแรกวันละ ${perDay} บาท แลกกับเงินก้อนสูงสุด ${lead} ตอนป่วยหนัก` : `เงินก้อนสูงสุด ${lead} ตอนป่วยหนัก`,
       CANCER: perDay ? `ปีแรกวันละ ${perDay} บาท แลกกับเงินก้อนสูงสุด ${lead} ตอนพบมะเร็ง` : `เงินก้อนสูงสุด ${lead} ตอนพบมะเร็ง`,
       PA: perDay ? `วันละ ${perDay} บาท คุ้มครองอุบัติเหตุ ${lead}` : `คุ้มครองอุบัติเหตุ ${lead}`,
+      GROUP: !gr ? "" : gr.health ? `ตกคนละ ${m(gr.perPerson)} บาทต่อปี แต่ค่าห้องได้ถึงวันละ ${m(gr.health.room)} บาท` : `ตกคนละ ${m(gr.perPerson)} บาทต่อปี อุบัติเหตุร้ายแรงรับถึง ${said(gr.pa!.death)}`,
       TWELVEPL: `ออมแค่ 12 ปี ถือครบถึงอายุ 85 รับคืนรวม ${lead}`,
     },
     myth: {
@@ -451,6 +480,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: "หลายคนคิดว่าต้องป่วยหนักก่อนถึงจะได้เงิน แต่แผนนี้จ่ายตั้งแต่ระยะก่อนเริ่มต้นค่ะ",
       CANCER: "หลายคนคิดว่ามะเร็งต้องลุกลามก่อนถึงจะได้เงิน แต่แผนนี้จ่ายตั้งแต่ขั้นแรกค่ะ",
       PA: "หลายคนคิดว่าอุบัติเหตุไม่เกิดกับเรา แต่อุบัติเหตุไม่เลือกวัน ไม่เลือกคนค่ะ",
+      GROUP: `หลายคนคิดว่าประกันกลุ่มต้องเป็นบริษัทใหญ่ แต่แผนนี้เริ่มได้ตั้งแต่ ${m(gr?.min ?? 0)} คนค่ะ`,
       TWELVEPL: "หลายคนคิดว่าประกันชีวิตต้องออมยาวหลายสิบปี แต่แผนนี้ออมแค่ 12 ปี คุ้มครองถึงอายุ 85 ค่ะ",
     },
     story: {
@@ -466,6 +496,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: `ลองนึกภาพนะคะ ${aud?.scene ?? "ชีวิตกำลังไปได้ดี"} แล้ววันหนึ่งหมอบอกว่าต้องรักษาตัวยาว`,
       CANCER: `ลองนึกภาพนะคะ ${aud?.scene ?? "ชีวิตกำลังไปได้ดี"} แล้ววันหนึ่งหมอบอกว่าเป็นมะเร็ง ต้องรักษาตัวยาว`,
       PA: `ลองนึกภาพนะคะ ${aud?.scene ?? "วันธรรมดาที่ออกจากบ้านไปทำงาน"} แล้วเกิดอุบัติเหตุบนถนน`,
+      GROUP: `ลองนึกภาพนะคะ ${aud?.scene ?? "ทีมงานที่ช่วยกันสร้างบริษัทมา"} แล้ววันหนึ่งพนักงานคนสำคัญ${health ? "ป่วยต้องนอนโรงพยาบาล" : "เกิดอุบัติเหตุระหว่างทาง"}`,
       TWELVEPL: `ลองนึกภาพนะคะ ${aud?.scene ?? "หยุดออมไปนานแล้ว"} แต่ยังมีเงินคืนเข้ามาทุกปี`,
     },
     list: {
@@ -481,6 +512,9 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง คุ้มครอง ${f.ci123?.diseaseCount ?? ""} โรค สอง จ่ายตั้งแต่ระยะก่อนเริ่มต้น สาม เคลมระยะถัดไปได้อีก`.replace("  ", " "),
       CANCER: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง จ่ายตั้งแต่ขั้นแรก สอง ระยะลุกลามรับเต็มทุน สาม นอนโรงพยาบาลมีค่าชดเชยรายวัน",
       PA: f.pa?.medical ? "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง คุ้มครอง 24 ชั่วโมง ทั่วโลก สอง มีค่ารักษาต่ออุบัติเหตุ สาม ต่ออายุแล้วทุนเพิ่มทุกปี" : "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง คุ้มครอง 24 ชั่วโมง ทั่วโลก สอง รวมมอเตอร์ไซค์ สาม ต่ออายุแล้วทุนเพิ่มทุกปี",
+      GROUP: health
+        ? `แผนนี้มี 3 อย่างที่บริษัทชอบค่ะ หนึ่ง ค่าห้องและค่าผ่าตัด สอง ${gr?.health?.opd ? "มี OPD ไม่ต้องนอนก็เบิกได้" : "คุ้มครองชีวิตด้วย"} สาม ยิ่งคนมาก อัตราต่อคนยิ่งถูกลง`
+        : "แผนนี้มี 3 อย่างที่บริษัทชอบค่ะ หนึ่ง ดูแลพนักงานจากอุบัติเหตุ สอง สูญเสียอวัยวะก็ได้รับ สาม ยิ่งคนมาก อัตราต่อคนยิ่งถูกลง",
       TWELVEPL: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ออมแค่ 12 ปี สอง ได้เงินคืนทุกปี สาม คุ้มครองถึงอายุ 85",
     },
   };
@@ -498,6 +532,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: ["ถ้าป่วยหนักวันนี้", "มีเงินก้อนพร้อมไหม?"],
       CANCER: ["ถ้าพบมะเร็งวันนี้", "มีเงินก้อนพร้อมไหม?"],
       PA: ["ถ้าเกิดอุบัติเหตุพรุ่งนี้", "พร้อมหรือยัง?"],
+      GROUP: health ? ["ถ้าพนักงานป่วยหนัก", "บริษัทดูแลได้แค่ไหน?"] : ["ถ้าพนักงานเกิดอุบัติเหตุ", "บริษัทพร้อมไหม?"],
       TWELVEPL: ["เงินคืนให้ทุกปี", "เริ่มวันนี้ดีไหม?"],
     },
     shock: {
@@ -513,6 +548,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: perDay ? [`ปีแรกวันละ ${perDay} บาท`, `เงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       CANCER: perDay ? [`ปีแรกวันละ ${perDay} บาท`, `เงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       PA: perDay ? [`วันละ ${perDay} บาท`, `คุ้มครอง ${lead}`] : [`คุ้มครอง ${lead}`],
+      GROUP: !gr ? [] : [`ตกคนละ ${m(gr.perPerson)} บาท/ปี`, gr.health ? `ค่าห้องวันละ ${m(gr.health.room)} บาท` : `คุ้มครองสูงสุด ${said(gr.pa!.death)}`],
       TWELVEPL: [perDay ? `ออมวันละ ${perDay} บาท` : "ออมแค่ 12 ปี", "มีเงินคืนทุกปี"],
     },
     myth: {
@@ -528,6 +564,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: ["ต้องป่วยหนักก่อน", "ถึงจะได้เงิน จริงไหม?"],
       CANCER: ["มะเร็งต้องลุกลามก่อน", "ถึงจะได้เงิน จริงไหม?"],
       PA: ["อุบัติเหตุ", "ไม่เกิดกับเรา จริงไหม?"],
+      GROUP: ["ประกันกลุ่ม", "ต้องบริษัทใหญ่ จริงไหม?"],
       TWELVEPL: ["ประกันชีวิต", "ต้องออมนาน จริงไหม?"],
     },
     story: {
@@ -543,6 +580,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: ["ถ้าต้องรักษาตัวยาว", "เงินก้อนมาจากไหน?"],
       CANCER: ["ถ้าต้องรักษามะเร็งยาว", "เงินก้อนมาจากไหน?"],
       PA: ["อุบัติเหตุบนถนน", "ใครจะดูแล?"],
+      GROUP: [health ? "พนักงานคนสำคัญป่วย" : "อุบัติเหตุระหว่างทาง", "ใครจะดูแล?"],
       TWELVEPL: ["หยุดออมแล้ว", "ยังมีเงินคืนทุกปี"],
     },
     list: {
@@ -558,6 +596,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       CI123: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       CANCER: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       PA: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
+      GROUP: ["3 อย่างที่บริษัทชอบ", "ในแผนนี้"],
       TWELVEPL: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
     },
   };
@@ -581,6 +620,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     CI123: "ยินดีช่วยดูแผนให้คุณพร้อมทุกเมื่อค่ะ",
     CANCER: "ยินดีช่วยดูแผนให้คุณพร้อมทุกเมื่อค่ะ",
     PA: "ยินดีช่วยเลือกแผนอุบัติเหตุให้ค่ะ",
+    GROUP: "ยินดีช่วยจัดสวัสดิการให้ทีมของคุณค่ะ",
     TWELVEPL: "ยินดีช่วยวางแผนออมให้ค่ะ",
   };
   const tails: Record<Product, string> = {
@@ -596,6 +636,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     CI123: "แผนนี้คือเงินก้อนที่ให้คุณรักษาตัวได้เต็มที่ ตั้งแต่ระยะแรกที่ตรวจพบค่ะ",
     CANCER: "แผนนี้คือเงินก้อนที่ให้คุณรักษามะเร็งได้เต็มที่ ตั้งแต่ขั้นแรกที่ตรวจพบค่ะ",
     PA: "แผนนี้ดูแลคุณทุกวันที่ออกจากบ้าน ราคาเท่ากันทุกอายุค่ะ",
+    GROUP: "แผนนี้ดูแลทีมงานของคุณ ให้ทุกคนทำงานได้อย่างอุ่นใจค่ะ",
     TWELVEPL: "แผนนี้คือเงินออมที่คืนให้ทุกปี และดูแลคนที่คุณรักไปด้วยค่ะ",
   };
   const points: Record<Product, string[]> = {
@@ -611,6 +652,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     CI123: ["ป่วยหนักต้องใช้เงินก้อน", "เจอเร็วก็ได้เร็ว", "เคลมระยะถัดไปได้อีก"],
     CANCER: ["รักษามะเร็งใช้เงินก้อน", "จ่ายตั้งแต่ขั้นแรก", "นอน รพ. มีเงินรายวัน"],
     PA: ["อุบัติเหตุไม่เลือกวัน", "คุ้มครอง 24 ชม. ทั่วโลก", "ต่ออายุ ทุนเพิ่มทุกปี"],
+    GROUP: health ? ["พนักงานป่วยต้องหยุดงาน", "ค่ารักษาไม่ต้องควักเอง", "รักษาคนเก่งไว้กับบริษัท"] : ["อุบัติเหตุไม่เลือกเวลา", "ทีมงานอุ่นใจทุกวัน", "ดูแลถึงครอบครัวพนักงาน"],
     TWELVEPL: ["ออมแค่ 12 ปี", "เงินคืนทุกปี", "คุ้มครองถึงอายุ 85"],
   };
   return {
@@ -620,7 +662,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     headline: heads[kind][p].map(gs),
     close: closes[p],
     loopClose: loops[kind],
-    story: `ลองนึกภาพนะคะ ${aud?.scene ?? "ชีวิตที่มีคนพึ่งพาคุณอยู่"} ${tails[p]}`,
+    story: `ลองนึกภาพนะคะ ${aud?.scene ?? (p === "GROUP" ? "ทีมงานที่พึ่งพาบริษัทของคุณอยู่" : "ชีวิตที่มีคนพึ่งพาคุณอยู่")} ${tails[p]}`,
     points: points[p].map(gs),
   };
 }

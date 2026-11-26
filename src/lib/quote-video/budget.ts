@@ -90,6 +90,7 @@ export function resolveBudget(v: VideoInput, budget: Budget, today: Date = new D
   if (v.product === "CI123") return ci123FromBudget(v, budget, today);
   if (v.product === "CANCER") return cancerFromBudget(v, budget, today);
   if (v.product === "PA") return PA_NO_BUDGET;
+  if (v.product === "GROUP") return GROUP_NO_BUDGET;
   if (v.product === "TWELVEPL") return twelvePlFromBudget(v, budget, today);
 
   const product = v.product === "ISHIELD" ? "ISHIELD" : "LIFEPROTECT";
@@ -131,6 +132,9 @@ export function resolveBudget(v: VideoInput, budget: Budget, today: Date = new D
 
 /** a PA clip asked from a budget (an older tab): its plans are few and priced by class, so the agent picks the plan (owner, 2026-11-26) */
 export const PA_NO_BUDGET = "PA เลือกแผนเอง ไม่คิดจากงบ";
+
+/** a group clip asked from a budget (an older tab): it is priced per head from the page's tables, so the agent picks the plan (owner, 2026-11-26) */
+export const GROUP_NO_BUDGET = "ประกันกลุ่ม เลือกแผนเอง ไม่คิดจากงบ";
 
 /** said by the form's check too (actions.ts): riders picked that this insured cannot buy */
 export const RIDERS_NOT_SOLD = "สัญญาเพิ่มเติมที่เลือกซื้อไม่ได้ในอายุหรือทุนนี้ เอาสัญญานั้นออก หรือเปลี่ยนอายุ / ทุน";

@@ -146,7 +146,7 @@ function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 40, fontSize: 46, color: P.mute }}>{f.lead.label}</On>
       <div style={abs({ left: SIDE, top: PHOTO.y + PHOTO.h + 100, alignItems: "flex-end" })}>
         <On layer={layer} own="over" style={{ fontSize: f.lead.amount.length > 9 ? 140 : 170, fontWeight: 600, color: P.figure, lineHeight: 1 }}>{money(countAt(f.lead.baht, s.count), f.lang)}</On>
-        <On layer={layer} own="base" style={{ fontSize: 56, color: P.mute, marginLeft: 24, marginBottom: 14 }}>{vw.baht}</On>
+        <On layer={layer} own="base" style={{ fontSize: 56, color: P.mute, marginLeft: 24, marginBottom: 14 }}>{f.lead.unit ?? vw.baht}</On>
       </div>
       {f.lead.note && (
         <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 300, fontSize: 40, color: P.mute }}>{f.lead.note}</On>
@@ -310,7 +310,8 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
           <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", marginTop: 10, marginBottom: 10 })}>
             <On layer={layer} own="base" style={{ fontSize: r.main ? 50 : 44, fontWeight: r.main ? 600 : 400, color: r.main ? P.figure : P.ink }}>{r.label}</On>
             {r.main ? (
-              <On layer={layer} own="over" style={{ fontSize: 88, fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count), c.facts.lang)} ${baht}`}</On>
+              // ประกันกลุ่ม's company total runs to the millions: set smaller, so it stays on one line beside its label
+              <On layer={layer} own="over" style={{ fontSize: f.group && r.amount.length > 7 ? 72 : 88, fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count), c.facts.lang)} ${baht}`}</On>
             ) : (
               <On layer={layer} own="base" style={{ fontSize: 48, color: P.ink }}>{`${r.amount} ${baht}`}</On>
             )}

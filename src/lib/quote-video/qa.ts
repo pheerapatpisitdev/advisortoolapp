@@ -149,6 +149,18 @@ export function productQas(product: Product, variant?: string, gs?: GsQaFacts, t
         ...(tp?.tax !== undefined ? [{ key: "tax", q: "ลดหย่อนภาษีได้ไหม", a: "ได้ค่ะ ตามที่ออมจริง สูงสุด 100,000 บาทต่อปี นับรวมกับประกันชีวิตฉบับอื่น ตามเกณฑ์สรรพากร" }] : []),
         { key: "life", q: "ถ้าเป็นอะไรไปก่อน ได้เท่าไหร่", a: "ครอบครัวได้เต็มทุนค่ะ" },
       ];
+    // ประกันกลุ่ม (owner, 2026-11-26): the /group-insurance page's own rules (quote.ts: the band is the whole company's
+    // head count; GroupCard.tsx: a rider one plan above at most; the PA tab's conditions), by kind (`variant`)
+    case "GROUP": {
+      const pa = variant === "pa";
+      return [
+        { key: "size", q: "บริษัทเล็กทำได้ไหม", a: pa ? "ได้ค่ะ ประกันอุบัติเหตุกลุ่มรับตั้งแต่ 5 ถึง 2,000 คน ยิ่งคนรวมมาก อัตราต่อคนยิ่งถูกลง" : "ได้ค่ะ ประกันสุขภาพกลุ่มรับตั้งแต่ 10 ถึง 100 คน ยิ่งคนรวมมาก อัตราต่อคนยิ่งถูกลง" },
+        { key: "groups", q: "แต่ละแผนกเลือกแผนต่างกันได้ไหม", a: "ได้ค่ะ แบ่งพนักงานเป็นหลายกลุ่ม แต่ละกลุ่มเลือกแผนเองได้ ราคาคิดจากจำนวนคนรวมทั้งบริษัท" },
+        { key: "biz", q: "ลักษณะธุรกิจมีผลไหม", a: pa ? "มีค่ะ ความเสี่ยงของงานต่างกัน ราคาจึงต่างกัน แบ่งเป็น 3 ลักษณะธุรกิจ" : "มีค่ะ ธุรกิจ 1 สำนักงาน ค้าปลีก ธุรกิจ 2 โรงงาน ธุรกิจ 3 ก่อสร้าง ความเสี่ยงต่างกัน ราคาจึงต่างกัน" },
+        { key: "rider", q: pa ? "ค่ารักษา ME เลือกสูงกว่าแผนหลักได้ไหม" : "OPD เลือกแผนสูงกว่าได้ไหม", a: `${pa ? "ME" : "OPD"} สูงกว่าแผนหลักได้ไม่เกิน 1 แผนค่ะ` },
+        ...(pa ? [{ key: "start", q: "เริ่มคุ้มครองเมื่อไร", a: "วันถัดไปหลังบริษัทประกันได้รับเอกสารครบ และอนุมัติรับประกันแล้วค่ะ" }] : []),
+      ];
+    }
     case "PENSION":
       return [
         { key: "pay", q: "ออม 6 ปี กับออมจนรับบำนาญ ต่างกันยังไง", a: "ทุนเท่ากันได้บำนาญเท่ากันค่ะ แบบ 6 ปีออมต่อปีมากกว่าแต่จบเร็ว อีกแบบออมน้อยกว่าแต่นานกว่า" },
@@ -172,6 +184,7 @@ const FIRST: Record<string, string[]> = {
   ltlegacy: ["share", "floor"], ltterms: ["years", "level"], ltcash: ["back", "floor"],
   ciearly: ["again", "waiting"], cistages: ["again", "lump"], cilife: ["base", "rises"],
   caearly: ["again", "waiting"], cadaily: ["lump", "rises"], cafamily: ["base", "again"],
+  grteam: ["groups", "size"], grcost: ["size", "groups"], grhosp: ["rider", "groups"], graccident: ["start", "rider"],
   paday: ["where", "bike"], painjury: ["class", "where"], pagrow: ["renew", "age"], pafamily: ["age", "renew"],
   tpback: ["back", "sure"], tpshort: ["years", "life"], tpfamily: ["life", "years"], tptax: ["tax", "years"],
 };

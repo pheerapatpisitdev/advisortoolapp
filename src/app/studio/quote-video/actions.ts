@@ -29,6 +29,7 @@ import { bangkokClock, googleInPlace, VOICE_FULL } from "@/lib/quote-video/voice
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { cleanCustomerName, pageCaption, personOf, planInput, productOf, quoteVideoFacts, riderShort, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { paPlanOf } from "@/lib/quote-video/pa";
+import { GROUP_KIND_SHORT, groupPlanWord } from "@/lib/quote-video/group";
 import { quoteCard } from "@/lib/quote-card";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
 import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, previewHealth, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
@@ -54,9 +55,17 @@ import { checked, lookOf, payAndPen, TERMS } from "@/lib/quote-video/check-input
 import { TWELVEPL_PLAN } from "@/lib/twelvepl-table";
 import { CANCER_TIERS } from "@/lib/cancer-cta";
 
+/** a group clip on the board: "สุขภาพกลุ่ม แผน 3 + OPD 3 · 20 คน", the groups counted where there are several */
+function groupWhat(v: Extract<VideoInput, { product: "GROUP" }>): string {
+  const groups = Array.isArray(v.groups) ? v.groups : [];
+  const total = groups.reduce((n, g) => n + (Number(g.count) || 0), 0);
+  const first = groups[0];
+  return `${GROUP_KIND_SHORT[v.kind] ?? "ประกันกลุ่ม"}${first ? ` ${groupPlanWord(v.kind, first)}` : ""} · ${groups.length > 1 ? `${groups.length} กลุ่ม ` : ""}${total.toLocaleString("en-US")} คน`;
+}
+
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — a member's free clips or a UnitClub agent's starter credit, then the Studio wallet. */
 
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง", PA: "PA อุบัติเหตุ" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง", PA: "PA อุบัติเหตุ", GROUP: "ประกันกลุ่ม" };
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
@@ -355,7 +364,7 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
       : c.product === "LEGACY" ? { tier: c.tier }
       : c.product === "GSAVING" ? { sum: f.gsaving?.sa, premium: c.premium }
       // PA is picked, never worked out from a budget: nothing to carry back
-      : c.product === "PA" ? {} : { sum: c.sumAssured },
+      : c.product === "PA" || c.product === "GROUP" ? {} : { sum: c.sumAssured },
     ...(c.product === "IHEALTHY" && c.setup ? { setup: setupWords(c) } : {}),
     ...("riders" in c && c.riders ? { riders: riderWords(c) } : {}),
     ...(await walletPrices().then((p) => ({ clipSatang: videoPrice(c, p) })).catch(() => ({}))),
@@ -584,6 +593,9 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         ? `${sumWords(input.sumAssured)} · 12 ปี${input.riders ? " · + สัญญาเพิ่มเติม" : ""}`
         : input.product === "PA"
         ? `${paPlanOf(input.plan)?.plan.name ?? input.plan} · อาชีพชั้น ${input.cls}`
+        // ประกันกลุ่ม: the kind, the first group's plan, everyone's head count
+        : input.product === "GROUP"
+        ? groupWhat(input)
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     // a สูตรคลิป Motion clip is named by its recipe, so an agent who got one by chance can ask for it again; its
     // length is the recipe's own, not the 15-second clip it is stored as. Named only where the row is still made

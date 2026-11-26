@@ -133,7 +133,7 @@ function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ove
       {/* the square's column is ~460 wide: a seven-figure sum and its บาท must fit */}
       <div style={box({ alignItems: "flex-end" })}>
         <On layer={layer} own="over" style={{ fontSize: g.px(f.lead.amount.length > 9 ? 60 : f.lead.amount.length > 7 ? 70 : 92, f.lead.amount.length > 9 ? 120 : 140), fontWeight: 600, color: P.figure, lineHeight: 1.1 }}>{money(countAt(f.lead.baht, s.count))}</On>
-        <On layer={layer} own="base" style={{ fontSize: g.px(30, 44), color: P.mute, marginLeft: 12, marginBottom: 8 }}>{vw.baht}</On>
+        <On layer={layer} own="base" style={{ fontSize: g.px(30, 44), color: P.mute, marginLeft: 12, marginBottom: 8 }}>{f.lead.unit ?? vw.baht}</On>
       </div>
       {f.lead.note && <On layer={layer} own="base" style={{ fontSize: g.px(24, 32), color: P.mute, marginTop: 6 }}>{f.lead.note}</On>}
       <On layer={layer} own="over" style={{ marginTop: g.px(14, 22) }}><Swept p={s.sweep[0] ?? 1} size={g.px(36, 46)}>{f.leadMark}</Swept></On>

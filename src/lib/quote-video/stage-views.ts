@@ -1,12 +1,12 @@
 import { CI_BASE_KICKER, CI_BASE_SUB, CI_MORE_KICKER, CI_STAIRS_FOOT, CI_STAIRS_KICKER, CI_STAIRS_SUB, ciBaseFoot, ciBaseRows, ciMoreRows, ciStairs } from "./ci123-pictures";
 import type { CancerVideoFacts } from "./cancer";
 import type { PaVideoFacts } from "./pa";
+import type { GroupVideoFacts } from "./group";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import type { AmountRow, Stair } from "./stage-pictures";
 
 /**
- * The scenes of the plans that pay by stage or by event (CI 123, the cancer plan, PA; the group plan after
- * them), as words and figures every drawer lays out the same way (stage-pictures.tsx): a kicker and the line
+ * The scenes of the plans that pay by stage or by event (CI 123, the cancer plan, PA, the group plan), as words and figures every drawer lays out the same way (stage-pictures.tsx): a kicker and the line
  * under it, then stairs, or a column of rows with a big figure over them where one is the point.
  */
 export interface StageView {
@@ -36,6 +36,7 @@ export function stageView(key: SceneKey, f: QuoteVideoFacts): StageView | undefi
   }
   if (f.cancer) return cancerView(key, f.cancer);
   if (f.pa) return paView(key, f.pa);
+  if (f.group) return groupView(key, f.group);
   return undefined;
 }
 
@@ -106,4 +107,68 @@ function paView(key: SceneKey, g: PaVideoFacts): StageView | undefined {
     stairs: g.years.map((y) => ({ label: `ปี ${y.year}`, amount: y.sum })),
     pills: [`เพิ่มปีละ ${g.stepPercent}% ของทุนเริ่มต้น สูงสุด ${g.maxPercent}%`],
   };
+}
+
+/**
+ * ประกันกลุ่ม's (owner, 2026-11-26, ข, mockup https://claude.ai/artifact/K8A3uLFEDt1XqYnUKnqr3p, "gr"), the first group's
+ * plan. Health: the hospital stay ("cover"), OPD where it was taken ("family"), the life cover ("critical"). PA: what an
+ * accident pays ("cover", the four rows that matter most), the medical expense where ME was taken ("family").
+ */
+function groupView(key: SceneKey, g: GroupVideoFacts): StageView | undefined {
+  const first = g.groups > 1 ? "กลุ่มแรก " : "";
+  if (g.health) {
+    const h = g.health;
+    if (key === "cover") {
+      return {
+        kicker: "นอนโรงพยาบาล", sub: `${first}แผน ${g.plan} · ป่วยหรืออุบัติเหตุ ต้องนอนโรงพยาบาล`,
+        rows: [
+          { label: "ค่าห้อง ค่าอาหาร ต่อวัน", sub: `สูงสุด ${h.roomDays} วัน`, amount: h.room, on: true },
+          { label: "ห้อง ICU ต่อวัน", sub: `สูงสุด ${h.icuDays} วัน`, amount: h.icu },
+          { label: "ค่าแพทย์ผ่าตัด", amount: h.surgery },
+          { label: "ค่ารักษาอื่นในโรงพยาบาล", amount: h.other },
+        ],
+        // without OPD the emergency accident OPD is still the plan's own (premiums.json hEmergencyOpd)
+        ...(h.opd ? {} : { foot: `+ ค่ารักษาอุบัติเหตุฉุกเฉิน ${h.emergency.toLocaleString("en-US")} บาท` }),
+      };
+    }
+    if (key === "family") {
+      if (!h.opd) return undefined;
+      return {
+        kicker: "ผู้ป่วยนอก (OPD)", sub: `OPD แผน ${g.rider} · ไม่ต้องนอนโรงพยาบาลก็เบิกได้`,
+        big: { amount: h.opd, unit: "บาท ต่อครั้ง" },
+        rows: [
+          { label: "ปีละสูงสุด", amount: h.opdVisits, unit: "ครั้ง", on: true },
+          { label: "อุบัติเหตุฉุกเฉิน", amount: h.emergency },
+        ],
+      };
+    }
+    return {
+      kicker: "คุ้มครองชีวิตด้วย", sub: `${first}พนักงานทุกคนในแผน ${g.plan}`,
+      rows: [
+        { label: "ชีวิต และทุพพลภาพถาวร", amount: h.life, on: true },
+        { label: "อุบัติเหตุ รับเพิ่ม", sub: "จากไป หรือสูญเสียอวัยวะ", amount: h.accident },
+      ],
+    };
+  }
+  const p = g.pa!;
+  if (key === "cover") {
+    return {
+      kicker: "คุ้มครองอุบัติเหตุ", sub: `${first}แผน P${g.plan} · พนักงานทุกคน`,
+      rows: [
+        // short labels beside figures in the millions, the rest of each case under it
+        { label: "จากไป", sub: "หรือทุพพลภาพถาวร", amount: p.death, on: true },
+        { label: "สูญเสียอวัยวะ 2 ข้าง", sub: "มือ เท้า หรือสายตา", amount: p.loss2 },
+        { label: "สูญเสียอวัยวะ 1 ข้าง", sub: "มือ เท้า หรือสายตา", amount: p.loss1 },
+        { label: "มอเตอร์ไซค์", sub: "ขับขี่ หรือโดยสาร", amount: p.motorcycle },
+      ],
+    };
+  }
+  if (key === "family" && p.me) {
+    return {
+      kicker: "ค่ารักษาจากอุบัติเหตุ", sub: "บาดเจ็บจากอุบัติเหตุ เบิกค่ารักษาได้",
+      big: { amount: p.me, unit: "บาท ต่ออุบัติเหตุแต่ละครั้ง" },
+      foot: "ค่ารักษาพยาบาลต่ออุบัติเหตุ (ME)",
+    };
+  }
+  return undefined;
 }

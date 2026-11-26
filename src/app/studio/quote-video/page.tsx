@@ -80,6 +80,8 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     CANCER: { min: ca.ageMin, max: ca.ageMax },
     // PA (owner, 2026-11-26): the form asks no age — the price is the plan's and the class's; the families' range all the same
     PA: { min: Math.min(...PA_FAMILIES.map((f) => f.ageMin)), max: Math.max(...PA_FAMILIES.map((f) => f.ageMax)) },
+    // ประกันกลุ่ม (owner, 2026-11-26): the form asks no age either — the PA tab's conditions, staff 16–64
+    GROUP: { min: 16, max: 64 },
   };
   // บำนาญ 95: the pension ages each age may choose, for each way of paying (the engine's own plans)
   const pensionAges = Object.fromEntries((["6", "untilAnnuity"] as const).map((pay) => [pay, Object.fromEntries(

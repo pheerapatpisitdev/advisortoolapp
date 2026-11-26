@@ -88,7 +88,7 @@ function sceneCard(key: string, c: ChatClip, u: number): ReactNode | null {
     case "lead":
       return card(u, planName(f), <>
         <div style={{ display: "flex", fontSize: Math.round(30 * u) }}>{f.lead.label}</div>
-        <div style={{ display: "flex", fontSize: Math.round(64 * u), fontWeight: 700, color: K.cardHead }}>{`${f.lead.amount} บาท`}</div>
+        <div style={{ display: "flex", fontSize: Math.round(64 * u), fontWeight: 700, color: K.cardHead }}>{`${f.lead.amount} ${f.lead.unit ?? "บาท"}`}</div>
       </>);
     case "price":
       return card(u, f.priceTitle, <>

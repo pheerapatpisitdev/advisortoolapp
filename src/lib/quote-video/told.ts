@@ -73,6 +73,15 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     // PA (owner, 2026-11-26): one year's money kept against what a serious accident pays — no value to compare
     : f.product === "PA"
       ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "อุบัติเหตุร้ายแรง รับสูงสุด", amount: f.lead.amount, unit: "บาท" }, note: "สัญญาปีต่อปี ราคาเท่ากันทุกอายุ" }
+    // ประกันกลุ่ม (owner, 2026-11-26): about a month a head against what one stay in hospital or one serious accident pays
+    : f.product === "GROUP" && f.group
+      ? {
+        left: { label: "ค่าสวัสดิการ ต่อคน ประมาณเดือนละ", amount: f.group.perMonth.toLocaleString("en-US"), unit: "บาท" },
+        right: f.group.health
+          ? { label: "นอนโรงพยาบาล ค่าห้องวันละ", amount: f.group.health.room.toLocaleString("en-US"), unit: "บาท" }
+          : { label: "อุบัติเหตุร้ายแรง รับสูงสุด", amount: f.group.pa!.death.toLocaleString("en-US"), unit: "บาท" },
+        note: `ทั้งบริษัท ปีละ ${f.group.grandTotal.toLocaleString("en-US")} บาท`,
+      }
     // Protection Life (owner, 2026-10-14): the whole term's money kept against what the family receives within it; the screen says it pays nothing at the end
     : f.product === "PLB" && f.plb
       ? { left: { label: `เก็บเงินเอง ${f.plb.years} ปี`, amount: f.plb.total, unit: "บาท" }, right: { label: `ครอบครัวได้ภายใน ${f.plb.years} ปี`, amount: f.lead.amount, unit: "บาท" }, note: "ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน" }
@@ -99,11 +108,14 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     : f.product === "CANCER" && f.cancer ? `อนุมัติแล้วเริ่มคุ้มครอง มะเร็งหลังระยะรอคอย ${f.cancer.waiting.min} ถึง ${f.cancer.waiting.max} วัน`
     // Protection Life: when its cover starts is not confirmed (assistant/plb/faq.ts PLB_WAITING), so nothing is said of it
     : f.product === "PLB" ? "บริษัทพิจารณาแล้วรับกรมธรรม์" : "อนุมัติแล้วเริ่มคุ้มครอง";
+  // ประกันกลุ่ม: the employer sends the staff list; the PA page's own conditions say when cover starts
+  const steps = f.product === "GROUP" ? ["ทักมาคุยกัน", "รับใบเสนอ ส่งรายชื่อพนักงาน", "อนุมัติแล้วเริ่มคุ้มครองวันถัดไป"] : ["ทักมาคุยกัน", "รับใบเสนอ กรอกใบคำขอ", third];
   return {
     story: { points: w.points ?? [] },
-    qas: pickQas(f.product, told.brief?.story, f.plb?.variant ?? f.lifetreasure?.variant, f.hide, f.gsaving, f.twelvepl),
+    // ประกันกลุ่ม's questions are its kind's (qa.ts)
+    qas: pickQas(f.product, told.brief?.story, f.plb?.variant ?? f.lifetreasure?.variant ?? f.group?.kind, f.hide, f.gsaving, f.twelvepl),
     versus,
-    steps: ["ทักมาคุยกัน", "รับใบเสนอ กรอกใบคำขอ", third],
+    steps,
   };
 }
 
@@ -144,6 +156,11 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
       }
       if (f.product === "CANCER") {
         return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าตรวจพบมะเร็ง รับเงินก้อนสูงสุดถึง ${x.versus.right.amount} บาทค่ะ`;
+      }
+      if (f.product === "GROUP" && f.group) {
+        return f.group.health
+          ? `ค่าสวัสดิการประมาณเดือนละ ${x.versus.left.amount} บาทต่อคน แต่ถ้าพนักงานต้องนอนโรงพยาบาล ได้ค่าห้องถึงวันละ ${x.versus.right.amount} บาทค่ะ`
+          : `ค่าสวัสดิการประมาณเดือนละ ${x.versus.left.amount} บาทต่อคน แต่ถ้าพนักงานเกิดอุบัติเหตุร้ายแรง รับสูงสุดถึง ${x.versus.right.amount} บาทค่ะ`;
       }
       if (f.product === "PA") {
         return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าเกิดอุบัติเหตุร้ายแรง รับสูงสุดถึง ${x.versus.right.amount} บาทค่ะ`;

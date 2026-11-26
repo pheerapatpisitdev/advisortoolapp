@@ -16,16 +16,20 @@ export function carryFigure(key: string, f: QuoteVideoFacts): string | null {
   if (f.allPlans) return null;
   switch (key) {
     case "price": {
+      // ประกันกลุ่ม's price is a head's, a year
+      if (f.group) return `${f.group.perPerson.toLocaleString("en-US")} บาท/คน`;
       if (f.perDayAmount) return `${f.perDayAmount} บาท/วัน`;
       const main = f.prices.find((p) => p.main);
       return main ? `${main.amount} บาท` : null;
     }
     // CI 123's fourth scene is what else it pays, not an age it covers to; the cancer plan's, its daily sum; PA's, its
     // rows (a one-year contract covers to no age)
-    case "cover": return f.ci123 || f.pa ? null : f.cancer ? `วันละ ${f.cancer.hic.toLocaleString("en-US")} บาท` : `คุ้มครองถึง ${f.coverToAge}`;
+    // ประกันกลุ่ม's are its rows too
+    case "cover": return f.ci123 || f.pa || f.group ? null : f.cancer ? `วันละ ${f.cancer.hic.toLocaleString("en-US")} บาท` : `คุ้มครองถึง ${f.coverToAge}`;
     case "value": return f.breakEven ? `คืน ${f.breakEven.cash}` : null;
     // PA's stairs climb to the sixth year's sum
-    case "critical": return f.pa ? `ปีที่ ${f.pa.years.length} ${f.pa.years[f.pa.years.length - 1].sum.toLocaleString("en-US")} บาท` : `${f.lead.amount} บาท`;
+    // ประกันกลุ่ม's third is its life cover
+    case "critical": return f.group?.health ? `${f.group.health.life.toLocaleString("en-US")} บาท` : f.pa ? `ปีที่ ${f.pa.years.length} ${f.pa.years[f.pa.years.length - 1].sum.toLocaleString("en-US")} บาท` : `${f.lead.amount} บาท`;
     default: return null;
   }
 }
