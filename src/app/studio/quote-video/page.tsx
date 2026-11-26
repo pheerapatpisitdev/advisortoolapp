@@ -10,6 +10,7 @@ import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { legacyTable } from "@/lib/legacy-table";
 import { plbTable } from "@/lib/plb-table";
 import { easyProtectTable } from "@/lib/easyprotect-table";
+import { lifeTreasureTable } from "@/lib/lifetreasure-table";
 import { twelvePlTable } from "@/lib/twelvepl-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { availablePensionAges, PENSION_LIMITS } from "@/calc/pension/engine";
@@ -52,6 +53,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
   const pb = plbTable();
   const tp = twelvePlTable();
   const ep = easyProtectTable();
+  const lt = lifeTreasureTable();
   const ages = {
     LIFEPROTECT: { min: lp.ageMin, max: lp.ageMax },
     ISHIELD: { min: is.ageMin, max: is.ageMax },
@@ -65,6 +67,8 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     TWELVEPL: { min: tp.ageMin, max: tp.ageMax },
     // อีซี่ โพรเทค 6 (owner, 2026-11-26)
     EASYPROTECT: { min: ep.ageMin, max: ep.ageMax },
+    // ไลฟ์เทรเชอร์ (owner, 2026-11-26)
+    LIFETREASURE: { min: lt.ageMin, max: lt.ageMax },
   };
   // บำนาญ 95: the pension ages each age may choose, for each way of paying (the engine's own plans)
   const pensionAges = Object.fromEntries((["6", "untilAnnuity"] as const).map((pay) => [pay, Object.fromEntries(

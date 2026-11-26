@@ -41,7 +41,7 @@ export function chatQuestion(key: string, f: QuoteVideoFacts, sex: "M" | "F"): s
     case "terms": return `มีระยะเวลาให้เลือกไหม${q}`;
     case "index": return `ผลตอบแทนเป็นยังไงบ้าง${q}`;
     case "family": return `ถ้าเป็นอะไรไปก่อน ครอบครัวได้เท่าไหร่${q}`;
-    case "total": return f.easyprotect ? `จ่ายไปเท่าไหร่ แล้วครอบครัวได้เท่าไหร่${q}` : `สรุปแล้วจ่ายเท่าไหร่ ได้คืนเท่าไหร่${q}`;
+    case "total": return f.easyprotect || f.lifetreasure ? `จ่ายไปเท่าไหร่ แล้วครอบครัวได้เท่าไหร่${q}` : `สรุปแล้วจ่ายเท่าไหร่ ได้คืนเท่าไหร่${q}`;
     case "compare": return `เทียบกับแผนอื่นเป็นยังไง${q}`;
     case "contact": return `สนใจ${k} ขอรายละเอียดเพิ่มหน่อย${k}`;
     case "qa": return `ขอถามอีกข้อได้ไหม${q}`;

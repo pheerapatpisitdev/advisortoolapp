@@ -20,6 +20,7 @@ import { checkedLegacy } from "@/lib/quote-video/legacy";
 import { checkedPlb } from "@/lib/quote-video/plb";
 import { checkedGsaving } from "@/lib/quote-video/gsaving";
 import { checkedEasyProtect } from "@/lib/quote-video/easyprotect";
+import { checkedLifeTreasure } from "@/lib/quote-video/lifetreasure";
 import { checkedTwelvePl } from "@/lib/quote-video/twelvepl";
 import { cleanBrief, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
 import { readVideoLang } from "@/lib/quote-video/video-words";
@@ -167,6 +168,7 @@ export function checkedQuote(v: VideoInput): VideoInput | string {
   if (v.product === "PLB") return checkedPlb(v);
   if (v.product === "GSAVING") return checkedGsaving(v);
   if (v.product === "EASYPROTECT") return checkedEasyProtect(v);
+  if (v.product === "LIFETREASURE") return checkedLifeTreasure(v);
   if (v.product === "TWELVEPL") return checkedTwelvePl(v, cleanRiders(v.riders));
   const product = productOf(v);
   if (product !== "LIFEPROTECT" && product !== "ISHIELD") return "เลือกแบบประกัน";

@@ -110,6 +110,8 @@ export function easyProtectVideoFacts(v: EasyProtectVideoInput, today: Date = ne
     lead: { label: atLeast ? "มรดกอย่างน้อย" : "มรดก", amount: card.legacy.amount, baht: ok.sumAssured, ...(card.legacy.note ? { note: card.legacy.note } : {}) },
     leadMark: `จ่าย ${py} ปี คุ้มครองถึงอายุ ${g.coverToAge}`,
     priceMark: card.perDay,
+    // the day's price under the opening's mark (motion.tsx Lead)
+    leadPill: card.perDay,
     perDayAmount: card.perDay.replace(/[^\d,]/g, ""),
     priceTitle: card.summary.title,
     prices: card.summary.rows.map((r) => ({ label: r.label, amount: r.amount, main: r.main })),
@@ -146,3 +148,10 @@ export const epTotalLine = (g: EasyProtectVideoFacts, said: (baht: number) => st
 export const epValueLine = (f: QuoteVideoFacts, g: EasyProtectVideoFacts): string => (f.breakEven
   ? `ที่ชอบที่สุดคือ เงินที่ออมไปไม่หายไปไหน ออมครบตอนอายุ ${g.lastPayAge} แล้วเงินก็ยังโตทุกปี พออายุ ${f.breakEven.age} ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ ${f.breakEven.cash} บาท ครบเท่าที่ออมไปทั้งหมดแล้วค่ะ`
   : `ที่ชอบที่สุดคือ เงินที่ออมไปไม่หายไปไหน ออมครบตอนอายุ ${g.lastPayAge} แล้วเงินก็ยังโตทุกปี ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ตามตารางเลยค่ะ`);
+
+/**
+ * The paid-up whole-life plans' shared figures (อีซี่ โพรเทค 6, ไลฟ์เทรเชอร์): a level premium for some years, the sum
+ * to 99 with its 101% floor, the multiple and the cash at the end. The scenes they share read these.
+ */
+export type PaidUpFacts = Pick<EasyProtectVideoFacts, "sum" | "payYears" | "lastPayAge" | "coverToAge" | "paid" | "times" | "atLeast" | "endCash">;
+export const paidUpOf = (f: Pick<QuoteVideoFacts, "easyprotect" | "lifetreasure">): PaidUpFacts | undefined => f.easyprotect ?? f.lifetreasure;

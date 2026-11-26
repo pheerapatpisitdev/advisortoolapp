@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { epMoney, type EasyProtectVideoFacts } from "./easyprotect";
+import { epMoney, paidUpOf, type EasyProtectVideoFacts, type PaidUpFacts } from "./easyprotect";
 import type { QuoteVideoFacts } from "./script";
 import type { TpDraw } from "./twelvepl-pictures";
 
@@ -35,8 +35,8 @@ export function epCoins(f: QuoteVideoFacts, g: EasyProtectVideoFacts, d: TpDraw,
   );
 }
 
-/** what is paid beside what the family receives, to one scale */
-export function epTotalPicture(g: EasyProtectVideoFacts, d: TpDraw, w: number, h: number, big = 1): ReactNode {
+/** what is paid beside what the family receives, to one scale (ไลฟ์เทรเชอร์'s too: `paidWord` names the paid column) */
+export function epTotalPicture(g: PaidUpFacts, d: TpDraw, w: number, h: number, big = 1, paidWord = `จ่ายรวม ${g.payYears} ปี`): ReactNode {
   const { pal } = d;
   const headH = px(90, big);
   const footH = px(70, big);
@@ -55,17 +55,26 @@ export function epTotalPicture(g: EasyProtectVideoFacts, d: TpDraw, w: number, h
       <div style={abs({ left: right, top: base - backH, width: colW, height: backH, background: pal.fill, borderRadius: "12px 12px 0 0" })} />
       {d.piece("backLabel", { position: "absolute", left: right - px(60, big), width: colW + px(120, big), top: base - tall(g.sum) - px(84, big), justifyContent: "center", fontSize: px(58, big), fontWeight: 700, color: pal.figure }, epMoney(g.sum))}
       <div style={abs({ left: 0, top: base, width: w, height: 0, borderTop: `4px solid ${pal.ink}`, opacity: 0.55 })} />
-      <div style={abs({ left: left - px(40, big), width: colW + px(80, big), top: base + px(14, big), justifyContent: "center", fontSize: px(38, big), color: pal.ink })}>{`จ่ายรวม ${g.payYears} ปี`}</div>
+      <div style={abs({ left: left - px(40, big), width: colW + px(80, big), top: base + px(14, big), justifyContent: "center", fontSize: px(38, big), color: pal.ink })}>{paidWord}</div>
       <div style={abs({ left: right - px(80, big), width: colW + px(140, big), top: base + px(14, big), justifyContent: "center", fontSize: px(38, big), fontWeight: 600, color: pal.ink })}>{`ครอบครัวได้${g.atLeast ? "อย่างน้อย" : ""} ถึงอายุ ${g.coverToAge}`}</div>
     </div>
   );
 }
 
-export const EP_TOTAL_KICKER = "จ่ายไป เทียบกับ ครอบครัวได้";
-export const epTimesPill = (g: EasyProtectVideoFacts) => `คุ้มครอง ${g.times} เท่าของเบี้ยที่จ่าย`;
+/**
+ * The fourth scene's words, what is paid beside what the family receives: อีซี่ โพรเทค 6's, or ไลฟ์เทรเชอร์'s as its
+ * mockup has them (owner, 2026-11-26, https://claude.ai/artifact/K8A3uLFEDt1XqYnUKnqr3p). Undefined for any other plan.
+ */
+export function totalWords(f: Pick<QuoteVideoFacts, "easyprotect" | "lifetreasure">): { g: PaidUpFacts; kicker: string; pill: string; paid: string } | undefined {
+  const g = paidUpOf(f);
+  if (!g) return undefined;
+  return f.lifetreasure
+    ? { g, kicker: "ออมเท่านี้ ส่งต่อได้เท่านี้", pill: `ส่งต่อได้ ${g.times} เท่าของที่ออม`, paid: `ออมรวม ${g.payYears} ปี` }
+    : { g, kicker: "จ่ายไป เทียบกับ ครอบครัวได้", pill: `คุ้มครอง ${g.times} เท่าของเบี้ยที่จ่าย`, paid: `จ่ายรวม ${g.payYears} ปี` };
+}
 export const epDonePill = (g: EasyProtectVideoFacts) => `ปีที่ ${g.payYears + 1} เป็นต้นไป ไม่ต้องจ่ายอีก`;
 /** the road's words: the sum the family receives all along it */
 export const epRoadWord = (g: EasyProtectVideoFacts) => `คุ้มครอง${g.atLeast ? "อย่างน้อย" : ""} ${epMoney(g.sum)}${g.atLeast ? "" : " เท่ากันตลอด"}`;
 export const epFloorNote = (g: EasyProtectVideoFacts) => `หรือ ${g.floorPercent}% ของเบี้ยที่จ่าย หรือมูลค่าเวนคืน หากมากกว่า`;
-/** what the break-even card says of the cash it names (motion.tsx Value): more than was paid, or อีซี่ โพรเทค 6's "as much as" */
-export const breakEvenNote = (f: QuoteVideoFacts) => (f.easyprotect ? `ครบเท่าที่จ่ายไป ${f.totalPaid} บาท` : `มากกว่าที่จ่ายไป ${f.totalPaid} บาท`);
+/** what the break-even card says of the cash it names (motion.tsx Value): more than was paid, or the paid-up plans' "as much as" */
+export const breakEvenNote = (f: QuoteVideoFacts) => (paidUpOf(f) ? `ครบเท่าที่จ่ายไป ${f.totalPaid} บาท` : `มากกว่าที่จ่ายไป ${f.totalPaid} บาท`);

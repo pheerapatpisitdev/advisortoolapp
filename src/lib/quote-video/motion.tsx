@@ -3,7 +3,9 @@ import { Fragment, type ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_EXTRA as X } from "@/lib/card-theme";
 import { CHART_WRITE, chartNotes } from "./chart-pen";
 import { beatCues, penBeats } from "./pen";
-import { breakEvenNote, EP_TOTAL_KICKER, epCoins, epDonePill, epFloorNote, epRoadWord, epTimesPill, epTotalPicture } from "./easyprotect-pictures";
+import { paidUpOf } from "./easyprotect";
+import { breakEvenNote, epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
+import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
 import { riderIndex, type CoverRow, type QuoteVideoFacts, type SceneKey } from "./script";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
@@ -154,9 +156,9 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
         unit: a(1.6, "fade"), note: a(Math.max(2.6, voiceSec * 0.65), "up"), pill: a(Math.max(3.2, voiceSec * 0.8), "pop"),
       };
     case "terms": {
-      // Protection Life: the terms in one after another, the chosen one popped, the total and the tax under them
+      // Protection Life (ไลฟ์เทรเชอร์ too): the terms in one after another, the chosen one popped, the total and the tax under them
       const s: Record<string, Anim> = { kicker: a(0.2, "up") };
-      const n = f.plb?.terms.length ?? 0;
+      const n = (f.plb?.terms ?? f.lifetreasure?.terms)?.length ?? 0;
       for (let i = 0; i < n; i++) s[`row${i}`] = a(0.6 + i * 0.35, "left");
       s.on = a(Math.max(0.6 + n * 0.35, voiceSec * 0.4), "pop");
       s.total = a(Math.max(2.4, voiceSec * 0.6), "up");
@@ -482,14 +484,17 @@ function Lead({ c, t }: { c: MotionContext; t: number }) {
       <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1130, justifyContent: "center" }}>
         <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "8px 34px", fontSize: 44, fontWeight: 600 })}>{f.leadMark}</div>
       </El>
-      {f.easyprotect && f.priceMark ? (
+      {f.leadPill ? (
         <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1240, justifyContent: "center" }}>
-          <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "4px 30px", fontSize: 40 })}>{f.priceMark}</div>
+          <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "4px 30px", fontSize: 40 })}>{f.leadPill}</div>
         </El>
       ) : null}
     </>
   );
 }
+
+/** the price scene's big figure: 170 up to "999,999", smaller for the millions */
+const bigSize = (amount: string) => (amount.length > 9 ? 112 : amount.length > 7 ? 132 : 170);
 
 function Price({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
@@ -517,7 +522,8 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
         </svg>
         <div style={box({ flexDirection: "column", marginLeft: 40 })}>
           <El an={s.small} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : vw.firstYearMonthly)}</El>
-          <El an={s.big} t={t} style={{ fontSize: 170, fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
+          {/* a yearly figure in the millions (ไลฟ์เทรเชอร์'s) is set smaller to stay inside the frame */}
+          <El an={s.big} t={t} style={{ fontSize: bigSize(f.priceBig?.amount ?? daily ?? main?.amount ?? ""), fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
           <El an={s.unit} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : vw.baht)}</El>
         </div>
       </div>
@@ -907,8 +913,29 @@ export function plbTermCards(f: QuoteVideoFacts, s: Record<string, Anim>, t: num
   );
 }
 
+/** ไลฟ์เทรเชอร์'s third scene: its three paying terms, the chosen one lit (lifetreasure-pictures.tsx) */
+function LtTerms({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.lifetreasure;
+  const s = motionSpec("terms", f, c.voiceSec);
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 66, fontWeight: 700, color: WHITE }}>{LT_TERMS_KICKER}</El>
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 40, color: WHITE, opacity: 0.9 }}>{f.insuredLine}</El>
+      <div style={abs({ left: SIDE, top: 400, width: w, flexDirection: "column" })}>
+        {ltTermRows(g, motionTpDraw(s, t), w, 1.2)}
+        <El an={s.note} t={t} style={{ justifyContent: "center", width: w, marginTop: 16, fontSize: 40, color: WHITE, opacity: 0.85 }}>{LT_TERMS_NOTE}</El>
+      </div>
+    </>
+  );
+}
+
 function Terms({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
+  if (f.lifetreasure) return <LtTerms c={c} t={t} />;
   const p = f.plb;
   const s = motionSpec("terms", f, c.voiceSec);
   if (!p) return null;
@@ -1374,7 +1401,8 @@ function Contact({ c, t }: { c: MotionContext; t: number }) {
   const initial = [...k.name.trim()][0] ?? "?";
   const more = k.more ? k.more.split("\n") : [];
   const vw = wordsOf(f);
-  const [said, help] = vw.contactLines(c.narrator ?? "F");
+  const [said, standing] = vw.contactLines(c.narrator ?? "F");
+  const help = f.contactLine ?? standing;
   return (
     <>
       <Header f={f} title={c.customer ? vw.contactFor(c.customer) : vw.contactMore} />
@@ -1603,21 +1631,22 @@ function CoverPaidUp({ c, t }: { c: MotionContext; t: number }) {
   );
 }
 
-/** อีซี่ โพรเทค 6's fourth scene: what is paid beside what the family receives */
+/** อีซี่ โพรเทค 6's fourth scene, ไลฟ์เทรเชอร์'s too: what is paid beside what the family receives */
 function EpTotalScene({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
-  const g = f.easyprotect;
+  const words = totalWords(f);
   const s = motionSpec("total", f, c.voiceSec);
-  if (!g) return null;
+  if (!words) return null;
+  const { g } = words;
   const w = W - SIDE * 2;
   return (
     <>
       <Header f={f} title={f.planLine} />
-      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 60, fontWeight: 700, color: WHITE }}>{EP_TOTAL_KICKER}</El>
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 60, fontWeight: 700, color: WHITE }}>{words.kicker}</El>
       <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 295, fontSize: 40, color: WHITE, opacity: 0.9 }}>{f.insuredLine}</El>
-      <div style={abs({ left: SIDE, top: 390, width: w })}>{epTotalPicture(g, motionTpDraw(s, t), w, 840)}</div>
+      <div style={abs({ left: SIDE, top: 390, width: w })}>{epTotalPicture(g, motionTpDraw(s, t), w, 840, 1, words.paid)}</div>
       <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1270, justifyContent: "center" }}>
-        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "10px 36px", fontSize: 48, fontWeight: 600 })}>{epTimesPill(g)}</div>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "10px 36px", fontSize: 48, fontWeight: 600 })}>{words.pill}</div>
       </El>
     </>
   );
@@ -1626,7 +1655,7 @@ function EpTotalScene({ c, t }: { c: MotionContext; t: number }) {
 /** 12 พีแอล's fifth scene: what the plan costs beside what comes back */
 function TotalScene({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
-  if (f.easyprotect) return <EpTotalScene c={c} t={t} />;
+  if (paidUpOf(f)) return <EpTotalScene c={c} t={t} />;
   const g = f.twelvepl;
   const s = motionSpec("total", f, c.voiceSec);
   if (!g) return null;

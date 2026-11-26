@@ -99,6 +99,15 @@ export function productQas(product: Product, variant?: string, gs?: GsQaFacts, t
         { key: "floor", q: "ถ้าเป็นอะไรไป ครอบครัวได้เท่าไหร่", a: "ได้ตามทุนค่ะ และไม่น้อยกว่า 101% ของที่ออมมาแล้ว" },
         { key: "back", q: "ถ้าอยากได้เงินคืนล่ะ", a: "มีมูลค่าเงินสดโตทุกปีค่ะ ขอคืนได้ตามตาราง แต่ถ้าขอคืนเร็วอาจได้น้อยกว่าที่ออม" },
       ];
+    // ไลฟ์เทรเชอร์ (owner, 2026-11-26): its page's own lines (LifeTreasureCalculator.tsx, numbers-cases/lifetreasure.ts)
+    case "LIFETREASURE":
+      return [
+        { key: "years", q: "เลือกจ่ายกี่ปีได้บ้าง", a: "เลือกได้ 6 ปี 12 ปี หรือ 18 ปีค่ะ จ่ายครบแล้วคุ้มครองต่อไปถึงอายุ 99" },
+        { key: "level", q: "ยอดออมขึ้นตามอายุไหม", a: "ไม่ขึ้นค่ะ ล็อกตามอายุวันที่เริ่ม เท่าเดิมตลอดระยะที่จ่าย" },
+        { key: "floor", q: "ครอบครัวได้เท่าไหร่", a: "ได้ตามทุนที่ระบุไว้ค่ะ ไม่ขึ้นกับตลาด และไม่น้อยกว่า 101% ของที่ออมมาแล้ว" },
+        { key: "share", q: "แบ่งให้หลายคนได้ไหม", a: "ได้ค่ะ แบ่งให้ใครเท่าไรก็ระบุได้" },
+        { key: "back", q: "ถ้าอยากได้เงินคืนล่ะ", a: "มีมูลค่าเงินสดโตทุกปีค่ะ ขอคืนได้ตามตาราง แต่ถ้าขอคืนเร็วอาจได้น้อยกว่าที่ออม" },
+      ];
     // 12 พีแอล (owner, 2026-11-26): the plan's own rules, as the bots say them (src/lib/copilot/knowledge.ts)
     case "TWELVEPL":
       return [
@@ -128,6 +137,7 @@ const FIRST: Record<string, string[]> = {
   plbfamily: ["covers", "end"], plbburden: ["covers", "level"], plblight: ["level", "monthly"], plbtax: ["tax", "level"],
   gssure: ["sure", "years"], gsbonus: ["bonus", "sure"], gstax: ["tax", "years"], gsshort: ["years", "sure"],
   epshort: ["years", "level"], epfamily: ["floor", "years"], epcash: ["back", "years"],
+  ltlegacy: ["share", "floor"], ltterms: ["years", "level"], ltcash: ["back", "floor"],
   tpback: ["back", "sure"], tpshort: ["years", "life"], tpfamily: ["life", "years"], tptax: ["tax", "years"],
 };
 

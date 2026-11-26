@@ -1,6 +1,7 @@
 import { paidConstantly } from "@/app/api/card/table/pen-notes";
 // บำนาญ 95's table notes are written in the same face (pension-table.tsx)
 import { PENSION_PEN_TEXT } from "@/lib/pension-pen-notes";
+import { paidUpOf } from "./easyprotect";
 import type { QuoteVideoFacts } from "./script";
 import { LEAD, wordTimes } from "./timeline";
 
@@ -46,10 +47,11 @@ export function penBeats(f: QuoteVideoFacts): PenBeat[] {
   const out: PenBeat[] = [];
   if (paidConstantly({ rows }) !== undefined) out.push("steady");
   // … and for the oldest they are the chart's top, with no room over them for the stop's
-  const high = f.easyprotect !== undefined && f.easyprotect.paid > f.easyprotect.endCash * 0.95;
+  const pu = paidUpOf(f);
+  const high = pu !== undefined && pu.paid > pu.endCash * 0.95;
   if (last >= 0 && last < rows.length - 1 && !high) out.push("stop");
-  // อีซี่ โพรเทค 6 for the young: the six premiums are a low line and the break-even an early one, with no room under it for these words
-  const cramped = f.easyprotect !== undefined && f.easyprotect.paid < f.easyprotect.endCash * 0.38;
+  // อีซี่ โพรเทค 6 (and ไลฟ์เทรเชอร์) for the young: the six premiums are a low line and the break-even an early one, with no room under it for these words
+  const cramped = pu !== undefined && pu.paid < pu.endCash * 0.38;
   if (be >= 4 && !cramped) out.push("growth");
   if (be > 0) out.push("breakEven");
   if (be >= 0 && rows.length - (be + 1) >= 4) out.push("gain");

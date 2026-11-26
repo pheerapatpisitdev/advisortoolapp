@@ -6,7 +6,9 @@ import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
 import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
 import { abs, box, chartPaths, coverGroupStarts, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionDraw, motionSpec, motionTpDraw, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, tpFamilyPill, type Anim } from "./motion";
-import { breakEvenNote, EP_TOTAL_KICKER, epCoins, epDonePill, epFloorNote, epRoadWord, epTimesPill, epTotalPicture } from "./easyprotect-pictures";
+import { paidUpOf } from "./easyprotect";
+import { breakEvenNote, epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
+import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture } from "./twelvepl-pictures";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat } from "./rider-pictures";
 import { leadBig, leadPill } from "./plb";
@@ -134,12 +136,15 @@ function Frame({ g, words, t, voiceSec, note, children }: { g: Geo; words: strin
 interface Contact { name: string; phone: string; line?: string; more?: string; photo?: string }
 
 /** the agent's card, shared by both kinds of clip */
-function ContactScene({ g, s, t, title, header, customer, narrator, contact, note, vw = VIDEO_WORDS.th }: {
+function ContactScene({ g, s, t, title, header, customer, narrator, contact, note, vw = VIDEO_WORDS.th, line }: {
   g: Geo; s: Record<string, Anim>; t: number; title: string; header: string; customer: string; narrator?: "F" | "M"; contact: Contact; note?: string;
   /** the clip's language (video-words.ts); Thai unless an iHealthy clip asked for another */
   vw?: VideoWords;
+  /** the title's second line where the plan has its own (QuoteVideoFacts contactLine) */
+  line?: string;
 }) {
-  const [said, help] = vw.contactLines(narrator ?? "F");
+  const [said, standing] = vw.contactLines(narrator ?? "F");
+  const help = line ?? standing;
   const thai = vw === VIDEO_WORDS.th;
   const k = contact;
   const initial = [...k.name.trim()][0] ?? "?";
@@ -148,7 +153,7 @@ function ContactScene({ g, s, t, title, header, customer, narrator, contact, not
     <>
       <Header g={g} left={customer ? vw.contactFor(customer) : title} right={header} />
       <Body g={g} top={g.px(130, 170)} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
-        <El an={s.title} t={t} style={{ flexDirection: "column", fontSize: g.px(thai ? 64 : 52, thai ? 84 : 68), fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight, ...(g.wide ? { width: 760 } : {}) }}>
+        <El an={s.title} t={t} style={{ flexDirection: "column", fontSize: line ? g.px(58, 72) : g.px(thai ? 64 : 52, thai ? 84 : 68), fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight, ...(g.wide ? { width: 760 } : {}) }}>
           <div style={box({})}>{said}</div>
           <div style={box({ color: GOLD })}>{help}</div>
         </El>
@@ -379,20 +384,21 @@ function CoverPaidUp({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
 /** อีซี่ โพรเทค 6's fourth scene (motion.tsx EpTotalScene) */
 function EpTotalScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
-  const ep = f.easyprotect;
+  const words = totalWords(f);
   const s = motionSpec("total", f, c.voiceSec);
-  if (!ep) return null;
+  if (!words) return null;
+  const ep = words.g;
   const full = g.w - g.side * 2;
   const picW = g.wide ? 1000 : full;
   return (
     <>
       <Header g={g} left={f.planLine} right={f.insuredWho} />
-      <Kicker g={g} an={s.kicker} t={t} text={EP_TOTAL_KICKER} />
+      <Kicker g={g} an={s.kicker} t={t} text={words.kicker} />
       <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
-        {epTotalPicture(ep, motionTpDraw(s, t), picW, g.px(520, 630), g.px(0.66, 0.78))}
+        {epTotalPicture(ep, motionTpDraw(s, t), picW, g.px(520, 630), g.px(0.66, 0.78), words.paid)}
         <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - picW - 60 } : { marginTop: 8 }) })}>
           <El an={s.sub} t={t} style={{ fontSize: g.px(26, 36), color: WHITE, opacity: 0.9, marginBottom: g.px(6, 24) }}>{f.insuredLine}</El>
-          <El an={s.pill} t={t} style={{ ...tpPill(g, true), fontSize: g.px(30, 34) }}>{epTimesPill(ep)}</El>
+          <El an={s.pill} t={t} style={{ ...tpPill(g, true), fontSize: g.px(30, 34) }}>{words.pill}</El>
         </div>
       </Body>
     </>
@@ -402,7 +408,7 @@ function EpTotalScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
 /** 12 พีแอล's fifth scene: what the plan costs beside what comes back, the words beside (landscape) or above the bars */
 function TotalScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
-  if (f.easyprotect) return <EpTotalScene g={g} c={c} t={t} />;
+  if (paidUpOf(f)) return <EpTotalScene g={g} c={c} t={t} />;
   const tp = f.twelvepl;
   const s = motionSpec("total", f, c.voiceSec);
   if (!tp) return null;
@@ -469,8 +475,28 @@ function IndexScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
 }
 
 /** Protection Life's terms (motion.tsx plbTermCards): the cards on the left, the total and the tax on the right of a landscape frame */
+/** ไลฟ์เทรเชอร์'s three paying terms (motion.tsx LtTerms): the rows, and beside them (landscape) or under them the note */
+function LtTerms({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const lt = f.lifetreasure;
+  const s = motionSpec("terms", f, c.voiceSec);
+  if (!lt) return null;
+  const listW = g.wide ? 1060 : g.w - g.side * 2;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={LT_TERMS_KICKER} />
+      <Body g={g} top={g.px(180, 200)} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
+        {ltTermRows(lt, motionTpDraw(s, t), listW, g.px(0.8, 0.9))}
+        <El an={s.note} t={t} style={{ fontSize: g.px(28, 36), color: WHITE, opacity: 0.85, ...(g.wide ? { marginLeft: 60, flex: 1 } : {}) }}>{LT_TERMS_NOTE}</El>
+      </Body>
+    </>
+  );
+}
+
 function Terms({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
+  if (f.lifetreasure) return <LtTerms g={g} c={c} t={t} />;
   const p = f.plb;
   const s = motionSpec("terms", f, c.voiceSec);
   if (!p) return null;
@@ -573,6 +599,11 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
           <El an={s.mark} t={t} style={{ marginTop: g.px(20, 30) }}>
             <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "6px 30px", fontSize: g.px(34, 48), fontWeight: 600 })}>{f.leadMark}</div>
           </El>
+          {f.leadPill ? (
+            <El an={s.mark} t={t} style={{ marginTop: g.px(14, 20) }}>
+              <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "4px 26px", fontSize: g.px(28, 36) })}>{f.leadPill}</div>
+            </El>
+          ) : null}
         </div>
       </Body>
     </>
@@ -702,7 +733,7 @@ function Price({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
             </svg>
             <div style={box({ flexDirection: "column", marginLeft: g.px(24, 44) })}>
               <El an={s.small} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : vw.firstYearMonthly)}</El>
-              <El an={s.big} t={t} style={{ fontSize: f.priceBig ? g.px(62, 116) : g.px(daily ? 120 : 84, daily ? 220 : 150), fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
+              <El an={s.big} t={t} style={{ fontSize: f.priceBig ? (f.priceBig.amount.length > 7 ? g.px(52, 92) : g.px(62, 116)) : g.px(daily ? 120 : 84, daily ? 220 : 150), fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
               <El an={s.unit} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : vw.baht)}</El>
             </div>
           </div>
@@ -1060,7 +1091,7 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} /> : (
       <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title={wordsOf(c.facts).contactMore} header={c.facts.insuredWho}
-        customer={c.customer} narrator={c.narrator} contact={c.contact} note={c.facts.footNote} vw={wordsOf(c.facts)} />
+        customer={c.customer} narrator={c.narrator} contact={c.contact} note={c.facts.footNote} vw={wordsOf(c.facts)} line={c.facts.contactLine} />
     ),
     story: <StoryScene g={g} c={c} t={t} />,
     qa: <QaScene g={g} c={c} t={t} />,

@@ -10,11 +10,12 @@ import type { TwelvePlDividend } from "@/lib/quote-video/twelvepl";
 import { GS_PLANS, gsPlanName, gsPlanPage, gsPlanTerms, type GsPlan } from "@/lib/quote-video/gsaving";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { PlbVariant } from "@/lib/quote-video/plb";
+import type { LifeTreasureVariant } from "@/lib/quote-video/lifetreasure";
 import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
 import { festivalOn } from "@/lib/quote-video/festival";
 import { QUOTE_VIDEO_COLORS, RECIPE_COLORS, VIDEO_FESTIVAL_COLORS } from "@/lib/card-theme";
 import { nextRecipe, readRecipe, RECIPE_NAMES, type RecipeKey } from "@/lib/quote-video/recipe-keys";
-import { EASYPROTECT_SUMS, PLB_SUMS } from "@/lib/quote-pdf/pages";
+import { EASYPROTECT_SUMS, LIFETREASURE_SUMS, PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 import { formatBaht } from "@/lib/wallet/money";
@@ -77,6 +78,7 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   { code: "GSAVING", name: "Global Savings", page: "/global-saving" },
   { code: "TWELVEPL", name: "12PL", page: "/12pl" },
   { code: "EASYPROTECT", name: "Easy Protect 6", page: "/easyprotect" },
+  { code: "LIFETREASURE", name: "Life Treasure", page: "/lifetreasure" },
 ];
 /** Global Savings' index returns the agent picks the clip's example at (owner, 2026-10-20): −1% to +5% */
 const GS_RATE_CHOICES = [-1, 0, 1, 2, 3, 4, 5];
@@ -88,17 +90,19 @@ const plbSumWord = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000} ล้า�
 /** มรดก's sizes (owner, 2026-10-14): the bundle's ten tiers, a million each */
 const LEGACY_TIERS = Array.from({ length: 10 }, (_, i) => i + 1);
 /** the plans with a list of paying terms by variant */
-const termed = (p: Product): p is "LIFEPROTECT" | "ISHIELD" | "PLB" => p === "LIFEPROTECT" || p === "ISHIELD" || p === "PLB";
+const termed = (p: Product): p is "LIFEPROTECT" | "ISHIELD" | "PLB" | "LIFETREASURE" => p === "LIFEPROTECT" || p === "ISHIELD" || p === "PLB" || p === "LIFETREASURE";
 type PensionPay = "6" | "untilAnnuity";
 const PENSION_STARTS = [55, 60, 65, 70];
 /** the monthly pension in a sum, as the engine and the page say it (calc/pension/engine.ts MONTHLY_FACTOR_FIRST) */
 const pensionMonthly = (sum: number) => Math.round(sum * 0.0127);
-const TERMS: Record<"LIFEPROTECT" | "ISHIELD" | "PLB", { variant: string; years: number }[]> = {
+const TERMS: Record<"LIFEPROTECT" | "ISHIELD" | "PLB" | "LIFETREASURE", { variant: string; years: number }[]> = {
   // จ่ายถึงอายุ 99 is Life Protect's third term (owner, 2026-10-11: it had gone missing)
   LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }, { variant: "WLF99H", years: 99 }],
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
   // Protection Life (owner, 2026-10-14): paid and covered alike
   PLB: [{ variant: "PLB05", years: 5 }, { variant: "PLB10", years: 10 }, { variant: "PLB12", years: 12 }, { variant: "PLB15", years: 15 }],
+  // ไลฟ์เทรเชอร์ (owner, 2026-11-26): its page's three paying terms
+  LIFETREASURE: [{ variant: "H99F06A", years: 6 }, { variant: "H99F12A", years: 12 }, { variant: "H99F18A", years: 18 }],
 };
 const NARRATOR_KEY = "quote-video-narrator";
 const SIZE_KEY = "quote-video-size";
@@ -195,7 +199,7 @@ const GEMINI_KEY = "quote-video-gemini";
  * 2026-10-15); the other 28 have their Thai sample only
  */
 const sampleIn = (g: GeminiChoice, lang: VideoLang) => (lang === "th" || g.name !== GEMINI_DEFAULT[g.sex] ? g.sample : `/voice-samples/gemini-${g.sex}-${lang}.mp3`);
-const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10", PLB: "PLB12" } as const;
+const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10", PLB: "PLB12", LIFETREASURE: "H99F12A" } as const;
 /** the plans a clip compares, the main one included (owner, 2026-10-11: three fit a phone screen) */
 const MAX_COMPARE = 3;
 
@@ -501,6 +505,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           ? { product, sex, age: Number(age), premium: Number(gsPremium.replace(/[^\d]/g, "")), rate: gsRate, ...(gsPlan === "25/5" ? { plan: gsPlan } : {}), ...look }
         : product === "EASYPROTECT"
           ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
+        : product === "LIFETREASURE"
+          ? { product, variant: variant as LifeTreasureVariant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
         : product === "TWELVEPL"
           ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), dividend, ...(lpRiders ? { riders: lpRiders } : {}), ...look }
           : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...(lpRiders ? { riders: lpRiders } : {}), ...look };
@@ -513,6 +519,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     if (termed(p)) setVariant(DEFAULT_TERM[p]);
     // Protection Life's sums are its page's steps: anything else opens on its page's 1 ล้าน
     if (p === "EASYPROTECT") setSum((was) => (EASYPROTECT_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
+    // ไลฟ์เทรเชอร์'s sums start at ten million: anything else opens on its page's first
+    if (p === "LIFETREASURE") setSum((was) => (LIFETREASURE_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "10,000,000"));
     if (p === "PLB") setSum((was) => (PLB_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
   }
   function toggleCompare(code: string) {
@@ -968,7 +976,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                         : product === "LEGACY" ? "ระบบเลือกขนาดมรดกที่ใหญ่ที่สุดที่ค่าใช้จ่ายปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท"
                         : product === "PLB" ? "ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า Protection Life) ที่ค่าใช้จ่ายไม่เกินงบ ในระยะที่เลือก · รายเดือนขั้นต่ำ 1,000 บาท"
                         : product === "GSAVING" ? "แบบนี้จ่ายรายปี งบต่อเดือนคิดเป็นเบี้ยปีละ 12 เท่า · ขั้นต่ำปีละ 20,000 บาท"
-                        : product === "TWELVEPL" || product === "EASYPROTECT" ? `ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า ${product === "TWELVEPL" ? "12PL" : "Easy Protect 6"}) ที่เบี้ยไม่เกินงบ` : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+                        : product === "TWELVEPL" || product === "EASYPROTECT" || product === "LIFETREASURE" ? `ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า ${product === "TWELVEPL" ? "12PL" : product === "EASYPROTECT" ? "Easy Protect 6" : "Life Treasure"}) ที่เบี้ยไม่เกินงบ${product === "LIFETREASURE" ? " ในระยะจ่ายที่เลือก" : ""}` : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
                     </div>
                   ) : product === "PENSION" ? (
                     <div>
@@ -994,7 +1002,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                     <div>
                       <label htmlFor="qv-sum" className={label}>ทุนประกัน (บาท)</label>
                       <input id="qv-sum" inputMode="numeric" className={field} value={sum} onChange={(e) => setSum(money(e))} />
-                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "LIFEPROTECT" ? "150,000 – 50,000,000 ใส่ได้ทุกบาท เหมือนหน้า Life Protect" : product === "EASYPROTECT" ? "500,000 – 10,000,000 ทีละแสน เกิน 3 ล้านทีละห้าแสน · รับอายุ 0–80 ปี" : product === "TWELVEPL" ? "100,000 – 50,000,000 เหมือนหน้า 12PL · รับอายุ 0–60 ปี" : "ทีละ 50,000"}</p>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "LIFEPROTECT" ? "150,000 – 50,000,000 ใส่ได้ทุกบาท เหมือนหน้า Life Protect" : product === "EASYPROTECT" ? "500,000 – 10,000,000 ทีละแสน เกิน 3 ล้านทีละห้าแสน · รับอายุ 0–80 ปี" : product === "LIFETREASURE" ? "10,000,000 – 50,000,000 ทีละล้าน เกิน 30 ล้านทีละ 5 ล้าน · รับอายุ 0–70 ปี" : product === "TWELVEPL" ? "100,000 – 50,000,000 เหมือนหน้า 12PL · รับอายุ 0–60 ปี" : "ทีละ 50,000"}</p>
                     </div>
                   )}
                   {termed(product) && (

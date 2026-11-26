@@ -5,7 +5,9 @@ import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import type { CardChart } from "@/lib/quote-card";
-import { EP_TOTAL_KICKER, epCoins, epDonePill, epFloorNote, epRoadWord, epTimesPill, epTotalPicture } from "./easyprotect-pictures";
+import { paidUpOf } from "./easyprotect";
+import { epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
+import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
 import { riderIndex, type QuoteVideoFacts, type SceneKey } from "./script";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
@@ -149,6 +151,9 @@ function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }
       <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 370 }}>
         <Swept p={s.sweep[0] ?? 1} size={52}>{f.leadMark}</Swept>
       </On>
+      {f.leadPill ? (
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 470, border: `3px solid ${P.accent}`, borderRadius: 40, padding: "4px 30px", fontSize: 40, color: P.accent }}>{f.leadPill}</On>
+      ) : null}
       <Headline c={c} layer={layer} />
     </>
   );
@@ -651,7 +656,7 @@ function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
   if (c.facts.coverStyle === "flat") return <FlatCover c={c} layer={layer} s={s} />;
   // Global Savings: the yearly table with three index examples, as the other plans' value scene (owner, 2026-10-20, ก ก)
   if (c.facts.coverStyle === "payback") return <GsTableCover c={c} layer={layer} />;
-  if (c.facts.coverStyle === "paidup") return <EasyProtectClassic c={c} layer={layer} k="cover" />;
+  if (c.facts.coverStyle === "paidup") return <EasyProtectClassic c={c} layer={layer} />;
   if (c.facts.coverStyle === "cashback") return <TwelvePlClassic c={c} layer={layer} k="cover" />;
   if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "steps") return <StepsCover c={c} layer={layer} s={s} />;
@@ -811,7 +816,8 @@ function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
   const initial = [...k.name.trim()][0] ?? "?";
   const more = k.more ? k.more.split("\n") : [];
   const vw = wordsOf(c.facts);
-  const [said, help] = vw.contactLines(c.narrator ?? "F");
+  const [said, standing] = vw.contactLines(c.narrator ?? "F");
+  const help = c.facts.contactLine ?? standing;
   return (
     <>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 220, fontSize: 44, fontWeight: 600, color: P.accent }}>
@@ -863,8 +869,8 @@ export const classicTpDraw: TpDraw = { ...classicDraw, p: () => 1 };
 /** a green or red band under a picture, "✓ การันตี ได้แน่นอน" */
 export const classicPill = (good: boolean, size: number) => ({ display: "flex", background: good ? P.gain : P.pen, color: C.paper, borderRadius: 40, padding: "8px 32px", fontSize: size, fontWeight: 600 });
 
-/** อีซี่ โพรเทค 6's six premiums and what they buy, and what is paid beside what the family receives, in the classic look (owner, 2026-11-26) */
-function EasyProtectClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: "cover" | "total" }) {
+/** อีซี่ โพรเทค 6's six premiums and what they buy, in the classic look (owner, 2026-11-26); what is paid beside what the family receives is PaidBesideClassic */
+function EasyProtectClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
   const f = c.facts;
   const g = f.easyprotect;
   if (!g) return null;
@@ -872,21 +878,46 @@ function EasyProtectClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: 
   const pill = (text: string, size: number) => <div style={box({ justifyContent: "center", width: w })}><div style={classicPill(true, size)}>{text}</div></div>;
   return (
     <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
-      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{k === "cover" ? f.coverTitle : EP_TOTAL_KICKER}</div>
-      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{k === "cover" ? f.coverNote : f.insuredLine}</div>
-      {k === "cover" ? (
-        <div style={box({ flexDirection: "column", width: w })}>
-          {epCoins(f, g, classicTpDraw, w)}
-          <div style={box({ marginTop: 50, marginBottom: 80 })}>{pill(epDonePill(g), 46)}</div>
-          {tpRoad(f, g, classicTpDraw, w, 1, epRoadWord(g))}
-          <div style={box({ marginTop: 40, justifyContent: "center", width: w, fontSize: 35, color: P.mute })}>{epFloorNote(g)}</div>
-        </div>
-      ) : (
-        <div style={box({ flexDirection: "column", width: w })}>
-          {epTotalPicture(g, classicTpDraw, w, 800)}
-          <div style={box({ marginTop: 40 })}>{pill(epTimesPill(g), 48)}</div>
-        </div>
-      )}
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{f.coverTitle}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{f.coverNote}</div>
+      <div style={box({ flexDirection: "column", width: w })}>
+        {epCoins(f, g, classicTpDraw, w)}
+        <div style={box({ marginTop: 50, marginBottom: 80 })}>{pill(epDonePill(g), 46)}</div>
+        {tpRoad(f, g, classicTpDraw, w, 1, epRoadWord(g))}
+        <div style={box({ marginTop: 40, justifyContent: "center", width: w, fontSize: 35, color: P.mute })}>{epFloorNote(g)}</div>
+      </div>
+    </On>
+  );
+}
+
+/** what is paid beside what the family receives (อีซี่ โพรเทค 6, ไลฟ์เทรเชอร์), in the classic look */
+function PaidBesideClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
+  const f = c.facts;
+  const words = totalWords(f);
+  if (!words) return null;
+  const w = W - SIDE * 2;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{words.kicker}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{f.insuredLine}</div>
+      {epTotalPicture(words.g, classicTpDraw, w, 800, 1, words.paid)}
+      <div style={box({ marginTop: 40, justifyContent: "center", width: w })}><div style={classicPill(true, 48)}>{words.pill}</div></div>
+    </On>
+  );
+}
+
+/** ไลฟ์เทรเชอร์'s three paying terms, the chosen one in the highlighter's yellow (lifetreasure-pictures.tsx) */
+function LtTermsClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
+  const f = c.facts;
+  const g = f.lifetreasure;
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{LT_TERMS_KICKER}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{f.insuredLine}</div>
+      {ltTermRows(g, classicTpDraw, w, 1.12)}
+      <div style={box({ marginTop: 16, justifyContent: "center", width: w, fontSize: 38, color: P.mute })}>{LT_TERMS_NOTE}</div>
     </On>
   );
 }
@@ -970,10 +1001,10 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
     lead: <Lead c={c} layer={layer} s={state} />,
     compare: <Compare c={c} layer={layer} s={state} />,
     critical: <Critical c={c} layer={layer} s={state} />,
-    terms: <TermsScene c={c} layer={layer} s={state} />,
+    terms: c.facts.lifetreasure ? <LtTermsClassic c={c} layer={layer} /> : <TermsScene c={c} layer={layer} s={state} />,
     index: <IndexScene c={c} layer={layer} s={state} />,
     family: <TwelvePlClassic c={c} layer={layer} k="family" />,
-    total: c.facts.easyprotect ? <EasyProtectClassic c={c} layer={layer} k="total" /> : <TwelvePlClassic c={c} layer={layer} k="total" />,
+    total: paidUpOf(c.facts) ? <PaidBesideClassic c={c} layer={layer} /> : <TwelvePlClassic c={c} layer={layer} k="total" />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,
     value: <Value c={c} layer={layer} s={state} />,

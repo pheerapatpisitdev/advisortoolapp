@@ -67,10 +67,12 @@ export function videoStartHref(s: VideoStart): string {
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
-const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING", "TWELVEPL", "EASYPROTECT"];
+const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING", "TWELVEPL", "EASYPROTECT", "LIFETREASURE"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 /** Protection Life's terms and sums: only the /plb page's own are read from an address */
 const PLB_TERMS = ["PLB05", "PLB10", "PLB12", "PLB15"];
+/** ไลฟ์เทรเชอร์'s three paying terms, the /lifetreasure page's own (lifetreasure.ts LIFETREASURE_VARIANTS) */
+const LT_TERMS = ["H99F06A", "H99F12A", "H99F18A"];
 
 /** what an address asked the form to start with; anything unreadable is left out */
 /** the customer page's button: the Studio form open on that customer's summary */
@@ -96,13 +98,15 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const setup = product === "IHEALTHY" ? cleanSetup(one(params.ihu)) : undefined;
   const lang = product === "IHEALTHY" ? readVideoLang(one(params.lang)) : "th";
   const plb = product === "PLB";
+  // the terms a plan's page offers, where only those are read from an address
+  const terms = plb ? PLB_TERMS : product === "LIFETREASURE" ? LT_TERMS : undefined;
   const riders = product === "LIFEPROTECT" || product === "TWELVEPL" ? readRiders((k) => one(params[k])) : undefined;
   return {
     product,
     ...(sex === "M" || sex === "F" ? { sex } : {}),
     ...(Number.isInteger(age) && age >= 0 && age <= 99 ? { age } : {}),
     ...(Number.isInteger(sum) && sum > 0 && sum <= 100_000_000 && (!plb || PLB_SUMS.includes(sum)) ? { sumAssured: sum } : {}),
-    ...(variant && /^[A-Z0-9]{3,12}$/.test(variant) && (!plb || PLB_TERMS.includes(variant)) ? { variant } : {}),
+    ...(variant && /^[A-Z0-9]{3,12}$/.test(variant) && (!terms || terms.includes(variant)) ? { variant } : {}),
     ...(plan && /^[A-Z]{3,12}$/.test(plan) ? { plan } : {}),
     ...([55, 60, 65, 70].includes(start) ? { annuityAge: start } : {}),
     ...(pay === "6" || pay === "untilAnnuity" ? { pay } : {}),

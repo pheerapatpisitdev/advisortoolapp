@@ -2,7 +2,9 @@ import type { CSSProperties, ReactNode } from "react";
 import { Chart } from "@/app/api/card/chart-drawing";
 import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
-import { EP_TOTAL_KICKER, epCoins, epDonePill, epFloorNote, epRoadWord, epTimesPill, epTotalPicture } from "./easyprotect-pictures";
+import { paidUpOf } from "./easyprotect";
+import { epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
+import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
 import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture } from "./twelvepl-pictures";
 import { abs, box, classicDraw, classicIndexBars, classicPill, classicTpDraw, gsHeads, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
 import { packagePicture, payoutList, riderHead, riderPicture, riderWhat } from "./rider-pictures";
@@ -132,6 +134,7 @@ function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ove
       </div>
       {f.lead.note && <On layer={layer} own="base" style={{ fontSize: g.px(24, 32), color: P.mute, marginTop: 6 }}>{f.lead.note}</On>}
       <On layer={layer} own="over" style={{ marginTop: g.px(14, 22) }}><Swept p={s.sweep[0] ?? 1} size={g.px(36, 46)}>{f.leadMark}</Swept></On>
+      {f.leadPill ? <On layer={layer} own="base" style={{ alignSelf: "flex-start", marginTop: g.px(14, 22), border: `3px solid ${P.accent}`, borderRadius: 40, padding: "2px 22px", fontSize: g.px(24, 32), color: P.accent }}>{f.leadPill}</On> : null}
     </Right>
   );
 }
@@ -596,7 +599,8 @@ function ContactScene({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer })
   const initial = [...k.name.trim()][0] ?? "?";
   const face = g.px(170, 220);
   const vw = wordsOf(c.facts);
-  const [said, help] = vw.contactLines(c.narrator ?? "F");
+  const [said, standing] = vw.contactLines(c.narrator ?? "F");
+  const help = c.facts.contactLine ?? standing;
   const big = g.px(c.facts.lang && c.facts.lang !== "th" ? 50 : 62, c.facts.lang && c.facts.lang !== "th" ? 68 : 84);
   return (
     <div style={abs({ left: g.side, width: g.w - g.side * 2, top: g.px(90, 130), height: g.bottom - g.px(90, 130), flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" })}>
@@ -720,30 +724,49 @@ function StepsScene({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; 
 
 const DONE: OverlayState = { word: -1, count: 1, sweep: [1, 1, 1], bars: [1, 1], ring: 0 };
 
-/** อีซี่ โพรเทค 6's two scenes in a classic square or landscape frame (draw.tsx EasyProtectClassic) */
+/** ไลฟ์เทรเชอร์'s three paying terms in a classic square or landscape frame (draw.tsx LtTermsClassic) */
+function LtTermsWideClassic({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer }) {
+  const f = c.facts;
+  const lt = f.lifetreasure;
+  if (!lt) return null;
+  const full = g.w - g.side * 2;
+  const listW = g.wide ? 1060 : full;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top - g.px(14, 20), width: full, flexDirection: "column" }}>
+      <div style={box({ ...kickerStyle(g), marginBottom: g.px(18, 30) })}>{LT_TERMS_KICKER}</div>
+      <div style={box({ width: full, flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" })}>
+        {ltTermRows(lt, classicTpDraw, listW, g.px(0.8, 0.9))}
+        <div style={box({ fontSize: g.px(28, 34), color: P.mute, ...(g.wide ? { marginLeft: 60, flex: 1 } : {}) })}>{LT_TERMS_NOTE}</div>
+      </div>
+    </On>
+  );
+}
+
+/** อีซี่ โพรเทค 6's two scenes in a classic square or landscape frame (draw.tsx EasyProtectClassic); its fourth is ไลฟ์เทรเชอร์'s too */
 function EasyProtectWideClassic({ g, c, layer, k }: { g: Geo; c: DrawContext; layer: Layer; k: "cover" | "total" }) {
   const f = c.facts;
-  const ep = f.easyprotect;
-  if (!ep) return null;
+  const words = totalWords(f);
+  const ep = words?.g;
+  if (!words || !ep) return null;
   const full = g.w - g.side * 2;
   const picW = g.wide ? 980 : full;
   return (
     <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top - g.px(14, 20), width: full, flexDirection: "column" }}>
-      <div style={box(kickerStyle(g))}>{k === "cover" ? f.coverTitle : EP_TOTAL_KICKER}</div>
-      {k === "cover" ? (
+      <div style={box(kickerStyle(g))}>{k === "cover" ? f.coverTitle : words.kicker}</div>
+      {k === "cover" && f.easyprotect ? (
         <div style={box({ flexDirection: "column", width: full })}>
           <div style={box({ fontSize: g.px(28, 34), color: P.mute, marginBottom: g.px(16, 18) })}>{f.coverNote}</div>
-          {epCoins(f, ep, classicTpDraw, full, g.px(0.9, 1))}
-          <div style={box({ marginTop: g.px(16, 18), marginBottom: g.px(16, 14) })}><div style={classicPill(true, g.px(30, 34))}>{epDonePill(ep)}</div></div>
-          {tpRoad(f, ep, classicTpDraw, full, g.px(0.76, 0.76), epRoadWord(ep))}
-          <div style={box({ fontSize: g.px(26, 30), color: P.mute, marginTop: 4 })}>{epFloorNote(ep)}</div>
+          {epCoins(f, f.easyprotect, classicTpDraw, full, g.px(0.9, 1))}
+          <div style={box({ marginTop: g.px(16, 18), marginBottom: g.px(16, 14) })}><div style={classicPill(true, g.px(30, 34))}>{epDonePill(f.easyprotect)}</div></div>
+          {tpRoad(f, f.easyprotect, classicTpDraw, full, g.px(0.76, 0.76), epRoadWord(f.easyprotect))}
+          <div style={box({ fontSize: g.px(26, 30), color: P.mute, marginTop: 4 })}>{epFloorNote(f.easyprotect)}</div>
         </div>
       ) : (
         <div style={box({ width: full, flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start", marginTop: g.px(4, 10) })}>
-          {epTotalPicture(ep, classicTpDraw, picW, g.px(510, 590), g.px(0.64, 0.76))}
+          {epTotalPicture(ep, classicTpDraw, picW, g.px(510, 590), g.px(0.64, 0.76), words.paid)}
           <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - picW - 60 } : { marginTop: 14 }) })}>
             {g.wide ? <div style={box({ fontSize: 34, color: P.mute, marginBottom: 24 })}>{f.insuredLine}</div> : null}
-            <div style={box({})}><div style={classicPill(true, g.px(30, 34))}>{epTimesPill(ep)}</div></div>
+            <div style={box({})}><div style={classicPill(true, g.px(30, 34))}>{words.pill}</div></div>
           </div>
         </div>
       )}
@@ -840,10 +863,10 @@ export function wideSceneLayer(key: SceneKey, c: DrawContext, layer: Layer, size
     value: <Value g={g} c={c} layer={layer} s={state} />,
     compare: <Compare g={g} c={c} layer={layer} s={state} />,
     critical: <Critical g={g} c={c} layer={layer} s={state} />,
-    terms: <Terms g={g} c={c} layer={layer} s={state} />,
+    terms: c.facts.lifetreasure ? <LtTermsWideClassic g={g} c={c} layer={layer} /> : <Terms g={g} c={c} layer={layer} s={state} />,
     index: <IndexScene g={g} c={c} layer={layer} s={state} />,
     family: <TwelvePlWideClassic g={g} c={c} layer={layer} k="family" />,
-    total: c.facts.easyprotect ? <EasyProtectWideClassic g={g} c={c} layer={layer} k="total" /> : <TwelvePlWideClassic g={g} c={c} layer={layer} k="total" />,
+    total: paidUpOf(c.facts) ? <EasyProtectWideClassic g={g} c={c} layer={layer} k="total" /> : <TwelvePlWideClassic g={g} c={c} layer={layer} k="total" />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} layer={layer} s={{ ...state, count: 1, sweep: [1] }} /> : <ContactScene g={g} c={c} layer={layer} />,
     story: <StoryScene g={g} c={c} layer={layer} s={state} />,

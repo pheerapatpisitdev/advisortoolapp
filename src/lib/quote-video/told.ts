@@ -1,4 +1,5 @@
 import { fallbackLines, writes, type VideoBrief, type WrittenLines } from "./brief";
+import { paidUpOf } from "./easyprotect";
 import { pickQas, type SpokenQa } from "./qa";
 import type { QuoteVideoFacts, SceneKey, VideoLength } from "./script";
 
@@ -55,6 +56,7 @@ const bahtSaid = (baht: number) => (baht >= 1_000_000 && baht % 100_000 === 0
 export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
   const w = linesOf(f, told) ?? fallbackLines(f, { hook: "question", ...(told.brief?.audience ? { audience: told.brief.audience } : {}) });
   const annual = priceOf(f, "รายปี") ?? f.spokenPrice.amount;
+  const paidUp = paidUpOf(f);
   const versus: VersusView = f.product === "PENSION"
     ? { left: { label: "ออมปีละ", amount: annual, unit: "บาท" }, right: { label: "นำไปลดหย่อนภาษีได้", amount: "✓", unit: "ตามเกณฑ์สรรพากร" }, note: "ยิ่งฐานภาษีสูง ยิ่งประหยัดภาษีได้มาก" }
     : f.product === "IHEALTHY"
@@ -71,11 +73,11 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     // 12 พีแอล (owner, 2026-11-26): the plan's own premiums against what comes back for certain by 85
     : f.product === "TWELVEPL" && f.twelvepl
       ? { left: { label: `ออม ${f.twelvepl.payYears} ปี รวม${f.riders ? " (สัญญาหลัก)" : ""}`, amount: f.totalPaid ?? "", unit: "บาท" }, right: { label: `ถือครบถึงอายุ ${f.twelvepl.coverToAge} รับการันตี`, amount: f.lead.amount, unit: "บาท" }, note: `+ คุ้มครองชีวิต ${f.twelvepl.sum.toLocaleString("en-US")} บาท ตลอดทาง` }
-    // อีซี่ โพรเทค 6 (owner, 2026-11-26): the premiums against what the family receives; where they reach the sum, what the plan is for
-    : f.product === "EASYPROTECT" && f.easyprotect
-      ? f.easyprotect.times
-        ? { left: { label: `เก็บเงินเอง ${f.easyprotect.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" }, right: { label: `ครอบครัวได้${f.easyprotect.atLeast ? "อย่างน้อย" : "เงินก้อน"}`, amount: bahtSaid(f.easyprotect.sum), unit: "บาท" }, note: f.breakEven ? `อายุ ${f.breakEven.age} ขอคืนได้ ${f.breakEven.cash} บาท` : "เงินที่ออมไม่หายไปไหน" }
-        : { left: { label: "แผนนี้ จ่ายแค่", amount: String(f.easyprotect.payYears), unit: "ปี" }, right: { label: "คุ้มครองถึงอายุ", amount: String(f.easyprotect.coverToAge), unit: "ปี" }, note: "ไม่ต้องจ่ายอีกหลังจ่ายครบ" }
+    // อีซี่ โพรเทค 6 and ไลฟ์เทรเชอร์ (owner, 2026-11-26): the premiums against what the family receives; where they reach the sum, what the plan is for
+    : paidUp
+      ? paidUp.times
+        ? { left: { label: `เก็บเงินเอง ${paidUp.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" }, right: { label: `ครอบครัวได้${paidUp.atLeast ? "อย่างน้อย" : "เงินก้อน"}`, amount: bahtSaid(paidUp.sum), unit: "บาท" }, note: f.breakEven ? `อายุ ${f.breakEven.age} ขอคืนได้ ${f.breakEven.cash} บาท` : "เงินที่ออมไม่หายไปไหน" }
+        : { left: { label: "แผนนี้ จ่ายแค่", amount: String(paidUp.payYears), unit: "ปี" }, right: { label: "คุ้มครองถึงอายุ", amount: String(paidUp.coverToAge), unit: "ปี" }, note: "ไม่ต้องจ่ายอีกหลังจ่ายครบ" }
       : {
         left: { label: f.payToEnd ? `เก็บเงินเองถึงอายุ ${f.lastPayAge}` : `เก็บเงินเอง ${f.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" },
         right: { label: f.product === "ISHIELD" ? "รับเงินก้อนสูงสุด" : "ครอบครัวได้เงินก้อน", amount: bahtSaid(f.lead.baht), unit: "บาท" },
@@ -88,7 +90,7 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     : f.product === "PLB" ? "บริษัทพิจารณาแล้วรับกรมธรรม์" : "อนุมัติแล้วเริ่มคุ้มครอง";
   return {
     story: { points: w.points ?? [] },
-    qas: pickQas(f.product, told.brief?.story, f.plb?.variant, f.hide, f.gsaving, f.twelvepl),
+    qas: pickQas(f.product, told.brief?.story, f.plb?.variant ?? f.lifetreasure?.variant, f.hide, f.gsaving, f.twelvepl),
     versus,
     steps: ["ทักมาคุยกัน", "รับใบเสนอ กรอกใบคำขอ", third],
   };
@@ -113,8 +115,9 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
       if (f.product === "GSAVING" && f.gsaving) {
         return `ออม ${f.gsaving.payYears} ปี รวม ${x.versus.left.amount} บาท แผนนี้รับคืนการันตี ${x.versus.right.amount} บาท ระหว่างนั้นยังคุ้มครองชีวิต และมีโอกาสได้โบนัสตามดัชนีโลกอีกค่ะ`;
       }
-      if (f.product === "EASYPROTECT" && f.easyprotect) {
-        const g = f.easyprotect;
+      const pu = paidUpOf(f);
+      if (pu) {
+        const g = pu;
         return g.times
           ? `ถ้าเก็บเงินเอง ${g.payYears} ปี จะมีเงิน ${x.versus.left.amount} บาท แต่แผนนี้ ครอบครัวได้${g.atLeast ? "อย่างน้อย" : "เงินก้อน"} ${x.versus.right.amount}บาท ตั้งแต่ปีแรกค่ะ`.replace(/(\d)บาท/, "$1 บาท")
           : `ออมแค่ ${g.payYears} ปี หลังจากนั้นไม่ต้องจ่ายอีก แต่คุ้มครองไปถึงอายุ ${g.coverToAge} ค่ะ`;

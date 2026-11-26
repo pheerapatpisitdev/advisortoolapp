@@ -39,7 +39,7 @@ export function factLines(f: QuoteVideoFacts): string[] {
     ...(f.riderNames?.length ? [`สัญญาเพิ่มเติมที่แนบ: ${f.riderNames.join(" · ")}`] : []),
     `คุ้มครองถึงอายุ ${f.coverToAge}`,
     ...f.cover.map((r) => `${r.label}: ${r.amount}`),
-    ...(f.breakEven && !f.easyprotect ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),
+    ...(f.breakEven && !f.easyprotect && !f.lifetreasure ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),
     ...(f.illness ? [`โรคร้ายแรง ${f.illness.total} โรค ระยะเริ่มต้น ${f.illness.early} โรค ระยะรุนแรง ${f.illness.major} โรค โรคร้ายแรงคุ้มครองหลัง 90 วันแรก`] : []),
     ...(f.budget ? [`ลูกค้า${f.product === "LEGACY" || f.product === "PLB" ? "จ่ายไหว" : "ออมไหว"} ${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท`] : []),
   ];
@@ -74,6 +74,17 @@ export function factLines(f: QuoteVideoFacts): string[] {
       `ถ้าเป็นอะไรไป ครอบครัวได้${g.atLeast ? "อย่างน้อย" : ""} ${g.sum.toLocaleString("en-US")} บาท ถึงอายุ ${g.coverToAge}`,
       ...(g.times ? [`คิดเป็น ${g.times} เท่าของที่ออม`] : ["ห้ามเทียบยอดออมรวมกับเงินที่ครอบครัวได้"]),
       ...(f.breakEven ? [`มูลค่าเงินสดครบเท่าที่ออมตอนอายุ ${f.breakEven.age} ห้ามพูดว่ามากกว่าที่ออม`] : []), "ห้ามพูดเรื่องภาษี");
+  }
+  if (f.lifetreasure) {
+    const g = f.lifetreasure;
+    const m = (n: number) => n.toLocaleString("en-US");
+    out.push(`เงินก้อนส่งต่อให้ครอบครัว ระบุจำนวนไว้ล่วงหน้า ไม่ขึ้นกับตลาด แบ่งให้ใครเท่าไรระบุได้`,
+      `จ่าย ${g.payYears} ปี ปีละ ${g.annual} บาท รวม ${m(g.paid)} บาท แล้วไม่ต้องจ่ายอีก`,
+      `ถ้าเป็นอะไรไป ครอบครัวได้${g.atLeast ? "อย่างน้อย" : ""} ${m(g.sum)} บาท ถึงอายุ ${g.coverToAge}`,
+      `เลือกระยะจ่ายได้ ${g.terms.map((x) => `${x.years} ปี (ปีละ ${x.annual} บาท)`).join(" · ")}`,
+      ...(g.times ? [`ส่งต่อได้ ${g.times} เท่าของที่ออม`] : ["ห้ามเทียบยอดออมรวมกับเงินที่ครอบครัวได้"]),
+      ...(f.breakEven ? [`มูลค่าเงินสดครบเท่าที่ออมตอนอายุ ${f.breakEven.age} ห้ามพูดว่ามากกว่าที่ออม`] : []),
+      `ถึงอายุ ${g.coverToAge} มูลค่าเงินสด ${m(g.endCash)} บาท`, "ห้ามพูดเรื่องภาษี");
   }
   if (f.twelvepl) {
     const g = f.twelvepl;
