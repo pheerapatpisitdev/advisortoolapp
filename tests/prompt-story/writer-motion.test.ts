@@ -51,16 +51,97 @@ describe("writer: โมชันกราฟิก layouts", () => {
     expect(r.scenes.map((s) => s.motion?.kind)).toEqual(["hook", "card", "number", "compare", "full"]);
   });
 
-  it("a number the brief lacks is asked again with motion.value, then becomes plainMotion", async () => {
+  it("a number the brief lacks is asked again with motion.value, then the scene keeps its words as a hook of its screen", async () => {
     const ask = vi.fn().mockResolvedValue(reply([sc(hook), sc(number(12345), { screen: "ค่าห้องแพง" }), sc(compare)]));
     const r = await writeStory({ brief: BRIEF, scenes: 3, design: "motion", ask });
     if (!r.ok) throw new Error("not ok");
     expect(ask).toHaveBeenCalledTimes(2);
     expect(ask.mock.calls[1].join("\n")).toContain("motion.value");
     expect(r.notes).toEqual([1]);
-    expect(r.scenes[1].motion).toEqual({ kind: "hook", lines: ["ช่วยให้ครอบครัว", "ไปต่อได้"], key: -1, icon: "heart" });
+    expect(r.scenes[1]).toEqual({ voice: "วันนี้มาคุยเรื่องดูแลครอบครัว", screen: "ค่าห้องแพง", picture: "", motion: plainMotion("ค่าห้องแพง") });
     expect(checkMotion(r.scenes[1].motion, new Set(), new Set())).toEqual(r.scenes[1].motion);
     expect(r.scenes[0].motion?.kind).toBe("hook");
+  });
+
+  it("a hook line one letter over 22, twice, keeps the scene's voice and screen (spec: a hook of its screen words, free)", async () => {
+    const long = { ...hook, lines: ["ก".repeat(23)] };
+    const own = { voice: "ค่ารักษาวันนี้ไม่เหมือนเมื่อก่อนนะคะ", screen: "ค่ารักษาแพงขึ้นทุกปี" };
+    const ask = vi.fn().mockResolvedValue(reply([sc(hook), sc(long, own), sc(compare)]));
+    const r = await writeStory({ brief: BRIEF, scenes: 3, design: "motion", ask });
+    if (!r.ok) throw new Error("not ok");
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(r.notes).toEqual([1]);
+    expect(r.scenes[1]).toEqual({ ...own, picture: "", motion: plainMotion(own.screen) });
+    expect(r.scenes[1].voice).not.toContain("ประกันช่วยให้ครอบครัว");
+  });
+
+  it("a painted layout left without picture words twice keeps its words too, as a free hook", async () => {
+    const ask = vi.fn().mockResolvedValue(reply([sc(hook), sc(card, { screen: "ห้องพักผู้ป่วย" }), sc(compare)]));
+    const r = await writeStory({ brief: BRIEF, scenes: 3, design: "motion", ask });
+    if (!r.ok) throw new Error("not ok");
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(r.notes).toEqual([1]);
+    expect(r.scenes[1]).toMatchObject({ voice: "วันนี้มาคุยเรื่องดูแลครอบครัว", screen: "ห้องพักผู้ป่วย", picture: "", motion: plainMotion("ห้องพักผู้ป่วย") });
+  });
+
+  it("a scene whose own words fail twice still falls back to the fixed outline", async () => {
+    const ask = vi.fn().mockResolvedValue(reply([sc(hook), sc(hook, { voice: "ค่าห้อง 99999 บาท" }), sc(compare)]));
+    const r = await writeStory({ brief: BRIEF, scenes: 3, design: "motion", ask });
+    if (!r.ok) throw new Error("not ok");
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(r.notes).toEqual([1]);
+    expect(r.scenes[1].voice).toBe("ประกันช่วยให้ครอบครัวยังไปต่อได้ เมื่อมีเรื่องไม่คาดคิดเกิดขึ้น");
+    expect(r.scenes[1].motion).toEqual({ kind: "hook", lines: ["ช่วยให้ครอบครัว", "ไปต่อได้"], key: -1, icon: "heart" });
+  });
+
+  it("a device that fails its check keeps the scene's words as a hook of its screen, asked once", async () => {
+    const bad = { layout: "room", title: ["ค่าห้อง", "ต่อคืน"], plan: 99999, planName: "" };
+    const ask = vi.fn().mockResolvedValue(reply([sc(hook), sc(null, { device: bad, screen: "ค่าห้องต่อคืน", picture: "ห้องพัก" }), sc(compare)]));
+    const r = await writeStory({ brief: BRIEF, scenes: 3, design: "motion", ask });
+    if (!r.ok) throw new Error("not ok");
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(r.notes).toEqual([]);
+    expect(r.scenes[1]).toEqual({ voice: "วันนี้มาคุยเรื่องดูแลครอบครัว", screen: "ค่าห้องต่อคืน", picture: "", motion: plainMotion("ค่าห้องต่อคืน") });
+  });
+
+  it("the premium card scene needs no layout: motion null is kept with showFigure, never asked again, and any layout it carries is dropped", async () => {
+    const figure = { plan: "LIFEPROTECT", variant: "x", sex: "M", age: 40, sumAssured: 3_000_000, annual: 99_999, monthly: 8_400 } as never;
+    const ask = vi.fn().mockResolvedValue(reply([sc(hook), sc(null, { showFigure: true, picture: "ครอบครัว" }), sc(compare)]));
+    const r = await writeStory({ brief: BRIEF, scenes: 3, design: "motion", figure, ask });
+    if (!r.ok) throw new Error("not ok");
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(r.notes).toEqual([]);
+    expect(r.scenes[1]).toEqual({ voice: "วันนี้มาคุยเรื่องดูแลครอบครัว", screen: "ดูแลครอบครัว", picture: "", showFigure: true });
+    const carried = vi.fn().mockResolvedValue(reply([sc(hook), sc(card, { showFigure: true }), sc(compare)]));
+    const c = await writeStory({ brief: BRIEF, scenes: 3, design: "motion", figure, ask: carried });
+    if (!c.ok) throw new Error("not ok");
+    expect(carried).toHaveBeenCalledTimes(1);
+    expect(c.scenes[1].showFigure).toBe(true);
+    expect(c.scenes[1].motion).toBeUndefined();
+    expect(pictureScenes({ scenes: c.scenes, design: "motion" })).toBe(0);
+  });
+
+  it("a second premium card scene, from the retry, loses the card and becomes a hook of its screen words", async () => {
+    const figure = { plan: "LIFEPROTECT", variant: "x", sex: "M", age: 40, sumAssured: 3_000_000, annual: 99_999, monthly: 8_400 } as never;
+    const ask = vi.fn()
+      .mockResolvedValueOnce(reply([sc(hook), sc(null, { showFigure: true }), sc(number(12345), { screen: "ค่าห้องแพง" })]))
+      .mockResolvedValueOnce(reply([sc(hook), sc(compare), sc(null, { showFigure: true, screen: "ค่าห้องแพง" })]));
+    const r = await writeStory({ brief: BRIEF, scenes: 3, design: "motion", figure, ask });
+    if (!r.ok) throw new Error("not ok");
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(r.scenes[1].showFigure).toBe(true);
+    expect(r.scenes[2].showFigure).toBeUndefined();
+    expect(r.scenes[2].motion).toEqual(plainMotion("ค่าห้องแพง"));
+    expect(pictureScenes({ scenes: r.scenes, design: "motion" })).toBe(0);
+  });
+
+  it("picture words on a scene that paints nothing are dropped, never asked again for their digits", async () => {
+    const ask = vi.fn().mockResolvedValue(reply([sc(hook, { picture: "ห้องพัก 3 ห้อง" }), sc(number(5000), { picture: "บิล 5000 บาท" }), sc(compare)]));
+    const r = await writeStory({ brief: BRIEF, scenes: 3, design: "motion", ask });
+    if (!r.ok) throw new Error("not ok");
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(r.notes).toEqual([]);
+    expect(r.scenes.map((s) => s.picture)).toEqual(["", "", ""]);
   });
 
   it("a scene with no layout is asked again too, and a good retry is kept", async () => {
@@ -143,6 +224,12 @@ describe("writer: โมชันกราฟิก layouts", () => {
       const r = await rewriteScene({ brief: BRIEF, scenes: draft, scene: 1, design: "motion", ask });
       expect(r.ok && r.scene.motion).toEqual({ kind: "number", value: 5000, unit: "บาท", tag: "ค่าห้อง", bill: "ตามโจทย์" });
       expect(ask.mock.calls[0][0]).toContain('"motion"');
+    });
+    it("picture words on a rewritten hook are dropped, not a reason to refuse it", async () => {
+      const ask = vi.fn().mockResolvedValue(JSON.stringify({ scene: sc(hook, { picture: "ห้องพัก 3 ห้อง" }) }));
+      const r = await rewriteScene({ brief: BRIEF, scenes: draft, scene: 1, design: "motion", ask });
+      expect(ask).toHaveBeenCalledTimes(1);
+      expect(r.ok && r.scene).toMatchObject({ picture: "", motion: { kind: "hook" } });
     });
     it("a layout that fails twice is refused", async () => {
       const ask = vi.fn().mockResolvedValue(JSON.stringify({ scene: sc(number(12345)) }));

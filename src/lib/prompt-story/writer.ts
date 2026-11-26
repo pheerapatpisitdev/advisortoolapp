@@ -25,7 +25,10 @@ import { MOTION_ICONS, MOTION_KINDS, MOTION_LIMITS as L, SCREEN_MAX, TITLE_MAX, 
  *
  * โมชันกราฟิก (owner, 2026-11-26): with `design: "motion"` the model also picks a layout per scene (types.ts
  * MotionLayout, checked by checkMotion) and is Claude Sonnet 5, falling back to gemini-3.7-flash then gpt-5. "Never
- * Claude" holds for หน้าตาเดิม only: without `design` the prompt, the call and the lane are what they were.
+ * Claude" holds for หน้าตาเดิม only: without `design` the prompt, the call and the lane are what they were. There a
+ * scene still failing after the second ask keeps its own voice and screen as a free hook of its screen words
+ * (plainMotion) unless those words themselves fail; the premium card scene needs no layout; picture words are kept
+ * only on a scene that paints.
  */
 
 export const WRITER_TASK = "prompt-story-script";
@@ -51,7 +54,7 @@ const defaultAsk = (count: number, design?: PromptDesign): Ask => async (system,
   })).text;
 };
 
-/** a scene's layout when the writer's failed twice or the cap took its picture: its screen words as an opening line, free */
+/** a scene's layout when the writer's failed twice, its device failed, or the cap took its picture: its screen words as an opening line, free */
 export function plainMotion(screen: string): MotionLayout {
   const max = L.line;
   const mark = /[ัิ-ฺ็-๎]/;
@@ -277,23 +280,45 @@ function system(brief: string, count: number, figure?: StoryFigure, format?: Pro
 /** a dropped device's scene is painted: its own picture words, else the screen's without figures */
 const pictureFrom = (screen: string) => screen.replace(/[\d๐-๙][\d๐-๙,.]*/g, "").replace(/\s+/g, " ").trim().slice(0, 300);
 
-/** one scene of a reply: its device kept only when checkDevice passes it */
+/**
+ * one scene of a reply: its device kept only when checkDevice passes it. In โมชันกราฟิก a device that fails leaves
+ * the scene a hook of its screen words (free, never asked again), as หน้าตาเดิม leaves it a picture scene.
+ */
 function sceneOf(x: unknown, forDevice: Set<number>, tax: TaxSources, design?: PromptDesign, allowed?: Set<number>): { scene: PromptScene; wantsFigure: boolean; motionWhy: string[] } {
   const o = (x ?? {}) as Record<string, unknown>;
   const s: PromptScene = { voice: clean(o.voice, 400), screen: clean(o.screen, SCREEN_MAX), picture: clean(o.picture, 300) };
+  let dropped = false;
   if (o.device !== undefined && o.device !== null) {
     const d = checkDevice(o.device, forDevice, tax);
-    if (typeof d === "string") s.picture ||= pictureFrom(s.screen);
-    else s.device = d;
+    if (typeof d !== "string") s.device = d;
+    else if (design === "motion") dropped = true;
+    else s.picture ||= pictureFrom(s.screen);
   }
   // a layout is kept only when checkMotion passes it; its reasons go back to the model (a device scene needs none)
   let motionWhy: string[] = [];
-  if (design === "motion" && !s.device) {
+  if (dropped) s.motion = plainMotion(s.screen);
+  else if (design === "motion" && !s.device) {
     const m = checkMotion(o.motion, allowed ?? forDevice, forDevice);
     if (Array.isArray(m)) motionWhy = m;
     else s.motion = m;
   }
   return { scene: s, wantsFigure: o.showFigure === true, motionWhy };
+}
+
+/**
+ * a scene settled for โมชันกราฟิก once its figure card is known, before it is checked: the premium card draws the
+ * figure in place of a layout, so it needs none (one it carries is dropped, with its reasons); a scene that paints
+ * nothing keeps no picture words, so they are never checked nor asked again. Returns the layout's reasons left.
+ */
+function settle(s: PromptScene, why: string[], design?: PromptDesign): string[] {
+  if (design !== "motion") return why;
+  let left = why;
+  if (s.showFigure) {
+    delete s.motion;
+    left = [];
+  }
+  if (!paints(s, design)) s.picture = "";
+  return left;
 }
 
 /** the first `max` devices kept, the rest painted */
@@ -328,10 +353,10 @@ function read(text: string, count: number, forDevice: Set<number>, tax: TaxSourc
   const motionWhy: string[][] = [];
   const scenes = raw.slice(0, count).map((x): PromptScene => {
     const { scene: s, wantsFigure, motionWhy: why } = sceneOf(x, forDevice, tax, design, allowed);
-    motionWhy.push(why);
     const show = Boolean(figure) && wantsFigure && !shown;
     if (show) shown = true;
     if (show) s.showFigure = true;
+    motionWhy.push(settle(s, why, design));
     return s;
   });
   return { onTopic: j.onTopic !== false, refusal: clean(j.refusal, 200), title: clean(j.title, TITLE_MAX), caption: clean(j.caption, 400), scenes, motionWhy };
@@ -390,17 +415,34 @@ export async function writeStory(input: { brief: string; scenes: SceneCount; fig
     }
     bad = problems();
   }
+  // โมชันกราฟิก (spec: a scene whose layout fails twice becomes a hook of its screen words): a scene whose own voice
+  // and screen pass keeps them, its layout or picture words given up; only words that fail take the fixed outline
+  const ownWords = (s: PromptScene) =>
+    Boolean(s.voice && s.screen) && !checkScene({ voice: s.voice, screen: s.screen, picture: "", ...(s.device ? { device: s.device } : {}) }, allowed, forDevice, tax).length;
   const notes = [...bad.keys()].sort((a, b) => a - b);
   for (const i of notes) {
+    const s = scenes[i];
+    if (design === "motion" && ownWords(s)) {
+      scenes[i] = { voice: s.voice, screen: s.screen, picture: "", ...(s.showFigure ? { showFigure: true } : { motion: plainMotion(s.screen) }) };
+      continue;
+    }
     scenes[i] = plainLine(i);
     if (design === "motion") scenes[i].motion = { kind: "hook", lines: [...PLAIN_MOTION_LINES[i % PLAIN_MOTION_LINES.length]], key: -1, icon: "heart" };
   }
   // half the scenes at most as devices, whichever survived both asks
   capDevices(scenes, deviceMax(count));
   if (design === "motion") capPainted(scenes, paintedMax(count));
-  // one figure at most, whichever scenes survived
+  // one figure at most, whichever scenes survived; in โมชันกราฟิก a scene losing the card (it has no layout) is a hook of its screen words
   let shown = false;
-  for (const s of scenes) if (s.showFigure) { if (!figure || shown) delete s.showFigure; else shown = true; }
+  for (const s of scenes) {
+    if (!s.showFigure) continue;
+    if (figure && !shown) {
+      shown = true;
+      continue;
+    }
+    delete s.showFigure;
+    if (design === "motion" && !s.motion && !s.device && !s.asset) s.motion = plainMotion(s.screen);
+  }
 
   const DEFAULT_TITLE = "วางแผนดูแลครอบครัว";
   const DEFAULT_CAPTION = "ทักมาคุยกันได้เลยค่ะ";
@@ -461,9 +503,10 @@ export async function rewriteScene(input: { brief: string; scenes: PromptScene[]
       why = "ตอบไม่เป็น JSON ตามรูปแบบ";
       continue;
     }
-    const { scene: s, wantsFigure, motionWhy } = sceneOf(j.scene, forDevice, tax, design, allowed);
+    const { scene: s, wantsFigure, motionWhy: written } = sceneOf(j.scene, forDevice, tax, design, allowed);
     if (s.device && room <= 0) capDevices([s], 0);
     if (keepsFigure || (wantsFigure && figure && !shownElsewhere)) s.showFigure = true;
+    const motionWhy = settle(s, written, design);
     const reasons = empty(s, design, motionWhy.length > 0) ? ["ฉากว่างหรือไม่ครบ"] : checkScene(s, allowed, forDevice, tax);
     reasons.push(...motionWhy);
     if (design === "motion" && paintRoom <= 0 && paints(s, design)) reasons.push("motion: รูป AI เต็มครึ่งหนึ่งของฉากแล้ว ใช้ hook, number, compare หรือ check ที่ photo เป็น false");
