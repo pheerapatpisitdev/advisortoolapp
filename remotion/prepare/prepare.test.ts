@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFi
 import { join } from "node:path";
 import sharp from "sharp";
 import { it } from "vitest";
+import type { PromptStoryInput } from "@/lib/prompt-story/types";
 
 /**
  * The Remotion trial's prepare step (owner, 2026-10-17: "ย้ายทั้งหมดเลย"). Everything the clip shows
@@ -542,6 +543,54 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
   writeFileSync(join(PUB, "audio/st-free-device.wav"), silentWav(clipLength(dPlans)));
   for (const style of ["paper", "warm", "plot", "line", "board", "neon", "blueprint"] as const) {
     writeFileSync(join(PUB, `props/st-free-device-${style}.json`), JSON.stringify(storyClipProps({ ...devices, style } as never, "portrait", "", "M", CONTACT, dPlans, dScript, dSecs, clipLength(dPlans), "audio/st-free-device.wav", [undefined, undefined])));
+  }
+
+  // โมชันกราฟิก (design "motion", owner 2026-11-26, mockup ข round 2): a layout a scene, the photo in the card and in the
+  // check's circle, a device drawn in the look; every layout and the device held to the brief by the app's own check.
+  // props/st-free-motion.json is portrait, props/st-free-motion-wide.json the same clip in landscape
+  const { checkMotion, allowedFor } = await import("@/lib/prompt-story/check");
+  const { paints, pictureScenes } = await import("@/lib/prompt-story/types");
+  const motionBrief = "ลูกป่วยเป็นไข้เลือดออก นอนโรงพยาบาล 5 วัน ค่ารักษา 68,000 บาท มีประกันสุขภาพวงเงินปีละ 5,000,000 บาท";
+  const motion: PromptStoryInput = {
+    ...free, brief: motionBrief, title: "ลูกป่วยทีเดียว", style: "cartoon3d", design: "motion", narrator: "F", faces: { narrator: "w26" },
+    pictures: [null, "free/pic-0.jpg", null, null, "free/pic-1.jpg", null],
+    scenes: [
+      { voice: "ลูกป่วยทีเดียว ค่ารักษาเท่าไหร่ เคยคิดไว้ไหมคะ", screen: "ลูกป่วยทีเดียว ค่ารักษาเท่าไหร่?", picture: "",
+        motion: { kind: "hook", lines: ["ลูกป่วยทีเดียว", "ค่ารักษา", "เท่าไหร่?"], key: 2, icon: "fever" } },
+      { voice: "เคสจริงของลูกค้า ลูกเป็นไข้เลือดออก นอนโรงพยาบาล 5 วัน", screen: "เคสจริงของลูกค้า", picture: "เด็กนอนพักบนเตียงโรงพยาบาล แม่นั่งจับมือข้างเตียง",
+        motion: { kind: "card", tag: "เคสจริงของลูกค้า", chips: ["ไข้เลือดออก", "นอน รพ. 5 วัน"] } },
+      { voice: "ค่ารักษา 5 วัน รวมแล้ว 68,000 บาท", screen: "ค่ารักษา 68,000 บาท", picture: "",
+        motion: { kind: "number", value: 68_000, unit: "บาท", tag: "ค่ารักษา 5 วัน", bill: "ใบแจ้งค่ารักษา" } },
+      { voice: "ถ้าไม่มีแผนไว้ ต้องควักเงินเก็บจ่ายเอง แต่ถ้าวางแผนไว้ก่อน ก็เบิกตามแผนที่ทำไว้", screen: "ถ้าลูกป่วยแบบนี้", picture: "",
+        motion: { kind: "compare", title: "ถ้าลูกป่วยแบบนี้", bad: { head: "ไม่มีแผนไว้", lines: ["ควักเงินเก็บ", "จ่ายเอง 68,000 บาท"] }, good: { head: "วางแผนไว้ก่อน", lines: ["เบิกตามแผน", "ที่ทำไว้"] } } },
+      { voice: "วางแผนไว้ก่อน เลือกแผนตามงบ เลือกโรงพยาบาลที่ใช้ประจำ เริ่มได้ตั้งแต่ลูกยังเล็ก", screen: "วางแผนไว้ก่อน ไม่ต้องห่วง", picture: "แม่กอดลูกยิ้มอยู่ในบ้าน แสงอบอุ่น",
+        motion: { kind: "check", lines: ["วางแผนไว้ก่อน", "ไม่ต้องห่วง"], ticks: ["เลือกแผนตามงบที่จ่ายไหว", "เลือกโรงพยาบาลที่ใช้ประจำ", "เริ่มได้ตั้งแต่ลูกยังเล็ก"], photo: true } },
+      { voice: "วงเงินปีละ 5,000,000 บาท ใช้ไป 68,000 บาท ยังเหลืออีกมากค่ะ", screen: "", picture: "",
+        device: { layout: "limit", title: ["วงเงินต่อปี", "ใช้ไปเท่าไหร่"], limit: 5_000_000, used: 68_000, planName: "iHealthy Silver" } },
+    ],
+  };
+  const motionBad = checkScript(motion.scenes, motionBrief);
+  if (motionBad.length) throw new Error(`st-free-motion: ${JSON.stringify(motionBad)}`);
+  for (const sc of motion.scenes) {
+    if (sc.device) {
+      const d = checkDevice(sc.device, deviceAllowed(motionBrief));
+      if (typeof d === "string" || JSON.stringify(d) !== JSON.stringify(sc.device)) throw new Error(`st-free-motion ${sc.device.layout}: ${typeof d === "string" ? d : `changed to ${JSON.stringify(d)}`}`);
+    } else {
+      const m = checkMotion(sc.motion, allowedFor(motionBrief), deviceAllowed(motionBrief));
+      if (Array.isArray(m) || JSON.stringify(m) !== JSON.stringify(sc.motion)) throw new Error(`st-free-motion ${sc.motion?.kind}: ${Array.isArray(m) ? m.join(", ") : `changed to ${JSON.stringify(m)}`}`);
+    }
+  }
+  // the photo stands in for the painter's picture on exactly the scenes that paint one (types.ts paints)
+  const shown = motion.pictures ?? [];
+  if (pictureScenes(motion) !== shown.filter(Boolean).length || motion.scenes.some((sc, i) => paints(sc, motion.design) !== Boolean(shown[i]))) {
+    throw new Error("st-free-motion: pictures do not match the painted scenes");
+  }
+  const mgScript = [...motion.scenes.map((sc) => ({ key: "freeScene" as const, voice: sc.voice })), { key: "storyContact" as const, voice: "สนใจรายละเอียดเพิ่มเติม ทักมาได้เลยนะคะ" }];
+  const mgSecs = mgScript.map((sc) => secsOf(sc.voice));
+  const mgPlans = planScenes(mgScript.map((sc, i) => ({ key: sc.key, voice: sc.voice, voiceSec: mgSecs[i], windows: sc.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS, ...(sc.key === "storyContact" ? {} : freeTail(motion.scenes[i], mgSecs[i])) })));
+  writeFileSync(join(PUB, "audio/st-free-motion.wav"), silentWav(clipLength(mgPlans)));
+  for (const [name, size] of [["st-free-motion", "portrait"], ["st-free-motion-wide", "landscape"]] as const) {
+    writeFileSync(join(PUB, `props/${name}.json`), JSON.stringify(storyClipProps({ ...motion, size }, size, "", "F", CONTACT, mgPlans, mgScript, mgSecs, clipLength(mgPlans), "audio/st-free-motion.wav", shown.map((x) => x ?? undefined))));
   }
 });
 
