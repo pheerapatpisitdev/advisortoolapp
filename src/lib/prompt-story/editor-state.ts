@@ -2,7 +2,7 @@ import { checkDevice, type TaxSources } from "./check";
 import { deviceInfo } from "@/lib/scene-library/devices";
 import { isUploadId } from "@/lib/scene-library/upload-rules";
 import { BAND_WORDS, HEALTH2_LAYOUTS, HEALTH2_WORDS, META_LAYOUTS, SAVE_LAYOUTS, type GroupBand } from "@/lib/quote-video/story-knowledge";
-import type { DeviceScene, PromptScene } from "./types";
+import { paints, type DeviceScene, type PromptDesign, type PromptScene } from "./types";
 
 /**
  * The script editor's sums and moves (health devices, Task 10), kept apart from the page so they are
@@ -95,19 +95,25 @@ export function sceneKind(s: PromptScene, forDevice: Set<number>, tax?: TaxSourc
   return asset ? { kind: "asset", id: asset } : { kind: "broken", reason: deviceReason(d, String(s.device.layout)), name };
 }
 
-/** neither a passing device nor a part: the painter draws it */
-const painted = (k: SceneKind) => k.kind === "picture" || k.kind === "broken";
+/** neither a passing device nor a part: the painter draws it, and in โมชันกราฟิก only where its layout shows a picture (paints; a broken device is stripped as the server drops it) */
+const painted = (s: PromptScene, k: SceneKind, design?: PromptDesign) => {
+  if (k.kind !== "picture" && k.kind !== "broken") return false;
+  const { device: _d, asset: _a, ...rest } = s;
+  void _d;
+  void _a;
+  return paints(rest, design);
+};
 
 /** the scenes the painter draws and the clip charges for: no device or part, or a device the server will drop */
-export const pictureCount = (scenes: PromptScene[], forDevice: Set<number>, tax?: TaxSources): number =>
-  scenes.filter((s) => painted(sceneKind(s, forDevice, tax))).length;
+export const pictureCount = (scenes: PromptScene[], forDevice: Set<number>, tax?: TaxSources, design?: PromptDesign): number =>
+  scenes.filter((s) => painted(s, sceneKind(s, forDevice, tax), design)).length;
 
 /** the server's words for a picture scene left without its picture words (checkedPromptStory) */
 export const needPictureWords = (n: number): string => `ใส่คำบรรยายภาพของฉากที่ ${n}`;
 
 /** the first picture scene (from 0) with no picture words, as the server would refuse it; null when none */
-export function missingPicture(scenes: PromptScene[], forDevice: Set<number>, tax?: TaxSources): number | null {
-  const i = scenes.findIndex((s) => painted(sceneKind(s, forDevice, tax)) && !s.picture.replace(/\s+/g, " ").trim());
+export function missingPicture(scenes: PromptScene[], forDevice: Set<number>, tax?: TaxSources, design?: PromptDesign): number | null {
+  const i = scenes.findIndex((s) => painted(s, sceneKind(s, forDevice, tax), design) && !s.picture.replace(/\s+/g, " ").trim());
   return i < 0 ? null : i;
 }
 

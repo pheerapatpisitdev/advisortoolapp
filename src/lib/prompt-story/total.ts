@@ -1,5 +1,5 @@
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
-import { promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "./types";
+import { paints, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
  * The line above สร้างคลิป (owner's mockup, 2026-10-16): what pressing it takes, before anything is
@@ -19,9 +19,12 @@ export function totalLine(v: {
   /** the บัญชีสาธิต (CostView's demo, 2026-11-11) */
   demo?: boolean;
 }): { text: string; baht: string; blocked?: true } {
-  // only the scenes (which carry a device), painter and voice are read by the price functions
-  const drawn = Math.min(v.scenes, Math.max(0, v.pictures ?? v.scenes));
-  const scenes = Array.from({ length: v.scenes }, (_, i) => (i < drawn ? {} : { device: true }));
+  // only the scenes (what `paints`: a part is never painted or charged), painter and voice are read by the price functions
+  const plain: PromptScene = { voice: "", screen: "", picture: "" };
+  const unpainted: PromptScene = { ...plain, asset: "-" };
+  const given = Math.min(v.scenes, Math.max(0, v.pictures ?? v.scenes));
+  const scenes = Array.from({ length: v.scenes }, (_, i) => (i < given ? plain : unpainted));
+  const drawn = scenes.filter((s) => paints(s)).length;
   const shell = { scenes, painter: v.painter, ...(v.voice ? { voice: v.voice } : {}) } as unknown as PromptStoryInput;
   const each = priceBaht(promptPicturePrice(shell, v.prices));
   const pictures = `รูป ${drawn} × ฿${each}`;
