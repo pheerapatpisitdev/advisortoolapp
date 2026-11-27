@@ -261,19 +261,25 @@ export async function sendAgentTest(agentId: string): Promise<"sent" | "unlinked
   return "sent";
 }
 
+/** what became of an alert: sent; not linked; that switch off; held back (the month's pushes near full); or the push failed */
+export type Told = "sent" | "unlinked" | "off" | "held" | "failed";
+
 /**
- * One alert to one agent, if linked and that switch is on: its words, or its messages sent as one
- * push (one of the month's allowance however many it holds). Never throws; false when nothing went.
+ * One alert to one agent, if linked and that switch is on (`force`: whatever the switch says — a
+ * clip ordered in the LINE chat): its words, or its messages sent as one push (one of the month's
+ * allowance however many it holds). `held`, asked last, keeps the push back. Never throws.
  */
-async function tell(agentId: string, which: AgentNotify, said: string | LineMessage[]): Promise<boolean> {
+async function tellAs(agentId: string, which: AgentNotify, said: string | LineMessage[], opts: { force?: boolean; held?: () => Promise<boolean> } = {}): Promise<Told> {
   try {
     const r = await rowOf(agentId);
-    if (!r?.line_user_id || !r[COLUMN[which]]) return false;
+    if (!r?.line_user_id) return "unlinked";
+    if (!r[COLUMN[which]] && !opts.force) return "off";
+    if (opts.held && (await opts.held())) return "held";
     await push(r.line_user_id, typeof said === "string" ? [{ type: "text", text: said }] : said);
-    return true;
+    return "sent";
   } catch (e) {
     console.error(`[line] ${which} alert to agent ${agentId} not sent:`, e);
-    return false;
+    return "failed";
   }
 }
 
@@ -323,13 +329,25 @@ export interface ClipVideo { url: string; preview: string }
 
 /** the clip done: with its video when there is one, else the words and the link as before */
 export async function tellAgentClipDone(agentId: string, input: unknown, what: string, customer: string, video?: ClipVideo | null): Promise<boolean> {
-  const name = clipName(what, customer);
-  const link = siteUrl(clipBoard(input));
-  return tell(agentId, "clipDone", video ? clipDoneMessages(name, link, video) : clipDoneText(name, link));
+  return (await deliverClipDone(agentId, input, what, customer, video)) === "sent";
 }
 
-export async function tellAgentClipFailed(agentId: string, input: unknown, what: string, customer: string, refund: string): Promise<boolean> {
-  return tell(agentId, "clipFailed", clipFailedAgentText(clipName(what, customer), refund, siteUrl(clipBoard(input))));
+/**
+ * tellAgentClipDone, saying what became of it: `force` for a clip ordered in the LINE chat, `held`
+ * asked before the push (the month's allowance near full: "ขอคลิป" fetches it instead).
+ */
+export async function deliverClipDone(
+  agentId: string, input: unknown, what: string, customer: string, video?: ClipVideo | null,
+  opts: { force?: boolean; held?: () => Promise<boolean> } = {},
+): Promise<Told> {
+  const name = clipName(what, customer);
+  const link = siteUrl(clipBoard(input));
+  return tellAs(agentId, "clipDone", video ? clipDoneMessages(name, link, video) : clipDoneText(name, link), opts);
+}
+
+/** `force`: a clip ordered in the LINE chat, told there whatever the switch says */
+export async function tellAgentClipFailed(agentId: string, input: unknown, what: string, customer: string, refund: string, force = false): Promise<boolean> {
+  return (await tellAs(agentId, "clipFailed", clipFailedAgentText(clipName(what, customer), refund, siteUrl(clipBoard(input))), { force })) === "sent";
 }
 
 /**

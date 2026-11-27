@@ -199,6 +199,17 @@ describe("the alerts", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("a clip ordered in the LINE chat goes back there with the switch off; near the month's limit it is held", async () => {
+    await linked();
+    await line.setAgentNotify(AGENT, "clipDone", false);
+    expect(await line.deliverClipDone(AGENT, {}, "วิดีโอนำเสนอ", "")).toBe("off");
+    expect(await line.deliverClipDone(AGENT, {}, "วิดีโอนำเสนอ", "", null, { force: true })).toBe("sent");
+    expect(await line.deliverClipDone(AGENT, {}, "วิดีโอนำเสนอ", "", null, { force: true, held: async () => true })).toBe("held");
+    expect(push).toHaveBeenCalledTimes(1);
+    await line.unlinkAgent(AGENT);
+    expect(await line.deliverClipDone(AGENT, {}, "วิดีโอนำเสนอ", "", null, { force: true })).toBe("unlinked");
+  });
+
   it("money low is off at first; once on, it goes once below ฿50 until the balance is back above", async () => {
     await linked();
     expect(await line.checkMoneyLow(AGENT, 1000)).toBe(false);

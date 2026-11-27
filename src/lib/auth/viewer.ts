@@ -142,6 +142,23 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
 });
 
 /**
+ * An agent or member as the app would see them signed in now, by id, with no session: for work
+ * started outside a browser — a clip ordered in the agent's own LINE chat, linked by เชื่อม LINE
+ * ของฉัน (src/lib/line/clip-order-run.ts). The same rows decide as getViewer's: an agent removed in
+ * UnitOS, a closed room or a locked tier is null. Never the บัญชีสาธิต or the Super Admin.
+ */
+export async function viewerOfAgent(agentId: string): Promise<Viewer | null> {
+  if (agentId === DEMO_ID) return null;
+  const now = Date.now();
+  const [agent, staff] = await Promise.all([agentById(agentId), staffRow(agentId)]);
+  if (agent) return admitAgent((await movedToKingclub(agent)) ?? agent, staff, now);
+  const member = await memberById(agentId);
+  if (member) return admitMember(member, now);
+  const outside = await outsideAgentById(agentId);
+  return outside ? admitAgent(outside, staff, now) : null;
+}
+
+/**
  * Why a session that no longer lets anybody in was turned away, when it is for UnitClub's tier
  * (owner, 2026-10-16): the agent goes to the front page told to renew or upgrade. Read only on
  * the way out, so it costs the signed-in nothing.

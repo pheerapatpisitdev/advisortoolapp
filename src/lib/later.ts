@@ -59,6 +59,21 @@ export function runLater<P>(job: Job<P>, payload: P, opts: { agentId?: string | 
   after(() => runMessage(job, message));
 }
 
+/**
+ * As runLater, from work already running in a tail (a LINE answer, runInTail): on Cloudflare the
+ * queue's message is sent now and waited for, rather than from an after() inside an after(); a
+ * failure to queue is thrown, so the caller can say the clip did not start.
+ */
+export async function runLaterNow<P>(job: Job<P>, payload: P, opts: { agentId?: string | null } = {}): Promise<void> {
+  const message = JSON.parse(JSON.stringify({ job: job.name, payload, agentId: opts.agentId ?? null })) as LaterMessage;
+  const queue = cloudflareEnv()?.LATER_QUEUE;
+  if (queue) {
+    await queue.send(sealMessage(message));
+    return;
+  }
+  after(() => runMessage(job, message));
+}
+
 /** as runLater, but never queued: the job runs in this request's own tail on either host */
 export function runInTail<P>(job: Job<P>, payload: P, opts: { agentId?: string | null } = {}): void {
   // through JSON all the same, so the job sees what it would from a queue

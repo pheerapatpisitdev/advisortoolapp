@@ -3,6 +3,7 @@ import { limiter } from "@/lib/assistant/rate-limit";
 import { mayPromptStory } from "@/lib/prompt-story/access";
 import { asWho } from "@/lib/ai/who";
 import { runLater } from "@/lib/later";
+import { NOT_PRICED, startQuoteClip } from "@/lib/quote-video/start";
 import { clipProduce } from "@/lib/quote-video/jobs";
 import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
@@ -23,7 +24,7 @@ import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
 import { paidLine } from "@/lib/quote-video/paid-line";
 import { boardClipDays, clipStates } from "@/lib/quote-video/rows";
-import { clipEstimates, clipSize, langOfInput, costView, createVideo, videoPrice, deleteVideo, listVideos, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { clipEstimates, clipSize, costView, createVideo, videoPrice, deleteVideo, listVideos, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, googleInPlace, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
@@ -347,7 +348,6 @@ const REEL_MAX_SEC = 90;
 const TOO_LONG = "คลิปยาวเกิน 90 วินาที ลงเพจเป็น Reels ไม่ได้ ส่งให้ลูกค้าโดยตรงได้";
 const SIZE_WORD: Record<VideoSize, string> = { portrait: "", square: " · จัตุรัส", landscape: " · แนวนอน" };
 
-const NOT_PRICED = "แผนนี้คิดราคาไม่ได้ในอายุนี้ ลองเปลี่ยนอายุ ทุน หรือแผน";
 
 export async function previewQuote(v: VideoInput): Promise<Preview | { error: string }> {
   const viewer = await requireMember();
@@ -388,28 +388,8 @@ function setupWords(c: Extract<VideoInput, { product: "IHEALTHY" }>): { line: st
 
 export async function makeVideo(v: VideoInput, customer: string): Promise<Made> {
   const viewer = await requireMember();
-  const closed = await closedFor(viewer, "quote-video");
-  if (closed) return { ok: false, error: closed };
-  const c = checked(v, ...(await payAndPen(viewer.agentId)));
-  if (typeof c === "string") return { ok: false, error: c };
-  if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };
-  const contact = await getContact(viewer.agentId);
-  if (!(contact.name || viewer.name).trim() || !contact.phone) {
-    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอนะครับ" };
-  }
-  const full = await voiceRefusal(c.voice, langOfInput(c) === "th");
-  if (full) return { ok: false, error: full };
-  try {
-    const made = await createVideo(viewer, c, c.length === "short" ? "" : cleanCustomerName(customer));
-    if ("refusal" in made) return { ok: false, error: made.refusal };
-    const { id } = made;
-    // the making outlives this answer: the board polls the row
-    runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
-    return { ok: true, id };
-  } catch (e) {
-    console.error("quote video not started:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
-  }
+  // the steps a clip ordered in the LINE chat starts by too (src/lib/quote-video/start.ts)
+  return startQuoteClip(viewer, v, customer);
 }
 
 const SEX = { M: "ชาย", F: "หญิง" } as const;

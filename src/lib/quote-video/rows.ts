@@ -78,6 +78,10 @@ export interface VideoRow {
   fail_reason?: string | null;
   /** what its making cost, part by part (run-record.ts), the server's alone */
   cost_parts?: CostParts | null;
+  /** ordered in the maker's LINE chat (src/lib/line/clip-order.ts): it goes back there whatever their switch says */
+  line_order?: boolean;
+  /** finished but not sent into the maker's LINE: "ขอคลิป" replies with it (20261223_line_clip_order.sql) */
+  line_pending?: boolean;
 }
 export type PaidBy = "staff" | "free" | "wallet";
 
@@ -151,17 +155,17 @@ export async function fail(id: string, why: unknown): Promise<void> {
   const { data: was } = await rows().select("status").eq("id", id).maybeSingle();
   const fail_reason = failReason(why, (was as Pick<VideoRow, "status"> | null)?.status);
   const { data } = await rows().update({ status: "failed", error, fail_reason, updated_at: new Date().toISOString() })
-    .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by, input, agent_id, held_satang, customer_name").maybeSingle();
+    .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by, input, agent_id, held_satang, customer_name, line_order").maybeSingle();
   if (data) {
     await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
     // a คลิปตามโจทย์ that failed gives its draft back, to be made again
     const input = (data as Pick<VideoRow, "input">).input;
     if (input && isPromptStory(input) && input.draftId) await releaseDraft(input.draftId, id);
     // the owner's LINE told, every failed clip (owner chose ก ก, 2026-10-19)
-    const d = data as Pick<VideoRow, "agent_id" | "paid_by" | "held_satang" | "customer_name">;
+    const d = data as Pick<VideoRow, "agent_id" | "paid_by" | "held_satang" | "customer_name" | "line_order">;
     await tellOwnerClipFailed({ id, agent_id: d.agent_id, input, paid_by: d.paid_by, held_satang: d.held_satang, fail_reason, error });
     // and the maker's own LINE, if they linked it (owner chose ข, 2026-11-19)
-    await tellMakerClipFailed({ agent_id: d.agent_id, input, customer_name: d.customer_name, paid_by: d.paid_by, held_satang: d.held_satang });
+    await tellMakerClipFailed({ agent_id: d.agent_id, input, customer_name: d.customer_name, paid_by: d.paid_by, held_satang: d.held_satang, line_order: d.line_order });
     await clearInputs(id).catch(() => undefined);
     return;
   }
@@ -248,7 +252,7 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
     await clearInputs(row.id, isPromptStory(row.input));
     // the maker's own LINE, if they linked it (owner chose ข, 2026-11-19): the clip is done, and the
     // wallet running low after what it took
-    await tellMakerClipDone({ id: row.id, agent_id: row.agent_id, input: row.input, customer_name: row.customer_name, video_path: outPath });
+    await tellMakerClipDone({ id: row.id, agent_id: row.agent_id, input: row.input, customer_name: row.customer_name, video_path: outPath, line_order: row.line_order });
     if (charged) {
       try {
         await checkMoneyLow(row.agent_id, (await walletStatus(row.agent_id)).satang);

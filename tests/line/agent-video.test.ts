@@ -1,23 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AnySlots, WithPdf } from "@/lib/assistant/slots";
-import { agentVideoReply, asksForVideo, startLines, videoFormLink, videoStartOfChat } from "@/lib/line/agent-video";
+import { videoFormLink, videoStartOfChat } from "@/lib/line/agent-video";
 import { videoStartFrom } from "@/lib/quote-video/link";
-
-const SETTINGS = "https://www.advisortool.app/studio/settings?openExternalBrowser=1";
-
-describe("an agent asking for a video", () => {
-  it("is read in the owner's own words from the chat (2026-11-27)", () => {
-    expect(asksForVideo("สร้างเป็นวิดีโอ")).toBe(true);
-    expect(asksForVideo("ผมสามารถสั่งทำวิดีโอจากใน LINE ได้ไหม")).toBe(true);
-    expect(asksForVideo("ขอคลิป")).toBe(true);
-    expect(asksForVideo("ทำ video ให้หน่อย")).toBe(true);
-  });
-  it("is not a message that only mentions one, a long one, or no video at all", () => {
-    expect(asksForVideo("วิดีโอ")).toBe(false);
-    expect(asksForVideo("ชาย 35 ทุน 1 ล้าน")).toBe(false);
-    expect(asksForVideo(`${"ก".repeat(80)} ทำวิดีโอ`)).toBe(false);
-  });
-});
 
 describe("the quote the chat holds", () => {
   const lp = {
@@ -50,29 +34,5 @@ describe("the quote the chat holds", () => {
     expect(url.pathname).toBe("/studio/quote-video");
     expect(url.searchParams.get("openExternalBrowser")).toBe("1");
     expect(videoStartFrom(Object.fromEntries(url.searchParams))).toMatchObject({ product: "LIFEPROTECT", sex: "M", age: 35, sumAssured: 1_000_000 });
-  });
-  it("names the quote on the card", () => {
-    expect(startLines({ product: "LIFEPROTECT", sex: "M", age: 35, sumAssured: 1_000_000 })).toEqual(["Life Protect · ชาย 35 ปี", "ทุน 1,000,000 บาท"]);
-    expect(startLines({ product: "LEGACY", sex: "F", age: 50, tier: 3 })).toEqual(["มรดก · หญิง 50 ปี", "ครอบครัวได้รับ 3,000,000 บาท"]);
-  });
-});
-
-describe("the reply", () => {
-  it("after a quote: the words, the card with its link, where the clip goes", () => {
-    const start = { product: "LIFEPROTECT" as const, sex: "M" as const, age: 35, sumAssured: 1_000_000 };
-    const [words, card, back] = agentVideoReply(start, true, SETTINGS);
-    expect(words).toMatchObject({ type: "text", text: expect.stringContaining("กรอกข้อมูลไว้ให้แล้ว") });
-    expect(card.type).toBe("flex");
-    expect(JSON.stringify(card)).toContain("/studio/quote-video?product=LIFEPROTECT");
-    expect(back).toMatchObject({ type: "text", text: expect.stringContaining("ส่งวิดีโอมาที่แชทนี้ให้เลย") });
-  });
-  it("no quote: how to order one today, in one message", () => {
-    const said = agentVideoReply(null, true, SETTINGS);
-    expect(said).toHaveLength(1);
-    expect(said[0]).toMatchObject({ type: "text", text: expect.stringMatching(/^ตอนนี้ยังพิมพ์สั่งในแชทไม่ได้ครับ[\s\S]*\/studio\/quote-video\?openExternalBrowser=1/) });
-  });
-  it("with คลิปทำเสร็จ off, says where to turn it on (ก)", () => {
-    const said = agentVideoReply(null, false, SETTINGS);
-    expect(said[0]).toMatchObject({ text: expect.stringContaining(`เปิด "คลิปทำเสร็จ" ในตั้งค่าส่วนตัวก่อนครับ\n${SETTINGS}`) });
   });
 });

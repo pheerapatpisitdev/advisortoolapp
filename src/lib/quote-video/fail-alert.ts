@@ -1,5 +1,6 @@
 import { bluewealthNames } from "@/lib/auth/bluewealth";
-import { tellAgentClipDone, tellAgentClipFailed, type ClipVideo } from "@/lib/line/agent-line";
+import { deliverClipDone, tellAgentClipFailed, type ClipVideo } from "@/lib/line/agent-line";
+import { quota } from "@/lib/line/client";
 import { alertClipFailed } from "@/lib/line/owner-alert";
 import { isPromptStory } from "@/lib/prompt-story/types";
 import { siteUrl } from "@/lib/site-url";
@@ -129,9 +130,11 @@ export async function tellOwnerClipFailed(row: {
  */
 export async function tellMakerClipFailed(row: {
   agent_id: string; input: unknown; customer_name: string | null; paid_by: FailedClip["paidBy"]; held_satang: number | null;
+  /** ordered in the LINE chat: told there whatever the switch says */
+  line_order?: boolean;
 }): Promise<void> {
   const back = refund({ what: "", who: "", at: "", reason: "", paidBy: row.paid_by, heldSatang: row.held_satang, link: "" });
-  await tellAgentClipFailed(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "", back);
+  await tellAgentClipFailed(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "", back, Boolean(row.line_order));
 }
 
 /**
@@ -141,18 +144,44 @@ export async function tellMakerClipFailed(row: {
 export const LINE_VIDEO_SECONDS = 30 * 24 * 3600;
 
 /**
- * The maker's own LINE: their clip is done, the clip itself with it when its link can be made
- * (the words and the board's link alone when not). Never throws.
+ * The month's pushes this far gone, the clip is not pushed (owner, 2026-11-27, "ขอคลิป" in ทาง ค): the
+ * 300 are shared with the owner's alerts and broadcasts, so the last 50 are kept for those. The agent
+ * types or taps "ขอคลิป" and the clip comes as a reply, which is free.
  */
-export async function tellMakerClipDone(row: { id: string; agent_id: string; input: unknown; customer_name: string | null; video_path: string }): Promise<void> {
-  let video: ClipVideo | null = null;
+export const PUSH_HOLD = 250;
+
+/** whether the month's pushes are near full; unread = not (the push goes, as before) */
+export async function pushesNearFull(): Promise<boolean> {
+  const q = await quota();
+  return q !== null && q.used >= PUSH_HOLD;
+}
+
+/**
+ * The maker's own LINE: their clip is done, the clip itself with it when its link can be made
+ * (the words and the board's link alone when not). A linked maker it did not reach — the month's
+ * pushes near full, the switch off or the push failed — is owed it: "ขอคลิป" replies with it
+ * (src/lib/line/clip-order-run.ts). `line_order`: ordered in the LINE chat, told whatever the switch
+ * says. Never throws.
+ */
+export async function tellMakerClipDone(row: { id: string; agent_id: string; input: unknown; customer_name: string | null; video_path: string; line_order?: boolean }): Promise<void> {
+  const told = await deliverClipDone(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "", await lineVideo(row.id, row.video_path), {
+    force: Boolean(row.line_order),
+    held: () => pushesNearFull().catch(() => false),
+  });
+  if (told === "sent" || told === "unlinked") return;
+  const { error } = await supabaseAdmin().from("ins_quote_videos").update({ line_pending: true }).eq("id", row.id);
+  if (error) console.error(`[line] clip ${row.id} not marked owed to LINE:`, error.message);
+}
+
+/** the clip as LINE plays it: a month's signed link and its cover; null when the link cannot be made */
+export async function lineVideo(id: string, videoPath: string): Promise<ClipVideo | null> {
   try {
     // the bucket by name, as rows.ts holds it: rows.ts reads this file, so it is not read from there
-    const { data } = await supabaseAdmin().storage.from("quote-video").createSignedUrl(row.video_path, LINE_VIDEO_SECONDS);
+    const { data } = await supabaseAdmin().storage.from("quote-video").createSignedUrl(videoPath, LINE_VIDEO_SECONDS);
     const url = data?.signedUrl;
-    if (url) video = { url, preview: siteUrl(`/api/line/clip-preview/${row.id}`) };
+    return url ? { url, preview: siteUrl(`/api/line/clip-preview/${id}`) } : null;
   } catch (e) {
-    console.error(`[line] clip ${row.id} link for LINE not made:`, e);
+    console.error(`[line] clip ${id} link for LINE not made:`, e);
+    return null;
   }
-  await tellAgentClipDone(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "", video);
 }
