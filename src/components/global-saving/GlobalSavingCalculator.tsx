@@ -56,6 +56,12 @@ export function GlobalSavingCalculator({ shareTemplate }: {
   const [age, setAge] = useState(35);
   const [basis, setBasis] = useState<GsBasis>("premium");
   const [amount, setAmount] = useState<number | "">(50_000);
+  /**
+   * Table 2's five index columns show either the bonus paid at year 10 and maturity, or the
+   * surrender value with the index share riding on it, from a switch above the table — as on 25/5
+   * (owner chose ข there and asked for 15/8 too, 2026-11-28). Printing gives whichever is showing.
+   */
+  const [bonusView, setBonusView] = useState<"paid" | "surrender">("paid");
 
   // สำรวจความคุ้มครอง's summary opens this with the customer's age and yearly budget (owner, 2026-10-22)
   useEffect(() => {
@@ -85,14 +91,15 @@ export function GlobalSavingCalculator({ shareTemplate }: {
   // the pen notes (lib/global-saving-pens.ts), aimed by measuring the table and the bars as drawn
   const yearly = useRef<HTMLTableElement>(null);
   const bars = useRef<HTMLDivElement>(null);
-  const penKey = q ? `${q.sa}|${q.premium}|${age}` : "";
+  const penKey = q ? `${q.sa}|${q.premium}|${age}|${bonusView}` : "";
   const drawTable = (el: HTMLElement) => {
     const rows = (el as HTMLTableElement).tBodies[0]?.rows;
     if (!q || !rows || rows.length < GS_TERM) return null;
     return tablePens(
       { cell: (y, c) => boxIn(rows[y - 1].cells[c], el), text: (y, c) => textIn(rows[y - 1].cells[c], el) },
       { premYears: GS_PREM_YEARS, term: GS_TERM, payback: q.scenarios[0].rows[0].payback, maturity: q.scenarios[0].maturity,
-        bonusYears: q.scenarios[0].bonuses.map((b) => b.year) },
+        // the bonus notes name a payout, so they are left off when the columns hold surrender values
+        bonusYears: bonusView === "paid" ? q.scenarios[0].bonuses.map((b) => b.year) : [] },
     );
   };
   const drawBars = (el: HTMLElement) => {
@@ -256,6 +263,14 @@ export function GlobalSavingCalculator({ shareTemplate }: {
             <h2 className="text-base font-semibold">
               ตารางที่ 2 · ผลประโยชน์รายปี <span className="ml-1 text-sm font-normal text-[var(--lg-mute)]">ปีที่ 1–{GS_TERM}</span>
             </h2>
+            <div role="group" aria-label="ช่องดัชนีในตาราง" className="mt-2 inline-flex gap-1 rounded-full border border-[var(--lg-panel-line)] p-1 text-sm print:hidden">
+              {([["paid", "โบนัสที่ได้รับ"], ["surrender", "มูลค่าเวนคืนรวมโบนัส"]] as const).map(([v, label]) => (
+                <button key={v} type="button" aria-pressed={bonusView === v} onClick={() => setBonusView(v)}
+                  className={`rounded-full px-3.5 py-1 ${bonusView === v ? "bg-[var(--bot-navy)] text-white" : "text-[var(--lg-ink)] hover:bg-[var(--lg-panel)]"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
             <Watermark>
             <div className="mt-2 overflow-x-auto rounded-lg border border-[var(--lg-panel-line)]">
               {/* the pen notes are drawn over the table and scroll with it */}
@@ -265,7 +280,9 @@ export function GlobalSavingCalculator({ shareTemplate }: {
                   <tr>
                     <th colSpan={2} className="bg-[var(--bot-navy-deep)] print:!bg-transparent" />
                     <th colSpan={4} scope="colgroup" className={`${TH} !bg-[var(--bot-navy-deep)] !text-center text-xs`}>ส่วนการันตี</th>
-                    <th colSpan={q.scenarios.length} scope="colgroup" className={`${TH} !bg-[var(--bot-navy-lift)] !text-center text-xs`}>โบนัสดัชนี (ไม่การันตี)</th>
+                    <th colSpan={q.scenarios.length} scope="colgroup" className={`${TH} !bg-[var(--bot-navy-lift)] !text-center text-xs`}>
+                      {bonusView === "paid" ? "โบนัสดัชนี (ไม่การันตี)" : "มูลค่าเวนคืนรวมโบนัสดัชนี (ไม่การันตี)"}
+                    </th>
                     <th className="border-l border-l-white/35 bg-[var(--bot-navy-deep)] print:!bg-transparent" />
                   </tr>
                   <tr>
@@ -289,7 +306,11 @@ export function GlobalSavingCalculator({ shareTemplate }: {
                         {r.year === GS_TERM ? <Highlighted>{baht(r.payback)}</Highlighted> : baht(r.payback)}
                       </td>
                       <td className={TD}>{baht(r.death)}</td>
-                      {q.scenarios.map((s) => {
+                      {bonusView === "surrender" && q.scenarios.map((s) => {
+                        const row = s.rows[r.year - 1];
+                        return <td key={s.rate} className={TD}>{row.surrender > 0 ? baht(row.surrender + row.surrenderBonus) : "—"}</td>;
+                      })}
+                      {bonusView === "paid" && q.scenarios.map((s) => {
                         const b = s.bonuses.find((x) => x.year === r.year);
                         return (
                           <td key={s.rate} className={`${TD} ${b ? "font-semibold text-[var(--bot-navy-lift)]" : ""}`}>
@@ -308,7 +329,8 @@ export function GlobalSavingCalculator({ shareTemplate }: {
                     <td className={TD} />
                     <td className={TD}>{baht(q.guaranteed)}</td>
                     <td className={TD} />
-                    {q.scenarios.map((s) => <td key={s.rate} className={TD}>{baht(s.total)}</td>)}
+                    {/* a surrender value is not added up over the years, so those columns stay empty here */}
+                    {q.scenarios.map((s) => <td key={s.rate} className={TD}>{bonusView === "paid" ? baht(s.total) : ""}</td>)}
                     <td className={TD}>{baht(GS_PREM_YEARS * Math.min(q.premium, GS_TAX_CAP))}</td>
                   </tr>
                 </tbody>
@@ -322,7 +344,9 @@ export function GlobalSavingCalculator({ shareTemplate }: {
               <span className="text-[var(--lg-pen)]">✎ ปากกาแดง = เบี้ยที่จ่าย และโบนัสดัชนีที่ไม่การันตี</span>
             </p>
             <p className="mt-1 text-xs leading-relaxed text-[var(--lg-mute)]">
-              โบนัสดัชนีจ่ายจริง 2 ครั้ง คือสิ้นปีที่ 10 และตอนครบสัญญา ปีอื่นจึงเว้นว่าง
+              {bonusView === "paid"
+                ? "โบนัสดัชนีจ่ายจริง 2 ครั้ง คือสิ้นปีที่ 10 และตอนครบสัญญา ปีอื่นจึงเว้นว่าง"
+                : "มูลค่าเวนคืนรวมโบนัส = มูลค่าเวนคืนที่การันตี + ส่วนของดัชนีที่ได้เพิ่มเมื่อเวนคืนตั้งแต่ปีที่ 9 (ไม่การันตี) ดัชนีติดลบได้โบนัส 0 ช่อง −1% จึงเท่ากับมูลค่าเวนคืนที่การันตี"}
             </p>
           </section>
         </>
