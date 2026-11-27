@@ -75,6 +75,15 @@ vi.mock("@/lib/chat/record", () => ({
 }));
 vi.mock("@/lib/assistant/dispatch", () => ({ answerAny: answer }));
 vi.mock("@/lib/line/settings", () => ({ lineBotEnabled: async () => botOn }));
+/** ลิงก์ฟอร์มใบคำขอของฉัน: whose LINE this is, and their form, as the tables would say */
+let agentOfChat: string | null = null;
+let agentForm: { url: string; source: "own" | "unitclub" } | null = null;
+let agentFormFails = false;
+vi.mock("@/lib/line/agent-form", async () => ({
+  ...await vi.importActual<typeof import("@/lib/line/agent-form")>("@/lib/line/agent-form"),
+  agentOfLine: async () => agentOfChat,
+  formLinkFor: async () => { if (agentFormFails) throw new Error("db down"); return agentForm; },
+}));
 
 const { handle } = await import("@/lib/line/conversation");
 const { siteUrl } = await import("@/lib/site-url");
@@ -90,6 +99,7 @@ beforeEach(() => {
   process.env.LINE_CHANNEL_SECRET = "secret";
   replies.length = 0; pushes.length = 0; linked.length = 0; replyFails = false; pushFails = false; turnsSaved = 0; claimed = true; botOn = true;
   aliasId = "rm-quoted"; menuApiFails = false;
+  agentOfChat = null; agentForm = null; agentFormFails = false;
   session.messages = []; session.slots = null; session.handedOverAt = null;
   answer.mockReset();
   answer.mockImplementation(quoted);
@@ -321,5 +331,61 @@ describe("a PDF the customer asked for", () => {
       `${siteUrl(pdf)}&openExternalBrowser=1`,
       `${siteUrl(pdf2)}&openExternalBrowser=1`,
     ]);
+  });
+});
+
+describe("an agent asking the LINE OA for a form (owner chose ค ก ก, 2026-11-27)", () => {
+  const texts = () => replies[0].map((m) => (m as { text: string }).text);
+  /** a chat of its own each time, so the per-chat limit the earlier tests used up does not answer instead */
+  let n = 0;
+  const asks = (text: string) => said(text, { source: { type: "user", userId: `U-agent-${++n}` } });
+
+  it("gets their own UnitClub form and a message to pass on, not the agency's", async () => {
+    agentOfChat = "agent-1";
+    agentForm = { url: "https://ktaxa83g.com/apply/somchai", source: "unitclub" };
+    await handle(asks("ขอฟอร์มสมัครให้ลูกค้าหน่อยครับ"));
+    expect(answer).not.toHaveBeenCalled();
+    expect(replies).toHaveLength(1);
+    const [link, forward] = texts();
+    expect(link).toContain("https://ktaxa83g.com/apply/somchai");
+    expect(link).toContain("UnitClub");
+    expect(forward).toContain("https://ktaxa83g.com/apply/somchai");
+    expect(forward).toContain("e-KYC");
+    expect(texts().join("\n")).not.toContain("sa-9f3a");
+    expect(turnsSaved).toBe(1);
+  });
+
+  it("gets the link they set themselves, by the customer menu's สนใจสมัคร too", async () => {
+    agentOfChat = "agent-1";
+    agentForm = { url: "https://forms.example.com/me", source: "own" };
+    await handle(asks("สนใจสมัคร"));
+    expect(answer).not.toHaveBeenCalled();
+    expect(texts()[0]).toContain("ตั้งไว้ในตั้งค่าส่วนตัว");
+  });
+
+  it("is told where to set one when they have none, and is not sent the agency's", async () => {
+    agentOfChat = "agent-1";
+    await handle(asks("ขอลิงก์ฟอร์ม"));
+    expect(answer).not.toHaveBeenCalled();
+    expect(texts()).toHaveLength(1);
+    expect(texts()[0]).toContain("ยังไม่มีลิงก์ฟอร์มใบคำขอ");
+    expect(texts()[0]).toMatch(/\/studio\/settings\?openExternalBrowser=1$/);
+  });
+
+  it("is told to try again when their link cannot be read, rather than given the agency's", async () => {
+    agentOfChat = "agent-1";
+    agentFormFails = true;
+    await handle(asks("ขอฟอร์ม"));
+    expect(answer).not.toHaveBeenCalled();
+    expect(texts()[0]).toContain("ลองพิมพ์ขอฟอร์มอีกครั้ง");
+  });
+
+  it("leaves a customer, and an agent's other questions, to the brains", async () => {
+    await handle(asks("ขอฟอร์ม"));
+    expect(answer).toHaveBeenCalledTimes(1);
+    agentOfChat = "agent-1";
+    replies.length = 0;
+    await handle(asks("ชาย 35 ล้านนึง"));
+    expect(answer).toHaveBeenCalledTimes(2);
   });
 });

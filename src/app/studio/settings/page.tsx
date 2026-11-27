@@ -10,6 +10,9 @@ import { ARRANGES_PER_DAY, arrangesLeft, myShareTexts } from "@/lib/share-text/s
 import type { LineView } from "@/lib/line/link-view";
 import { lineViewFor } from "@/lib/line/agent-line-view";
 import { LineLinkForm } from "./LineLinkForm";
+import { FormLinkForm } from "./FormLinkForm";
+import type { FormLinkView } from "./actions";
+import { ownFormLink, unitclubFormLink } from "@/lib/line/agent-form";
 import { PayPrefsForm } from "./PayPrefsForm";
 import { ShareTextForm, type SharePlanView, type ShareTextView } from "./ShareTextForm";
 
@@ -21,7 +24,8 @@ export const metadata: Metadata = { title: "ตั้งค่าส่วนต
  * every agent's own display choices, under บัญชีของฉัน in the account box. First ones: whether
  * their quotes show the monthly and the half-yearly premium, and whether their tables carry the
  * pen notes (src/lib/pay-prefs.ts). เชื่อม LINE ของฉัน (owner chose ข, 2026-11-19): the agent's own LINE
- * for their alerts (src/lib/line/agent-line.ts).
+ * for their alerts (src/lib/line/agent-line.ts). ลิงก์ฟอร์มใบคำขอของฉัน (owner chose ค ก ก, 2026-11-27):
+ * the form the LINE OA sends them when they ask for one (src/lib/line/agent-form.ts).
  */
 export default async function SettingsPage() {
   const viewer = await gatePage("/studio/settings");
@@ -40,6 +44,14 @@ export default async function SettingsPage() {
     console.error("agent line not read:", e);
     return null;
   });
+  // ลิงก์ฟอร์มใบคำขอของฉัน (owner chose ค ก ก, 2026-11-27): what cannot be read shows as "อ่านไม่ได้"
+  const formLink: FormLinkView | null = demo ? { own: null, unitclub: null } : await Promise.all([
+    ownFormLink(viewer.agentId),
+    unitclubFormLink(viewer.agentId),
+  ]).then(([own, unitclub]) => ({ own, unitclub })).catch((e) => {
+    console.error("form link not read:", e);
+    return null;
+  });
   const plans: SharePlanView[] = SHARE_PLAN_KEYS.map((key) => {
     const sample = shareSample(key);
     return { key, name: SHARE_PLANS[key].name, who: sample.who, standard: sample.standard };
@@ -55,6 +67,7 @@ export default async function SettingsPage() {
       <PayPrefsForm initial={prefs} locked={demo} />
       <ShareTextForm plans={plans} initial={texts} left={left} locked={demo} />
       <LineLinkForm initial={line} locked={demo} />
+      <FormLinkForm initial={formLink} locked={demo} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { saveAgentPrefs } from "@/lib/pay-prefs-store";
 import { sendAgentTest, setAgentNotify, startAgentLink, unlinkAgent, type AgentNotify } from "@/lib/line/agent-line";
 import { lineViewFor } from "@/lib/line/agent-line-view";
 import type { LineView } from "@/lib/line/link-view";
+import { cleanFormLink, saveOwnFormLink, unitclubFormLink } from "@/lib/line/agent-form";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
@@ -101,4 +102,33 @@ export async function setMyLineNotify(which: AgentNotify, on: boolean): Promise<
     return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
   return { ok: true };
+}
+
+/* ── ลิงก์ฟอร์มใบคำขอของฉัน (owner chose ค ก ก, 2026-11-27; src/lib/line/agent-form.ts) ─────────── */
+
+export type FormLinkView = { own: string | null; unitclub: string | null };
+
+/**
+ * Saves the link the LINE OA sends this agent when they ask for a form. Blank, or the same link
+ * as their UnitClub form, keeps nothing of their own: the UnitClub one is then used, and follows
+ * it if UnitClub changes it.
+ */
+export async function saveMyFormLink(input: string): Promise<{ ok: true; view: FormLinkView } | { ok: false; error: string }> {
+  const viewer = await requireMember();
+  if (isDemo(viewer)) return { ok: false, error: "บัญชีทดลองตั้งค่านี้ไม่ได้" };
+  if (typeof input !== "string") return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  const clean = cleanFormLink(input);
+  if (!clean.ok) return clean;
+  try {
+    const unitclub = await unitclubFormLink(viewer.agentId).catch((e) => {
+      console.error("unitclub form link not read:", e);
+      return null;
+    });
+    const own = clean.url && clean.url !== unitclub ? clean.url : null;
+    await saveOwnFormLink(viewer.agentId, own);
+    return { ok: true, view: { own, unitclub } };
+  } catch (e) {
+    console.error("form link not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
 }
