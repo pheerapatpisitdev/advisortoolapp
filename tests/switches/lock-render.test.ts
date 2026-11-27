@@ -14,19 +14,29 @@ const agent = { name: "a", room: "r", publish: false, connect: false, admin: fal
 const draw = (who: typeof agent) => renderToStaticMarkup(createElement(Sidebar, { signedIn: true, menu: studioMenu(who), who }));
 
 describe("the menu while วิดีโอนำเสนอ is off", () => {
-  it("lists it for an agent as words they cannot press, marked ปิดชั่วคราว", () => {
+  // owner, 2026-11-20: "ไม่ต้องให้โชว์เลยดีกว่า" — gone from an agent's menu, not a locked row
+  it("leaves an agent's menu altogether", () => {
     const html = draw(agent);
     expect(html).not.toContain('href="/studio/quote-video"');
-    expect(html).toContain('aria-disabled="true"');
-    expect(html).toContain("ปิดชั่วคราว");
+    expect(html).not.toContain("วิดีโอนำเสนอ");
+    expect(html).not.toContain("ปิดชั่วคราว");
     // the tools that are on are links as before
     expect(html).toContain('href="/studio/story-clip"');
   });
 
-  it("keeps it a link for the owner, who tries it before it is back on", () => {
+  it("drops a heading whose every tool is off", () => {
+    const html = renderToStaticMarkup(createElement(Sidebar, {
+      signedIn: true,
+      who: agent,
+      menu: [{ title: "ปิดหมด", links: [{ href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80" }] }, ...studioMenu(agent)],
+    }));
+    expect(html).not.toContain("ปิดหมด");
+  });
+
+  it("keeps it a link for the owner, marked ปิดชั่วคราว, who tries it before it is back on", () => {
     const html = draw({ ...agent, owner: true });
     expect(html).toContain('href="/studio/quote-video"');
-    expect(html).not.toContain('aria-disabled="true"');
+    expect(html).toContain("ปิดชั่วคราว");
   });
 });
 

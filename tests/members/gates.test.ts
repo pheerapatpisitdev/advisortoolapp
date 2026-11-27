@@ -137,7 +137,9 @@ describe("gatePage", () => {
     await expect(gatePage("/ask")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
     await expect(gatePage("/studio/write")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
     await expect(gatePage("/studio")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
-    expect(nav.redirect).toHaveBeenCalledTimes(4);
+    // โรงพยาบาลในเครือ, as the calculators (owner chose 2ก, 2026-11-25)
+    await expect(gatePage("/hospitals")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
+    expect(nav.redirect).toHaveBeenCalledTimes(5);
   });
 
   it("lets a member with a live pass in", async () => {

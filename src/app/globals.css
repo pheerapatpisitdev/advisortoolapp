@@ -681,6 +681,44 @@ body:has(.theme-legacy) {
   line-height: 1.5;
 }
 
+/* ── ป้าย New (owner chose ก ก ก, 2026-11-24) ─────────────────────────────────────────────
+ * The pill is a surface of its own, red with white ink, so like a chip it owes the page's ground
+ * nothing. It fades rather than blinks, and holds still for somebody who asked for no movement. */
+.shell-new {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  border-radius: 999px;
+  padding: 1px 7px;
+  background: var(--bot-red);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  animation: shell-new 1.6s ease-in-out infinite;
+}
+@keyframes shell-new { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .shell-new { animation: none; } }
+
+/* what changed on this page, at its top: in the menu's own ink and rule so it reads on every skin.
+   Left room on a phone for the menu's button, which floats over the corner. */
+.shell-fresh {
+  position: relative;
+  z-index: 1;
+  padding: 0.6rem 1rem 0.6rem 4rem;
+  border-bottom: 1px solid var(--shell-line);
+  background: var(--shell-active-bg);
+  color: var(--shell-mute);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.shell-fresh ul { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.shell-fresh li { display: flex; align-items: flex-start; gap: 0.5rem; }
+.shell-fresh .shell-new { margin-top: 1px; }
+.shell-fresh b { color: var(--shell-ink); font-weight: 600; }
+@media (min-width: 1024px) { .shell-fresh { padding-left: 1rem; } }
+
 .shell-btn:hover {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.05)),
@@ -745,6 +783,47 @@ body:has(.theme-legacy) {
 
 .shell-btn:hover .shell-chip { transform: translateY(-0.5px); }
 
+/* Studio's card under the list (Sidebar's FeatureCard, owner chose ง 2026-11-22). Its own
+   surface, as a chip is, so the violet-to-rose carries white on every skin: white reads at
+   4.6:1 or better across the whole run. The page you are on rings it in the menu's active ink. */
+.shell-feature {
+  position: relative;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(120deg, #6d28d9 0%, #c026d3 55%, #e11d48 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 8px 20px -8px rgba(192, 38, 211, 0.75);
+  transition: transform 0.12s ease, box-shadow 0.14s ease, filter 0.14s ease;
+}
+.shell-feature:hover {
+  transform: translateY(-1px);
+  filter: saturate(1.1) brightness(1.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 12px 24px -8px rgba(192, 38, 211, 0.85);
+}
+.shell-feature:active { transform: translateY(1px); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.25); }
+.shell-feature[aria-current="page"] {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 0 2px var(--shell-bg),
+    0 0 0 4px var(--shell-active);
+}
+.shell-feature:focus-visible { outline: 2px solid var(--shell-active); outline-offset: 3px; }
+.shell-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+.shell-feature-icon svg { width: 1.2rem; height: 1.2rem; }
+
 /* a Studio tool's square, as Adobe draws its apps (src/lib/shell/tool-logos.ts, owner 2026-10-19):
    a dark square with its letters and edge in one bright colour, the same in both themes as an
    app icon is — it draws its own edge, so it reads on Studio's light ground and its dark one */
@@ -769,6 +848,7 @@ body:has(.theme-legacy) {
   font-size: 0.95rem;
 }
 .tool-logo-qv { background: #00005b; color: #9999ff; } /* วิดีโอนำเสนอ */
+.tool-logo-av { background: #2a0a4d; color: #c58cff; } /* วิดีโอโฆษณา */
 .tool-logo-sc { background: #1f0040; color: #d291ff; } /* คลิปเล่าเรื่อง */
 .tool-logo-pc { background: #2b0a3d; color: #f08cff; } /* คลิปตามโจทย์ */
 .tool-logo-og { background: #001e36; color: #31a8ff; } /* Organic Studio */
@@ -789,13 +869,16 @@ body:has(.theme-legacy) {
 
 @media (prefers-reduced-motion: reduce) {
   .shell-btn,
+  .shell-feature,
   .shell-chip,
   .shell-hamburger { transition: none; }
   .shell-btn:hover,
   .shell-btn:active,
   .shell-hamburger:active,
   .shell-btn:hover .shell-chip,
-  .shell-btn:active .shell-chip { transform: none; }
+  .shell-btn:active .shell-chip,
+  .shell-feature:hover,
+  .shell-feature:active { transform: none; }
 }
 
 /* ── a plan calculator in two columns on a wide screen ───────────────────────

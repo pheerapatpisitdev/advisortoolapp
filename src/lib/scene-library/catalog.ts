@@ -2,7 +2,6 @@ import { DEVICES } from "./devices";
 import { promptLibraryHref, storyLibraryHref } from "./links";
 import { PICTURE_STYLES, PROMPT_FORMATS, type PictureStyle } from "@/lib/prompt-story/types";
 import { MUSIC_MOODS } from "@/lib/quote-video/fx";
-import { THEME_LABELS } from "@/lib/quote-video/theme-keys";
 import type { DeviceLayout } from "@/lib/quote-video/story-knowledge";
 import { INFO_SHELVES, infoArt, topicOf, type StoryTopic } from "@/lib/story/topics";
 
@@ -165,7 +164,6 @@ const readyLooks: LibraryItem[] = [
     id: `ai-style-${s.id}`, type: "look", name: s.name, tells: AI_TELLS[s.id] ?? "", product: "all", ready: true,
     uses: [promptUse("ทำคลิปตามโจทย์", { style: s.id })], preview: `/library/ai-${s.id}.jpg`,
   })),
-  { id: "look-sticky", type: "look", name: THEME_LABELS.sticky.name, tells: "ข้อความเป็นโน้ตกระดาษแปะบนโต๊ะ", product: "all", ready: true, uses: [quoteUse()] },
 ];
 
 const MOOD_NAME: Record<(typeof MUSIC_MOODS)[number], string> = { warm: "อบอุ่น", bright: "สดใส", calm: "สงบ" };

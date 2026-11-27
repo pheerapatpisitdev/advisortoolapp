@@ -26,10 +26,11 @@ type Field = "hook" | "headline" | "close" | "loopClose" | "story" | "points";
 export function factLines(f: QuoteVideoFacts): string[] {
   const out = [
     `แบบประกัน: ${f.planLine}`,
-    `ผู้เอาประกัน: ${f.insuredWho}`,
-    `${f.lead.label}: ${f.lead.amount} บาท${f.lead.note ? ` (${f.lead.note})` : ""}`,
+    // a plan priced by plan alone names what the price is by, not an insured (script.ts pricedByPlan)
+    `${f.sex ? "ผู้เอาประกัน" : "ราคาตาม"}: ${f.insuredWho}`,
+    `${f.lead.label}: ${f.lead.amount} ${f.lead.unit ?? "บาท"}${f.lead.note ? ` (${f.lead.note})` : ""}`,
     ...(f.perDayAmount ? [`ตกวันละ: ${f.perDayAmount} บาท`] : []),
-    `${f.product === "LEGACY" ? "ค่าใช้จ่าย (ปีแรก)" : f.product === "PLB" ? "ค่าใช้จ่าย (เท่าเดิมทุกปี)" : `ยอดออม${f.product === "IHEALTHY" ? " (ปีแรก)" : ""}`}: ${f.prices.map((p) => `${p.label} ${p.amount} บาท`).join(" · ")}`,
+    `${f.product === "LEGACY" ? "ค่าใช้จ่าย (ปีแรก)" : f.product === "PLB" ? "ค่าใช้จ่าย (เท่าเดิมทุกปี)" : f.product === "PA" ? "ค่าใช้จ่าย (เท่ากันทุกอายุ)" : f.product === "GROUP" ? "ค่าสวัสดิการ (ต่อปี)" : `ยอดออม${f.product === "IHEALTHY" ? " (ปีแรก)" : ""}`}: ${f.prices.map((p) => `${p.label} ${p.amount} บาท`).join(" · ")}`,
     ...(f.payYears && !f.payToEnd ? [`ออม ${f.payYears} ปี ครบตอนอายุ ${f.lastPayAge}`] : []),
     ...(f.payToEnd ? [`ออมถึงอายุ ${f.coverToAge} ${f.riders?.rises ? "เบี้ยสัญญาหลักเท่าเดิมตลอด" : "ยอดเท่าเดิมตลอด"}`] : []),
     ...(f.riders ? [`ยอดออมรวม${f.riders.said}ไว้แล้ว${f.riders.rises ? ` ${f.riders.rises}ปรับตามอายุ` : ""}`] : []),
@@ -37,9 +38,11 @@ export function factLines(f: QuoteVideoFacts): string[] {
     ...(f.riders?.split ? [`แยกตามสัญญา: ${f.riders.split.map((p) => `${p.name} ${p.baht} บาท`).join(" · ")}`] : []),
     ...(f.riders?.parts ?? []).map((p) => `สัญญาเพิ่มเติม ${p.name}: ${p.what}`),
     ...(f.riderNames?.length ? [`สัญญาเพิ่มเติมที่แนบ: ${f.riderNames.join(" · ")}`] : []),
-    `คุ้มครองถึงอายุ ${f.coverToAge}`,
+    // PA is a one-year contract renewed yearly: it covers to no age
+    // ประกันกลุ่ม is the employer's, renewed by the company: neither covers to an age said
+    ...(f.product === "PA" || f.product === "GROUP" ? [] : [`คุ้มครองถึงอายุ ${f.coverToAge}`]),
     ...f.cover.map((r) => `${r.label}: ${r.amount}`),
-    ...(f.breakEven ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),
+    ...(f.breakEven && !f.easyprotect && !f.lifetreasure ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),
     ...(f.illness ? [`โรคร้ายแรง ${f.illness.total} โรค ระยะเริ่มต้น ${f.illness.early} โรค ระยะรุนแรง ${f.illness.major} โรค โรคร้ายแรงคุ้มครองหลัง 90 วันแรก`] : []),
     ...(f.budget ? [`ลูกค้า${f.product === "LEGACY" || f.product === "PLB" ? "จ่ายไหว" : "ออมไหว"} ${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท`] : []),
   ];
@@ -67,6 +70,86 @@ export function factLines(f: QuoteVideoFacts): string[] {
       `ระหว่างสัญญาคุ้มครองชีวิตสูงสุด ${m(g.deathMax)} บาท`,
       "ยอดออมลดหย่อนภาษีได้ตามเกณฑ์สรรพากร",
       `มีโบนัสตามดัชนีโลก จ่าย${gsBonusWhen(g)} โบนัสไม่แน่นอน ห้ามบอกตัวเลขโบนัส และห้ามพูดว่าโบนัสได้แน่นอน`);
+  }
+  if (f.easyprotect) {
+    const g = f.easyprotect;
+    out.push(`ออม ${g.payYears} ปี รวม ${g.paid.toLocaleString("en-US")} บาท ปีที่ ${g.payYears + 1} เป็นต้นไปไม่ต้องจ่ายอีก`,
+      `ถ้าเป็นอะไรไป ครอบครัวได้${g.atLeast ? "อย่างน้อย" : ""} ${g.sum.toLocaleString("en-US")} บาท ถึงอายุ ${g.coverToAge}`,
+      ...(g.times ? [`คิดเป็น ${g.times} เท่าของที่ออม`] : ["ห้ามเทียบยอดออมรวมกับเงินที่ครอบครัวได้"]),
+      ...(f.breakEven ? [`มูลค่าเงินสดครบเท่าที่ออมตอนอายุ ${f.breakEven.age} ห้ามพูดว่ามากกว่าที่ออม`] : []), "ห้ามพูดเรื่องภาษี");
+  }
+  if (f.lifetreasure) {
+    const g = f.lifetreasure;
+    const m = (n: number) => n.toLocaleString("en-US");
+    out.push(`เงินก้อนส่งต่อให้ครอบครัว ระบุจำนวนไว้ล่วงหน้า ไม่ขึ้นกับตลาด แบ่งให้ใครเท่าไรระบุได้`,
+      `จ่าย ${g.payYears} ปี ปีละ ${g.annual} บาท รวม ${m(g.paid)} บาท แล้วไม่ต้องจ่ายอีก`,
+      `ถ้าเป็นอะไรไป ครอบครัวได้${g.atLeast ? "อย่างน้อย" : ""} ${m(g.sum)} บาท ถึงอายุ ${g.coverToAge}`,
+      `เลือกระยะจ่ายได้ ${g.terms.map((x) => `${x.years} ปี (ปีละ ${x.annual} บาท)`).join(" · ")}`,
+      ...(g.times ? [`ส่งต่อได้ ${g.times} เท่าของที่ออม`] : ["ห้ามเทียบยอดออมรวมกับเงินที่ครอบครัวได้"]),
+      ...(f.breakEven ? [`มูลค่าเงินสดครบเท่าที่ออมตอนอายุ ${f.breakEven.age} ห้ามพูดว่ามากกว่าที่ออม`] : []),
+      `ถึงอายุ ${g.coverToAge} มูลค่าเงินสด ${m(g.endCash)} บาท`, "ห้ามพูดเรื่องภาษี");
+  }
+  if (f.ci123) {
+    const g = f.ci123;
+    const m = (n: number) => n.toLocaleString("en-US");
+    out.push(`CI 123 สัญญาเพิ่มเติมโรคร้ายแรง ทุน ${m(g.sum)} บาท คุ้มครอง ${g.diseaseCount} โรค จ่ายเป็นเงินก้อนตามระยะของโรค`,
+      `ชุดนี้คู่กับแบบหลัก Life Protect x2 ทุน ${m(g.baseSum)} บาท คุ้มครองชีวิตถึงอายุ 99 ยอดออมรวมทั้งสองสัญญาแล้ว`,
+      ...g.stairs.map((r) => `${r.label} (${r.count} โรค) รับ ${m(r.amount)} บาท`),
+      ...g.more.map((r) => `${r.label} รับ ${m(r.amount)} บาท${r.note ? ` (${r.note})` : ""}`),
+      "เคลมระยะแรกแล้ว ยังเคลมระยะถัดไปได้ ระยะรุนแรงจ่ายเต็มทุน หักส่วนที่รับไปแล้ว",
+      ...g.deathRows.map((r) => `แบบหลัก ถ้าเป็นอะไรไป${r.label === "ตลอดสัญญา" ? "" : `${r.label}`} ครอบครัวได้ ${m(r.amount)} บาท`),
+      "ยอดออมที่ให้คือปีแรก ส่วน CI 123 คิดตามอายุ ปรับขึ้นทุกปี ห้ามพูดว่ายอดออมเท่าเดิม",
+      "โรคร้ายแรงเริ่มคุ้มครองหลัง 90 วันแรก", "ไม่มีมูลค่าเงินสด ห้ามพูดถึงเงินคืน", "ห้ามพูดเรื่องภาษี");
+  }
+  if (f.cancer) {
+    const g = f.cancer;
+    const m = (n: number) => n.toLocaleString("en-US");
+    out.push(`ประกันมะเร็ง ชุดสัญญาเพิ่มเติมคุ้มครองโรคมะเร็ง (CPR) ทุน ${m(g.cpr)} บาท จ่ายเป็นเงินก้อนตามขั้นของมะเร็ง และค่าชดเชยรายวัน (HIC) วันละ ${m(g.hic)} บาท เมื่อนอนโรงพยาบาลเพราะมะเร็ง`,
+      `ชุดนี้คู่กับแบบหลัก Life Protect x2 ทุน ${m(g.baseSum)} บาท คุ้มครองชีวิตถึงอายุ 99 ยอดออมรวมทุกสัญญาแล้ว`,
+      ...g.stages.map((s) => `ขั้น ${s.no} (${s.label.replace(/^ขั้น\s*\d\s*/, "")}) รับ ${m(s.amount)} บาท${s.major ? " หักส่วนที่รับไปแล้ว" : ""} ระยะรอคอย ${s.waitingDays} วัน`),
+      `ขั้น ${g.repeatNos} เคลมซ้ำได้ รวมกันไม่เกินทุน`,
+      `ค่าชดเชยรายวันสูงสุด ${g.hicDays} วัน ระยะลุกลามเพิ่มอีก ${g.hicExtraDays} วัน`,
+      ...g.totals.map((r) => `${r.label}${g.beforeAge ? ` ก่อนอายุ ${g.beforeAge}` : ""} ครอบครัวได้รวม ${m(r.amount)} บาท`),
+      "ยอดออมที่ให้คือปีแรก ส่วน CPR และ HIC คิดตามอายุ ปรับขึ้นทุกปี ห้ามพูดว่ายอดออมเท่าเดิม",
+      "ไม่มีมูลค่าเงินสด ห้ามพูดถึงเงินคืน", "ห้ามพูดเรื่องภาษี");
+  }
+  if (f.pa) {
+    const g = f.pa;
+    const m = (n: number) => n.toLocaleString("en-US");
+    out.push(`ประกันอุบัติเหตุส่วนบุคคล ${g.familyName} แผน ${g.plan} (${g.code}) อาชีพชั้น ${g.cls} จ่ายปีละ ${m(g.annual)} บาท ตกวันละ ${g.perDay} บาท`,
+      "ราคาตามแผนและขั้นอาชีพ ไม่ขึ้นกับอายุหรือเพศ ห้ามพูดถึงอายุหรือเพศของลูกค้า",
+      `อุบัติเหตุทำให้จากไป สูญเสียอวัยวะ หรือทุพพลภาพถาวรสิ้นเชิง ${m(g.death)} บาท`,
+      `ถูกฆาตกรรมหรือลอบทำร้าย ${m(g.murder)} บาท`, `ขับขี่หรือโดยสารมอเตอร์ไซค์ ${m(g.motorcycle)} บาท`,
+      ...(g.medical ? [`ค่ารักษาพยาบาลต่ออุบัติเหตุ ${m(g.medical)} บาท รวมมอเตอร์ไซค์`] : ["แผนนี้ไม่มีค่ารักษาพยาบาล"]),
+      ...(g.weekly ? [`ชดเชยทุพพลภาพชั่วคราว สัปดาห์ละ ${m(g.weekly)} บาท สูงสุด ${g.weeks} สัปดาห์`] : []),
+      `สัญญา 1 ปี ต่ออายุปีต่อปี ต่อเนื่องปีที่ 2 ถึง ${g.years.length} ทุนเพิ่มขึ้นทุกปี ปีที่ ${g.years.length} ทุน ${m(g.years[g.years.length - 1].sum)} บาท`,
+      "คุ้มครอง 24 ชั่วโมง ทั่วโลก", "ไม่มีมูลค่าเงินสด ห้ามใช้คำว่าออม ห้ามพูดถึงเงินคืน", "ห้ามพูดว่าคุ้มครองถึงอายุเท่าไร", "ห้ามพูดเรื่องภาษี");
+  }
+  if (f.group) {
+    const g = f.group;
+    const m = (n: number) => n.toLocaleString("en-US");
+    out.push(`${g.kindName} เล่าให้นายจ้าง (เจ้าของกิจการ) ฟัง ลักษณะธุรกิจ ${g.bizNo}${g.bizDesc ? ` (${g.bizDesc})` : ""} แผน ${g.plan}${g.rider ? ` + ${g.kind === "pa" ? "ME" : "OPD"} ${g.rider}` : ""}`,
+      g.groups > 1 ? `ทั้งบริษัท ${g.groups} กลุ่ม รวม ${m(g.total)} คน คลิปเล่าแผนของกลุ่มแรก ${m(g.count)} คน` : `พนักงาน ${m(g.total)} คน`,
+      `ค่าสวัสดิการต่อคน ปีละ ${m(g.perPerson)} บาท ประมาณเดือนละ ${m(g.perMonth)} บาท ทั้งบริษัท ปีละ ${m(g.grandTotal)} บาท`,
+      `รับ ${m(g.min)} ถึง ${m(g.max)} คน ยิ่งคนรวมมาก อัตราต่อคนยิ่งถูกลง`,
+      ...(g.health ? [`ค่าห้อง ค่าอาหาร วันละ ${m(g.health.room)} บาท สูงสุด ${g.health.roomDays} วัน`, `ห้อง ICU วันละ ${m(g.health.icu)} บาท สูงสุด ${g.health.icuDays} วัน`,
+        `ค่าแพทย์ผ่าตัด ${m(g.health.surgery)} บาท`, `ค่ารักษาอื่นในโรงพยาบาล ${m(g.health.other)} บาท`, `อุบัติเหตุฉุกเฉิน ${m(g.health.emergency)} บาท`,
+        g.health.opd ? `ผู้ป่วยนอก (OPD) ครั้งละ ${m(g.health.opd)} บาท ปีละ ${g.health.opdVisits} ครั้ง` : "แผนนี้ไม่มี OPD ห้ามพูดถึงผู้ป่วยนอก",
+        `คุ้มครองชีวิตและทุพพลภาพถาวร ${m(g.health.life)} บาท อุบัติเหตุรับเพิ่ม ${m(g.health.accident)} บาท`] : []),
+      ...(g.pa ? [`อุบัติเหตุทำให้จากไปหรือทุพพลภาพถาวร ${m(g.pa.death)} บาท`, `สูญเสียมือ เท้า สายตา 2 ข้าง ${m(g.pa.loss2)} บาท 1 ข้าง ${m(g.pa.loss1)} บาท`,
+        `ถูกฆาตกรรมลอบทำร้าย ${m(g.pa.murder)} บาท ขับขี่หรือโดยสารมอเตอร์ไซค์ ${m(g.pa.motorcycle)} บาท`,
+        g.pa.me ? `ค่ารักษาพยาบาลต่ออุบัติเหตุ (ME) ครั้งละไม่เกิน ${m(g.pa.me)} บาท` : "แผนนี้ไม่มีค่ารักษาพยาบาล (ME) ห้ามพูดถึงค่ารักษา"] : []),
+      "ราคาตามแผน ลักษณะธุรกิจ และจำนวนพนักงาน ห้ามพูดถึงอายุหรือเพศ", "ไม่มีมูลค่าเงินสด ห้ามใช้คำว่าออม ห้ามพูดถึงเงินคืน", "ห้ามพูดเรื่องภาษี");
+  }
+  if (f.twelvepl) {
+    const g = f.twelvepl;
+    const m = (n: number) => Math.round(n).toLocaleString("en-US");
+    out.push(`ออมสัญญาหลักปีละ ${g.annual} บาท ${g.payYears} ปี รวม ${m(g.paid)} บาท ครบสัญญาอายุ ${g.coverToAge}`,
+      `เงินคืนทุกปีตั้งแต่ปีที่ 2 เริ่ม ${m(g.cashFirst)} บาท เพิ่มจนได้ปีละ ${m(g.cashFull)} บาท ตั้งแต่ปีที่ ${g.cashFullYear}`,
+      `ครบอายุ ${g.coverToAge} รับ ${m(g.maturity)} บาท รวมเงินที่ได้แน่นอน ${m(g.guaranteed)} บาท เมื่อถือครบถึงอายุ ${g.coverToAge}`,
+      `ถ้าเป็นอะไรไป ครอบครัวได้ ${m(g.sum)} บาท ถึงอายุ ${g.coverToAge}`,
+      g.tax !== undefined ? "ยอดออมสัญญาหลักลดหย่อนภาษีได้ตามเกณฑ์สรรพากร" : "ห้ามพูดเรื่องภาษี",
+      "ห้ามพูดถึงปันผล และทุกครั้งที่พูดยอดรับรวม ต้องบอกว่าถือครบถึงอายุ " + g.coverToAge);
   }
   if (f.pension) {
     const p = f.pension;

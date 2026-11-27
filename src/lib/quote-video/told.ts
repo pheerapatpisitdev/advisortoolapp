@@ -1,4 +1,5 @@
 import { fallbackLines, writes, type VideoBrief, type WrittenLines } from "./brief";
+import { paidUpOf } from "./easyprotect";
 import { pickQas, type SpokenQa } from "./qa";
 import type { QuoteVideoFacts, SceneKey, VideoLength } from "./script";
 
@@ -55,6 +56,7 @@ const bahtSaid = (baht: number) => (baht >= 1_000_000 && baht % 100_000 === 0
 export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
   const w = linesOf(f, told) ?? fallbackLines(f, { hook: "question", ...(told.brief?.audience ? { audience: told.brief.audience } : {}) });
   const annual = priceOf(f, "รายปี") ?? f.spokenPrice.amount;
+  const paidUp = paidUpOf(f);
   const versus: VersusView = f.product === "PENSION"
     ? { left: { label: "ออมปีละ", amount: annual, unit: "บาท" }, right: { label: "นำไปลดหย่อนภาษีได้", amount: "✓", unit: "ตามเกณฑ์สรรพากร" }, note: "ยิ่งฐานภาษีสูง ยิ่งประหยัดภาษีได้มาก" }
     : f.product === "IHEALTHY"
@@ -62,12 +64,38 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     // มรดก (owner, 2026-10-14): one year's money kept against what the family receives, as iHealthy's — no value to compare
     : f.product === "LEGACY"
       ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "ครอบครัวได้เงินก้อนสูงสุด", amount: f.lead.amount, unit: "บาท" }, note: "ค่าใช้จ่ายปีแรก ส่วนโรคร้ายแรงปรับตามอายุ" }
+    // CI 123 (owner, 2026-11-26): one year's money kept against the lump sum on a critical illness — no value to compare
+    : f.product === "CI123"
+      ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "ตรวจพบโรคร้ายแรง รับสูงสุด", amount: f.lead.amount, unit: "บาท" }, note: "ยอดออมปีแรก ส่วน CI 123 ปรับตามอายุ" }
+    // ประกันมะเร็ง (owner, 2026-11-26): one year's money kept against the lump sum a cancer pays — no value to compare
+    : f.product === "CANCER"
+      ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "ตรวจพบมะเร็ง รับสูงสุด", amount: f.lead.amount, unit: "บาท" }, note: "ยอดออมปีแรก ส่วนมะเร็งปรับตามอายุ" }
+    // PA (owner, 2026-11-26): one year's money kept against what a serious accident pays — no value to compare
+    : f.product === "PA"
+      ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "อุบัติเหตุร้ายแรง รับสูงสุด", amount: f.lead.amount, unit: "บาท" }, note: "สัญญาปีต่อปี ราคาเท่ากันทุกอายุ" }
+    // ประกันกลุ่ม (owner, 2026-11-26): about a month a head against what one stay in hospital or one serious accident pays
+    : f.product === "GROUP" && f.group
+      ? {
+        left: { label: "ค่าสวัสดิการ ต่อคน ประมาณเดือนละ", amount: f.group.perMonth.toLocaleString("en-US"), unit: "บาท" },
+        right: f.group.health
+          ? { label: "นอนโรงพยาบาล ค่าห้องวันละ", amount: f.group.health.room.toLocaleString("en-US"), unit: "บาท" }
+          : { label: "อุบัติเหตุร้ายแรง รับสูงสุด", amount: f.group.pa!.death.toLocaleString("en-US"), unit: "บาท" },
+        note: `ทั้งบริษัท ปีละ ${f.group.grandTotal.toLocaleString("en-US")} บาท`,
+      }
     // Protection Life (owner, 2026-10-14): the whole term's money kept against what the family receives within it; the screen says it pays nothing at the end
     : f.product === "PLB" && f.plb
       ? { left: { label: `เก็บเงินเอง ${f.plb.years} ปี`, amount: f.plb.total, unit: "บาท" }, right: { label: `ครอบครัวได้ภายใน ${f.plb.years} ปี`, amount: f.lead.amount, unit: "บาท" }, note: "ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน" }
     // Global Savings 15/8 (owner, 2026-10-20): what is saved against what comes back for certain; the bonus only as "ไม่การันตี"
     : f.product === "GSAVING" && f.gsaving
       ? { left: { label: `ออม ${f.gsaving.payYears} ปี รวม`, amount: f.totalPaid ?? "", unit: "บาท" }, right: { label: "รับคืนการันตี", amount: f.lead.amount, unit: "บาท" }, note: "+ คุ้มครองชีวิต + โบนัสดัชนี (ไม่การันตี)" }
+    // 12 พีแอล (owner, 2026-11-26): the plan's own premiums against what comes back for certain by 85
+    : f.product === "TWELVEPL" && f.twelvepl
+      ? { left: { label: `ออม ${f.twelvepl.payYears} ปี รวม${f.riders ? " (สัญญาหลัก)" : ""}`, amount: f.totalPaid ?? "", unit: "บาท" }, right: { label: `ถือครบถึงอายุ ${f.twelvepl.coverToAge} รับการันตี`, amount: f.lead.amount, unit: "บาท" }, note: `+ คุ้มครองชีวิต ${f.twelvepl.sum.toLocaleString("en-US")} บาท ตลอดทาง` }
+    // อีซี่ โพรเทค 6 and ไลฟ์เทรเชอร์ (owner, 2026-11-26): the premiums against what the family receives; where they reach the sum, what the plan is for
+    : paidUp
+      ? paidUp.times
+        ? { left: { label: `เก็บเงินเอง ${paidUp.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" }, right: { label: `ครอบครัวได้${paidUp.atLeast ? "อย่างน้อย" : "เงินก้อน"}`, amount: bahtSaid(paidUp.sum), unit: "บาท" }, note: f.breakEven ? `อายุ ${f.breakEven.age} ขอคืนได้ ${f.breakEven.cash} บาท` : "เงินที่ออมไม่หายไปไหน" }
+        : { left: { label: "แผนนี้ จ่ายแค่", amount: String(paidUp.payYears), unit: "ปี" }, right: { label: "คุ้มครองถึงอายุ", amount: String(paidUp.coverToAge), unit: "ปี" }, note: "ไม่ต้องจ่ายอีกหลังจ่ายครบ" }
       : {
         left: { label: f.payToEnd ? `เก็บเงินเองถึงอายุ ${f.lastPayAge}` : `เก็บเงินเอง ${f.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" },
         right: { label: f.product === "ISHIELD" ? "รับเงินก้อนสูงสุด" : "ครอบครัวได้เงินก้อน", amount: bahtSaid(f.lead.baht), unit: "บาท" },
@@ -75,14 +103,19 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
       };
   const third = f.product === "PENSION"
     ? `อนุมัติแล้วเริ่มออม รับบำนาญตั้งแต่อายุ ${f.pension?.start ?? ""}`
-    : f.product === "ISHIELD" ? "อนุมัติแล้วเริ่มคุ้มครอง โรคร้ายแรงหลัง 90 วัน"
+    : f.product === "ISHIELD" || f.product === "CI123" ? "อนุมัติแล้วเริ่มคุ้มครอง โรคร้ายแรงหลัง 90 วัน"
+    // the cancer stages wait 60 to 120 days (cancer-benefits.ts CPR_STAGES)
+    : f.product === "CANCER" && f.cancer ? `อนุมัติแล้วเริ่มคุ้มครอง มะเร็งหลังระยะรอคอย ${f.cancer.waiting.min} ถึง ${f.cancer.waiting.max} วัน`
     // Protection Life: when its cover starts is not confirmed (assistant/plb/faq.ts PLB_WAITING), so nothing is said of it
     : f.product === "PLB" ? "บริษัทพิจารณาแล้วรับกรมธรรม์" : "อนุมัติแล้วเริ่มคุ้มครอง";
+  // ประกันกลุ่ม: the employer sends the staff list; the PA page's own conditions say when cover starts
+  const steps = f.product === "GROUP" ? ["ทักมาคุยกัน", "รับใบเสนอ ส่งรายชื่อพนักงาน", "อนุมัติแล้วเริ่มคุ้มครองวันถัดไป"] : ["ทักมาคุยกัน", "รับใบเสนอ กรอกใบคำขอ", third];
   return {
     story: { points: w.points ?? [] },
-    qas: pickQas(f.product, told.brief?.story, f.plb?.variant, f.hide, f.gsaving),
+    // ประกันกลุ่ม's questions are its kind's (qa.ts)
+    qas: pickQas(f.product, told.brief?.story, f.plb?.variant ?? f.lifetreasure?.variant ?? f.group?.kind, f.hide, f.gsaving, f.twelvepl),
     versus,
-    steps: ["ทักมาคุยกัน", "รับใบเสนอ กรอกใบคำขอ", third],
+    steps,
   };
 }
 
@@ -105,8 +138,32 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
       if (f.product === "GSAVING" && f.gsaving) {
         return `ออม ${f.gsaving.payYears} ปี รวม ${x.versus.left.amount} บาท แผนนี้รับคืนการันตี ${x.versus.right.amount} บาท ระหว่างนั้นยังคุ้มครองชีวิต และมีโอกาสได้โบนัสตามดัชนีโลกอีกค่ะ`;
       }
+      const pu = paidUpOf(f);
+      if (pu) {
+        const g = pu;
+        return g.times
+          ? `ถ้าเก็บเงินเอง ${g.payYears} ปี จะมีเงิน ${x.versus.left.amount} บาท แต่แผนนี้ ครอบครัวได้${g.atLeast ? "อย่างน้อย" : "เงินก้อน"} ${x.versus.right.amount}บาท ตั้งแต่ปีแรกค่ะ`.replace(/(\d)บาท/, "$1 บาท")
+          : `ออมแค่ ${g.payYears} ปี หลังจากนั้นไม่ต้องจ่ายอีก แต่คุ้มครองไปถึงอายุ ${g.coverToAge} ค่ะ`;
+      }
+      if (f.product === "TWELVEPL" && f.twelvepl) {
+        return `${f.riders ? "เฉพาะสัญญาหลัก " : ""}ออม ${f.twelvepl.payYears} ปี รวม ${x.versus.left.amount} บาท ถือครบถึงอายุ ${f.twelvepl.coverToAge} รับการันตี ${x.versus.right.amount} บาท ระหว่างนั้นยังคุ้มครองชีวิต ${f.twelvepl.sum.toLocaleString("en-US")} บาทด้วยค่ะ`;
+      }
       if (f.product === "PLB" && f.plb) {
         return `ถ้าเก็บเงินเอง ${f.plb.years} ปี ก็มีเงิน ${f.plb.total} บาท แต่แผนนี้ ถ้าเป็นอะไรไปในช่วง ${f.plb.years} ปีนี้ ครอบครัวได้เงินก้อนถึง ${x.versus.right.amount} บาทค่ะ`;
+      }
+      if (f.product === "CI123") {
+        return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าตรวจพบโรคร้ายแรง รับเงินก้อนสูงสุดถึง ${x.versus.right.amount} บาทค่ะ`;
+      }
+      if (f.product === "CANCER") {
+        return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าตรวจพบมะเร็ง รับเงินก้อนสูงสุดถึง ${x.versus.right.amount} บาทค่ะ`;
+      }
+      if (f.product === "GROUP" && f.group) {
+        return f.group.health
+          ? `ค่าสวัสดิการประมาณเดือนละ ${x.versus.left.amount} บาทต่อคน แต่ถ้าพนักงานต้องนอนโรงพยาบาล ได้ค่าห้องถึงวันละ ${x.versus.right.amount} บาทค่ะ`
+          : `ค่าสวัสดิการประมาณเดือนละ ${x.versus.left.amount} บาทต่อคน แต่ถ้าพนักงานเกิดอุบัติเหตุร้ายแรง รับสูงสุดถึง ${x.versus.right.amount} บาทค่ะ`;
+      }
+      if (f.product === "PA") {
+        return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าเกิดอุบัติเหตุร้ายแรง รับสูงสุดถึง ${x.versus.right.amount} บาทค่ะ`;
       }
       if (f.product === "LEGACY") {
         return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนถึง ${x.versus.right.amount} บาทค่ะ`;

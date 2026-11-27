@@ -3,7 +3,14 @@ import { Fragment, type ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_EXTRA as X } from "@/lib/card-theme";
 import { CHART_WRITE, chartNotes } from "./chart-pen";
 import { beatCues, penBeats } from "./pen";
-import type { CoverRow, QuoteVideoFacts, SceneKey } from "./script";
+import { paidUpOf } from "./easyprotect";
+import { breakEvenNote, epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
+import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
+import { amountRows, bigFigure, stairsPicture } from "./stage-pictures";
+import { stageView, type StageView } from "./stage-views";
+import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
+import { riderIndex, type CoverRow, type QuoteVideoFacts, type SceneKey } from "./script";
+import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
 import { pensionBars } from "./pension";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
@@ -50,6 +57,8 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
   // วิดีโอเทียบ 4 แผน draws its own scenes but the contact card (ihealthy-all-plans-motion.tsx)
   const all = allPlansSpec(key, f, voiceSec);
   if (all) return all;
+  const stage = stageSpec(key, f, voiceSec);
+  if (stage) return stage;
   switch (key) {
     case "lead":
       return {
@@ -76,6 +85,23 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
           kicker: a(0.2, "up"), sub: a(0.5, "fade"), ticks: a(0.8, "grow", 1.6), tickLabel: a(1.6, "fade"), ends: a(1.0, "fade"),
           mat: a(mat, "grow"), matLabel: a(mat + 0.6, "pop"), card: a(Math.max(3.2, voiceSec * 0.55), "up"),
           pen: a(Math.max(3.8, voiceSec * 0.72), "pop"), note: a(Math.max(4.2, voiceSec * 0.85), "fade"),
+        };
+      }
+      if (f.coverStyle === "paidup") {
+        // อีซี่ โพรเทค 6: a coin a year, then nothing left to pay, then the years the cover stands
+        const road = Math.max(4.0, voiceSec * 0.6);
+        return {
+          kicker: a(0.2, "up"), sub: a(0.5, "fade"), ...spread("coin", f.payYears ?? 6, Math.max(2.5, voiceSec * 0.4), 0.8), pill: a(Math.max(3.2, voiceSec * 0.45), "pop"),
+          road: a(road, "grow", 1.8), roadLabel: a(road + 1.0, "fade"), ages: a(road + 0.4, "fade"), note: a(Math.max(5.6, voiceSec * 0.85), "fade"),
+        };
+      }
+      if (f.coverStyle === "cashback") {
+        // 12 พีแอล: the cash backs run out year by year and rise, then the maturity far above them, then what is certain in a card
+        const mat = Math.max(3.2, voiceSec * 0.5);
+        return {
+          kicker: a(0.2, "up"), sub: a(0.5, "fade"), ticks: a(0.8, "grow", Math.max(1.8, voiceSec * 0.3)), tickLabel: a(1.4, "fade"), fullLabel: a(Math.max(2.4, voiceSec * 0.3), "fade"),
+          ends: a(1.0, "fade"), mat: a(mat, "grow"), matLabel: a(mat + 0.6, "pop"), card: a(Math.max(4.4, voiceSec * 0.65), "up"),
+          pen: a(Math.max(5.2, voiceSec * 0.85), "pop"),
         };
       }
       if (f.coverStyle === "flat") {
@@ -134,9 +160,9 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
         unit: a(1.6, "fade"), note: a(Math.max(2.6, voiceSec * 0.65), "up"), pill: a(Math.max(3.2, voiceSec * 0.8), "pop"),
       };
     case "terms": {
-      // Protection Life: the terms in one after another, the chosen one popped, the total and the tax under them
+      // Protection Life (ไลฟ์เทรเชอร์ too): the terms in one after another, the chosen one popped, the total and the tax under them
       const s: Record<string, Anim> = { kicker: a(0.2, "up") };
-      const n = f.plb?.terms.length ?? 0;
+      const n = (f.plb?.terms ?? f.lifetreasure?.terms)?.length ?? 0;
       for (let i = 0; i < n; i++) s[`row${i}`] = a(0.6 + i * 0.35, "left");
       s.on = a(Math.max(0.6 + n * 0.35, voiceSec * 0.4), "pop");
       s.total = a(Math.max(2.4, voiceSec * 0.6), "up");
@@ -149,6 +175,19 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       return {
         kicker: a(0.2, "up"), sub: a(0.5, "fade"), big: a(0.9, "pop"), count: a(0.9, "count"), bars: a(1.3, "grow", 1.4),
         on: a(Math.max(2.4, voiceSec * 0.35), "pop"), pill: a(Math.max(3.2, voiceSec * 0.7), "pop"), note: a(Math.max(3.6, voiceSec * 0.8), "fade"),
+      };
+    case "family":
+      // 12 พีแอล: the family's sum counted up, the insured's years drawn out, the years after the last premium said
+      return {
+        kicker: a(0.2, "up"), big: a(0.5, "pop"), count: a(0.5, "count"), sub: a(1.2, "fade"), road: a(Math.max(1.6, voiceSec * 0.3), "grow", 1.8),
+        roadLabel: a(Math.max(2.2, voiceSec * 0.45), "fade"), ages: a(Math.max(2.0, voiceSec * 0.4), "fade"), pill: a(Math.max(3.2, voiceSec * 0.7), "pop"), note: a(Math.max(3.8, voiceSec * 0.85), "fade"),
+      };
+    case "total":
+      // 12 พีแอล: what is paid, then what comes back for certain, then the dividend's outline
+      return {
+        kicker: a(0.2, "up"), sub: a(0.5, "fade"), paid: a(0.8, "grow"), paidLabel: a(1.3, "fade"), back: a(Math.max(2.0, voiceSec * 0.28), "grow", 1.2),
+        cashWord: a(Math.max(2.8, voiceSec * 0.38), "fade"), matWord: a(Math.max(3.0, voiceSec * 0.4), "fade"), div: a(Math.max(3.8, voiceSec * 0.6), "grow"), divWord: a(Math.max(4.4, voiceSec * 0.66), "fade"),
+        backLabel: a(f.twelvepl?.dividend ? Math.max(4.8, voiceSec * 0.72) : Math.max(3.4, voiceSec * 0.5), "pop"), pill: a(Math.max(5.2, voiceSec * 0.85), "pop"),
       };
     case "compare": {
       const s: Record<string, Anim> = { kicker: a(0.2, "up") };
@@ -168,7 +207,52 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       return { kicker: a(0.2, "up"), left: a(0.6, "left"), vs: a(Math.max(1.4, voiceSec * 0.35), "pop"), right: a(Math.max(1.8, voiceSec * 0.4), "pop"), count: a(Math.max(1.8, voiceSec * 0.4), "count"), note: a(Math.max(3, voiceSec * 0.7), "fade") };
     case "steps":
       return { kicker: a(0.2, "up"), ...spread("st", 3, voiceSec, 0.9) };
+    // Life Protect's riders (owner, 2026-11-21, rider-pictures.tsx): the shield, then each rider's badge as the voice runs
+    case "riders":
+      return { kicker: a(0.2, "up"), sub: a(0.5, "fade"), shield: a(0.6, "pop"), lines: a(1.0, "fade"), ...spread("b", f.riders?.scenes.length ?? 0, voiceSec, 1.2) };
+    case "payout":
+      return { kicker: a(0.2, "up"), ...spread("row", f.riders?.payout.length ?? 0, voiceSec, 0.8) };
+    default:
+      // a rider: its name and price, its picture piece by piece, its lump sum counted, what it pays
+      return riderSpec(voiceSec);
   }
+}
+
+/**
+ * The staged plans' own scenes (stage-views.ts; stage-pictures.tsx names the pieces): the stairs grown one after
+ * another as the voice runs, the figure popped over each; a column of rows a row at a time, after the big figure
+ * where there is one. Undefined for any other scene or plan.
+ */
+export function stageSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number): Record<string, Anim> | undefined {
+  const v = stageView(key, f);
+  if (!v) return undefined;
+  const late = (share: number, min: number) => Math.max(min, voiceSec * share);
+  if (v.stairs) {
+    const s: Record<string, Anim> = { kicker: a(0.2, "up"), sub: a(0.5, "fade") };
+    const n = v.stairs.length;
+    for (let i = 0; i < n; i++) {
+      const at = 0.9 + (i * Math.max(1, voiceSec * 0.7 - 0.9)) / Math.max(1, n);
+      s[`bar${i}`] = a(at, "grow");
+      s[`lab${i}`] = a(at, "fade");
+      s[`amt${i}`] = a(at + 0.5, "pop");
+    }
+    s.foot = a(late(0.85, 3.6), "up");
+    return s;
+  }
+  const n = v.rows?.length ?? 0;
+  const s: Record<string, Anim> = { kicker: a(0.2, "up"), sub: a(0.5, "fade"), ...(v.big ? { big: a(0.7, "pop") } : {}), ...spread("row", n, Math.max(voiceSec, 2), v.big ? 1.4 : 0.8) };
+  s.foot = a(late(0.8, 2.6), "fade");
+  return s;
+}
+
+/** one rider's scene (rider-pictures.tsx names its pieces kicker, sub, price, pic0–4, day0–4, big, what) */
+function riderSpec(voiceSec: number): Record<string, Anim> {
+  const late = Math.max(2.4, voiceSec * 0.55);
+  return {
+    kicker: a(0.2, "up"), sub: a(0.5, "fade"), price: a(Math.min(1.4, voiceSec * 0.25), "pop"),
+    ...spread("pic", 5, Math.max(voiceSec * 0.8, 3), 1.0), ...spread("day", 5, Math.max(voiceSec * 0.7, 3), 1.4),
+    big: a(late, "pop"), count: a(late, "count"), what: a(Math.max(3, voiceSec * 0.7), "up"),
+  };
 }
 
 /** n items brought in one after another over the first 80% of the voice, named prefix0, prefix1, … */
@@ -237,6 +321,11 @@ export interface MotionContext {
   voiceSec: number;
   /** the opening's picture where the clip's theme has its own (themes.tsx); the shield and the family otherwise */
   hero?: (s: Record<string, Anim>, t: number, w: number, h: number) => ReactNode;
+  /**
+   * วิดีโอโฆษณา (ad-video/draw.tsx ctaTitle): the closing words in place of the contact card's standing title, already
+   * broken into lines at a size that fits the slot above the card; absent on every other clip
+   */
+  ctaTitle?: { size: number; lines: string[] };
 }
 
 export const abs = (s: React.CSSProperties): React.CSSProperties => ({ display: "flex", position: "absolute", ...s });
@@ -395,7 +484,7 @@ function LegacyLead({ c, t }: { c: MotionContext; t: number }) {
 
 function Lead({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
-  if (f.legacy || f.plb || f.gsaving) return <LegacyLead c={c} t={t} />;
+  if (f.legacy || f.plb || f.gsaving || f.twelvepl) return <LegacyLead c={c} t={t} />;
   const s = motionSpec("lead", f, c.voiceSec);
   const shield = look(s.shield, t).p;
   const n = countAt(f.lead.baht, look(s.count, t).p);
@@ -425,13 +514,21 @@ function Lead({ c, t }: { c: MotionContext; t: number }) {
       </div>
       <El an={s.kicker} t={t} style={{ position: "absolute", left: 0, width: W, top: 760, justifyContent: "center", fontSize: 58, fontWeight: 600, color: WHITE }}>{f.lead.label}</El>
       <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 850, justifyContent: "center", fontSize: f.lead.amount.length > 9 ? 130 : 150, fontWeight: 700, color: GOLD }}>{figure(n, f.lang ?? "th")}</El>
-      <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1040, justifyContent: "center", fontSize: 38, color: WHITE, opacity: 0.85 }}>{`${vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1040, justifyContent: "center", fontSize: 38, color: WHITE, opacity: 0.85 }}>{`${f.lead.unit ?? vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
       <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1130, justifyContent: "center" }}>
         <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "8px 34px", fontSize: 44, fontWeight: 600 })}>{f.leadMark}</div>
       </El>
+      {f.leadPill ? (
+        <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1240, justifyContent: "center" }}>
+          <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "4px 30px", fontSize: 40 })}>{f.leadPill}</div>
+        </El>
+      ) : null}
     </>
   );
 }
+
+/** the price scene's big figure: 170 up to "999,999", smaller for the millions */
+const bigSize = (amount: string) => (amount.length > 9 ? 112 : amount.length > 7 ? 132 : 170);
 
 function Price({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
@@ -459,7 +556,8 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
         </svg>
         <div style={box({ flexDirection: "column", marginLeft: 40 })}>
           <El an={s.small} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : vw.firstYearMonthly)}</El>
-          <El an={s.big} t={t} style={{ fontSize: 170, fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
+          {/* a yearly figure in the millions (ไลฟ์เทรเชอร์'s) is set smaller to stay inside the frame */}
+          <El an={s.big} t={t} style={{ fontSize: bigSize(f.priceBig?.amount ?? daily ?? main?.amount ?? ""), fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
           <El an={s.unit} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : vw.baht)}</El>
         </div>
       </div>
@@ -481,7 +579,7 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
         ))}
       </div>
       {f.priceNotes.length > 0 && (
-        <El an={s.notes} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? pillsTop + 96 : 1120, flexDirection: "column", fontSize: 34, color: WHITE, opacity: 0.85 }}>
+        <El an={s.notes} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? pillsTop + ((f.twelvepl || f.ci123 || f.cancer) && f.pills.length > 1 ? 186 : 96) : 1120, flexDirection: "column", fontSize: 34, color: WHITE, opacity: 0.85 }}>
           {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: 10 })}>{n}</div>)}
         </El>
       )}
@@ -849,8 +947,81 @@ export function plbTermCards(f: QuoteVideoFacts, s: Record<string, Anim>, t: num
   );
 }
 
+/** the band under the stairs: the first line a pill in the highlight, the rest plain under it */
+function stagePills(pills: string[], size: number): ReactNode {
+  return pills.map((p, i) => (i === 0
+    ? <div key={i} style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: size, fontWeight: 600 })}>{p}</div>
+    : <div key={i} style={box({ color: WHITE, opacity: 0.9, fontSize: size - 4, marginTop: 14 })}>{p}</div>));
+}
+
+/** a staged plan's stairs (stage-views.ts): CI 123's stages, the cancer plan's four */
+function StageStairs({ c, t, v }: { c: MotionContext; t: number; v: StageView }) {
+  const f = c.facts;
+  const s = motionSpec("critical", f, c.voiceSec);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 66, fontWeight: 700, color: WHITE }}>{v.kicker}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 40, color: WHITE, opacity: 0.9 }}>{v.sub}</El>
+      <div style={abs({ left: SIDE, top: 430, width: w })}>{stairsPicture(v.stairs ?? [], motionTpDraw(s, t), w, 1.1, 560)}</div>
+      {v.pills?.length ? (
+        <El an={s.foot} t={t} style={{ position: "absolute", left: 0, width: W, top: 1400, flexDirection: "column", alignItems: "center" }}>{stagePills(v.pills, 40)}</El>
+      ) : null}
+    </>
+  );
+}
+
+/** a staged plan's column of rows (stage-views.ts), the big figure over them where there is one */
+function StageRows({ c, t, k, v }: { c: MotionContext; t: number; k: SceneKey; v: StageView }) {
+  const f = c.facts;
+  const s = motionSpec(k, f, c.voiceSec);
+  const w = W - SIDE * 2;
+  const d = motionTpDraw(s, t);
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 66, fontWeight: 700, color: WHITE }}>{v.kicker}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 40, color: WHITE, opacity: 0.9 }}>{v.sub}</El>
+      <div style={abs({ left: SIDE, top: 420, width: w, flexDirection: "column" })}>
+        {v.big ? <div style={box({ width: w, marginTop: 160, marginBottom: 60 })}>{bigFigure(v.big.amount, v.big.unit, d, w, 1.1)}</div> : null}
+        {amountRows(v.rows ?? [], d, w, 1.1, 36)}
+        {v.foot ? <El an={s.foot} t={t} style={{ justifyContent: "center", width: w, marginTop: 16, fontSize: 40, color: WHITE, opacity: 0.85 }}>{v.foot}</El> : null}
+      </div>
+    </>
+  );
+}
+
+/** a staged plan's scene, stairs or rows, where its plan has one */
+function StageScene({ c, t, k }: { c: MotionContext; t: number; k: SceneKey }) {
+  const v = stageView(k, c.facts);
+  if (!v) return null;
+  return v.stairs ? <StageStairs c={c} t={t} v={v} /> : <StageRows c={c} t={t} k={k} v={v} />;
+}
+
+/** ไลฟ์เทรเชอร์'s third scene: its three paying terms, the chosen one lit (lifetreasure-pictures.tsx) */
+function LtTerms({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.lifetreasure;
+  const s = motionSpec("terms", f, c.voiceSec);
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 66, fontWeight: 700, color: WHITE }}>{LT_TERMS_KICKER}</El>
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 40, color: WHITE, opacity: 0.9 }}>{f.insuredLine}</El>
+      <div style={abs({ left: SIDE, top: 400, width: w, flexDirection: "column" })}>
+        {ltTermRows(g, motionTpDraw(s, t), w, 1.2)}
+        <El an={s.note} t={t} style={{ justifyContent: "center", width: w, marginTop: 16, fontSize: 40, color: WHITE, opacity: 0.85 }}>{LT_TERMS_NOTE}</El>
+      </div>
+    </>
+  );
+}
+
 function Terms({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
+  if (f.lifetreasure) return <LtTerms c={c} t={t} />;
   const p = f.plb;
   const s = motionSpec("terms", f, c.voiceSec);
   if (!p) return null;
@@ -1256,7 +1427,7 @@ function Value({ c, t }: { c: MotionContext; t: number }) {
           <div style={box({ flexDirection: "column" })}>
             <div style={box({ fontSize: 38, fontWeight: 700, color: RED })}>{`จุดคุ้มทุน อายุ ${be.age}`}</div>
             <div style={box({ fontSize: 52, fontWeight: 700 })}>{`ขอคืนได้ ${be.cash} บาท`}</div>
-            <div style={box({ fontSize: 34 })}>{`มากกว่าที่จ่ายไป ${f.totalPaid} บาท`}</div>
+            <div style={box({ fontSize: 34 })}>{breakEvenNote(f)}</div>
           </div>
         ) : (
           <div style={box({ fontSize: 46, fontWeight: 700 })}>{`อายุ ${last?.age ?? f.coverToAge} มูลค่าเงินสด ${last?.cash ?? ""} บาท`}</div>
@@ -1316,14 +1487,22 @@ function Contact({ c, t }: { c: MotionContext; t: number }) {
   const initial = [...k.name.trim()][0] ?? "?";
   const more = k.more ? k.more.split("\n") : [];
   const vw = wordsOf(f);
-  const [said, help] = vw.contactLines(c.narrator ?? "F");
+  const [said, standing] = vw.contactLines(c.narrator ?? "F");
+  const help = f.contactLine ?? standing;
   return (
     <>
       <Header f={f} title={c.customer ? vw.contactFor(c.customer) : vw.contactMore} />
-      <El an={s.title} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 260, flexDirection: "column", fontSize: f.lang && f.lang !== "th" ? 68 : 84, fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight }}>
-        <div style={box({})}>{said}</div>
-        <div style={box({ color: GOLD })}>{help}</div>
-      </El>
+      {c.ctaTitle ? (
+        // an ad's closing words take the title's place above the card (controller ruling, 2026-11-22), the last line in gold
+        <El an={s.title} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 260, flexDirection: "column", fontSize: c.ctaTitle.size, fontWeight: 700, color: WHITE, lineHeight: 1.3 }}>
+          {c.ctaTitle.lines.map((l, i, all) => <div key={i} style={box({ whiteSpace: "nowrap", ...(i === all.length - 1 && all.length > 1 ? { color: GOLD } : {}) })}>{l}</div>)}
+        </El>
+      ) : (
+        <El an={s.title} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 260, flexDirection: "column", fontSize: f.lang && f.lang !== "th" ? 68 : 84, fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight }}>
+          <div style={box({})}>{said}</div>
+          <div style={box({ color: GOLD })}>{help}</div>
+        </El>
+      )}
       <El an={s.card} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 620, background: WHITE, color: NAVY, borderRadius: 48, padding: 44, alignItems: "center" }}>
         {k.photo ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -1455,28 +1634,213 @@ function StepsScene({ c, t }: { c: MotionContext; t: number }) {
   );
 }
 
+/** the rider scenes in Motion's own colours, which its themes repaint */
+export const MOTION_RIDER_PAL: RiderPal = { ink: WHITE, fill: GOLD, figure: GOLD, onFill: NAVY, card: WHITE, onCard: NAVY, red: RED, green: GREEN, sky: SKY };
+
+/** how a Motion scene brings in a rider picture's pieces */
+export const motionDraw = (s: Record<string, Anim>, t: number): Draw => ({
+  pal: MOTION_RIDER_PAL,
+  piece: (name, style, children) => <El key={name} an={s[name]} t={t} style={style}>{unwrap(children)}</El>,
+  count: look(s.count, t).p,
+});
+
+/** how a Motion scene draws 12 พีแอล's pictures (twelvepl-pictures.tsx) */
+export const motionTpDraw = (s: Record<string, Anim>, t: number): TpDraw => ({ ...motionDraw(s, t), p: (name) => look(s[name], t).p });
+
+/** 12 พีแอล's cash backs and its maturity, then what is certain */
+function CoverCashback({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!f.twelvepl) return null;
+  const d = motionTpDraw(s, t);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 700, color: WHITE }}>{f.coverTitle}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 295, fontSize: 44, color: WHITE, opacity: 0.9 }}>ส่วนการันตี ได้แน่นอน</El>
+      <div style={abs({ left: SIDE, top: 400, width: w })}>{tpCashPicture(f.twelvepl, d, w)}</div>
+      <div style={abs({ left: SIDE, top: 1000, width: w })}>{tpSureCard(f, d, w)}</div>
+      <El an={s.pen} t={t} style={{ position: "absolute", left: 0, width: W, top: 1280, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 42, fontWeight: 600 })}>✓ การันตี ได้แน่นอน</div>
+      </El>
+    </>
+  );
+}
+
+/** 12 พีแอล's life cover: the family's sum, and the years it stands after the last premium */
+function FamilyScene({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.twelvepl;
+  const s = motionSpec("family", f, c.voiceSec);
+  if (!g) return null;
+  const n = countAt(g.sum, look(s.count, t).p);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: 0, width: W, top: 250, justifyContent: "center", fontSize: 56, fontWeight: 600, color: WHITE }}>ถ้าเป็นอะไรไป ครอบครัวได้</El>
+      <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 350, justifyContent: "center", fontSize: tpBigSize(g.sum), fontWeight: 700, color: GOLD, lineHeight: 1.2 }}>{n.toLocaleString("en-US")}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: 0, width: W, top: 560, justifyContent: "center", fontSize: 46, color: WHITE }}>{`บาท ทุกช่วงอายุ ถึงอายุ ${g.coverToAge}`}</El>
+      <div style={abs({ left: SIDE, top: 740, width: w })}>{tpRoad(f, g, motionTpDraw(s, t), w)}</div>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1080, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 42, fontWeight: 600 })}>{tpFamilyPill(f)}</div>
+      </El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 1200, justifyContent: "center", fontSize: 40, color: WHITE, opacity: 0.9 }}>หรือมูลค่าเวนคืน หากมากกว่า</El>
+    </>
+  );
+}
+/** a sum's size on the family scene: "1,000,000" large, "50,000,000" still inside the frame */
+export const tpBigSize = (sum: number) => (sum >= 10_000_000 ? 138 : 160);
+export const tpFamilyPill = (f: QuoteVideoFacts) => `ออมครบแล้ว ยังคุ้มครองต่ออีก ${f.coverToAge - f.age - (f.payYears ?? 0)} ปี`;
+
+/** อีซี่ โพรเทค 6: the six premiums, nothing after them, the cover to 99 */
+function CoverPaidUp({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.easyprotect;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!g) return null;
+  const d = motionTpDraw(s, t);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 66, fontWeight: 700, color: WHITE }}>{f.coverTitle}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 44, color: WHITE, opacity: 0.9 }}>{f.coverNote}</El>
+      <div style={abs({ left: SIDE, top: 420, width: w })}>{epCoins(f, g, d, w)}</div>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 690, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "10px 36px", fontSize: 46, fontWeight: 600 })}>{epDonePill(g)}</div>
+      </El>
+      <div style={abs({ left: SIDE, top: 900, width: w })}>{tpRoad(f, g, d, w, 1, epRoadWord(g))}</div>
+      <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 1210, justifyContent: "center", fontSize: 35, color: WHITE, opacity: 0.9 }}>{epFloorNote(g)}</El>
+    </>
+  );
+}
+
+/** อีซี่ โพรเทค 6's fourth scene, ไลฟ์เทรเชอร์'s too: what is paid beside what the family receives */
+function EpTotalScene({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const words = totalWords(f);
+  const s = motionSpec("total", f, c.voiceSec);
+  if (!words) return null;
+  const { g } = words;
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 60, fontWeight: 700, color: WHITE }}>{words.kicker}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 295, fontSize: 40, color: WHITE, opacity: 0.9 }}>{f.insuredLine}</El>
+      <div style={abs({ left: SIDE, top: 390, width: w })}>{epTotalPicture(g, motionTpDraw(s, t), w, 840, 1, words.paid)}</div>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1270, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "10px 36px", fontSize: 48, fontWeight: 600 })}>{words.pill}</div>
+      </El>
+    </>
+  );
+}
+
+/** 12 พีแอล's fifth scene: what the plan costs beside what comes back */
+function TotalScene({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  if (paidUpOf(f)) return <EpTotalScene c={c} t={t} />;
+  const g = f.twelvepl;
+  const s = motionSpec("total", f, c.voiceSec);
+  if (!g) return null;
+  const head = tpTotalHead(f, g);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 700, color: WHITE }}>{head.kicker}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 295, fontSize: 38, color: WHITE, opacity: 0.9 }}>{head.sub}</El>
+      <div style={abs({ left: SIDE, top: 390, width: w })}>{tpTotalPicture(g, motionTpDraw(s, t), w, 860)}</div>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1300, justifyContent: "center" }}>
+        <div style={box({ background: head.sure ? GREEN : RED, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 42, fontWeight: 600 })}>{head.pill}</div>
+      </El>
+    </>
+  );
+}
+
+/** แพ็กเกจของคุณ: the life cover's shield, each rider joined to it */
+function RiderPackage({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("riders", f, c.voiceSec);
+  const d = motionDraw(s, t);
+  const n = f.riders?.scenes.length ?? 0;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 180, fontSize: 70, fontWeight: 700, color: WHITE }}>แพ็กเกจของคุณ</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 285, fontSize: 40, color: WHITE, opacity: 0.85 }}>{`สัญญาหลัก + สัญญาเพิ่มเติม ${n} ตัว`}</El>
+      <div style={abs({ left: SIDE, top: 400, width: W - SIDE * 2, height: 1000 })}>{packagePicture(f, d, W - SIDE * 2, 1000, 1)}</div>
+    </>
+  );
+}
+
+/** one rider: its name and price, its picture, what it pays */
+function RiderOne({ c, t, i }: { c: MotionContext; t: number; i: number }) {
+  const f = c.facts;
+  const r = f.riders?.scenes[i];
+  if (!r) return null;
+  const d = motionDraw(motionSpec("rider1", f, c.voiceSec), t);
+  const w = W - SIDE * 2;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <div style={abs({ left: SIDE, top: 170, width: w, flexDirection: "column" })}>
+        {riderHead(r, f.spokenPrice.per, d, w, 1)}
+        <div style={box({ marginTop: 50, width: w })}>{riderPicture(r, f, d, w, 1)}</div>
+        <div style={box({ marginTop: 44, width: w })}>{riderWhat(r, d, w, 1)}</div>
+      </div>
+    </>
+  );
+}
+
+/** เกิดเรื่องนี้ ได้เท่าไร */
+function Payout({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("payout", f, c.voiceSec);
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 180, fontSize: 70, fontWeight: 700, color: WHITE }}>เกิดเรื่องนี้ ได้เท่าไร</El>
+      <div style={abs({ left: SIDE, top: 330, width: W - SIDE * 2 })}>{payoutList(f.riders?.payout ?? [], motionDraw(s, t), W - SIDE * 2, 1)}</div>
+    </>
+  );
+}
+
 /** One frame of a Motion Graphic scene at scene time t: transparent, over the drifting background. */
 export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
-  const body = allPlansFrame(key, c, t) ?? {
+  const ri = riderIndex(key);
+  const body = allPlansFrame(key, c, t) ?? (ri !== undefined ? <RiderOne c={c} t={t} i={ri} />
+    : key === "riders" ? <RiderPackage c={c} t={t} />
+    : key === "payout" ? <Payout c={c} t={t} />
+    : undefined) ?? {
     lead: <Lead c={c} t={t} />,
     price: c.priceJar && jarFits(c.facts) ? <PriceJar c={c} t={t} /> : <Price c={c} t={t} />,
-    cover: c.coverRoad && roadFits(c.facts) ? <CoverRoad c={c} t={t} /> : c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
+    cover: stageView("cover", c.facts) ? <StageScene c={c} t={t} k="cover" /> : c.coverRoad && roadFits(c.facts) ? <CoverRoad c={c} t={t} /> : c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
       : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat c={c} t={t} />
-      : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : <CoverRows c={c} t={t} />,
+      : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : c.facts.coverStyle === "cashback" ? <CoverCashback c={c} t={t} /> : c.facts.coverStyle === "paidup" ? <CoverPaidUp c={c} t={t} /> : <CoverRows c={c} t={t} />,
     value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
     compare: <Compare c={c} t={t} />,
-    critical: <Critical c={c} t={t} />,
+    critical: stageView("critical", c.facts) ? <StageScene c={c} t={t} k="critical" /> : <Critical c={c} t={t} />,
     terms: <Terms c={c} t={t} />,
     index: <IndexScene c={c} t={t} />,
+    family: stageView("family", c.facts) ? <StageScene c={c} t={t} k="family" /> : <FamilyScene c={c} t={t} />,
+    total: <TotalScene c={c} t={t} />,
     contact: c.loop ? <LoopEnd c={c} t={t} /> : <Contact c={c} t={t} />,
     story: <StoryScene c={c} t={t} />,
     qa: <QaScene c={c} t={t} />,
     versus: <VersusScene c={c} t={t} />,
     steps: <StepsScene c={c} t={t} />,
-  }[key];
+  }[key as Exclude<SceneKey, "riders" | "payout" | `rider${number}`>];
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {body}
+      {c.facts.screenNote && key !== "contact" ? (
+        <div style={abs({ left: 0, width: W, bottom: 212, flexDirection: "column", alignItems: "center", fontSize: 28, color: WHITE, opacity: 0.75 })}>
+          {screenNoteLines(c.facts).map((l) => <div key={l} style={box({})}>{l}</div>)}
+        </div>
+      ) : null}
       <Subtitle words={c.words} t={t} voiceSec={c.voiceSec} />
       <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: 26, color: WHITE, opacity: 0.6 })}>Application by www.advisortool.app</div>
     </div>

@@ -219,6 +219,7 @@ export const SETUP_WORD: Record<string, string> = {
   "line-broadcast": "ส่งบรอดแคสต์ LINE", "line-broadcast-cancel": "ยกเลิกบรอดแคสต์ LINE", "line-bot": "เปิด/ปิดบอท LINE", "line-menus": "แก้เมนู LINE",
   "line-owner-link-start": "เริ่มผูก LINE เจ้าของ", "line-owner-unlink": "ถอด LINE เจ้าของ", "line-notify-new-member": "ตั้งแจ้งเตือนสมาชิกใหม่",
   "page-welcome": "แก้ข้อความต้อนรับของเพจ", "page-welcome-reset": "คืนข้อความต้อนรับเดิม", "intro-pictures": "แก้รูปต้อนรับ", "intro-pictures-reset": "คืนรูปต้อนรับเดิม",
+  "hospital-phones-save": "กรอกเบอร์โรงพยาบาล", "hospital-phones-reset": "คืนเบอร์โรงพยาบาลเดิม",
   "teach-lesson": "สอนบอท", "teach-edit": "แก้บทเรียนบอท", "teach-report": "รายงานคำตอบบอท", "bot-test-save": "บันทึกบททดสอบบอท", "bot-test-delete": "ลบบททดสอบบอท",
 };
 

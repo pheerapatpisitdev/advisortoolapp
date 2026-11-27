@@ -30,7 +30,7 @@ import type { RecipeKey } from "./recipes";
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "13336fe3f792";
+export const REMOTION_DRAWING = "3227dae2546e";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -64,6 +64,12 @@ export type RemotionMotion = {
    * in place of the theme's scenes; absent on every other clip, whose props stay exactly as before
    */
   recipe?: RecipeKey;
+  /**
+   * วิดีโอโฆษณา (owner, 2026-11-22; src/lib/ad-video): each scene's photo (lead, bodies…, contact; null where the scene
+   * has none) — paths in the parts, links in the props — and the closing words shown above the contact card.
+   * Absent on every other clip, whose props stay exactly as before
+   */
+  ad?: { photos: (string | null)[]; cta: string };
 };
 
 /** a type, not an interface: Remotion's props must fit Record<string, unknown> */

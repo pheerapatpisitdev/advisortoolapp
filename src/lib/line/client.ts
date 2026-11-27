@@ -204,6 +204,11 @@ export async function linkRichMenu(userId: string, richMenuId: string): Promise<
   await menuOk(await menuCall("POST", `${API}/user/${userId}/richmenu/${richMenuId}`, {}), "link menu");
 }
 
+/** Takes this person's own menu away, so they see the default again. A person with none is not an error. */
+export async function unlinkRichMenu(userId: string): Promise<void> {
+  await menuOk(await menuCall("DELETE", `${API}/user/${userId}/richmenu`), "unlink menu");
+}
+
 /** Every menu the account holds, with the names this app gave them. */
 export async function listRichMenus(): Promise<{ richMenuId: string; name: string }[]> {
   const res = await menuOk(await menuCall("GET", `${API}/richmenu/list`), "list menus");
@@ -230,6 +235,43 @@ export async function quota(): Promise<{ limit: number | null; used: number } | 
     return { limit: limit.type === "limited" ? limit.value ?? null : null, used: used.totalUsage };
   } catch (e) {
     console.error("[line] quota not read:", e);
+    return null;
+  }
+}
+
+/**
+ * Whether this person has the account as a friend, which a push needs: LINE gives a profile only
+ * for a friend. Null when LINE could not be asked. Not a message, so it costs nothing.
+ */
+/**
+ * A friend's name as LINE shows it, with the friendship: null = not a friend (no push reaches
+ * them), undefined = LINE could not be asked.
+ */
+export async function friendProfile(userId: string): Promise<{ displayName: string } | null | undefined> {
+  try {
+    const res = await menuCall("GET", `${API}/profile/${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { displayName?: unknown };
+      return { displayName: typeof body.displayName === "string" ? body.displayName : "" };
+    }
+    if (res.status === 404) return null;
+    console.error(`[line] friendship not read: ${res.status}`);
+    return undefined;
+  } catch (e) {
+    console.error("[line] friendship not read:", e);
+    return undefined;
+  }
+}
+
+export async function isFriend(userId: string): Promise<boolean | null> {
+  try {
+    const res = await menuCall("GET", `${API}/profile/${encodeURIComponent(userId)}`);
+    if (res.ok) return true;
+    if (res.status === 404) return false;
+    console.error(`[line] friendship not read: ${res.status}`);
+    return null;
+  } catch (e) {
+    console.error("[line] friendship not read:", e);
     return null;
   }
 }

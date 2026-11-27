@@ -3,7 +3,6 @@ import { googleError } from "@/lib/auth/google";
 import { memberSettings } from "@/lib/auth/member-store";
 import { safeNext } from "@/lib/auth/next";
 import { getViewer } from "@/lib/auth/viewer";
-import { PriceList } from "@/components/auth/PriceList";
 import { isCalcPath } from "@/lib/auth/calc-paths";
 import { passSettings } from "@/lib/members/pass-store";
 import { frontPricesOf, SIGNUP_HINT, signupHint, type FrontPrices } from "@/lib/pricing/front";
@@ -44,15 +43,14 @@ export async function LoginDoor({ searchParams }: { searchParams: DoorParams }) 
       next={next} signupOpen={settings.signupOpen} error={googleError(params.error)} notice={notice}
       premium={premium}
       signupHint={prices ? signupHint(prices.member) : SIGNUP_HINT}
-      prices={prices && <PriceList prices={prices} />}
     />
   );
 }
 
 /**
- * ค่าบริการ's figures, from the back office (owner, 2026-10-20). The pass settings decide what a
- * member is told; when they cannot be read the list is left out rather than guessed. The rest
- * only drop their own line.
+ * The member trial, from the back office, for the line under the Google button and the
+ * calculators' notice. The ค่าบริการ cards under the door came off on 2026-11-22 (owner, mockup
+ * Lj429DuBaTJXhS5ghT1wJt); when the settings cannot be read the trial is left unsaid rather than guessed.
  */
 async function loadPrices(): Promise<FrontPrices | null> {
   try {

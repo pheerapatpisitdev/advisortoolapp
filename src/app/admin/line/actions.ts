@@ -61,9 +61,9 @@ export async function rebuildMenusAction(): Promise<Result> {
   await requireStaff("backoffice");
   try {
     const r = await rebuildMenus();
-    await audit("line-menus", null, { deleted: r.deleted });
+    await audit("line-menus", null, { deleted: r.deleted, agents: r.agents });
     revalidatePath("/admin/line");
-    return { ok: true, note: "สร้างเมนูใหม่แล้ว" };
+    return { ok: true, note: `สร้างเมนูใหม่แล้ว · ตัวแทนที่เชื่อมแล้ว ${r.agents} คนเห็นเมนูตัวแทน` };
   } catch (e) {
     console.error("[line] menus not rebuilt:", e);
     return { ok: false, error: `สร้างเมนูไม่สำเร็จ: ${e instanceof Error ? e.message.slice(0, 200) : String(e)}` };

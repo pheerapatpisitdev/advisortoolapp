@@ -24,7 +24,7 @@ const FULL: KnowShow[] = [
   { layout: "renew98", title: ["ต่ออายุ", "ได้ถึง"], note: "ตามเงื่อนไข", to: 98, age: 35 },
   { layout: "parentshealth", title: ["ให้พ่อแม่", "ลดหย่อนภาษี"], note: "ตามเกณฑ์", cap: 15_000 },
   { layout: "groupcost", title: ["ประกันกลุ่ม", "ต่อหัว"], note: "ตามกลุ่มพนักงาน", perYear: 2_552 },
-  { layout: "hospitals", title: ["โรงพยาบาล", "ในเครือ"], note: "ดูรายชื่อเต็มที่เว็บ", total: 537, rows: H.ranked.slice(0, 5).map((r) => ({ province: r.province, count: r.count })) },
+  { layout: "hospitals", title: ["โรงพยาบาล", "ในเครือ"], note: "ดูรายชื่อเต็มที่เว็บ", total: 548, rows: H.ranked.slice(0, 5).map((r) => ({ province: r.province, count: r.count })) },
   { layout: "paclaim", title: ["อุบัติเหตุ", "หนึ่งครั้ง"], note: "ตามแผน PA", medical: 150_000, weekly: 3_000, weeks: 52 },
 ];
 /** the same eight with only what is required */
@@ -35,7 +35,7 @@ const BARE: KnowShow[] = [
   { layout: "renew98", title: ["ต่ออายุ", ""], to: 98 },
   { layout: "parentshealth", title: ["พ่อแม่", ""], cap: 15_000 },
   { layout: "groupcost", title: ["ต่อหัว", ""], perYear: 3_942 },
-  { layout: "hospitals", title: ["ในเครือ", ""], total: 537, rows: [{ province: BKK.province, count: BKK.count }] },
+  { layout: "hospitals", title: ["ในเครือ", ""], total: 548, rows: [{ province: BKK.province, count: BKK.count }] },
   { layout: "paclaim", title: ["อุบัติเหตุ", ""], medical: 100_000 },
 ];
 /** the brief's own numbers for the optional fields FULL uses */
@@ -394,8 +394,8 @@ describe("checkDevice: round-5 health devices", () => {
     expect(typeof ok({ ...FULL[4], note: "เบี้ยถูก" })).toBe("string");
   });
   it("is refused the way a forged-figure device is: checkScene names the device, checkScript the scene", () => {
-    const scene: PromptScene = { voice: "ค่าห้อง", screen: "ค่าห้อง", picture: "ห้องพัก", device: { layout: "hospitals", title: T, total: 537, rows: [{ province: BKK.province, count: 136 }] } as never };
-    const all = new Set([136, 537]);
+    const scene: PromptScene = { voice: "ค่าห้อง", screen: "ค่าห้อง", picture: "ห้องพัก", device: { layout: "hospitals", title: T, total: 548, rows: [{ province: BKK.province, count: 137 }] } as never };
+    const all = new Set([137, 548]);
     expect(checkScene(scene, all, all).some((r) => r.startsWith("device:") && r.includes("rows"))).toBe(true);
     const brief = "ค่าห้องวันละ 9,000 บาท ผู้ป่วยนอก 12,000 บาทต่อปี";
     const good: PromptScene = { ...scene, device: { layout: "ipdopd", title: T, room: 9_000, opd: 12_000 } };

@@ -24,7 +24,7 @@
       "saMin": 100000, "saMaxMultipleOfBase": 5, "saMaxCap": 10000000
     },
     "MEB": {
-      "name": "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)",
+      "name": "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)",
       "ageMin": 6, "ageMax": 65,
       "planMaxByAge": [
         { "ageMax": 10, "planMax": 500 },

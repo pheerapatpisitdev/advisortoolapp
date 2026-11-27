@@ -31,9 +31,9 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
     expect(f.perDayAmount).toBe("83");
     expect(f.priceNotes).toEqual([
       "แยกตามสัญญา · รายเดือน",
-      "สัญญาหลัก  2,583.00 บาท",
-      "ดับบลิวพี ฟิต  +12.91 บาท",
-      "ค่ารักษาพยาบาล MEB แผน 1,000  +117.00 บาท",
+      "สัญญาหลัก  2,583.00\u00a0บาท",
+      "ดับบลิวพี ฟิต  +12.91\u00a0บาท",
+      "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB) แผน 1,000  +117.00\u00a0บาท",
     ]);
     expect(f.pills).toContain("เบี้ยสัญญาหลักคงที่");
     expect(plain.priceNotes).toEqual([]);
@@ -42,7 +42,8 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
 
   it("says what the price includes, and never that a rising medical premium stays level", () => {
     const voice = voiceOf({ ...base, riders: WP_MEB });
-    expect(voice).toContain("เดือนละ 2,712 บาท เป็นสัญญาหลัก 2,583 บาท ดับบลิวพี ฟิต 13 บาท และค่าชดเชยรายวัน 117 บาท");
+    // each rider says its own price in its own scene (owner, 2026-11-21): the price scene only what the total holds
+    expect(voice).toContain("เดือนละ 2,712 บาท รวมสัญญาหลักกับสัญญาเพิ่มเติมอีก 2 ตัวไว้แล้ว");
     expect(voice).toContain("ส่วนค่าชดเชยรายวันปรับตามอายุค่ะ");
     expect(voice).not.toContain("เท่าเดิมตลอด");
     expect(voiceOf(base)).toContain("ยอดออมเท่าเดิมตลอดค่ะ");
@@ -50,12 +51,13 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
     expect(factLines(facts({ ...base, riders: WP_MEB })).join("\n")).toContain("ยอดออมรวมสัญญายกเว้นเบี้ย และค่าชดเชยรายวันไว้แล้ว ค่าชดเชยรายวันปรับตามอายุ");
   });
 
-  it("tells what each rider pays out after the death benefit (owner, 2026-10-17, ก)", () => {
-    const cover = (v: VideoInput) => quoteVideoScript(facts(v), undefined, "F").find((s) => s.key === "cover")!.voice;
-    expect(cover({ ...base, riders: WP_MEB })).toContain(
-      "ยังมีสัญญาเพิ่มเติมอีก 2 ตัว ดับบลิวพี ฟิต ถ้าทุพพลภาพสิ้นเชิงถาวร ไม่ต้องจ่ายเบี้ยที่เหลือ แต่ความคุ้มครองยังอยู่ครบ และค่าชดเชยรายวัน นอนโรงพยาบาลรับเงินวันละ 1,000 บาทค่ะ",
-    );
-    expect(cover({ ...base, riders: { waiver: { code: "WP", option: "BEYOND" } } })).toContain("ยังมีสัญญาเพิ่มเติม ดับบลิวพี บียอนด์ ถ้าทุพพลภาพสิ้นเชิงถาวร หรือเป็นโรคร้ายแรง");
+  it("tells what each rider pays out in a scene of its own (owner, 2026-11-21, ก)", () => {
+    const say = (v: VideoInput, key: string) => quoteVideoScript(facts(v), undefined, "F").find((s) => s.key === key)?.voice;
+    const cover = (v: VideoInput) => say(v, "cover")!;
+    expect(cover({ ...base, riders: WP_MEB })).not.toContain("สัญญาเพิ่มเติม");
+    expect(say({ ...base, riders: WP_MEB }, "rider1")).toBe("ตัวแรก ดับบลิวพี ฟิต เดือนละ 13 บาท ถ้าทุพพลภาพสิ้นเชิงถาวร ไม่ต้องจ่ายเบี้ยที่เหลือ แต่ความคุ้มครองยังอยู่ครบค่ะ");
+    expect(say({ ...base, riders: WP_MEB }, "rider2")).toBe("ตัวสุดท้าย ค่าชดเชยรายวัน เดือนละ 117 บาท นอนโรงพยาบาลรับเงินวันละ 1,000 บาท อย่างนอน 5 วันก็รับ 5,000 บาทค่ะ");
+    expect(say({ ...base, riders: { waiver: { code: "WP", option: "BEYOND" } } }, "rider1")).toContain("ดับบลิวพี บียอนด์ เดือนละ 84 บาท ถ้าทุพพลภาพสิ้นเชิงถาวร หรือเป็นโรคร้ายแรง");
     // พีบี came off Life Protect (2026-11-02): a clip started from an older link loses it at intake
     expect(currentRiders({ waiver: { code: "PB", option: "FIT" }, payer: { sex: "F", age: 35 } })).toBeUndefined();
     expect(currentRiders({ waiver: { code: "PB", option: "FIT" }, medical: 1000 })).toEqual({ medical: 1000 });
@@ -70,5 +72,24 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
     expect(valueHeads(facts(base)).map((h) => h.h)).toHaveLength(6);
     // every pen note stays on the table
     for (const n of tableNotes(f)) for (const l of n.labels) expect(l.x).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Life Protect clip on the page's own sum, to the baht (owner, 2026-11-20, ก)", () => {
+  // the iPad case: a budget on /lifeprotect bought 579,710 with ECARE at the same sum, and the form refused it
+  const odd = { ...base, sumAssured: 579_710, riders: { illness: [{ code: "ECARE", sumAssured: 579_710 }] } };
+
+  it("comes over from the page's button with the sum as it is", () => {
+    const back = videoStartFrom(Object.fromEntries(new URL(videoStartHref(odd), "https://x").searchParams));
+    expect(back?.sumAssured).toBe(579_710);
+    expect(back?.riders?.illness).toEqual([{ code: "ECARE", sumAssured: 579_710 }]);
+  });
+
+  it("is priced and written like any other sum", () => {
+    const f = facts(odd);
+    expect(f).toBeDefined();
+    expect(f.prices.find((p) => p.main)?.amount).toMatch(/^[\d,]+$/);
+    expect(f.priceNotes.join("\n")).toContain("ECARE");
+    expect(quoteVideoScript(facts(odd), undefined, "F").find((s) => s.key === "lead")!.voice).toContain("ทำทุน 579,710 ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง 1,159,420 บาท");
   });
 });

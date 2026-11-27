@@ -19,6 +19,7 @@ import {
 } from "@/lib/lifeprotect-cta";
 import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import { TWELVEPL_SUMS, planInitialFromTable, twelvePlLinkSum, twelvePlTypedSum } from "@/lib/quote-pdf/pages";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
@@ -282,6 +283,13 @@ export function TwelvePlCalculator({ table, sticky = false, hide = [] }: TwelveP
         ...(cardRiders ? { riders: cardRiders } : {}),
       })
     : undefined;
+  // สร้างวิดีโอ (owner, 2026-11-26): วิดีโอนำเสนอ on this arrangement, its riders and the dividend example the page shows
+  const videoHref = who && headline
+    ? videoStartHref({
+        product: "TWELVEPL", sex, age: who.age, sumAssured, dividend: example === null ? 0 : example === 2 ? 3 : 2,
+        ...(cardRiders ? { riders: cardRiders } : {}),
+      })
+    : undefined;
   const tableCard = who && projection
     ? valueTablePath({
         kind: "plan", planCode: table.planCode, variant, age: who.age, sex, sumAssured, hide, pen: false,
@@ -532,7 +540,7 @@ export function TwelvePlCalculator({ table, sticky = false, hide = [] }: TwelveP
   
           {medical && (
             <div>
-              <span className="block text-sm text-[var(--lg-mute)]">ค่ารักษาพยาบาล (MEB) · เลือกแผน</span>
+              <span className="block text-sm text-[var(--lg-mute)]">ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB) · เลือกแผน</span>
               <div className="mt-1.5 grid grid-cols-4 gap-2">
                 {[null, ...medical.plans].map((p) => {
                   const on = p === null ? medicalPlan === null : medicalAt === p;
@@ -658,7 +666,7 @@ export function TwelvePlCalculator({ table, sticky = false, hide = [] }: TwelveP
           })}
         </div>
         <div className="order-2">
-          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} />
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} videoHref={videoHref} />
         </div>
       </div>
 

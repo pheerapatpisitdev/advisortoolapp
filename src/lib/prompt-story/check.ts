@@ -4,7 +4,7 @@ import { HEALTH2_LAYOUTS, HEALTH2_LIMITS, META_LAYOUTS, META_LIMITS, SAVE_LAYOUT
 import { deviceInfo } from "@/lib/scene-library/devices";
 import { HEALTH2_FIXED as FIXED } from "@/lib/scene-library/health2-fixed";
 import { isTaxRate, TAX_WORD_FIGURES } from "@/lib/scene-library/tax-th";
-import { SCREEN_MAX, type DeviceScene, type PromptScene } from "./types";
+import { MOTION_ICONS, MOTION_LIMITS, SCREEN_MAX, type DeviceScene, type MotionLayout, type MotionSide, type PromptScene } from "./types";
 
 /**
  * Other insurers and brands a คลิปตามโจทย์ may not name (spec: no named company comparisons). The
@@ -114,6 +114,10 @@ export function checkScene(scene: PromptScene, allowed: Set<number>, forDevice: 
     const d = checkDevice(scene.device, forDevice, tax);
     if (typeof d === "string") reasons.push(`device: ${d}`);
   }
+  if (scene.motion !== undefined && scene.motion !== null) {
+    const m = checkMotion(scene.motion, allowed, forDevice);
+    if (Array.isArray(m)) reasons.push(...m);
+  }
   return reasons;
 }
 
@@ -124,6 +128,101 @@ function wordReasons(field: string, t: string, allowed: ReadonlySet<number>): st
   const stray = numbersIn(t).find((n, i, all) => !allowed.has(n) && !(i > 0 && all[i - 1] === n * 1_000_000));
   if (stray !== undefined) reasons.push(`${field}: ตัวเลข ${stray} ไม่อยู่ในโจทย์หรือแผน`);
   return reasons;
+}
+
+/**
+ * A scene's โมชันกราฟิก layout, as the writer or the agent left it, made fit to draw: only the kind's own fields
+ * are kept, every string trimmed and single-spaced, non-empty, within MOTION_LIMITS, and held to the screen words'
+ * rules (forbidden words; any figure in a word from `allowed`). A number's value is a whole number above nought in
+ * `forNumber` (deviceAllowed). Anything else is a list of reasons, each "motion.<field>: why".
+ */
+export function checkMotion(m: unknown, allowed: Set<number>, forNumber: Set<number>): MotionLayout | string[] {
+  if (!m || typeof m !== "object" || Array.isArray(m)) return ["motion: ไม่มีรูปแบบภาพ"];
+  const o = m as Record<string, unknown>;
+  const fail: string[] = [];
+  const word = (field: string, x: unknown, max: number): string => {
+    if (typeof x !== "string") {
+      fail.push(`motion.${field}: ต้องเป็นข้อความ`);
+      return "";
+    }
+    const t = x.replace(/\s+/g, " ").trim();
+    if (!t) fail.push(`motion.${field}: ว่างอยู่`);
+    if ([...t].length > max) fail.push(`motion.${field}: ยาวเกิน ${max} ตัวอักษร`);
+    fail.push(...wordReasons(`motion.${field}`, t, allowed));
+    return t;
+  };
+  const words = (field: string, x: unknown, min: number, max: number, cap: number): string[] => {
+    if (!Array.isArray(x) || x.length < min || x.length > max) {
+      fail.push(`motion.${field}: ใส่ได้ ${min === max ? min : `${min}–${max}`} บรรทัด`);
+      return [];
+    }
+    return x.map((t, i) => word(`${field}[${i}]`, t, cap));
+  };
+  const key = (x: unknown, count: number): number => {
+    if (typeof x !== "number" || !Number.isInteger(x) || x < -1 || x >= count) {
+      fail.push("motion.key: ต้องเป็น -1 หรือเลขบรรทัดที่มี");
+      return -1;
+    }
+    return x;
+  };
+  const side = (field: string, x: unknown): MotionSide => {
+    if (!x || typeof x !== "object" || Array.isArray(x)) {
+      fail.push(`motion.${field}: ไม่มีฝั่งนี้`);
+      return { head: "", lines: ["", ""] };
+    }
+    const s = x as Record<string, unknown>;
+    const head = word(`${field}.head`, s.head, MOTION_LIMITS.head);
+    const lines = words(`${field}.lines`, s.lines, 2, 2, MOTION_LIMITS.side);
+    return { head, lines: [lines[0] ?? "", lines[1] ?? ""] };
+  };
+  let out: MotionLayout | undefined;
+  switch (o.kind) {
+    case "hook": {
+      const lines = words("lines", o.lines, 1, 3, MOTION_LIMITS.line);
+      const k = key(o.key, lines.length);
+      if (typeof o.icon !== "string" || !(MOTION_ICONS as readonly string[]).includes(o.icon)) fail.push("motion.icon: ไม่รู้จักไอคอนนี้");
+      out = { kind: "hook", lines, key: k, icon: o.icon as (typeof MOTION_ICONS)[number] };
+      break;
+    }
+    case "card": {
+      const tag = word("tag", o.tag, MOTION_LIMITS.tag);
+      const chips = words("chips", o.chips, 2, 2, MOTION_LIMITS.chip);
+      out = { kind: "card", tag, chips: [chips[0] ?? "", chips[1] ?? ""] };
+      break;
+    }
+    case "number": {
+      const v = o.value;
+      if (typeof v !== "number" || !Number.isInteger(v) || v <= 0) fail.push("motion.value: ต้องเป็นจำนวนเต็มมากกว่าศูนย์");
+      else if (!forNumber.has(v)) fail.push(`motion.value: ตัวเลข ${v} ไม่อยู่ในโจทย์หรือแผน`);
+      out = {
+        kind: "number", value: v as number, unit: word("unit", o.unit, MOTION_LIMITS.unit),
+        tag: word("tag", o.tag, MOTION_LIMITS.tag), bill: word("bill", o.bill, MOTION_LIMITS.bill),
+      };
+      break;
+    }
+    case "compare": {
+      const title = word("title", o.title, MOTION_LIMITS.title);
+      out = { kind: "compare", title, bad: side("bad", o.bad), good: side("good", o.good) };
+      break;
+    }
+    case "check": {
+      const lines = words("lines", o.lines, 2, 2, MOTION_LIMITS.line);
+      const ticks = words("ticks", o.ticks, 3, 3, MOTION_LIMITS.tick);
+      if (typeof o.photo !== "boolean") fail.push("motion.photo: ต้องเป็นจริงหรือเท็จ");
+      out = {
+        kind: "check", lines: [lines[0] ?? "", lines[1] ?? ""], ticks: [ticks[0] ?? "", ticks[1] ?? "", ticks[2] ?? ""], photo: o.photo === true,
+      };
+      break;
+    }
+    case "full": {
+      const lines = words("lines", o.lines, 1, 2, MOTION_LIMITS.line);
+      out = { kind: "full", lines, key: key(o.key, lines.length) };
+      break;
+    }
+    default:
+      return ["motion.kind: ไม่รู้จักรูปแบบภาพนี้"];
+  }
+  return fail.length || !out ? fail : out;
 }
 
 /**

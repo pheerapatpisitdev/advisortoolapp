@@ -71,7 +71,7 @@ async function sign(bucket: string, paths: string[]): Promise<Map<string, string
 }
 
 /** the ledger's calls that are a Studio round, a clip's voice and render, or an FHC summary: not a question asked */
-const notAQuestion = (task: string) => /^(content|quote-video|fhc-summary)/.test(task);
+const notAQuestion = (task: string) => /^(content|quote-video|ad-video|fhc-summary)/.test(task);
 
 interface Window { who: string | null; from: Date; to: Date; limit: number }
 
@@ -98,7 +98,7 @@ async function readItems(w: Window): Promise<{ items: AdminItem[]; aiThb: number
       ? readAll("ledger", (a, b) => db.from("ins_usage_ledger").select("agent_id, ask_id, task, model, cost_thb, created_at")
         .eq("agent_id", w.who!).neq("model", "reservation").gte("created_at", lo).lt("created_at", hi).order("created_at").order("id").range(a, b))
       : read("ledger", db.from("ins_usage_ledger").select("agent_id, ask_id, task, model, cost_thb, created_at")
-        .not("agent_id", "is", null).not("ask_id", "is", null).not("task", "like", "content%").not("task", "like", "quote-video%")
+        .not("agent_id", "is", null).not("ask_id", "is", null).not("task", "like", "content%").not("task", "like", "quote-video%").not("task", "like", "ad-video%")
         .neq("task", "fhc-summary").neq("model", "reservation")
         .gte("created_at", lo).lt("created_at", hi).order("created_at", { ascending: false }).limit(w.limit * 4)),
     read("logins", mine(db.from("ins_logins").select("id, agent_id, how, ip, user_agent, at"))

@@ -2,12 +2,19 @@ import type { CSSProperties, ReactNode } from "react";
 import { Chart } from "@/app/api/card/chart-drawing";
 import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
-import { abs, box, classicIndexBars, gsHeads, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
+import { paidUpOf } from "./easyprotect";
+import { epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
+import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
+import { amountRows, bigFigure, stairsPicture } from "./stage-pictures";
+import { stageView } from "./stage-views";
+import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture } from "./twelvepl-pictures";
+import { abs, box, classicDraw, classicIndexBars, classicPill, classicTpDraw, gsHeads, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
+import { packagePicture, payoutList, riderHead, riderPicture, riderWhat } from "./rider-pictures";
 import { gsMoney, rateLabel } from "./gsaving";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
-import type { SceneKey } from "./script";
+import { riderIndex, type SceneKey } from "./script";
 import { CLASSIC_BOXES, valueHeads, type Rect } from "./table-geo";
 import { noteInWindow } from "./table-pen";
 import { captionShown } from "./caption";
@@ -64,8 +71,9 @@ function Header({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer }) {
         <div style={box({ fontSize: g.px(24, 28), color: P.mute })}>{f.insuredLine}</div>
       </div>
       <div style={box({ alignItems: "center", flexShrink: 0 })}>
-        {insuredFace(f.sex, g.px(54, 64))}
-        <div style={box({ fontSize: g.px(36, 44), fontWeight: 600, color: P.figure, marginLeft: 12 })}>{f.insuredWho}</div>
+        {/* a plan priced by plan alone has no insured to picture (script.ts pricedByPlan) */}
+        {f.sex ? insuredFace(f.sex, g.px(54, 64)) : null}
+        <div style={box({ fontSize: g.px(36, 44), fontWeight: 600, color: P.figure, marginLeft: f.sex ? 12 : 0 })}>{f.insuredWho}</div>
       </div>
     </On>
   );
@@ -107,7 +115,7 @@ function Right({ g, from, children, style }: { g: Geo; from: number; children: R
 function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   const from = g.photo.x + g.photo.w + g.px(36, 60);
-  if (f.legacy || f.plb || f.gsaving) return <LegacyLead g={g} c={c} layer={layer} s={s} from={from} />;
+  if (f.legacy || f.plb || f.gsaving || f.twelvepl) return <LegacyLead g={g} c={c} layer={layer} s={s} from={from} />;
   const vw = wordsOf(f);
   return (
     <Right g={g} from={from} style={{ top: g.photo.y, justifyContent: "center", height: g.photo.h }}>
@@ -125,10 +133,11 @@ function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ove
       {/* the square's column is ~460 wide: a seven-figure sum and its บาท must fit */}
       <div style={box({ alignItems: "flex-end" })}>
         <On layer={layer} own="over" style={{ fontSize: g.px(f.lead.amount.length > 9 ? 60 : f.lead.amount.length > 7 ? 70 : 92, f.lead.amount.length > 9 ? 120 : 140), fontWeight: 600, color: P.figure, lineHeight: 1.1 }}>{money(countAt(f.lead.baht, s.count))}</On>
-        <On layer={layer} own="base" style={{ fontSize: g.px(30, 44), color: P.mute, marginLeft: 12, marginBottom: 8 }}>{vw.baht}</On>
+        <On layer={layer} own="base" style={{ fontSize: g.px(30, 44), color: P.mute, marginLeft: 12, marginBottom: 8 }}>{f.lead.unit ?? vw.baht}</On>
       </div>
       {f.lead.note && <On layer={layer} own="base" style={{ fontSize: g.px(24, 32), color: P.mute, marginTop: 6 }}>{f.lead.note}</On>}
       <On layer={layer} own="over" style={{ marginTop: g.px(14, 22) }}><Swept p={s.sweep[0] ?? 1} size={g.px(36, 46)}>{f.leadMark}</Swept></On>
+      {f.leadPill ? <On layer={layer} own="base" style={{ alignSelf: "flex-start", marginTop: g.px(14, 22), border: `3px solid ${P.accent}`, borderRadius: 40, padding: "2px 22px", fontSize: g.px(24, 32), color: P.accent }}>{f.leadPill}</On> : null}
     </Right>
   );
 }
@@ -262,6 +271,8 @@ function Critical({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s:
 function Price({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   const mark = f.priceMark ?? f.leadMark;
+  // a pill that says the highlighted line again is not drawn twice (CI 123's day's price)
+  const pills = f.pills.filter((p) => p !== mark);
   const baht = wordsOf(f).baht;
   // a square has no room for a Life Protect price split line by line (owner, 2026-10-17): its contracts share one line
   const notes = !g.wide && f.priceNotes.length > 2 ? [f.priceNotes[0], f.priceNotes.slice(1).join(" · ")] : f.priceNotes;
@@ -270,9 +281,9 @@ function Price({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
     <div style={box({ flexDirection: "column", alignItems: "flex-start" })}>
       <On layer={layer} own="base" style={kickerStyle(g)}>{f.priceTitle}</On>
       <On layer={layer} own="over" style={{ marginTop: g.px(10, 20) }}><Swept p={s.sweep[0] ?? 1} size={g.px(mark.length > 18 ? 40 : 52, mark.length > 18 ? 52 : 68)}>{mark}</Swept></On>
-      {f.pills.length > 0 && (
+      {pills.length > 0 && (
         <On layer={layer} own="over" style={{ flexWrap: "wrap", marginTop: g.px(12, 26) }}>
-          {f.pills.map((pill) => <div key={pill} style={box({ marginRight: 30, marginBottom: 8 })}><Swept p={s.sweep[1] ?? 1} size={g.px(30, 40)}>{pill}</Swept></div>)}
+          {pills.map((pill) => <div key={pill} style={box({ marginRight: 30, marginBottom: 8 })}><Swept p={s.sweep[1] ?? 1} size={g.px(30, 40)}>{pill}</Swept></div>)}
         </On>
       )}
       {f.penNote && <On layer={layer} own="base" style={{ fontSize: g.px(34, 46), color: P.pen, transform: "rotate(-3deg)", marginTop: g.px(8, 20) }}>{f.penNote}</On>}
@@ -388,8 +399,11 @@ function GsTableCover({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer })
 
 function Cover({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
+  if (stageView("cover", f)) return <StageWideClassic g={g} c={c} layer={layer} k="cover" />;
   // Global Savings: the yearly table with three index examples (draw.tsx GsTableCover)
   if (f.coverStyle === "payback") return <GsTableCover g={g} c={c} layer={layer} />;
+  if (f.coverStyle === "paidup") return <EasyProtectWideClassic g={g} c={c} layer={layer} k="cover" />;
+  if (f.coverStyle === "cashback") return <TwelvePlWideClassic g={g} c={c} layer={layer} k="cover" />;
   if (f.coverStyle === "rows") return <RowsCover g={g} c={c} layer={layer} s={s} />;
   const chartW = g.wide ? 940 : g.w - g.side * 2;
   const tall = g.px(300, 420);
@@ -591,7 +605,8 @@ function ContactScene({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer })
   const initial = [...k.name.trim()][0] ?? "?";
   const face = g.px(170, 220);
   const vw = wordsOf(c.facts);
-  const [said, help] = vw.contactLines(c.narrator ?? "F");
+  const [said, standing] = vw.contactLines(c.narrator ?? "F");
+  const help = c.facts.contactLine ?? standing;
   const big = g.px(c.facts.lang && c.facts.lang !== "th" ? 50 : 62, c.facts.lang && c.facts.lang !== "th" ? 68 : 84);
   return (
     <div style={abs({ left: g.side, width: g.w - g.side * 2, top: g.px(90, 130), height: g.bottom - g.px(90, 130), flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" })}>
@@ -631,7 +646,7 @@ function StoryScene({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; 
     <div style={abs({ left: g.side, width: g.w - g.side * 2, top: g.top - 20, height: g.bottom - g.top + 20, alignItems: "center" })}>
       <On layer={layer} own="base" style={{ flexDirection: "column", alignItems: "center", marginRight: g.px(36, 80), flexShrink: 0 }}>
         <div style={box({ ...kickerStyle(g), marginBottom: 20 })}>ลองนึกภาพ</div>
-        {insuredFace(c.facts.sex, g.px(200, 300))}
+        {c.facts.sex ? insuredFace(c.facts.sex, g.px(200, 300)) : null}
       </On>
       <div style={box({ flexDirection: "column", flex: 1 })}>
         {pts.map((pt, i) => (
@@ -715,29 +730,193 @@ function StepsScene({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; 
 
 const DONE: OverlayState = { word: -1, count: 1, sweep: [1, 1, 1], bars: [1, 1], ring: 0 };
 
+/** a staged plan's scene in a classic square or landscape frame (draw.tsx StageClassic): the picture, and beside it (landscape) or under it the words */
+function StageWideClassic({ g, c, layer, k }: { g: Geo; c: DrawContext; layer: Layer; k: SceneKey }) {
+  const v = stageView(k, c.facts);
+  if (!v) return null;
+  const full = g.w - g.side * 2;
+  const picW = g.wide ? (v.stairs ? 980 : 1100) : full;
+  const [pill, ...more] = v.pills ?? [];
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top - g.px(14, 20), width: full, flexDirection: "column" }}>
+      <div style={box({ ...kickerStyle(g), marginBottom: g.px(14, 30) })}>{v.kicker}</div>
+      <div style={box({ width: full, flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" })}>
+        {v.stairs ? stairsPicture(v.stairs, classicTpDraw, picW, g.px(0.62, 0.8), g.px(460, 500)) : (
+          <div style={box({ flexDirection: "column", width: picW })}>
+            {v.big ? <div style={box({ width: picW, marginBottom: g.px(14, 26) })}>{bigFigure(v.big.amount, v.big.unit, classicTpDraw, picW, g.px(0.62, 0.8))}</div> : null}
+            {amountRows(v.rows ?? [], classicTpDraw, picW, g.px(0.7, 0.86), 22)}
+          </div>
+        )}
+        <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - picW - 60 } : { marginTop: v.stairs ? 18 : 0, width: full }) })}>
+          <div style={box({ fontSize: g.px(28, 34), color: P.mute, marginBottom: pill ? g.px(12, 26) : 0 })}>{v.sub}</div>
+          {pill ? <div style={box({})}><div style={classicPill(true, g.px(28, 30))}>{pill}</div></div> : null}
+          {more.map((m) => <div key={m} style={box({ fontSize: g.px(26, 30), color: P.mute, marginTop: g.px(8, 16) })}>{m}</div>)}
+          {v.foot ? <div style={box({ fontSize: g.px(28, 34), color: P.mute, marginTop: g.px(6, 20) })}>{v.foot}</div> : null}
+        </div>
+      </div>
+    </On>
+  );
+}
+
+/** ไลฟ์เทรเชอร์'s three paying terms in a classic square or landscape frame (draw.tsx LtTermsClassic) */
+function LtTermsWideClassic({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer }) {
+  const f = c.facts;
+  const lt = f.lifetreasure;
+  if (!lt) return null;
+  const full = g.w - g.side * 2;
+  const listW = g.wide ? 1060 : full;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top - g.px(14, 20), width: full, flexDirection: "column" }}>
+      <div style={box({ ...kickerStyle(g), marginBottom: g.px(18, 30) })}>{LT_TERMS_KICKER}</div>
+      <div style={box({ width: full, flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" })}>
+        {ltTermRows(lt, classicTpDraw, listW, g.px(0.8, 0.9))}
+        <div style={box({ fontSize: g.px(28, 34), color: P.mute, ...(g.wide ? { marginLeft: 60, flex: 1 } : {}) })}>{LT_TERMS_NOTE}</div>
+      </div>
+    </On>
+  );
+}
+
+/** อีซี่ โพรเทค 6's two scenes in a classic square or landscape frame (draw.tsx EasyProtectClassic); its fourth is ไลฟ์เทรเชอร์'s too */
+function EasyProtectWideClassic({ g, c, layer, k }: { g: Geo; c: DrawContext; layer: Layer; k: "cover" | "total" }) {
+  const f = c.facts;
+  const words = totalWords(f);
+  const ep = words?.g;
+  if (!words || !ep) return null;
+  const full = g.w - g.side * 2;
+  const picW = g.wide ? 980 : full;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top - g.px(14, 20), width: full, flexDirection: "column" }}>
+      <div style={box(kickerStyle(g))}>{k === "cover" ? f.coverTitle : words.kicker}</div>
+      {k === "cover" && f.easyprotect ? (
+        <div style={box({ flexDirection: "column", width: full })}>
+          <div style={box({ fontSize: g.px(28, 34), color: P.mute, marginBottom: g.px(16, 18) })}>{f.coverNote}</div>
+          {epCoins(f, f.easyprotect, classicTpDraw, full, g.px(0.9, 1))}
+          <div style={box({ marginTop: g.px(16, 18), marginBottom: g.px(16, 14) })}><div style={classicPill(true, g.px(30, 34))}>{epDonePill(f.easyprotect)}</div></div>
+          {tpRoad(f, f.easyprotect, classicTpDraw, full, g.px(0.76, 0.76), epRoadWord(f.easyprotect))}
+          <div style={box({ fontSize: g.px(26, 30), color: P.mute, marginTop: 4 })}>{epFloorNote(f.easyprotect)}</div>
+        </div>
+      ) : (
+        <div style={box({ width: full, flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start", marginTop: g.px(4, 10) })}>
+          {epTotalPicture(ep, classicTpDraw, picW, g.px(510, 590), g.px(0.64, 0.76), words.paid)}
+          <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - picW - 60 } : { marginTop: 14 }) })}>
+            {g.wide ? <div style={box({ fontSize: 34, color: P.mute, marginBottom: 24 })}>{f.insuredLine}</div> : null}
+            <div style={box({})}><div style={classicPill(true, g.px(30, 34))}>{words.pill}</div></div>
+          </div>
+        </div>
+      )}
+    </On>
+  );
+}
+
+/** 12 พีแอล's three scenes in a classic square or landscape frame (draw.tsx TwelvePlClassic) */
+function TwelvePlWideClassic({ g, c, layer, k }: { g: Geo; c: DrawContext; layer: Layer; k: "cover" | "family" | "total" }) {
+  const f = c.facts;
+  const tp = f.twelvepl;
+  if (!tp) return null;
+  const full = g.w - g.side * 2;
+  const picW = g.wide ? 980 : full;
+  const sideW = full - picW - 60;
+  const head = tpTotalHead(f, tp);
+  const kicker = k === "cover" ? f.coverTitle : k === "total" ? head.kicker : "ถ้าเป็นอะไรไป ครอบครัวได้";
+  const pill = (good: boolean, text: string) => <div style={box({ marginTop: g.px(12, 24) })}><div style={classicPill(good, g.px(26, 32))}>{text}</div></div>;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top - g.px(14, 20), width: full, flexDirection: "column" }}>
+      <div style={box(kickerStyle(g))}>{kicker}</div>
+      {k === "family" ? (
+        <div style={box({ flexDirection: "column", width: full })}>
+          <div style={box({ alignItems: "baseline" })}>
+            <div style={box({ fontSize: g.px(96, 124), fontWeight: 700, color: P.figure, lineHeight: 1.2 })}>{tp.sum.toLocaleString("en-US")}</div>
+            <div style={box({ fontSize: g.px(34, 44), color: P.mute, marginLeft: 18 })}>บาท</div>
+          </div>
+          <div style={box({ fontSize: g.px(32, 40), color: P.ink, marginBottom: g.px(22, 28) })}>{`ทุกช่วงอายุ ถึงอายุ ${tp.coverToAge} หรือมูลค่าเวนคืน หากมากกว่า`}</div>
+          {tpRoad(f, tp, classicTpDraw, full, g.px(0.8, 0.9))}
+          {pill(true, `ออมครบแล้ว ยังคุ้มครองต่ออีก ${f.coverToAge - f.age - tp.payYears} ปี`)}
+        </div>
+      ) : (
+        <div style={box({ width: full, flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start", marginTop: g.px(4, 10) })}>
+          {k === "total" && !g.wide ? <div style={box({ fontSize: 26, color: P.mute })}>{head.sub}</div> : null}
+          {k === "cover" ? tpCashPicture(tp, classicTpDraw, picW, g.px(0.66, 0.92)) : tpTotalPicture(tp, classicTpDraw, picW, g.px(490, 590), g.px(0.64, 0.76))}
+          <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: sideW } : { marginTop: 10, width: full }) })}>
+            {k === "cover" ? tpSureCard(f, classicTpDraw, g.wide ? sideW : full, 0.72) : null}
+            {k === "total" && g.wide ? <div style={box({ fontSize: 34, color: P.mute })}>{head.sub}</div> : null}
+            {k === "total" ? pill(head.sure, head.pill) : g.wide ? pill(true, "✓ การันตี ได้แน่นอน") : null}
+          </div>
+        </div>
+      )}
+    </On>
+  );
+}
+
+/** Life Protect's riders in a classic square or landscape frame (owner, 2026-11-21), drawn whole on the still */
+function RiderWideClassic({ g, c, layer, k }: { g: Geo; c: DrawContext; layer: Layer; k: SceneKey }) {
+  const f = c.facts;
+  const title = (text: string) => <div style={box({ fontSize: g.px(46, 54), fontWeight: 700, color: P.figure, marginBottom: g.px(20, 24) })}>{text}</div>;
+  const top = g.top - g.px(15, 25);
+  if (k === "riders" || k === "payout") {
+    const w = g.px(g.w - g.side * 2, 1300);
+    const h = g.px(540, 580);
+    return (
+      <On layer={layer} own="base" style={{ position: "absolute", left: (g.w - w) / 2, top, width: w, flexDirection: "column" }}>
+        {title(k === "riders" ? "แพ็กเกจของคุณ" : "เกิดเรื่องนี้ ได้เท่าไร")}
+        {k === "riders" ? packagePicture(f, classicDraw, w, h, g.px(0.6, 0.66)) : payoutList(f.riders?.payout ?? [], classicDraw, w, g.px(0.6, 0.68))}
+      </On>
+    );
+  }
+  const r = f.riders?.scenes[riderIndex(k) ?? -1];
+  if (!r) return null;
+  if (g.wide) {
+    const leftW = 720;
+    const picW = g.w - g.side * 2 - leftW - 70;
+    return (
+      <>
+        <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top, width: leftW, flexDirection: "column" }}>
+          {riderHead(r, f.spokenPrice.per, classicDraw, leftW, 0.82)}
+          <div style={box({ marginTop: 40, width: leftW })}>{riderWhat(r, classicDraw, leftW, 0.82)}</div>
+        </On>
+        <On layer={layer} own="base" style={{ position: "absolute", left: g.side + leftW + 70, top, width: picW }}>{riderPicture(r, f, classicDraw, picW, 0.66)}</On>
+      </>
+    );
+  }
+  const w = g.w - g.side * 2;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top, width: w, flexDirection: "column" }}>
+      {riderHead(r, f.spokenPrice.per, classicDraw, w, 0.7)}
+      <div style={box({ marginTop: 24, width: w })}>{riderPicture(r, f, classicDraw, w, 0.7)}</div>
+    </On>
+  );
+}
+
 /** One layer of one classic scene in a square or landscape frame. */
 export function wideSceneLayer(key: SceneKey, c: DrawContext, layer: Layer, size: Wide, state: OverlayState = DONE) {
   const g = geo(size);
-  const body = {
+  const rider = key === "riders" || key === "payout" || riderIndex(key) !== undefined;
+  const body = rider ? <RiderWideClassic g={g} c={c} layer={layer} k={key} /> : {
     lead: <Lead g={g} c={c} layer={layer} s={state} />,
     price: <Price g={g} c={c} layer={layer} s={state} />,
     cover: <Cover g={g} c={c} layer={layer} s={state} />,
     value: <Value g={g} c={c} layer={layer} s={state} />,
     compare: <Compare g={g} c={c} layer={layer} s={state} />,
-    critical: <Critical g={g} c={c} layer={layer} s={state} />,
-    terms: <Terms g={g} c={c} layer={layer} s={state} />,
+    critical: stageView("critical", c.facts) ? <StageWideClassic g={g} c={c} layer={layer} k="critical" /> : <Critical g={g} c={c} layer={layer} s={state} />,
+    terms: c.facts.lifetreasure ? <LtTermsWideClassic g={g} c={c} layer={layer} /> : <Terms g={g} c={c} layer={layer} s={state} />,
     index: <IndexScene g={g} c={c} layer={layer} s={state} />,
+    family: stageView("family", c.facts) ? <StageWideClassic g={g} c={c} layer={layer} k="family" /> : <TwelvePlWideClassic g={g} c={c} layer={layer} k="family" />,
+    total: paidUpOf(c.facts) ? <EasyProtectWideClassic g={g} c={c} layer={layer} k="total" /> : <TwelvePlWideClassic g={g} c={c} layer={layer} k="total" />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} layer={layer} s={{ ...state, count: 1, sweep: [1] }} /> : <ContactScene g={g} c={c} layer={layer} />,
     story: <StoryScene g={g} c={c} layer={layer} s={state} />,
     qa: <QaScene g={g} c={c} layer={layer} s={state} />,
     versus: <VersusScene g={g} c={c} layer={layer} s={state} />,
     steps: <StepsScene g={g} c={c} layer={layer} s={state} />,
-  }[key];
+  }[key as Exclude<SceneKey, "riders" | "payout" | `rider${number}`>];
   return (
     <div style={{ display: "flex", position: "relative", width: g.w, height: g.h, background: layer === "base" ? C.paper : "transparent", fontFamily: "Plex", color: P.ink }}>
       {(key !== "contact" || c.loop) && <Header g={g} c={c} layer={layer} />}
       {body}
+      {c.facts.screenNote && key !== "contact" ? (
+        <On layer={layer} own="base" style={{ position: "absolute", left: 0, width: g.w, bottom: g.px(138, 146), flexDirection: "column", alignItems: "center", fontSize: g.px(20, 24), color: P.mute }}>
+          {(g.wide ? [screenNoteLines(c.facts).join(" · ")] : screenNoteLines(c.facts)).map((l) => <div key={l} style={box({})}>{l}</div>)}
+        </On>
+      ) : null}
       {layer === "over" && <Subtitle g={g} words={c.words} word={state.word} />}
       <Footer g={g} layer={layer} />
     </div>

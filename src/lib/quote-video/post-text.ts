@@ -120,6 +120,9 @@ function prompt(b: PostBasis, tone: PostTone, voice: PostVoice, fix?: string): s
   const end = voice === "F" ? "ค่ะ หรือ คะ (คำถาม)" : "ครับ";
   const words = b.product === "LEGACY" || b.product === "PLB"
     ? "- แบบนี้ไม่มีเงินคืน ห้ามใช้คำว่า ออม เงินคืน ใช้ \"ค่าใช้จ่าย\" แทน"
+    : b.product === "TWELVEPL"
+      // 12 พีแอล (owner, 2026-11-26): the dividend is never promised, and the total only with the plan held to the end
+      ? "- ห้ามพูดถึงปันผล ถ้าพูดยอดรับรวมต้องบอกว่าถือครบถึงอายุ 85"
     : b.product === "GSAVING"
       // Global Savings (owner, 2026-10-20): the index bonus is never promised
       ? "- โบนัสตามดัชนีไม่แน่นอน ห้ามบอกตัวเลขโบนัส ห้ามพูดว่าโบนัสได้แน่นอน"

@@ -40,7 +40,8 @@ type Bucket = ToolKey | "bot" | "system";
 
 /** which tool a ledger task was spent on */
 export function taskTool(task: string): Bucket {
-  if (task.startsWith("quote-video")) return "video";
+  // an ad clip's script and photos are a clip's AI too (วิดีโอโฆษณา, owner, 2026-11-22)
+  if (task.startsWith("quote-video") || task.startsWith("ad-video")) return "video";
   if (task.startsWith("content-claim")) return "claim";
   if (task.startsWith("content-describe")) return "describe";
   if (task.startsWith("content-thumbnail")) return "thumbnail";
@@ -70,6 +71,7 @@ export const ROUND_TOOL: Record<string, ToolKey> = {
 
 const VIDEO_PLAN: Record<string, string> = {
   LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life",
+  GSAVING: "Global Savings", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง", PA: "PA อุบัติเหตุ", GROUP: "ประกันกลุ่ม",
 };
 
 export interface StatsInput {
@@ -79,7 +81,7 @@ export interface StatsInput {
   ledger: { task: string; agentId: string | null; askId: string | null; thb: number; at: string }[];
   rounds: { action: string; agentId: string; at: string }[];
   posts: { agentId: string; at: string }[];
-  videos: { agentId: string; at: string; product: string | null; fhc: boolean }[];
+  videos: { agentId: string; at: string; product: string | null; fhc: boolean; /** an ad clip (boardOf) */ ad?: boolean }[];
   customers: { agentId: string; at: string }[];
   sends: { agentId: string; at: string }[];
   /** `name`: the calculator's name from the menu */
@@ -141,7 +143,7 @@ export function buildStats(s: StatsInput): Stats {
   }
   for (const p of s.posts) uses.push({ tool: "post", agentId: p.agentId, at: p.at });
   for (const v of s.videos) {
-    uses.push({ tool: "video", agentId: v.agentId, at: v.at, part: v.fhc ? "สรุป FHC" : VIDEO_PLAN[v.product ?? "LIFEPROTECT"] ?? "อื่น ๆ" });
+    uses.push({ tool: "video", agentId: v.agentId, at: v.at, part: v.fhc ? "สรุป FHC" : v.ad ? "วิดีโอโฆษณา" : VIDEO_PLAN[v.product ?? "LIFEPROTECT"] ?? "อื่น ๆ" });
   }
   for (const c of s.customers) uses.push({ tool: "fhc", agentId: c.agentId, at: c.at });
   for (const a of s.sends) uses.push({ tool: "ads", agentId: a.agentId, at: a.at });

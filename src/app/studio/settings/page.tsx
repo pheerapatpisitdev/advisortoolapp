@@ -7,6 +7,9 @@ import { getAgentPrefs } from "@/lib/pay-prefs-store";
 import { SHARE_PLAN_KEYS, SHARE_PLANS, type SharePlan } from "@/lib/share-text/plans";
 import { samplePreview, shareSample } from "@/lib/share-text/samples";
 import { ARRANGES_PER_DAY, arrangesLeft, myShareTexts } from "@/lib/share-text/store";
+import type { LineView } from "@/lib/line/link-view";
+import { lineViewFor } from "@/lib/line/agent-line-view";
+import { LineLinkForm } from "./LineLinkForm";
 import { PayPrefsForm } from "./PayPrefsForm";
 import { ShareTextForm, type SharePlanView, type ShareTextView } from "./ShareTextForm";
 
@@ -17,7 +20,8 @@ export const metadata: Metadata = { title: "ตั้งค่าส่วนต
  * ตั้งค่าส่วนตัว (owner, 2026-11-14, ข ก ก on mockup https://claude.ai/artifact/VKTji2SfSz7cCXiCQKJCf4):
  * every agent's own display choices, under บัญชีของฉัน in the account box. First ones: whether
  * their quotes show the monthly and the half-yearly premium, and whether their tables carry the
- * pen notes (src/lib/pay-prefs.ts).
+ * pen notes (src/lib/pay-prefs.ts). เชื่อม LINE ของฉัน (owner chose ข, 2026-11-19): the agent's own LINE
+ * for their alerts (src/lib/line/agent-line.ts).
  */
 export default async function SettingsPage() {
   const viewer = await gatePage("/studio/settings");
@@ -31,6 +35,11 @@ export default async function SettingsPage() {
     myShareTexts(viewer.agentId).catch((e) => { console.error("share texts not read:", e); return []; }),
     arrangesLeft(viewer.agentId).catch((e) => { console.error("share allowance not read:", e); return ARRANGES_PER_DAY; }),
   ]);
+  // เชื่อม LINE ของฉัน (owner chose ข, 2026-11-19): what cannot be read shows as "อ่านไม่ได้"
+  const line: LineView | null = demo ? null : await lineViewFor(viewer).catch((e) => {
+    console.error("agent line not read:", e);
+    return null;
+  });
   const plans: SharePlanView[] = SHARE_PLAN_KEYS.map((key) => {
     const sample = shareSample(key);
     return { key, name: SHARE_PLANS[key].name, who: sample.who, standard: sample.standard };
@@ -45,6 +54,7 @@ export default async function SettingsPage() {
       <h1 className="text-xl font-semibold">ตั้งค่าส่วนตัว</h1>
       <PayPrefsForm initial={prefs} locked={demo} />
       <ShareTextForm plans={plans} initial={texts} left={left} locked={demo} />
+      <LineLinkForm initial={line} locked={demo} />
     </div>
   );
 }

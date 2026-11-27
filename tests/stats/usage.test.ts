@@ -10,8 +10,8 @@ const B = "bbbbbbbb-0000-0000-0000-000000000002";
 
 describe("what a ledger task was spent on", () => {
   it("names Studio, the agents' chat and the customer bots apart", () => {
-    expect(["content", "content-plan", "content-image", "content-image-look", "content-claim-read", "content-thumbnail-ideas", "quote-video-voice", "library", "route_health", "chat-review", "content-image-test"].map(taskTool))
-      .toEqual(["write", "write", "draw", "draw", "claim", "thumbnail", "video", "ask", "bot", "system", "system"]);
+    expect(["content", "content-plan", "content-image", "content-image-look", "content-claim-read", "content-thumbnail-ideas", "quote-video-voice", "library", "route_health", "chat-review", "content-image-test", "ad-video-script", "ad-video-photo"].map(taskTool))
+      .toEqual(["write", "write", "draw", "draw", "claim", "thumbnail", "video", "ask", "bot", "system", "system", "video", "video"]);
   });
 });
 
@@ -52,6 +52,14 @@ describe("สถิติการใช้งาน", () => {
       key: "video", name: "วิดีโอนำเสนอ", sub: "ทุกแบบประกัน", uses: 3, people: 2, thb: 1,
       parts: [{ name: "Life Protect", uses: 1 }, { name: "บำนาญ 95", uses: 1 }, { name: "สรุป FHC", uses: 1 }],
     }]);
+  });
+
+  it("counts an ad clip as its own part of the video tool, not as its plan (owner, 2026-11-22)", () => {
+    const s = buildStats({ ...base, videos: [
+      { agentId: A, at: "2026-10-12T02:00:00Z", product: "ISHIELD", fhc: false, ad: true },
+      { agentId: A, at: "2026-10-12T03:00:00Z", product: "ISHIELD", fhc: false },
+    ] });
+    expect(s.tools[0].parts).toEqual(expect.arrayContaining([{ name: "วิดีโอโฆษณา", uses: 1 }, { name: "iShield", uses: 1 }]));
   });
 
   it("reads an agent's rounds from the audit only before the ledger knew who", () => {

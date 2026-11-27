@@ -5,7 +5,14 @@ import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import type { CardChart } from "@/lib/quote-card";
-import type { QuoteVideoFacts, SceneKey } from "./script";
+import { paidUpOf } from "./easyprotect";
+import { epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
+import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
+import { amountRows, bigFigure, stairsPicture } from "./stage-pictures";
+import { stageView } from "./stage-views";
+import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture, type TpDraw } from "./twelvepl-pictures";
+import { riderIndex, type QuoteVideoFacts, type SceneKey } from "./script";
+import { packagePicture, payoutList, riderHead, riderPicture, riderWhat, unwrap, type Draw, type RiderPal } from "./rider-pictures";
 import type { Extra } from "./told";
 import { colsOf, PHOTO, ROW_H, TABLE, valueHeads } from "./table-geo";
 import { noteInWindow, type TableNote } from "./table-pen";
@@ -80,8 +87,9 @@ function Header({ f, layer }: { f: QuoteVideoFacts; layer: Layer }) {
         <div style={box({ fontSize: f.insuredLine.length > 30 ? 30 : 36, color: P.mute })}>{f.insuredLine}</div>
       </div>
       <div style={box({ alignItems: "center", flexShrink: 0 })}>
-        {insuredFace(f.sex, 76)}
-        <div style={box({ fontSize: 52, fontWeight: 600, color: P.figure, marginLeft: 14 })}>{f.insuredWho}</div>
+        {/* a plan priced by plan alone has no insured to picture (script.ts pricedByPlan) */}
+        {f.sex ? insuredFace(f.sex, 76) : null}
+        <div style={box({ fontSize: f.sex ? 52 : 44, fontWeight: 600, color: P.figure, marginLeft: f.sex ? 14 : 0 })}>{f.insuredWho}</div>
       </div>
     </On>
   );
@@ -126,7 +134,7 @@ const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 
 function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
-  if (f.legacy || f.plb || f.gsaving) return <LegacyLead c={c} layer={layer} s={s} />;
+  if (f.legacy || f.plb || f.gsaving || f.twelvepl) return <LegacyLead c={c} layer={layer} s={s} />;
   const vw = wordsOf(f);
   return (
     <>
@@ -138,7 +146,7 @@ function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 40, fontSize: 46, color: P.mute }}>{f.lead.label}</On>
       <div style={abs({ left: SIDE, top: PHOTO.y + PHOTO.h + 100, alignItems: "flex-end" })}>
         <On layer={layer} own="over" style={{ fontSize: f.lead.amount.length > 9 ? 140 : 170, fontWeight: 600, color: P.figure, lineHeight: 1 }}>{money(countAt(f.lead.baht, s.count), f.lang)}</On>
-        <On layer={layer} own="base" style={{ fontSize: 56, color: P.mute, marginLeft: 24, marginBottom: 14 }}>{vw.baht}</On>
+        <On layer={layer} own="base" style={{ fontSize: 56, color: P.mute, marginLeft: 24, marginBottom: 14 }}>{f.lead.unit ?? vw.baht}</On>
       </div>
       {f.lead.note && (
         <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 300, fontSize: 40, color: P.mute }}>{f.lead.note}</On>
@@ -146,6 +154,9 @@ function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }
       <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 370 }}>
         <Swept p={s.sweep[0] ?? 1} size={52}>{f.leadMark}</Swept>
       </On>
+      {f.leadPill ? (
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 470, border: `3px solid ${P.accent}`, borderRadius: 40, padding: "4px 30px", fontSize: 40, color: P.accent }}>{f.leadPill}</On>
+      ) : null}
       <Headline c={c} layer={layer} />
     </>
   );
@@ -200,7 +211,7 @@ function StoryScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
   return (
     <>
       {kicker(layer, "ลองนึกภาพ")}
-      <On layer={layer} own="base" style={{ position: "absolute", left: (W - 240) / 2, top: 360 }}>{insuredFace(c.facts.sex, 240)}</On>
+      {c.facts.sex ? <On layer={layer} own="base" style={{ position: "absolute", left: (W - 240) / 2, top: 360 }}>{insuredFace(c.facts.sex, 240)}</On> : null}
       <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 700, flexDirection: "column" })}>
         {pts.map((pt, i) => (
           <div key={i} style={box({ alignItems: "center", marginBottom: 56 })}>
@@ -286,6 +297,8 @@ function StepsScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
 function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   const baht = wordsOf(f).baht;
+  // a pill that says the highlighted line again is not drawn twice (CI 123's day's price)
+  const pills = f.pills.filter((p) => p !== (f.priceMark ?? f.leadMark));
   return (
     <>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.priceTitle}</On>
@@ -297,17 +310,18 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
           <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", marginTop: 10, marginBottom: 10 })}>
             <On layer={layer} own="base" style={{ fontSize: r.main ? 50 : 44, fontWeight: r.main ? 600 : 400, color: r.main ? P.figure : P.ink }}>{r.label}</On>
             {r.main ? (
-              <On layer={layer} own="over" style={{ fontSize: 88, fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count), c.facts.lang)} ${baht}`}</On>
+              // ประกันกลุ่ม's company total runs to the millions: set smaller, so it stays on one line beside its label
+              <On layer={layer} own="over" style={{ fontSize: f.group && r.amount.length > 7 ? 72 : 88, fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count), c.facts.lang)} ${baht}`}</On>
             ) : (
               <On layer={layer} own="base" style={{ fontSize: 48, color: P.ink }}>{`${r.amount} ${baht}`}</On>
             )}
           </div>
         ))}
       </div>
-      {f.pills.length > 0 && (
-        <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1080, flexWrap: "wrap" }}>
-          {f.pills.map((pill, i) => (
-            <div key={pill} style={box({ marginRight: i < f.pills.length - 1 ? 40 : 0 })}><Swept p={s.sweep[1] ?? 1} size={46}>{pill}</Swept></div>
+      {pills.length > 0 && (
+        <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1080, ...(f.twelvepl ? { flexDirection: "column" as const } : { flexWrap: "wrap" as const }) }}>
+          {pills.map((pill, i) => (
+            <div key={pill} style={box({ marginRight: i < pills.length - 1 ? 40 : 0 })}><Swept p={s.sweep[1] ?? 1} size={46}>{pill}</Swept></div>
           ))}
         </On>
       )}
@@ -318,7 +332,7 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
       )}
       {f.priceNotes.length > 0 && (
         // a Life Protect price split by contract (owner, 2026-10-17) is four lines: set closer, clear of the subtitle
-        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? (f.priceNotes.length > 2 ? 1310 : 1330) : 1080, flexDirection: "column", fontSize: f.priceNotes.length > 2 ? 30 : 34, color: P.mute }}>
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: pills.length ? (f.priceNotes.length > 2 ? 1310 : 1330) : 1080, flexDirection: "column", fontSize: f.priceNotes.length > 2 ? 30 : 34, color: P.mute }}>
           {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: f.priceNotes.length > 2 ? 2 : 10 })}>{n}</div>)}
         </On>
       )}
@@ -645,9 +659,12 @@ function Highlit({ children }: { children: ReactNode }) {
 }
 
 function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  if (stageView("cover", c.facts)) return <StageClassic c={c} layer={layer} k="cover" />;
   if (c.facts.coverStyle === "flat") return <FlatCover c={c} layer={layer} s={s} />;
   // Global Savings: the yearly table with three index examples, as the other plans' value scene (owner, 2026-10-20, ก ก)
   if (c.facts.coverStyle === "payback") return <GsTableCover c={c} layer={layer} />;
+  if (c.facts.coverStyle === "paidup") return <EasyProtectClassic c={c} layer={layer} />;
+  if (c.facts.coverStyle === "cashback") return <TwelvePlClassic c={c} layer={layer} k="cover" />;
   if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "steps") return <StepsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "bands") return <BandsCover c={c} layer={layer} s={s} />;
@@ -806,7 +823,8 @@ function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
   const initial = [...k.name.trim()][0] ?? "?";
   const more = k.more ? k.more.split("\n") : [];
   const vw = wordsOf(c.facts);
-  const [said, help] = vw.contactLines(c.narrator ?? "F");
+  const [said, standing] = vw.contactLines(c.narrator ?? "F");
+  const help = c.facts.contactLine ?? standing;
   return (
     <>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 220, fontSize: 44, fontWeight: 600, color: P.accent }}>
@@ -844,14 +862,176 @@ function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
 
 const DONE: OverlayState = { word: -1, count: 1, sweep: [1, 1], bars: [1, 1], ring: 0 };
 
+/** the rider scenes in the classic card's colours (rider-pictures.tsx) */
+export const CLASSIC_RIDER_PAL: RiderPal = { ink: P.ink, fill: P.highlighter, figure: P.figure, onFill: P.ink, card: P.box, onCard: P.figure, red: P.pen, green: P.gain, sky: C.barAfter };
+/** the classic clip draws a rider picture whole, on the still under the subtitles */
+export const classicDraw: Draw = {
+  pal: CLASSIC_RIDER_PAL,
+  piece: (name, style, children) => <div key={name} style={{ display: "flex", ...style }}>{unwrap(children)}</div>,
+  count: 1,
+};
+
+/** 12 พีแอล's pictures in the classic card's colours, drawn whole (twelvepl-pictures.tsx) */
+export const classicTpDraw: TpDraw = { ...classicDraw, p: () => 1 };
+/** a green or red band under a picture, "✓ การันตี ได้แน่นอน" */
+export const classicPill = (good: boolean, size: number) => ({ display: "flex", background: good ? P.gain : P.pen, color: C.paper, borderRadius: 40, padding: "8px 32px", fontSize: size, fontWeight: 600 });
+
+/** อีซี่ โพรเทค 6's six premiums and what they buy, in the classic look (owner, 2026-11-26); what is paid beside what the family receives is PaidBesideClassic */
+function EasyProtectClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
+  const f = c.facts;
+  const g = f.easyprotect;
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  const pill = (text: string, size: number) => <div style={box({ justifyContent: "center", width: w })}><div style={classicPill(true, size)}>{text}</div></div>;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{f.coverTitle}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{f.coverNote}</div>
+      <div style={box({ flexDirection: "column", width: w })}>
+        {epCoins(f, g, classicTpDraw, w)}
+        <div style={box({ marginTop: 50, marginBottom: 80 })}>{pill(epDonePill(g), 46)}</div>
+        {tpRoad(f, g, classicTpDraw, w, 1, epRoadWord(g))}
+        <div style={box({ marginTop: 40, justifyContent: "center", width: w, fontSize: 35, color: P.mute })}>{epFloorNote(g)}</div>
+      </div>
+    </On>
+  );
+}
+
+/** what is paid beside what the family receives (อีซี่ โพรเทค 6, ไลฟ์เทรเชอร์), in the classic look */
+function PaidBesideClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
+  const f = c.facts;
+  const words = totalWords(f);
+  if (!words) return null;
+  const w = W - SIDE * 2;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{words.kicker}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{f.insuredLine}</div>
+      {epTotalPicture(words.g, classicTpDraw, w, 800, 1, words.paid)}
+      <div style={box({ marginTop: 40, justifyContent: "center", width: w })}><div style={classicPill(true, 48)}>{words.pill}</div></div>
+    </On>
+  );
+}
+
+/** a staged plan's scene (stage-views.ts): stairs, the top in the highlighter's yellow, or a column of rows under a big figure where there is one */
+function StageClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: SceneKey }) {
+  const v = stageView(k, c.facts);
+  if (!v) return null;
+  const w = W - SIDE * 2;
+  const [pill, ...more] = v.pills ?? [];
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{v.kicker}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: v.stairs ? 50 : 40 })}>{v.sub}</div>
+      {v.stairs ? stairsPicture(v.stairs, classicTpDraw, w, 1.1, 560) : null}
+      {pill ? <div style={box({ marginTop: 50, justifyContent: "center", width: w })}><div style={classicPill(true, 40)}>{pill}</div></div> : null}
+      {more.map((m) => <div key={m} style={box({ marginTop: 14, justifyContent: "center", width: w, fontSize: 36, color: P.mute })}>{m}</div>)}
+      {v.big ? <div style={box({ width: w, marginTop: 120, marginBottom: 60 })}>{bigFigure(v.big.amount, v.big.unit, classicTpDraw, w, 1.1)}</div> : null}
+      {v.rows ? amountRows(v.rows, classicTpDraw, w, 1.1, 36) : null}
+      {v.foot ? <div style={box({ marginTop: 16, justifyContent: "center", width: w, fontSize: 38, color: P.mute })}>{v.foot}</div> : null}
+    </On>
+  );
+}
+
+/** ไลฟ์เทรเชอร์'s three paying terms, the chosen one in the highlighter's yellow (lifetreasure-pictures.tsx) */
+function LtTermsClassic({ c, layer }: { c: DrawContext; layer: Layer }) {
+  const f = c.facts;
+  const g = f.lifetreasure;
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      <div style={box({ fontSize: 62, fontWeight: 700, color: P.figure })}>{LT_TERMS_KICKER}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 6, marginBottom: 40 })}>{f.insuredLine}</div>
+      {ltTermRows(g, classicTpDraw, w, 1.12)}
+      <div style={box({ marginTop: 16, justifyContent: "center", width: w, fontSize: 38, color: P.mute })}>{LT_TERMS_NOTE}</div>
+    </On>
+  );
+}
+
+/** 12 พีแอล's cash backs, its family's sum, and what is paid beside what comes back, in the classic look (owner, 2026-11-26) */
+function TwelvePlClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: "cover" | "family" | "total" }) {
+  const f = c.facts;
+  const g = f.twelvepl;
+  if (!g) return null;
+  const w = W - SIDE * 2;
+  const head = tpTotalHead(f, g);
+  const title = (text: string) => <div style={box({ fontSize: 58, fontWeight: 700, color: P.figure })}>{text}</div>;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 260, width: w, flexDirection: "column" }}>
+      {k === "cover" ? title(f.coverTitle) : k === "total" ? title(head.kicker) : title("ถ้าเป็นอะไรไป ครอบครัวได้")}
+      {k === "cover" ? (
+        <div style={box({ flexDirection: "column", marginTop: 20, width: w })}>
+          {tpCashPicture(g, classicTpDraw, w)}
+          <div style={box({ marginTop: 30, width: w })}>{tpSureCard(f, classicTpDraw, w)}</div>
+          <div style={box({ marginTop: 36, justifyContent: "center", width: w })}><div style={classicPill(true, 42)}>✓ การันตี ได้แน่นอน</div></div>
+        </div>
+      ) : k === "total" ? (
+        <div style={box({ flexDirection: "column", width: w })}>
+          <div style={box({ fontSize: 38, color: P.mute, marginTop: 8, marginBottom: 16 })}>{head.sub}</div>
+          {tpTotalPicture(g, classicTpDraw, w, 860)}
+          <div style={box({ marginTop: 30, justifyContent: "center", width: w })}><div style={classicPill(head.sure, 42)}>{head.pill}</div></div>
+        </div>
+      ) : (
+        <div style={box({ flexDirection: "column", width: w })}>
+          <div style={box({ fontSize: g.sum >= 10_000_000 ? 130 : 150, fontWeight: 700, color: P.figure, lineHeight: 1.25, marginTop: 10 })}>{g.sum.toLocaleString("en-US")}</div>
+          <div style={box({ fontSize: 44, color: P.ink, marginBottom: 70 })}>{`บาท ทุกช่วงอายุ ถึงอายุ ${g.coverToAge}`}</div>
+          {tpRoad(f, g, classicTpDraw, w)}
+          <div style={box({ marginTop: 60, justifyContent: "center", width: w })}><div style={classicPill(true, 42)}>{`ออมครบแล้ว ยังคุ้มครองต่ออีก ${f.coverToAge - f.age - g.payYears} ปี`}</div></div>
+          <div style={box({ marginTop: 30, justifyContent: "center", width: w, fontSize: 40, color: P.mute })}>หรือมูลค่าเวนคืน หากมากกว่า</div>
+        </div>
+      )}
+    </On>
+  );
+}
+
+/**
+ * Life Protect's riders in the classic look (owner, 2026-11-21, ก ก ก): the package, a rider (its name and
+ * price, its picture, what it pays), what each event pays — drawn whole on the still.
+ */
+function RiderClassic({ c, layer, k }: { c: DrawContext; layer: Layer; k: SceneKey }) {
+  const f = c.facts;
+  const w = W - SIDE * 2;
+  const title = (text: string) => <div style={box({ fontSize: 66, fontWeight: 700, color: P.figure })}>{text}</div>;
+  if (k === "riders") {
+    return (
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 270, width: w, flexDirection: "column" }}>
+        {title("แพ็กเกจของคุณ")}
+        <div style={box({ fontSize: 40, color: P.mute, marginBottom: 30 })}>{`สัญญาหลัก + สัญญาเพิ่มเติม ${f.riders?.scenes.length ?? 0} ตัว`}</div>
+        {packagePicture(f, classicDraw, w, 1000, 1)}
+      </On>
+    );
+  }
+  if (k === "payout") {
+    return (
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 270, width: w, flexDirection: "column" }}>
+        <div style={box({ marginBottom: 40 })}>{title("เกิดเรื่องนี้ ได้เท่าไร")}</div>
+        {payoutList(f.riders?.payout ?? [], classicDraw, w, 1)}
+      </On>
+    );
+  }
+  const r = f.riders?.scenes[riderIndex(k) ?? -1];
+  if (!r) return null;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 270, width: w, flexDirection: "column" }}>
+      {riderHead(r, f.spokenPrice.per, classicDraw, w, 1)}
+      <div style={box({ marginTop: 46, width: w })}>{riderPicture(r, f, classicDraw, w, 1)}</div>
+      <div style={box({ marginTop: 40, width: w })}>{riderWhat(r, classicDraw, w, 1)}</div>
+    </On>
+  );
+}
+
 /** One layer of one scene, as a full 1080×1920 picture. */
 export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: OverlayState = DONE) {
-  const body = {
+  const rider = key === "riders" || key === "payout" || riderIndex(key) !== undefined;
+  const body = rider ? <RiderClassic c={c} layer={layer} k={key} /> : {
     lead: <Lead c={c} layer={layer} s={state} />,
     compare: <Compare c={c} layer={layer} s={state} />,
-    critical: <Critical c={c} layer={layer} s={state} />,
-    terms: <TermsScene c={c} layer={layer} s={state} />,
+    critical: stageView("critical", c.facts) ? <StageClassic c={c} layer={layer} k="critical" /> : <Critical c={c} layer={layer} s={state} />,
+    terms: c.facts.lifetreasure ? <LtTermsClassic c={c} layer={layer} /> : <TermsScene c={c} layer={layer} s={state} />,
     index: <IndexScene c={c} layer={layer} s={state} />,
+    family: stageView("family", c.facts) ? <StageClassic c={c} layer={layer} k="family" /> : <TwelvePlClassic c={c} layer={layer} k="family" />,
+    total: paidUpOf(c.facts) ? <PaidBesideClassic c={c} layer={layer} /> : <TwelvePlClassic c={c} layer={layer} k="total" />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,
     value: <Value c={c} layer={layer} s={state} />,
@@ -860,11 +1040,16 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
     qa: <QaScene c={c} layer={layer} s={state} />,
     versus: <VersusScene c={c} layer={layer} s={state} />,
     steps: <StepsScene c={c} layer={layer} s={state} />,
-  }[key];
+  }[key as Exclude<SceneKey, "riders" | "payout" | `rider${number}`>];
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: layer === "base" ? C.paper : "transparent", fontFamily: "Plex", color: P.ink }}>
       {(key !== "contact" || c.loop) && <Header f={c.facts} layer={layer} />}
       {body}
+      {c.facts.screenNote && key !== "contact" ? (
+        <On layer={layer} own="base" style={{ position: "absolute", left: 0, width: W, bottom: 232, flexDirection: "column", alignItems: "center", fontSize: 28, color: P.mute }}>
+          {screenNoteLines(c.facts).map((l) => <div key={l} style={box({})}>{l}</div>)}
+        </On>
+      ) : null}
       {layer === "over" && <Subtitle words={c.words} word={state.word} />}
       <Footer layer={layer} />
     </div>

@@ -9,6 +9,18 @@ import { firstPaymentLines } from "@/lib/first-payment";
 
 const SEX_WORD: Record<Sex, string> = { M: "ชาย", F: "หญิง" };
 
+/**
+ * The eight packages the page sells, smallest first — CPR's sum and HIC's daily amount
+ * (data/bundles' CANCER_SET tiers, which cancer-table.ts reads): here as plain figures for the
+ * Studio form, which runs in the browser.
+ */
+export const CANCER_TIERS: readonly { cpr: number; hic: number }[] = [
+  { cpr: 300_000, hic: 1_000 }, { cpr: 500_000, hic: 2_000 }, { cpr: 750_000, hic: 3_000 }, { cpr: 1_000_000, hic: 4_000 },
+  { cpr: 2_000_000, hic: 5_000 }, { cpr: 3_000_000, hic: 6_000 }, { cpr: 4_000_000, hic: 8_000 }, { cpr: 5_000_000, hic: 10_000 },
+];
+/** the packages' CPR sums, the figure a link and a form carry */
+export const CANCER_SUMS = CANCER_TIERS.map((t) => t.cpr);
+
 /** The age picker's value, as on the CI 123 page: an age, somebody outside the range, or nobody yet. */
 export type CancerAge = number | "other" | "";
 

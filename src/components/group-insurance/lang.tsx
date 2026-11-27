@@ -31,17 +31,22 @@ interface LangValue {
 
 const LangContext = createContext<LangValue | null>(null);
 
-export function LangProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("th");
+export function LangProvider({ children, fixed }: {
+  children: React.ReactNode;
+  /** the server's PDF page: the language the quotation was made in, not this browser's setting */
+  fixed?: Lang;
+}) {
+  const [lang, setLangState] = useState<Lang>(fixed ?? "th");
 
   useEffect(() => {
+    if (fixed) return;
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved === "en" || saved === "th") setLangState(saved);
     } catch {
       // a browser with storage switched off still gets a working page, in Thai
     }
-  }, []);
+  }, [fixed]);
 
   // <html lang> is what a screen reader reads the page's pronunciation rules off, so it has
   // to follow the toggle rather than stay at whatever the document was served as.

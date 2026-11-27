@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySignature } from "@/lib/line/verify";
 import type { LineEvent } from "@/lib/line/conversation";
 import { lineAnswers } from "@/lib/line/answer-job";
-import { runLater } from "@/lib/later";
+import { runInTail } from "@/lib/later";
+import { cloudflareEnv } from "@/lib/cloudflare/env";
 
 export const runtime = "nodejs";
 /** five minutes, with a clock on each turn inside it — the same as Messenger's webhook */
@@ -33,7 +34,9 @@ export async function POST(req: NextRequest) {
   // LINE gives up on a webhook that is slow to answer, and a model is slow, so the reply goes
   // out after this response. The console's "Verify" button sends no events and gets its 200.
   // Different people side by side, one person's events in order (src/lib/line/answer-job.ts).
-  runLater(lineAnswers, { events, destination, startedAt: Date.now() });
+  // In this request's own tail, not the queue: the queue held every answer about six seconds
+  // (owner chose ก, 2026-11-24). On Cloudflare that tail is 30 seconds, so the turn is told.
+  runInTail(lineAnswers, { events, destination, startedAt: Date.now(), tail: Boolean(cloudflareEnv()) });
 
   return NextResponse.json({ ok: true });
 }

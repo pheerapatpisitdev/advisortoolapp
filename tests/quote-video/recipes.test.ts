@@ -28,7 +28,7 @@ describe("clip recipes (owner, 2026-11-11, ก ก ก)", () => {
   });
 
   it("offers none where the quote carries more than the recipes tell", () => {
-    expect(recipesFor({ ...LP35, riders: { said: "x", parts: [] } })).toEqual([]);
+    expect(recipesFor({ ...LP35, riders: { said: "x", parts: [], scenes: [], payout: [] } })).toEqual([]);
     expect(recipesFor({ ...LP35, budget: { per: "month", amount: "2,000" } })).toEqual([]);
     expect(recipesFor({ ...LP35, lang: "zh" })).toEqual([]);
     expect(recipesFor({ ...LP35, product: "ISHIELD" })).toEqual([]);

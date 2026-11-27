@@ -13,6 +13,7 @@
  * preference, it is a button that does nothing.
  */
 
+import type { FreshItem } from "@/lib/updates/rules";
 import type { ToolLogoId } from "./tool-logos";
 
 /** The drawings the menu has. One per kind of work, not one per link — see `icon` below. */
@@ -53,7 +54,8 @@ export type MenuIcon =
   | "send"
   | "coins"
   | "play"
-  | "bell";
+  | "bell"
+  | "hospital";
 
 export interface MenuLink {
   href: string;
@@ -94,6 +96,13 @@ export interface MenuLink {
   logo?: ToolLogoId;
   /** True only for links that leave this application. */
   external?: boolean;
+  /**
+   * Drawn as a coloured card under its group's list instead of as a row in it (Sidebar's
+   * FeatureCard). Studio's alone (owner chose ง, 2026-11-22): the one tool the menu asks to be
+   * pressed. It stays in `links`, in its place, so the order, the closed-tool filter and the
+   * lit page work as for any other link.
+   */
+  feature?: { note: string };
 }
 
 export interface MenuGroup {
@@ -189,6 +198,14 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     links: [
       { href: "/ihealthy-ultra", label: "iHealthy Ultra", icon: "heart", hue: "#732b5b" },
       { href: "/ihealthy-ultra/compare", label: "iHealthy Ultra Package", icon: "heart", hue: "#8a3366" },
+    ],
+  },
+  {
+    // not a plan: where the health plans above are used, the insurer's own list by region and
+    // province (owner, 2026-11-25, ก ×5), named as the owner named it
+    title: "โรงพยาบาล",
+    links: [
+      { href: "/hospitals", label: "โรงพยาบาลในเครือ", icon: "hospital", hue: "#2b6a73" },
     ],
   },
   {
@@ -299,6 +316,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#612d7e" },
       // มีอะไรใหม่: Claude's drafts from each push, published to the agents (owner chose 2ก, 2026-11-14)
       { href: "/admin/updates", label: "มีอะไรใหม่", icon: "bell", hue: "#672c7c" },
+      // the departments' numbers on /hospitals, filled in by hand (owner chose 5ก, 2026-11-25)
+      { href: "/admin/hospitals", label: "โรงพยาบาลในเครือ", icon: "hospital", hue: "#6d2b7a" },
     ],
   },
 ];
@@ -376,7 +395,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       FHC_CUSTOMERS,
       { href: "/ask", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
-      { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
+      // drawn as the coloured card under this list (owner chose ง, 2026-11-22)
+      { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80", feature: { note: "วิดีโอ · รูปภาพ · โพสต์" } },
       // the how-to clips, open to everyone (owner chose ก ก, 2026-11-11)
       { href: "/help", label: "วิธีใช้งาน", icon: "play", hue: "#2e5480" },
       // what changed in the app, a red number while anything is unread (owner chose 1ข, 2026-11-14); for
@@ -423,6 +443,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
   const make: MenuLink[] = [
     // a narrated clip of a quote (owner, 2026-10-11): every agent's, two free then the wallet
     { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80", logo: "qv" },
+    // an ad clip the AI writes from the agent's own quote (owner chose ก ×6 on the mockup, 2026-11-22): every agent's, paid like the one above
+    { href: "/studio/ad-video", label: "วิดีโอโฆษณา Demo", icon: "spark", hue: "#7a3db8", logo: "av" },
     // a cartoon story clip, why insurance at all (owner, 2026-10-15): every agent's, paid like the one above
     { href: "/studio/story-clip", label: "คลิปเล่าเรื่อง", icon: "woman", hue: "#2e5a80", logo: "sc" },
     // a clip from the agent's own brief, script edited before it is paid for (owner, 2026-10-16): the owner's
@@ -442,7 +464,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
     // plan for everyone else (2026-09-30)
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a", logo: "ca" },
-    { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79", logo: "hk" },
+    // the formula library: the owner's alone since 2026-11-20 (owner chose ก); the AI still uses the formulas for everyone
+    ...(who?.owner ? [{ href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote" as const, hue: "#302f79", logo: "hk" as const }] : []),
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80", logo: "pe" },
     // every clip building block, made and planned, with a way into its form (owner, mockup v5 2026-11-14):
     // the owner's alone since the same day (spec 2026-11-14-library-owner-only-design.md)
@@ -510,6 +533,8 @@ export interface Who {
   closed?: string[];
   /** มีอะไรใหม่ not read yet (src/lib/updates), the red number beside it and the dot on the phone's menu button */
   news?: number;
+  /** the pages that changed and this person has not opened yet (src/lib/updates): New beside their menu items, a strip on the page */
+  fresh?: FreshItem[];
 }
 
 

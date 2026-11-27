@@ -1,0 +1,161 @@
+import { describe, expect, it } from "vitest";
+import { quoteVideoFacts, type VideoInput } from "@/lib/quote-video/script";
+import { lineProblem } from "@/lib/quote-video/brief";
+import { adInputOk, allowedNote, bodiesFor, cleanAdPlan, ctasFor, fixedBody, fixedCta, fixedPhoto, fixedPlan, nextYear } from "@/lib/ad-video/plan";
+
+const TODAY = new Date("2026-11-22T00:00:00+07:00");
+const LP: VideoInput = { variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000 };
+const IS: VideoInput = { product: "ISHIELD", variant: "WLCI20", age: 30, sex: "F", sumAssured: 1_000_000 };
+const IH: VideoInput = { product: "IHEALTHY", age: 30, sex: "F", plan: "GOLD", compare: [] };
+
+const lp = quoteVideoFacts(LP, TODAY)!;
+const is = quoteVideoFacts(IS, TODAY)!;
+const ih = quoteVideoFacts(IH, TODAY)!;
+const next = nextYear(LP, TODAY);
+
+function raw(over: Record<string, unknown> = {}) {
+  const p = fixedPlan(lp, { art: "mixed", mode: "ai", next });
+  return { ...p, ...over };
+}
+
+describe("ad video plan", () => {
+  it("offers the bodies each product can say", () => {
+    expect(bodiesFor(lp)).toEqual(["price", "cover", "value", "versus"]);
+    expect(bodiesFor(is)).toEqual(["price", "cover", "versus"]);
+    expect(bodiesFor(ih)).toEqual(["price", "cover"]);
+  });
+
+  it("finds next year's higher price", () => {
+    expect(next).toEqual({ said: "81", per: "วันละ" });
+    expect(ctasFor(next)).toContain("nextyear");
+    expect(ctasFor(undefined)).not.toContain("nextyear");
+    expect(allowedNote(lp, next)).toBe("อายุถัดไป วันละ 81 บาท");
+    expect(allowedNote(lp, undefined)).toBe("");
+    expect(allowedNote(is, undefined)).toBe("คุ้มครองหลัง 90 วัน");
+    expect(fixedCta("nextyear", next!)).toBe("ถ้ารอปีหน้า ยอดออมขึ้นเป็นวันละ 81 บาท ทักมาคุยวันนี้เลยนะคะ");
+  });
+
+  it("always has a fixed body and cta line", () => {
+    for (const k of bodiesFor(lp)) expect(fixedBody(lp, k).length).toBeGreaterThan(0);
+    expect(fixedBody(ih, "versus").length).toBeGreaterThan(0);
+    expect(fixedCta("chat", undefined)).toBe("บอกแค่อายุ ทักมาขอใบเสนอของคุณได้เลยนะคะ");
+  });
+
+  it("fixed photo prompts have no digits and no Thai", () => {
+    for (const p of ["LIFEPROTECT", "ISHIELD", "IHEALTHY"] as const)
+      for (const s of ["hook", "close", "body"] as const) expect(fixedPhoto(p, s)).not.toMatch(/[ก-๙0-9]/);
+  });
+
+  it("builds a fixed plan", () => {
+    const p = fixedPlan(lp, { art: "mixed", mode: "pick" });
+    expect(p.body.map((b) => b.key)).toEqual(["price", "cover"]);
+    expect(p.cta.key).toBe("chat");
+    expect(p.written).toBe(false);
+  });
+
+  it("replaces a hook with a figure of its own", () => {
+    const r = cleanAdPlan(raw({ hook: { kind: "shock", voice: "วันละ 59 บาท ได้ 2 ล้าน", headline: ["ถ้าพรุ่งนี้"] } }), lp, next, TODAY);
+    expect(r.fixed).toContain("hook");
+    expect(r.plan.hook.voice).toBe(fixedPlan(lp, { art: "mixed", mode: "ai", hook: "shock" }).hook.voice);
+  });
+
+  it("keeps a next-year cta that says the quote's figure and replaces one that does not", () => {
+    const ok = "ถ้ารอปีหน้า ยอดออมขึ้นเป็นวันละ 81 บาท ทักมาเลยค่ะ";
+    const a = cleanAdPlan(raw({ cta: { key: "nextyear", voice: ok } }), lp, next, TODAY);
+    expect(a.plan.cta.voice).toBe(ok);
+    const b = cleanAdPlan(raw({ cta: { key: "nextyear", voice: "ถ้ารอปีหน้า ยอดออมขึ้นเป็นวันละ 90 บาท ทักมาเลยค่ะ" } }), lp, next, TODAY);
+    expect(b.plan.cta.voice).toBe(fixedCta("nextyear", next!));
+    expect(b.fixed).toContain("cta");
+  });
+
+  it("replaces a cta voice that says เบี้ย", () => {
+    const r = cleanAdPlan(raw({ cta: { key: "chat", voice: "ทักมาดูเบี้ยของคุณได้เลยค่ะ" } }), lp, next, TODAY);
+    expect(r.fixed).toContain("cta");
+    expect(r.plan.cta.voice).toBe(fixedCta("chat", next));
+  });
+
+  it("never fixes a line with one the checker refuses", () => {
+    for (const k of ctasFor(next)) expect(lineProblem(fixedCta(k, next), lp, 150, allowedNote(lp, next))).toBeNull();
+  });
+
+  it("de-duplicates and cuts bodies to three", () => {
+    const mk = (key: string) => ({ key, voice: fixedBody(lp, "price") });
+    const r = cleanAdPlan(raw({ body: ["value", "value", "versus", "price", "cover"].map(mk) }), lp, next, TODAY);
+    expect(r.plan.body.map((b) => b.key)).toEqual(["value", "versus", "price"]);
+  });
+
+  it("replaces photo prompts with Thai letters or digits", () => {
+    const a = cleanAdPlan(raw({ photos: { hook: "พ่อ อุ้มลูก" } }), lp, next, TODAY);
+    expect(a.plan.photos.hook).toBe(fixedPhoto("LIFEPROTECT", "hook"));
+    expect(a.fixed).toContain("photos");
+    const b = cleanAdPlan(raw({ photos: { close: "father, 2 kids" } }), lp, next, TODAY);
+    expect(b.plan.photos.close).toBe(fixedPhoto("LIFEPROTECT", "close"));
+  });
+
+  it("caps the client's photo ideas at 300 and the model name at 80 characters", () => {
+    const long = "a Thai family at home ".repeat(30);
+    const r = cleanAdPlan(raw({ photos: { hook: long, close: long, body: [long, long] }, model: "m".repeat(200) }), lp, next, TODAY);
+    expect(long.length).toBeGreaterThan(300);
+    expect(r.plan.photos.hook!.length).toBeLessThanOrEqual(300);
+    expect(r.plan.photos.close!.length).toBeLessThanOrEqual(300);
+    for (const b of r.plan.photos.body ?? []) expect(b.length).toBeLessThanOrEqual(300);
+    expect(r.plan.photos.hook).toBe(long.slice(0, 300).trim());
+    expect(r.plan.model).toBe("m".repeat(80));
+    expect(cleanAdPlan(raw({ model: "  " }), lp, next, TODAY).plan.model).toBeUndefined();
+  });
+
+  it("lets an iShield line say the 90-day wait, and no other product (R17)", () => {
+    const isPlan = (over: Record<string, unknown>) => ({ ...fixedPlan(is, { art: "mixed", mode: "ai" }), ...over });
+    const hook = { kind: "question", voice: "รู้ไหมคะ โรคร้ายแรงคุ้มครองหลัง 90 วันแรก วางแผนไว้ก่อนดีกว่าค่ะ", headline: ["คุ้มครองหลัง 90 วัน"] };
+    const body = [{ key: "cover", voice: "โรคร้ายแรงคุ้มครองหลัง 90 วัน รับเงินก้อนตั้งแต่ระยะเริ่มต้นค่ะ" }];
+    const r = cleanAdPlan(isPlan({ hook, body }), is, undefined, TODAY);
+    expect(r.fixed).toEqual([]);
+    expect(r.plan.hook.voice).toBe(hook.voice);
+    expect(r.plan.body[0].voice).toBe(body[0].voice);
+    // a Life Protect line with 90 still fails
+    const lpr = cleanAdPlan(raw({ hook: { ...hook, headline: ["ครอบครัวพร้อมไหม"] } }), lp, next, TODAY);
+    expect(lpr.fixed).toContain("hook");
+    expect(lpr.reasons.hook).toMatch(/90/);
+  });
+
+  it("refuses what the ad cannot carry", () => {
+    expect(adInputOk(LP)).toBe(true);
+    expect(adInputOk({ ...LP, riders: [] as never })).toBe(false);
+    expect(adInputOk({ ...LP, budget: { baht: 1000, per: "month" } })).toBe(false);
+    expect(adInputOk(IH)).toBe(true);
+    expect(adInputOk({ ...IH, compare: ["SILVER"] } as VideoInput)).toBe(false);
+    expect(adInputOk({ product: "LEGACY", age: 40, sex: "M", tier: 3 })).toBe(false);
+  });
+
+  it("every fixed line passes the checker, for every plan, age and sex", () => {
+    const inputs: VideoInput[] = [];
+    for (const age of [1, 20, 35, 50, 55]) for (const sex of ["M", "F"] as const) {
+      for (const variant of ["WLF09H", "WLF19H", "WLF99H"]) inputs.push({ variant, age, sex, sumAssured: 1_000_000 });
+      for (const variant of ["WLCI05", "WLCI10", "WLCI15", "WLCI20"]) inputs.push({ product: "ISHIELD", variant, age, sex, sumAssured: 1_000_000 });
+      for (const plan of ["SILVER", "GOLD", "PLATINUM"]) inputs.push({ product: "IHEALTHY", age, sex, plan, compare: [] });
+    }
+    let checked = 0;
+    const bad: string[] = [];
+    for (const v of inputs) {
+      const f = quoteVideoFacts(v, TODAY);
+      if (!f) continue;
+      checked++;
+      const nx = nextYear(v, TODAY);
+      const note = allowedNote(f, nx);
+      const tag = JSON.stringify(v);
+      const check = (what: string, line: string, max = 150) => {
+        const why = lineProblem(line, f, max, note);
+        if (why) bad.push(`${tag} ${what}: ${why} :: ${line}`);
+      };
+      for (const k of bodiesFor(f)) check(`body ${k}`, fixedBody(f, k));
+      for (const k of ctasFor(nx)) check(`cta ${k}`, fixedCta(k, nx));
+      const p = fixedPlan(f, { art: "mixed", mode: "pick", next: nx });
+      check("hook", p.hook.voice);
+      for (const l of p.hook.headline) check("headline", l, 28);
+      const r = cleanAdPlan(p, f, nx, TODAY);
+      if (r.fixed.length) bad.push(`${tag} fixedPlan reports ${r.fixed.join(",")}`);
+    }
+    expect(checked).toBeGreaterThan(30);
+    expect(bad).toEqual([]);
+  });
+});

@@ -26,7 +26,7 @@ describe("the Studio home", () => {
   it("draws a card for every connected Page, the calendar filtered to it", () => {
     const cards = homeCards(base);
     expect(cards.map((c) => c.title)).toEqual(["Diamond Wealth Planner", "ประกัน talk"]);
-    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "calendar", "hooks", "people"]);
+    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "calendar", "people"]);
     expect(tile(cards, 0, "calendar")).toMatchObject({ href: "/studio/calendar?page=p1", status: "ตั้งเวลาไว้ 3 โพสต์" });
     expect(tile(cards, 1, "calendar")?.status).toBe("ยังไม่มีรายการตั้งเวลา");
   });
@@ -34,13 +34,14 @@ describe("the Studio home", () => {
   it("gives an assistant their Pages' cards without the settings, which are the admins' (owner, 2026-10-02)", () => {
     const cards = homeCards({ ...base, admin: false });
     expect(cards.map((c) => c.title)).toEqual(["Diamond Wealth Planner", "ประกัน talk"]);
-    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "calendar", "hooks", "people"]);
+    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "calendar", "people"]);
   });
 
   it("says in each tile what is in it", () => {
     const cards = homeCards(base);
     expect(tile(cards, 0, "write")).toMatchObject({ href: "/studio/write?page=p1", status: "ร่าง 5 ชิ้น" });
-    expect(tile(cards, 0, "hooks")?.status).toBe("30 สูตร");
+    expect(tile(cards, 0, "hooks")).toBeUndefined();
+    expect(tile(homeCards({ ...base, owner: true }), 0, "hooks")?.status).toBe("30 สูตร");
     expect(tile(cards, 0, "people")?.status).toBe("ยังไม่มีคน");
     // the การตั้งค่า tile went with /admin/posting to the Super Admin (2026-10-15): no door an agent cannot open
     expect(tile(cards, 0, "settings")).toBeUndefined();
@@ -57,13 +58,13 @@ describe("the Studio home", () => {
     const cards = homeCards({ ...base, people: [{ pageId: "p1" }, { pageId: "p1" }, { pageId: "p2" }, { pageId: null }] });
     expect(tile(cards, 0, "people")).toMatchObject({ href: "/studio/people?page=p1", status: "3 คน" });
     expect(tile(cards, 1, "people")?.status).toBe("2 คน");
-    expect(homeCards({ ...base, publish: false, pages: null, people: [{ pageId: "p1" }, { pageId: null }] })[0].tiles[2])
+    expect(homeCards({ ...base, publish: false, pages: null, people: [{ pageId: "p1" }, { pageId: null }] })[0].tiles[1])
       .toMatchObject({ href: "/studio/people", status: "2 คน" });
   });
 
   it("gives a count that could not be read a word, not a zero", () => {
     // a Page's card counts that Page's drafts (its project, 2026-09-30); the room's card counts `drafts`
-    const cards = homeCards({ ...base, draftsByPage: null, hooks: null });
+    const cards = homeCards({ ...base, owner: true, draftsByPage: null, hooks: null });
     expect(tile(cards, 0, "write")?.status).toBe("เปิดดู");
     expect(tile(cards, 0, "hooks")?.status).toBe("เปิดดู");
     expect(homeCards({ ...base, draftsByPage: new Map() })[0].tiles[0].status).toBe("ยังไม่มีร่าง");
@@ -74,13 +75,13 @@ describe("the Studio home", () => {
     const cards = homeCards({ ...base, publish: false, pages: null });
     expect(cards).toHaveLength(1);
     expect(cards[0]).toMatchObject({ id: "room", title: "luckyplanner", picture: null });
-    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "hooks", "people"]);
+    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "people"]);
   });
 
   it("tells staff with no Page connected to ask the Super Admin, with no settings to open (2026-10-15)", () => {
     const cards = homeCards({ ...base, pages: [] });
     expect(cards).toHaveLength(1);
-    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "hooks", "people"]);
+    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "people"]);
     expect(cards[0].subtitle).toBe("ยังไม่มีเพจที่เชื่อมไว้ — แจ้ง Super Admin ให้เชื่อมเพจ");
     expect(homeCards({ ...base, pages: null })[0].subtitle).toBe("อ่านรายชื่อเพจไม่ได้ ลองเปิดใหม่อีกครั้ง");
   });
@@ -89,7 +90,7 @@ describe("the Studio home", () => {
     const cards = homeCards({ ...base, admin: false, pages: [] });
     expect(cards).toHaveLength(1);
     expect(cards[0].subtitle).toBe("ยังไม่มีเพจที่ดูแล — ให้ Super Admin เพิ่มที่หน้าทีมงาน");
-    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "hooks", "people"]);
+    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "people"]);
   });
 
   it("puts the Page's own picture on its card", () => {

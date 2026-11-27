@@ -74,11 +74,13 @@ export function allPlansScript(f: QuoteVideoFacts, a: AllPlansFacts, customer: s
   const first = a.plans[0];
   const last = a.plans[n - 1];
   const hello = name ? `สวัสดีค่ะ คุณ${name}` : "สวัสดีค่ะ";
-  const who = name ? `อายุ ${f.age} ปี` : `${SEX_WHO[f.sex]}อายุ ${f.age} ปี`;
+  // iHealthy is priced for a person: its facts always carry the sex (script.ts personOf)
+  const sex = f.sex!;
+  const who = name ? `อายุ ${f.age} ปี` : `${SEX_WHO[sex]}อายุ ${f.age} ปี`;
   const prices = a.plans.map((p, i) => `${i === n - 1 && n > 1 ? "และ " : ""}${p.name} ${comma(p.premium)} บาท`).join(" ");
   const same = saidOf(a.same.map((r) => r.key), SAME_SAID);
   const extras = a.extras.map((g) => {
-    const rows = saidOf(extraKeys(g, f.sex), EXTRA_SAID);
+    const rows = saidOf(extraKeys(g, sex), EXTRA_SAID);
     const opd = g.opd ? `ค่าหมอค่ายา OPD ${g.opd.amounts.map((x) => `${x.name} ปีละ ${x.amount} บาท`).join(" ")}` : "";
     const all = opd ? [...rows, opd] : rows;
     return `ถ้าเลือก ${g.plans.join(" หรือ ")} จะได้เพิ่ม ${thaiList(all)}`;
@@ -96,7 +98,7 @@ export function allPlansScript(f: QuoteVideoFacts, a: AllPlansFacts, customer: s
 
 /** the words the clip goes up to a Page with: its own figures, never a name */
 export function allPlansCaption(f: QuoteVideoFacts, a: AllPlansFacts): string {
-  const who = `${SEX_WHO[f.sex]}อายุ ${f.age}`;
+  const who = `${SEX_WHO[f.sex!]}อายุ ${f.age}`;
   return [
     `เทียบประกันสุขภาพ iHealthy Ultra ${a.plans.length} แผน · ${who}`,
     `ค่าใช้จ่ายปีแรก ${WORDS.th.mode[a.mode]}: ${a.plans.map((p) => `${p.name} ${comma(p.premium)} บาท`).join(" · ")}`,

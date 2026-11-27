@@ -198,3 +198,15 @@ body:has(.group-insurance) { background: var(--gi-ground); }
      this they print as white on white. */
   .group-insurance .gi-sheet * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ── the server's copy (/group-insurance/sheet) ───────────────────────────────────────────
+ * The page the phone's "แชร์ PDF" is printed from: the sheet alone, in the web face the page
+ * loads, since the printer's Chrome has no Thai of its own. The sheet's inline family is
+ * written for phones and computers, which do. */
+.group-insurance .gi-print-page .gi-sheet {
+  font-family: var(--gi-print-font), "Noto Sans Thai", sans-serif !important;
+  margin: 0 auto;
+}
+@media print {
+  .group-insurance:has(.gi-print-page) { background: none !important; min-height: 0 !important; }
+}

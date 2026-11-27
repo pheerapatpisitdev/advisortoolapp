@@ -17,6 +17,7 @@ import { cardPath, valueTablePath } from "@/lib/card-link";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import { EASYPROTECT_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
@@ -201,7 +202,9 @@ export function EasyProtectCalculator({ table, sticky = false, hide = [], pen = 
         </div>
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">
-          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} />
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard}
+            // วิดีโอนำเสนอ on this arrangement (owner, 2026-11-26)
+            videoHref={who && headline ? videoStartHref({ product: "EASYPROTECT", sex, age: who.age, sumAssured }) : undefined} />
         </div>
       </div>
 

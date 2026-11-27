@@ -102,7 +102,7 @@ export interface LifeProtectRider {
  */
 export interface LifeProtectMedical {
   code: string;
-  /** the contract's own name, e.g. "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)" */
+  /** the contract's own name, e.g. "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB)" */
   name: string;
   ageMin: number;
   ageMax: number;
@@ -124,6 +124,8 @@ export interface LifeProtectMedical {
  * and rounded on its own — the way composite-ci.ts prices them.
  */
 export interface LifeProtectIllnessPart {
+  /** the rate sheet's name for the part, e.g. "pre-early ci" (CI 123's stages; the clip names them by it) */
+  key?: string;
   /** the share of the rider's sum assured this part covers */
   share: number;
   /** the most it covers, in baht, where the company caps it */
@@ -235,7 +237,7 @@ const TERMS: { variant: string; label: string; short: string }[] = [
  */
 const RIDERS = ["WP"];
 
-/** The medical-expense rider the page offers beside the premium waivers. */
+/** The daily hospital cash rider (MEB) the page offers beside the premium waivers. */
 const MEDICAL = "MEB";
 
 /** The critical-illness riders the page offers, with the words its buttons carry (owner, 2026-10-28). */
@@ -439,7 +441,7 @@ export function wPlanTable(PLAN_CODE: string, TERMS: WTermWords[], today: Date =
     if (rider?.kind === "compositeCI") {
       return [{
         ...sold, rounding: "composite" as const, minAnnual: rider.minAnnual,
-        parts: rider.components.map((c) => ({ share: c.share, cap: c.cap, rates: ratesFrom(rider.rates[c.key], rule.ageMin) })),
+        parts: rider.components.map((c) => ({ key: c.key, share: c.share, cap: c.cap, rates: ratesFrom(rider.rates[c.key], rule.ageMin) })),
       }];
     }
     return [];

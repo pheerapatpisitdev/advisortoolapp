@@ -6,7 +6,7 @@ import { HEALTH_PARENTS_CAP } from "./tax-th";
  * not move"): the values a คลิปตามโจทย์ script may use without the brief saying them, per device.
  *
  * Browser-safe on purpose. checkDevice (prompt-story/check.ts) is imported by the script editor, which runs in the browser, so
- * it must not pull in the 537-hospital list (230 KB), the iHealthy sheet (44 KB) or the group premium file (12 KB). What it
+ * it must not pull in the hospital list (230 KB), the iHealthy sheet (44 KB) or the group premium file (12 KB). What it
  * needs of them is a few dozen numbers, kept here as a snapshot; the real files are read by health2-sources.ts (server, the
  * story topic, the drawers) and tests/scene-library/health2-sources.test.ts fails the moment this snapshot and the files
  * differ, so a refreshed hospital list or a new rate sheet cannot go unnoticed. The PA plans and the tax cap are small and
@@ -62,15 +62,15 @@ export const HEALTH2_FIXED: Health2Fixed = {
   pa: { medical: uniq(plans.map((p) => p.medical)), weekly: uniq(plans.map((p) => p.weekly)), weeks: PA_WEEKLY_MAX_WEEKS, pairs: paPairs() },
   // data/hospitals/ktaxa-network.json: the count of hospitals in each province, and the date the list was fetched
   hospitals: {
-    total: 537,
-    fetchedAt: "2026-10-02",
+    total: 548,
+    fetchedAt: "2026-11-24",
     counts: {
-      "กรุงเทพมหานคร": 135,
+      "กรุงเทพมหานคร": 136,
       "ชลบุรี": 49,
       "ระยอง": 38,
+      "ปทุมธานี": 30,
       "สมุทรปราการ": 25,
       "นนทบุรี": 22,
-      "ปทุมธานี": 22,
       "สุราษฎร์ธานี": 16,
       "เชียงใหม่": 14,
       "นครราชสีมา": 11,
@@ -90,9 +90,9 @@ export const HEALTH2_FIXED: Health2Fixed = {
       "พระนครศรีอยุธยา": 5,
       "พิษณุโลก": 5,
       "อุบลราชธานี": 5,
+      "นครปฐม": 5,
       "กาญจนบุรี": 4,
       "ตาก": 4,
-      "นครปฐม": 4,
       "หนองคาย": 4,
       "อุดรธานี": 4,
       "จันทบุรี": 3,
@@ -107,12 +107,12 @@ export const HEALTH2_FIXED: Health2Fixed = {
       "ศรีสะเกษ": 3,
       "สกลนคร": 3,
       "สุรินทร์": 3,
+      "พิจิตร": 3,
       "กาฬสินธุ์": 2,
       "กำแพงเพชร": 2,
       "บุรีรัมย์": 2,
       "ประจวบคีรีขันธ์": 2,
       "พัทลุง": 2,
-      "พิจิตร": 2,
       "ยโสธร": 2,
       "ร้อยเอ็ด": 2,
       "ลพบุรี": 2,

@@ -40,12 +40,17 @@ export function chatQuestion(key: string, f: QuoteVideoFacts, sex: "M" | "F"): s
     case "critical": return `ถ้าป่วยโรคร้ายแรงล่ะ${q}`;
     case "terms": return `มีระยะเวลาให้เลือกไหม${q}`;
     case "index": return `ผลตอบแทนเป็นยังไงบ้าง${q}`;
+    case "family": return `ถ้าเป็นอะไรไปก่อน ครอบครัวได้เท่าไหร่${q}`;
+    case "total": return f.easyprotect || f.lifetreasure ? `จ่ายไปเท่าไหร่ แล้วครอบครัวได้เท่าไหร่${q}` : `สรุปแล้วจ่ายเท่าไหร่ ได้คืนเท่าไหร่${q}`;
     case "compare": return `เทียบกับแผนอื่นเป็นยังไง${q}`;
     case "contact": return `สนใจ${k} ขอรายละเอียดเพิ่มหน่อย${k}`;
     case "qa": return `ขอถามอีกข้อได้ไหม${q}`;
     case "versus": return `ต่างจากเก็บเงินเองยังไง${q}`;
     case "steps": return `ถ้าตกลงทำ ต้องทำยังไงบ้าง${q}`;
-    default: return `เล่าเพิ่มอีกหน่อยได้ไหม${q}`;
+    // Life Protect's riders (owner, 2026-11-21)
+    case "riders": return `มีสัญญาเพิ่มเติมอะไรบ้าง${q}`;
+    case "payout": return `สรุปแล้วเกิดอะไรขึ้น ได้เท่าไหร่บ้าง${q}`;
+    default: return key.startsWith("rider") ? `แล้วตัวนี้คุ้มครองอะไร${q}` : `เล่าเพิ่มอีกหน่อยได้ไหม${q}`;
   }
 }
 
@@ -83,7 +88,7 @@ function sceneCard(key: string, c: ChatClip, u: number): ReactNode | null {
     case "lead":
       return card(u, planName(f), <>
         <div style={{ display: "flex", fontSize: Math.round(30 * u) }}>{f.lead.label}</div>
-        <div style={{ display: "flex", fontSize: Math.round(64 * u), fontWeight: 700, color: K.cardHead }}>{`${f.lead.amount} บาท`}</div>
+        <div style={{ display: "flex", fontSize: Math.round(64 * u), fontWeight: 700, color: K.cardHead }}>{`${f.lead.amount} ${f.lead.unit ?? "บาท"}`}</div>
       </>);
     case "price":
       return card(u, f.priceTitle, <>

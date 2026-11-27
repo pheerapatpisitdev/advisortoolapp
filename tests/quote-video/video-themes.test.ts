@@ -1,7 +1,7 @@
 import { createElement as h, isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { myColorPalette, POSTER_THEMES, QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS } from "@/lib/card-theme";
-import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_KEYS } from "@/lib/quote-video/theme-keys";
+import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_KEYS, THEME_LABELS } from "@/lib/quote-video/theme-keys";
 import { themed } from "@/lib/quote-video/themes";
 import { a, El, motionFrame, type MotionContext } from "@/lib/quote-video/motion";
 import { quoteVideoFacts, quoteVideoScript, type VideoInput } from "@/lib/quote-video/script";
@@ -12,13 +12,14 @@ type El = ReactElement<{ style?: Record<string, unknown>; children?: ReactNode }
 const kids = (e: El) => [e.props.children].flat().filter(isValidElement) as El[];
 
 describe("วิดีโอนำเสนอ themes (owner, 2026-10-17)", () => {
-  it("offers ไวท์บอร์ด first, then โน้ตแปะ and ตัวหนังสือเด้ง, and reads any other look as ไวท์บอร์ด (owner chose ก, 2026-11-17; ธีมเทศกาล out 2026-11-20)", () => {
-    expect(STANDING_THEMES).toEqual(["board", "sticky", "kinetic"]);
-    expect(THEME_KEYS).toEqual(["board", "kinetic", "sticky"]);
+  it("offers ไวท์บอร์ด first, then แบบเดิม, and reads any other look as ไวท์บอร์ด (owner chose ก ก, 2026-11-21; ธีมเทศกาล out 2026-11-20)", () => {
+    expect(STANDING_THEMES).toEqual(["board", "navy"]);
+    expect(THEME_KEYS).toEqual(["board", "navy"]);
     expect(DEFAULT_THEME).toBe("board");
-    // the four taken away 2026-11-17, and every look taken away before
-    for (const gone of ["navy", "paper", "glass", "mine", "festival", "editorial", "collage", "clean", "gold", undefined]) expect(readTheme(gone)).toBe("board");
-    expect(readTheme("sticky")).toBe("sticky");
+    expect(THEME_LABELS.navy.name).toBe("แบบเดิม");
+    // โน้ตแปะ and ตัวหนังสือเด้ง taken away 2026-11-21, ธีมเทศกาล 2026-11-20, and every look taken away before
+    for (const gone of ["sticky", "kinetic", "festival", "paper", "glass", "mine", "editorial", "collage", "clean", "gold", undefined]) expect(readTheme(gone)).toBe("board");
+    expect(readTheme("navy")).toBe("navy");
   });
 
   it("leaves a navy frame as it was", () => {

@@ -74,10 +74,21 @@ export const SEND_MARGIN_MS = 60_000;
 export const TURN_MS = 90_000;
 
 /**
+ * What a Worker gives a request's tail after its response has gone (Cloudflare's waitUntil).
+ * LINE's answers run there (src/lib/later.ts runInTail), so their clock is this, not the route's.
+ */
+export const TAIL_LIMIT_MS = 30_000;
+
+/** Kept back from the tail for the bubbles, the transcript and the session — or the apology. */
+export const TAIL_MARGIN_MS = 10_000;
+
+/**
  * How long this turn's answer may take: its own TURN_MS, or less when the batch it came in
  * has already used up the function's time. Zero or below means the apology goes at once.
+ * `tail`: the answer runs in a Worker's tail, whose limit is far shorter than the route's.
  */
-export function turnBudgetMs(startedAt?: number, now = Date.now()): number {
+export function turnBudgetMs(startedAt?: number, now = Date.now(), tail = false): number {
   if (startedAt === undefined) return TURN_MS;
-  return Math.min(TURN_MS, startedAt + WEBHOOK_LIMIT_MS - SEND_MARGIN_MS - now);
+  const [limit, margin] = tail ? [TAIL_LIMIT_MS, TAIL_MARGIN_MS] : [WEBHOOK_LIMIT_MS, SEND_MARGIN_MS];
+  return Math.min(TURN_MS, startedAt + limit - margin - now);
 }

@@ -6,13 +6,22 @@ import { useFreshLinks } from "./fresh-links";
 import { useEffect, useRef, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
+import type { TwelvePlDividend } from "@/lib/quote-video/twelvepl";
 import { GS_PLANS, gsPlanName, gsPlanPage, gsPlanTerms, type GsPlan } from "@/lib/quote-video/gsaving";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { PlbVariant } from "@/lib/quote-video/plb";
+import type { LifeTreasureVariant } from "@/lib/quote-video/lifetreasure";
 import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
 import { QUOTE_VIDEO_COLORS, RECIPE_COLORS } from "@/lib/card-theme";
 import { nextRecipe, readRecipe, RECIPE_NAMES, type RecipeKey } from "@/lib/quote-video/recipe-keys";
-import { PLB_SUMS } from "@/lib/quote-pdf/pages";
+import { EASYPROTECT_SUMS, LIFETREASURE_SUMS, PLB_SUMS } from "@/lib/quote-pdf/pages";
+import { CI123_SUMS, sumWords as ciSumWords } from "@/lib/ci123-cta";
+import { CANCER_SUMS, CANCER_TIERS } from "@/lib/cancer-cta";
+import { PA_FAMILIES, paPremium, type PaFamilyId } from "@/lib/pa-plans";
+import { paClassesTaken, paPlanOf } from "@/lib/quote-video/pa";
+import { GROUP_KIND_NAME, GROUP_KIND_SHORT, groupPlanWord } from "@/lib/quote-video/group";
+import { GROUP_BIZ, type GroupKind, type GroupPick } from "@/lib/quote-video/group-pick";
+import { GI, PRODUCT_LIMITS } from "@/lib/group-insurance/data";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 import { formatBaht } from "@/lib/wallet/money";
@@ -29,6 +38,7 @@ import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "./useElevenOff";
 import { VIDEO_LANGS, type VideoLang } from "@/lib/quote-video/video-words";
 import { LANG_NAME } from "@/lib/ihealthy-lang";
+import { shelfSize } from "./shelf";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
@@ -73,26 +83,45 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   { code: "PLB", name: "Protection Life", page: "/plb" },
   // one entry for both plans: the form's แบบ picks 15/8 or 25/5 (owner, 2026-11-16)
   { code: "GSAVING", name: "Global Savings", page: "/global-saving" },
+  { code: "TWELVEPL", name: "12PL", page: "/12pl" },
+  { code: "EASYPROTECT", name: "Easy Protect 6", page: "/easyprotect" },
+  { code: "LIFETREASURE", name: "Life Treasure", page: "/lifetreasure" },
+  { code: "CI123", name: "CI 123", page: "/ci123" },
+  { code: "CANCER", name: "ประกันมะเร็ง", page: "/cancer" },
+  { code: "PA", name: "PA อุบัติเหตุ", page: "/pa" },
+  { code: "GROUP", name: "ประกันกลุ่ม", page: "/group-insurance" },
 ];
+/** ประกันกลุ่ม's group as the form opens on it: the mockup's, 20 people, business type 1, plan 3 with its rider 3 */
+const GROUP_START: GroupPick = { biz: "biz1", plan: 3, rider: 3, count: 20 };
+/** PA's plan as the form opens on it, the /pa page's own: Platinum 02, class 1 */
+const PA_START = "PAP02";
+/** a PA plan's button, as the page's: the short name and the sum, "02 · 2 ล้าน" */
+const paPlanWord = (death: number) => (death >= 1_000_000 ? `${death / 1_000_000} ล้าน` : `${death / 100_000} แสน`);
+/** a cancer package as the form names it: "ทุน 500,000 · วันละ 2,000" */
+const cancerWord = (cpr: number) => `ทุน ${cpr.toLocaleString("en-US")} · วันละ ${(CANCER_TIERS.find((x) => x.cpr === cpr)?.hic ?? 0).toLocaleString("en-US")}`;
 /** Global Savings' index returns the agent picks the clip's example at (owner, 2026-10-20): −1% to +5% */
 const GS_RATE_CHOICES = [-1, 0, 1, 2, 3, 4, 5];
 const gsRateWord = (r: number) => `${r > 0 ? "+" : r < 0 ? "−" : ""}${Math.abs(r)}%`;
+/** 12 พีแอล: the company's dividend example the clip shows (owner, 2026-11-26, ก): none, 2 or 3 */
+const TP_DIVIDENDS: { value: TwelvePlDividend; name: string }[] = [{ value: 0, name: "ไม่รวม" }, { value: 2, name: "ตัวอย่างที่ 2" }, { value: 3, name: "ตัวอย่างที่ 3" }];
 /** Protection Life's sums as its page's slider steps them (owner, 2026-10-14): "3 แสน", "1.5 ล้าน" */
 const plbSumWord = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000} ล้าน` : `${n / 100_000} แสน`);
 /** มรดก's sizes (owner, 2026-10-14): the bundle's ten tiers, a million each */
 const LEGACY_TIERS = Array.from({ length: 10 }, (_, i) => i + 1);
 /** the plans with a list of paying terms by variant */
-const termed = (p: Product): p is "LIFEPROTECT" | "ISHIELD" | "PLB" => p === "LIFEPROTECT" || p === "ISHIELD" || p === "PLB";
+const termed = (p: Product): p is "LIFEPROTECT" | "ISHIELD" | "PLB" | "LIFETREASURE" => p === "LIFEPROTECT" || p === "ISHIELD" || p === "PLB" || p === "LIFETREASURE";
 type PensionPay = "6" | "untilAnnuity";
 const PENSION_STARTS = [55, 60, 65, 70];
 /** the monthly pension in a sum, as the engine and the page say it (calc/pension/engine.ts MONTHLY_FACTOR_FIRST) */
 const pensionMonthly = (sum: number) => Math.round(sum * 0.0127);
-const TERMS: Record<"LIFEPROTECT" | "ISHIELD" | "PLB", { variant: string; years: number }[]> = {
+const TERMS: Record<"LIFEPROTECT" | "ISHIELD" | "PLB" | "LIFETREASURE", { variant: string; years: number }[]> = {
   // จ่ายถึงอายุ 99 is Life Protect's third term (owner, 2026-10-11: it had gone missing)
   LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }, { variant: "WLF99H", years: 99 }],
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
   // Protection Life (owner, 2026-10-14): paid and covered alike
   PLB: [{ variant: "PLB05", years: 5 }, { variant: "PLB10", years: 10 }, { variant: "PLB12", years: 12 }, { variant: "PLB15", years: 15 }],
+  // ไลฟ์เทรเชอร์ (owner, 2026-11-26): its page's three paying terms
+  LIFETREASURE: [{ variant: "H99F06A", years: 6 }, { variant: "H99F12A", years: 12 }, { variant: "H99F18A", years: 18 }],
 };
 const NARRATOR_KEY = "quote-video-narrator";
 const SIZE_KEY = "quote-video-size";
@@ -187,13 +216,15 @@ const GEMINI_KEY = "quote-video-gemini";
  * 2026-10-15); the other 28 have their Thai sample only
  */
 const sampleIn = (g: GeminiChoice, lang: VideoLang) => (lang === "th" || g.name !== GEMINI_DEFAULT[g.sex] ? g.sample : `/voice-samples/gemini-${g.sex}-${lang}.mp3`);
-const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10", PLB: "PLB12" } as const;
+const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10", PLB: "PLB12", LIFETREASURE: "H99F12A" } as const;
 /** the plans a clip compares, the main one included (owner, 2026-10-11: three fit a phone screen) */
 const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices, fx = false, hide = [], riderMenu }: {
+export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices, fx = false, hide = [], riderMenu, tpRiderMenu }: {
+  /** 12 พีแอล's, the same riders on its own table */
+  tpRiderMenu?: LpRiderMenu;
   /** Life Protect's riders as its page offers them, for the form's own picker (lp-rider-menu.ts) */
   riderMenu?: LpRiderMenu;
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
@@ -284,7 +315,45 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // iHealthy from its page (owner, 2026-10-14): the page's base, sum, territory, coverage and riders
   const [setup, setSetup] = useState(startProduct === "IHEALTHY" ? start?.setup : undefined);
   // Life Protect from its page (owner, 2026-10-17, 1ก): the riders its price included
-  const [riders, setRiders] = useState(startProduct === "LIFEPROTECT" ? start?.riders : undefined);
+  const [riders, setRiders] = useState(startProduct === "LIFEPROTECT" || startProduct === "TWELVEPL" ? start?.riders : undefined);
+  // 12 พีแอล (owner, 2026-11-26): the dividend example the clip shows; example 2 to start, as its page does
+  const [dividend, setDividend] = useState<TwelvePlDividend>(start?.dividend ?? 2);
+  // PA (owner, 2026-11-26): a plan by its code and an occupation class, from its page or picked here; no age, no sex
+  const [paCode, setPaCode] = useState(startProduct === "PA" && start?.plan && paPlanOf(start.plan) ? start.plan : PA_START);
+  const [paCls, setPaCls] = useState(() => {
+    const p = paPlanOf(startProduct === "PA" && start?.plan && paPlanOf(start.plan) ? start.plan : PA_START)!.plan;
+    return start?.cls !== undefined && paPremium(p, start.cls) !== null ? start.cls : paClassesTaken(p)[0];
+  });
+  const paPicked = paPlanOf(paCode) ?? paPlanOf(PA_START)!;
+  /** a plan picked: the class kept where it takes it, else the highest it does, as the page falls back */
+  const pickPaPlan = (code: string) => {
+    const p = paPlanOf(code);
+    if (!p) return;
+    setPaCode(code);
+    setPaCls((c) => (paPremium(p.plan, c) !== null ? c : Math.max(...paClassesTaken(p.plan))));
+  };
+  const pickPaFamily = (id: PaFamilyId) => pickPaPlan(PA_FAMILIES.find((f) => f.id === id)!.plans[0].code);
+  // ประกันกลุ่ม (owner, 2026-11-26, ข): health or PA, one group edited here; the page's other groups ride along as they were
+  const [grKind, setGrKind] = useState<GroupKind>(startProduct === "GROUP" && start?.kind ? start.kind : "health");
+  const [grGroups, setGrGroups] = useState<GroupPick[]>(startProduct === "GROUP" && start?.groups?.length ? start.groups : [GROUP_START]);
+  const [grCount, setGrCount] = useState(String((startProduct === "GROUP" && start?.groups?.[0]?.count) || GROUP_START.count));
+  const grFirst: GroupPick = { ...grGroups[0], count: Number(grCount) || 0 };
+  const grAll: GroupPick[] = [grFirst, ...grGroups.slice(1)];
+  const grTotal = grAll.reduce((n, g) => n + g.count, 0);
+  /** the first group changed; a rider more than one plan above its plan comes down with it, as the page's does */
+  const patchGroup = (patch: Partial<GroupPick>) => setGrGroups((was) => {
+    const next = { ...was[0], ...patch };
+    if (next.rider !== undefined && next.rider > next.plan + 1) next.rider = next.plan + 1;
+    if ("rider" in patch && patch.rider === undefined) delete next.rider;
+    return [next, ...was.slice(1)];
+  });
+  /** the other kind: its rider means another thing, so the form starts on its own group again */
+  const pickGrKind = (k: GroupKind) => {
+    if (k === grKind) return;
+    setGrKind(k);
+    setGrGroups([GROUP_START]);
+    setGrCount(String(GROUP_START.count));
+  };
   const [sex, setSex] = useState<"M" | "F">(start?.sex ?? "M");
   const [age, setAge] = useState(String(start?.age ?? 35));
   const [sum, setSum] = useState((start?.sumAssured ?? 1_000_000).toLocaleString("en-US"));
@@ -326,7 +395,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   /** an ElevenLabs voice instead, of the narrator's sex where there is one */
   const elevenInstead = eleven.find((v) => v.sex === narrator) ?? eleven[0];
   const [pickedStyle, setStyle] = useState<VideoStyle>("classic");
-  const style: VideoStyle = allOn ? "motion" : pickedStyle;
+  // แชทถาม-ตอบ is off the form (owner, 2026-11-21, ก): a choice of it kept from before is แบบปกติ
+  const style: VideoStyle = allOn ? "motion" : pickedStyle === "chat" ? "classic" : pickedStyle;
   // ธีม (owner, 2026-10-17): the Motion Graphic look, remembered in this browser
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_THEME);
   // สีของฉัน (owner, 2026-10-20): the agent's colour, chosen once and kept
@@ -371,7 +441,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   useEffect(() => {
     try {
       const keptStyle = localStorage.getItem(STYLE_KEY);
-      if (keptStyle === "motion" || keptStyle === "chat") setStyle(keptStyle);
+      if (keptStyle === "motion") setStyle(keptStyle);
       if (localStorage.getItem(MASCOT_KEY) === "off") setMascot(false);
       if (localStorage.getItem(CARRY_KEY) === "off") setCarry(false);
       if (localStorage.getItem(MUSIC_KEY) === "off") setMusic(false);
@@ -416,7 +486,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // where the clip begins: a sum (or plan), or what the customer can save each month / year
   const [source, setSource] = useState<"sum" | "month" | "year">("sum");
   // Life Protect's riders, from its page or picked on this form; a budget pays for them too (owner, 2026-11-18, 1ก)
-  const lpRiders = product === "LIFEPROTECT" ? riders : undefined;
+  const lpRiders = product === "LIFEPROTECT" || product === "TWELVEPL" ? riders : undefined;
   const [budget, setBudget] = useState("3,000");
   // การเล่า stands only for a portrait Life Protect Motion clip, Thai, without riders or a budget, where the quote on
   // the form fits a recipe; the server says which fit (previewQuote) and makes the standing clip if one stops fitting
@@ -474,6 +544,20 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         : product === "GSAVING"
           // a budget works the premium out itself
           ? { product, sex, age: Number(age), premium: Number(gsPremium.replace(/[^\d]/g, "")), rate: gsRate, ...(gsPlan === "25/5" ? { plan: gsPlan } : {}), ...look }
+        : product === "EASYPROTECT"
+          ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
+        : product === "LIFETREASURE"
+          ? { product, variant: variant as LifeTreasureVariant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
+        : product === "CI123" || product === "CANCER"
+          ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
+        : product === "TWELVEPL"
+          ? { product, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), dividend, ...(lpRiders ? { riders: lpRiders } : {}), ...look }
+        // PA asks no age or sex, and takes no budget: the plan is picked
+        : product === "PA"
+          ? { product, plan: paCode, cls: paCls, ...look, budget: undefined }
+        // ประกันกลุ่ม asks no age or sex either, and takes no budget: every group, the first as edited here
+        : product === "GROUP"
+          ? { product, kind: grKind, groups: grAll, ...look, budget: undefined }
           : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...(lpRiders ? { riders: lpRiders } : {}), ...look };
   };
 
@@ -483,7 +567,16 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     setAge((a) => String(Math.min(ages[p].max, Math.max(ages[p].min, Number(a) || 35))));
     if (termed(p)) setVariant(DEFAULT_TERM[p]);
     // Protection Life's sums are its page's steps: anything else opens on its page's 1 ล้าน
+    if (p === "EASYPROTECT") setSum((was) => (EASYPROTECT_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
+    // ไลฟ์เทรเชอร์'s sums start at ten million: anything else opens on its page's first
+    if (p === "LIFETREASURE") setSum((was) => (LIFETREASURE_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "10,000,000"));
     if (p === "PLB") setSum((was) => (PLB_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
+    // CI 123's sums are its page's seven: anything else opens on its page's 1 ล้าน
+    if (p === "CI123") setSum((was) => (CI123_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
+    // the cancer plan's sums are its page's eight packages: anything else opens on its 1 ล้าน
+    if (p === "CANCER") setSum((was) => (CANCER_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
+    // PA is never worked out from a budget (owner, 2026-11-26)
+    if (p === "PA" || p === "GROUP") setSource("sum");
   }
   function toggleCompare(code: string) {
     if (code === plan) return;
@@ -501,13 +594,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     return () => clearTimeout(t);
     // style and length too: the price under the button is the clip's whole (clipSatang), and a recipe changes the length
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier, setup, lpRiders, all4, lang, style, length]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier, setup, lpRiders, dividend, all4, lang, style, length, paCode, paCls, grKind, grGroups, grCount]);
 
   // the script shown is the one for what the form holds: anything changed, and it is written again
   useEffect(() => {
     setScript(null);
     setScriptError(null);
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, gemini, setup, lang, lpRiders, all4, recipeOn, tell]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, gemini, setup, lang, lpRiders, dividend, all4, recipeOn, tell, paCode, paCls, grKind, grGroups, grCount]);
 
   /** ดูสคริปต์: written to the brief (again: another try), or the agent's edits read back */
   async function showScript(again: boolean) {
@@ -530,7 +623,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   }
 
   // links renewed when the agent comes back to a board left open past the hour they last
-  useFreshLinks(() => { myVideos().then(setItems).catch(() => undefined); });
+  useFreshLinks(() => { myVideos("quote", shelfSize("quote")).then(setItems).catch(() => undefined); });
   // a clip still being made is asked after every few seconds, alone (useClipWatch); when it ends:
   useClipWatch("quote", items, setItems, () => {
     // a clip that ended may have given a free clip or money back, or found the voice used up
@@ -552,7 +645,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         refreshQuota();
       } else {
         if (recipe) try { localStorage.setItem(LAST_RECIPE_KEY, recipe); } catch { /* not remembered: the next pick may repeat it */ }
-        setItems(await myVideos());
+        setItems(await myVideos("quote", shelfSize("quote")));
         // the next clip gets its own three tries
         setRewrites(REWRITES);
         setScript(null);
@@ -672,6 +765,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     what: kind === "fhc" ? "สรุป FHC" : `${product === "GSAVING" ? gsPlanName(gsPlan) : PRODUCTS.find((p) => p.code === product)?.name ?? ""}${foreign ? ` · ${LANG_NAME[lang]}` : ""}`,
     who: kind === "fhc"
       ? fhcPick?.name ?? ""
+      : product === "PA" || product === "GROUP"
+        // no age or sex for PA or a group: the customer's name, if one is typed
+        ? (customer.trim() && length !== "short" ? `คุณ${customer.trim()}` : "ไม่ต้องใส่อายุ เพศ")
       : `${sex === "M" ? "ชาย" : "หญิง"} ${age}${customer.trim() && length !== "short" ? ` · ${foreign ? "" : "คุณ"}${customer.trim()}` : ""}`,
     plan: product === "IHEALTHY"
       ? allOn ? `เทียบ 4 แผน · ${ALL4_MODES.find((m) => m.mode === all4)?.name ?? ""}`
@@ -680,10 +776,20 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ? `${source === "sum" ? `บำนาญเดือนละ ${monthly}` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · รับ ${pensionStart} · ${pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
       : product === "LEGACY"
         ? (source === "sum" ? `มรดก ${tier} ล้าน` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
+      : product === "CI123"
+        ? (source === "sum" ? `ทุน ${ciSumWords(Number(sum.replace(/[^\d]/g, "")) || 0)}` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
+      : product === "CANCER"
+        ? (source === "sum" ? cancerWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
+      : product === "PA"
+        ? `${paPicked.plan.name} · อาชีพชั้น ${paCls}`
+      : product === "GROUP"
+        ? `${GROUP_KIND_SHORT[grKind]} ${groupPlanWord(grKind, grFirst)} · ${grAll.length > 1 ? `${grAll.length} กลุ่ม ` : ""}${grTotal.toLocaleString("en-US")} คน`
+      : product === "TWELVEPL" || product === "EASYPROTECT"
+        ? `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${product === "EASYPROTECT" ? 6 : 12} ปี`
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
       kind === "quote" && !recipeOn ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
-      kind === "quote" ? (style === "motion" ? "Motion" : style === "chat" && !foreign ? "แชท" : "ปกติ") : THEME_LABELS[theme].name,
+      kind === "quote" ? (style === "motion" ? "Motion" : "ปกติ") : THEME_LABELS[theme].name,
       // the recipe, as the finished clip's card names it
       recipeOn ? (chosen ? RECIPE_NAMES[chosen] : "สุ่มสูตร") : "",
       SIZE_CHOICES.find((c) => c.size === shownSize)?.name.split(" ")[0] ?? "",
@@ -725,12 +831,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             <div>
               <span className={label}>สไตล์</span>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={chip(style === "classic" || (style === "chat" && foreign))} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", baseLength)])} บาท</button>
+                <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", baseLength)])} บาท</button>
                 <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices[videoPriceKey("motion", length)])} บาท</button>
-                {/* แชทถาม-ตอบ (owner, 2026-10-20): the customer asks in Thai, so Thai clips only */}
-                {!foreign && <button type="button" className={chip(style === "chat")} onClick={() => pickStyle("chat")}>แชทถาม-ตอบ · {priceBaht(prices[videoPriceKey("chat", baseLength)])} บาท</button>}
               </div>
-              <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : style === "chat" && !foreign ? "หน้าจอแชท ลูกค้าถาม ตัวแทนตอบ พร้อมส่งการ์ดราคา ตาราง และนามบัตรในแชท" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
+              <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
             </div>
             {/* one cell, so on a wide screen the fold line stays under the tiles, beside สไตล์ */}
             {tellRow && (
@@ -827,6 +931,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ) : (
           <>
             <Step n={2} title="ลูกค้า" summary={summary.who}>
+              {product === "PA" ? (
+                <p className="text-xs text-[var(--ct-mute)]">PA ราคาตามแผนและขั้นอาชีพ เท่ากันทุกอายุ ไม่ต้องใส่อายุ เพศ · คลิปไม่บอกอายุ เพศ</p>
+              ) : product === "GROUP" ? (
+                <p className="text-xs text-[var(--ct-mute)]">ประกันกลุ่มเล่าให้เจ้าของกิจการฟัง ราคาตามแผน ลักษณะธุรกิจ และจำนวนพนักงาน ไม่ต้องใส่อายุ เพศ · ชื่อลูกค้าคือชื่อผู้ติดต่อของบริษัท</p>
+              ) : (
               <div className="grid gap-4 @sm:grid-cols-2">
                 <div>
                   <span className={label}>เพศ</span>
@@ -844,6 +953,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   </select>
                 </div>
               </div>
+              )}
               {length !== "short" ? (
                 <div>
                   <label htmlFor="qv-customer" className={label}>ชื่อลูกค้า (ไม่บังคับ)</label>
@@ -906,6 +1016,79 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   </div>
                 </div>
               )}
+              {product === "GROUP" ? (
+                <div className="space-y-4">
+                  <div>
+                    <span className={label}>แบบ</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label="แบบประกันกลุ่ม">
+                      {(["health", "pa"] as const).map((k) => <button key={k} type="button" aria-pressed={grKind === k} className={chip(grKind === k)} onClick={() => pickGrKind(k)}>{GROUP_KIND_SHORT[k]}</button>)}
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--ct-mute)]">{GROUP_KIND_NAME[grKind]} รับ {PRODUCT_LIMITS[grKind].min.toLocaleString("en-US")}–{PRODUCT_LIMITS[grKind].max.toLocaleString("en-US")} คน (รวมทุกกลุ่ม) · ราคาต่อคนตามจำนวนคนรวม</p>
+                  </div>
+                  <div>
+                    <span className={label}>ลักษณะธุรกิจ</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label="ลักษณะธุรกิจ">
+                      {GROUP_BIZ.map((b, i) => <button key={b} type="button" aria-pressed={grFirst.biz === b} className={chip(grFirst.biz === b)} onClick={() => patchGroup({ biz: b })}>ธุรกิจ {i + 1}</button>)}
+                    </div>
+                    {grKind === "health" ? <p className="mt-1 text-xs text-[var(--ct-mute)]">{GI.healthBizTypes.find((b) => b.value === grFirst.biz)?.desc}</p> : null}
+                  </div>
+                  <div>
+                    <label htmlFor="qv-gr-count" className={label}>{grAll.length > 1 ? "จำนวนพนักงาน กลุ่มแรก (คน)" : "จำนวนพนักงาน (คน)"}</label>
+                    <input id="qv-gr-count" className={field} inputMode="numeric" value={grCount} maxLength={4} onChange={(e) => setGrCount(e.target.value.replace(/\D/g, ""))} />
+                  </div>
+                  <div>
+                    <span className={label}>{grKind === "pa" ? "แผนหลัก" : "แผน (นอนโรงพยาบาล)"}</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label="แผน">
+                      {[1, 2, 3, 4, 5, 6].map((n) => <button key={n} type="button" aria-pressed={grFirst.plan === n} className={chip(grFirst.plan === n)} onClick={() => patchGroup({ plan: n })}>{grKind === "pa" ? `P${n}` : n}</button>)}
+                    </div>
+                  </div>
+                  <div>
+                    <span className={label}>{grKind === "pa" ? "ค่ารักษาต่ออุบัติเหตุ (ME)" : "ผู้ป่วยนอก (OPD)"}</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label={grKind === "pa" ? "ME" : "OPD"}>
+                      <button type="button" aria-pressed={grFirst.rider === undefined} className={chip(grFirst.rider === undefined)} onClick={() => patchGroup({ rider: undefined })}>ไม่มี</button>
+                      {[1, 2, 3, 4, 5, 6].map((n) => (
+                        <button key={n} type="button" aria-pressed={grFirst.rider === n} disabled={n > grFirst.plan + 1} className={`${chip(grFirst.rider === n)} disabled:cursor-not-allowed disabled:opacity-40`} onClick={() => patchGroup({ rider: n })}>
+                          {grKind === "pa" ? GI.paMeCoverLevels[n - 1] : `แผน ${n}`}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--ct-mute)]">{grKind === "pa" ? "ME" : "OPD"} สูงกว่าแผนหลักได้ไม่เกิน 1 แผน · ไม่มี{grKind === "pa" ? " ME คลิปไม่มีฉากค่ารักษา" : " OPD คลิปไม่มีฉากผู้ป่วยนอก"}</p>
+                  </div>
+                  {grAll.length > 1 ? (
+                    <div className="rounded-lg border border-[var(--ct-line)] p-3 text-xs text-[var(--ct-mute)]">
+                      <p>จากหน้าประกันกลุ่ม: อีก {grAll.length - 1} กลุ่ม · รวม {grAll.length} กลุ่ม {grTotal.toLocaleString("en-US")} คน · คลิปเล่าแผนของกลุ่มแรก และบอกจำนวนคนกับยอดรวมทั้งบริษัท</p>
+                      <button type="button" className="mt-2 underline" onClick={() => setGrGroups((was) => [was[0]])}>ใช้กลุ่มแรกกลุ่มเดียว</button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : product === "PA" ? (
+                <div className="space-y-4">
+                  <div>
+                    <span className={label}>แบบ</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label="แบบ PA">
+                      {PA_FAMILIES.map((x) => <button key={x.id} type="button" aria-pressed={paPicked.family.id === x.id} className={chip(paPicked.family.id === x.id)} onClick={() => pickPaFamily(x.id)}>{x.name}</button>)}
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--ct-mute)]">{paPicked.family.tagline} · รับอายุ {paPicked.family.ageMin === 0 ? "แรกเกิด" : paPicked.family.ageMin}–{paPicked.family.ageMax} ปี</p>
+                  </div>
+                  <div>
+                    <span className={label}>แผน · ทุนอุบัติเหตุ</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label="แผน PA">
+                      {paPicked.family.plans.map((x) => (
+                        <button key={x.code} type="button" aria-pressed={paCode === x.code} className={chip(paCode === x.code)} onClick={() => pickPaPlan(x.code)}>
+                          {`${x.name.replace(/^(Classic|Platinum|Max) /, "")} · ${paPlanWord(x.death)}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <span className={label}>ขั้นอาชีพ</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label="ขั้นอาชีพ">
+                      {paClassesTaken(paPicked.plan).map((c) => <button key={c} type="button" aria-pressed={paCls === c} className={chip(paCls === c)} onClick={() => setPaCls(c)}>ชั้น {c}</button>)}
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--ct-mute)]">{paPicked.plan.name} รับขั้นอาชีพ {paClassesTaken(paPicked.plan).join(", ")} · ขั้น 4 ไม่รับทุกแบบ{paPicked.family.id === "max" ? " · Max ไม่มีค่ารักษาและชดเชยรายสัปดาห์ คลิปจึงมี 5 ฉาก" : paPicked.family.id === "classic" ? " · Classic ไม่มีชดเชยรายสัปดาห์" : ""}</p>
+                  </div>
+                </div>
+              ) : (<>
               <div>
                 <span className={label}>เริ่มจาก</span>
                 <div className="flex flex-wrap gap-2">
@@ -935,7 +1118,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                       <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : product === "PENSION" ? "ระบบคิดทุนจากงบนี้ ด้วยเครื่องคิดเดียวกับหน้า บำนาญ 95"
                         : product === "LEGACY" ? "ระบบเลือกขนาดมรดกที่ใหญ่ที่สุดที่ค่าใช้จ่ายปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท"
                         : product === "PLB" ? "ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า Protection Life) ที่ค่าใช้จ่ายไม่เกินงบ ในระยะที่เลือก · รายเดือนขั้นต่ำ 1,000 บาท"
-                        : product === "GSAVING" ? "แบบนี้จ่ายรายปี งบต่อเดือนคิดเป็นเบี้ยปีละ 12 เท่า · ขั้นต่ำปีละ 20,000 บาท" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+                        : product === "GSAVING" ? "แบบนี้จ่ายรายปี งบต่อเดือนคิดเป็นเบี้ยปีละ 12 เท่า · ขั้นต่ำปีละ 20,000 บาท"
+                        : product === "CI123" ? "ระบบเลือกทุน CI 123 สูงสุด (ตามขั้นของหน้า CI 123) ที่ยอดออมปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท"
+                        : product === "CANCER" ? "ระบบเลือกแพ็กสูงสุด (ตามแพ็กของหน้าประกันมะเร็ง) ที่ยอดออมปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท"
+                        : product === "TWELVEPL" || product === "EASYPROTECT" || product === "LIFETREASURE" ? `ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า ${product === "TWELVEPL" ? "12PL" : product === "EASYPROTECT" ? "Easy Protect 6" : "Life Treasure"}) ที่เบี้ยไม่เกินงบ${product === "LIFETREASURE" ? " ในระยะจ่ายที่เลือก" : ""}` : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
                     </div>
                   ) : product === "PENSION" ? (
                     <div>
@@ -949,6 +1135,22 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                       <input id="qv-gs-premium" inputMode="numeric" className={field} value={gsPremium} onChange={(e) => setGsPremium(money(e))} />
                       <p className="mt-1 text-xs text-[var(--ct-mute)]">ขั้นต่ำ 20,000 · {gsPlanTerms(gsPlan)}</p>
                     </div>
+                  ) : product === "CI123" ? (
+                    <div>
+                      <span className={label}>ทุน CI 123</span>
+                      <div className="flex flex-wrap gap-2">
+                        {CI123_SUMS.map((n) => <button key={n} type="button" className={chip(Number(sum.replace(/[^\d]/g, "")) === n)} onClick={() => setSum(n.toLocaleString("en-US"))}>{ciSumWords(n)}</button>)}
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">คู่แบบหลัก Life Protect x2 ทุน 150,000 · รับอายุแรกเกิด–75 ปี</p>
+                    </div>
+                  ) : product === "CANCER" ? (
+                    <div className="@sm:col-span-2">
+                      <span className={label}>แพ็กประกันมะเร็ง</span>
+                      <div className="flex flex-wrap gap-2">
+                        {CANCER_SUMS.map((n) => <button key={n} type="button" className={chip(Number(sum.replace(/[^\d]/g, "")) === n)} onClick={() => setSum(n.toLocaleString("en-US"))}>{cancerWord(n)}</button>)}
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">ทุนมะเร็ง · ชดเชยนอนโรงพยาบาลต่อวัน · คู่แบบหลัก Life Protect x2 · รับอายุแรกเกิด–{ages.CANCER.max} ปี</p>
+                    </div>
                   ) : product === "PLB" ? (
                     <div>
                       <span className={label}>ทุนประกัน</span>
@@ -961,7 +1163,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                     <div>
                       <label htmlFor="qv-sum" className={label}>ทุนประกัน (บาท)</label>
                       <input id="qv-sum" inputMode="numeric" className={field} value={sum} onChange={(e) => setSum(money(e))} />
-                      <p className="mt-1 text-xs text-[var(--ct-mute)]">ทีละ 50,000</p>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "LIFEPROTECT" ? "150,000 – 50,000,000 ใส่ได้ทุกบาท เหมือนหน้า Life Protect" : product === "EASYPROTECT" ? "500,000 – 10,000,000 ทีละแสน เกิน 3 ล้านทีละห้าแสน · รับอายุ 0–80 ปี" : product === "LIFETREASURE" ? "10,000,000 – 50,000,000 ทีละล้าน เกิน 30 ล้านทีละ 5 ล้าน · รับอายุ 0–70 ปี" : product === "TWELVEPL" ? "100,000 – 50,000,000 เหมือนหน้า 12PL · รับอายุ 0–60 ปี" : "ทีละ 50,000"}</p>
                     </div>
                   )}
                   {termed(product) && (
@@ -974,6 +1176,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   )}
                 </div>
               )}
+              </>)}
               {product === "GSAVING" && (
                 <div>
                   <span className={label}>แบบ</span>
@@ -989,6 +1192,24 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                     {GS_RATE_CHOICES.map((r) => <button key={r} type="button" aria-pressed={gsRate === r} className={chip(gsRate === r)} onClick={() => setGsRate(r)}>{gsRateWord(r)}</button>)}
                   </div>
                   <p className="mt-1 text-xs text-[var(--ct-mute)]">ใช้กับโบนัสในฉากที่ 4 และเสียง · ส่วนการันตีเท่าเดิมทุกค่า · คลิปบอกว่า “ประมาณ” และ “ไม่การันตี” ทุกครั้ง</p>
+                </div>
+              )}
+              {product === "TWELVEPL" && (
+                <div>
+                  <span className={label}>เงินปันผลในคลิป (ไม่การันตี)</span>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="เงินปันผลในคลิป">
+                    {TP_DIVIDENDS.map((x) => <button key={x.value} type="button" aria-pressed={dividend === x.value} className={chip(dividend === x.value)} onClick={() => setDividend(x.value)}>{x.name}</button>)}
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--ct-mute)]">คลิปบอกว่า “ประมาณ” และ “ไม่การันตี” ทุกครั้ง · ส่วนการันตีเท่าเดิมทุกตัวเลือก</p>
+                </div>
+              )}
+              {product === "TWELVEPL" && tpRiderMenu && (
+                <div className="space-y-1">
+                  <LpRiderPicker
+                    menu={tpRiderMenu} age={Number(age)} value={riders} onChange={setRiders}
+                    baseSum={source === "sum" ? Number(sum.replace(/[^\d]/g, "")) || undefined : undefined}
+                  />
+                  {riders && ok?.riders && <p className="text-xs text-[var(--ct-mute)]">ในคลิป: {ok.riders}</p>}
                 </div>
               )}
               {product === "LIFEPROTECT" && riderMenu && (
@@ -1110,6 +1331,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               {error.contact && <Link href="/studio/account" className="font-medium underline">ไปที่บัญชีของฉัน</Link>}
             </p>
           )}
+          {/* why the button is off, beside it: the price box that also says so may be scrolled away (owner, 2026-11-20) */}
+          {kind === "quote" && !error && preview && "error" in preview && (
+            <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">{preview.error}</p>
+          )}
           {notice && (
             <p role="status" className={notice.ok ? "rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm text-[var(--ct-accent)]" : "rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]"}>
               {notice.text}
@@ -1137,7 +1362,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       </aside>
 
       <section aria-label="วิดีโอที่สร้างแล้ว" className="studio-desk min-w-0 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
-        <ClipList items={items} setItems={setItems} pages={pages} />
+        <ClipList board="quote" items={items} setItems={setItems} pages={pages} />
       </section>
     </div>
   );

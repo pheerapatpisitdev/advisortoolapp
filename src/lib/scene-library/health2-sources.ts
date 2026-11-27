@@ -8,7 +8,7 @@ import { HEALTH_PARENTS_CAP } from "./tax-th";
 /**
  * The real files behind round 5's eight health devices (spec 2026-11-15-devices-health2-design.md): the iHealthy Ultra sheet,
  * the group premium table, the PA plans, the hospital list and the tax table. SERVER and Remotion side only (the story topic,
- * the drawers' inputs, the tests): it imports the 537-hospital list and the sheet, which the browser bundle must not carry.
+ * the drawers' inputs, the tests): it imports the hospital list and the sheet, which the browser bundle must not carry.
  * What checkDevice needs in the browser is health2-fixed.ts, a snapshot that tests/scene-library/health2-sources.test.ts holds
  * equal to what this module reads.
  */

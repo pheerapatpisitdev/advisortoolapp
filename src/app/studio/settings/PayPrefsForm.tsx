@@ -8,7 +8,7 @@ import { saveMyPrefs, type Result } from "./actions";
 const CARD = "space-y-1 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5";
 
 /** One switch: a checkbox drawn as a toggle, so a keyboard and a screen reader both have it. */
-function Switch({ id, label, hint, checked, disabled, onChange }: {
+export function Switch({ id, label, hint, checked, disabled, onChange }: {
   id: string; label: string; hint: string; checked: boolean; disabled: boolean; onChange: (v: boolean) => void;
 }) {
   return (

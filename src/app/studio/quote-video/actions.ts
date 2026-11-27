@@ -9,67 +9,63 @@ import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
 import { elevenVoice } from "@/lib/voice/elevenlabs";
 import { GEMINI_DEFAULT, geminiVoice } from "@/lib/voice/gemini";
-import { RIDERS_NOT_SOLD, cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
-import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iHealthyCard } from "@/lib/ihealthy-card";
-import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
-import { isAllPlansMode } from "@/lib/quote-video/ihealthy-all-plans";
+import { setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { WORDS as IH_WORDS } from "@/lib/ihealthy-words";
-import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { cloudUsable, elevenReady, fallbackReader, geminiUsable } from "@/lib/quote-video/speak";
 import { promptStoryCaption } from "@/lib/prompt-story/caption";
-import { isPromptStory, promptPicturePrice } from "@/lib/prompt-story/types";
+import { isPromptStory, paints, promptPicturePrice } from "@/lib/prompt-story/types";
 import { priceBaht } from "@/lib/wallet/prices";
 import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
 import { paidLine } from "@/lib/quote-video/paid-line";
-import { clipStates } from "@/lib/quote-video/rows";
+import { boardClipDays, clipStates } from "@/lib/quote-video/rows";
 import { clipEstimates, clipSize, langOfInput, costView, createVideo, videoPrice, deleteVideo, listVideos, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, googleInPlace, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
-import { cleanCustomerName, pageCaption, planInput, productOf, quoteVideoFacts, riderShort, type Product, type VideoInput } from "@/lib/quote-video/script";
-import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
-import { currentRiders, lifeProtectPriced } from "@/lib/lifeprotect-card";
+import { cleanCustomerName, pageCaption, personOf, planInput, productOf, quoteVideoFacts, riderShort, type Product, type VideoInput } from "@/lib/quote-video/script";
+import { paPlanOf } from "@/lib/quote-video/pa";
+import { GROUP_KIND_SHORT, groupPlanWord } from "@/lib/quote-video/group";
 import { quoteCard } from "@/lib/quote-card";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
 import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, previewHealth, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
 import { getCustomer, listCustomers } from "@/lib/fhc/customers";
 import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
-import { checkedPension } from "@/lib/quote-video/pension";
-import { checkedLegacy } from "@/lib/quote-video/legacy";
-import { checkedPlb } from "@/lib/quote-video/plb";
-import { checkedGsaving, gsPlanName, gsPlanOf, rateLabel } from "@/lib/quote-video/gsaving";
+import { gsPlanName, gsPlanOf, rateLabel } from "@/lib/quote-video/gsaving";
 import { GAP_WORD } from "@/lib/fhc/gaps";
-import { cleanBrief, storiesFor, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
+import { storiesFor, writes, type WrittenLines } from "@/lib/quote-video/brief";
 import { readVideoLang } from "@/lib/quote-video/video-words";
 import { LANG_NAME } from "@/lib/ihealthy-lang";
 import { readLength } from "@/lib/quote-video/told";
-import { DEFAULT_THEME, readTheme, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
+import { DEFAULT_THEME, readTheme, THEME_LABELS } from "@/lib/quote-video/theme-keys";
 import { FESTIVALS, readFestival } from "@/lib/quote-video/festival";
-import { MY_COLORS, type MyColor } from "@/lib/card-theme";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
-import { readRecipe, RECIPE_NAMES, recipeInput, recipeOf, recipeScript, recipesFor, type RecipeKey } from "@/lib/quote-video/recipes";
+import { readRecipe, RECIPE_NAMES, recipeOf, recipeScript, recipesFor, type RecipeKey } from "@/lib/quote-video/recipes";
+import { adBasis, adCaption, adPlanOf } from "@/lib/ad-video/caption";
 import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
 import { POST_TRIES, readTone, readVoice } from "@/lib/quote-video/post-tones";
 import { closedFor } from "@/lib/switches/store";
-import { hiddenFor, prefsFor } from "@/lib/pay-prefs-store";
-import { hiddenModes } from "@/lib/pay-prefs";
-import type { PayMode } from "@/calc/types";
+import { hiddenFor } from "@/lib/pay-prefs-store";
+import { checked, lookOf, payAndPen, TERMS } from "@/lib/quote-video/check-input";
+import { TWELVEPL_PLAN } from "@/lib/twelvepl-table";
+import { CANCER_TIERS } from "@/lib/cancer-cta";
+
+/** a group clip on the board: "สุขภาพกลุ่ม แผน 3 + OPD 3 · 20 คน", the groups counted where there are several */
+function groupWhat(v: Extract<VideoInput, { product: "GROUP" }>): string {
+  const groups = Array.isArray(v.groups) ? v.groups : [];
+  const total = groups.reduce((n, g) => n + (Number(g.count) || 0), 0);
+  const first = groups[0];
+  return `${GROUP_KIND_SHORT[v.kind] ?? "ประกันกลุ่ม"}${first ? ` ${groupPlanWord(v.kind, first)}` : ""} · ${groups.length > 1 ? `${groups.length} กลุ่ม ` : ""}${total.toLocaleString("en-US")} คน`;
+}
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — a member's free clips or a UnitClub agent's starter credit, then the Studio wallet. */
 
-/** the paying terms each product's clip offers, as its page names them */
-const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number }[]> = {
-  LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }, { variant: "WLF99H", years: 99 }],
-  ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
-};
-const SUM_STEP = 50_000;
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง", PA: "PA อุบัติเหตุ", GROUP: "ประกันกลุ่ม" };
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
@@ -126,14 +122,6 @@ const clipPost = (raw: unknown): ClipPost | null => {
 };
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
-function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
-  if (product === "ISHIELD") {
-    const t = iShieldTable();
-    return { min: t.saMin, max: t.saMax };
-  }
-  return { min: 500_000, max: 50_000_000 };
-}
-
 /** how a clip's voice reads in the list of clips; a voice no longer listed reads as ElevenLabs */
 const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียง ElevenLabs");
 /** " · เสียง X" for the voice a clip asked for */
@@ -144,84 +132,6 @@ const voiceWord = (input: { voice?: string; gemini?: string }) => {
   return gemini && gemini.name !== GEMINI_DEFAULT[gemini.sex] ? ` · เสียง ${gemini.name}` : "";
 };
 
-/** the agent's ตั้งค่าส่วนตัว as checked() takes it: the instalments hidden, then whether tables carry pen notes */
-async function payAndPen(agentId: string): Promise<[PayMode[], boolean]> {
-  const p = await prefsFor(agentId);
-  return [hiddenModes(p), p.pen];
-}
-
-/** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
-/**
- * `hide`: the instalments the signed-in agent switched off (ตั้งค่าส่วนตัว, owner 2026-11-14), read on the
- * server and kept on the clip, never taken from the form; a re-render says the same. `pen`: whether its table
- * carries the pen notes (แสดงคำอธิบายในตาราง), the same way.
- */
-function checked(v: VideoInput, hide: PayMode[] = [], pen = true): VideoInput | string {
-  // from a budget: the form is checked with a stand-in sum, then the budget works out the real one
-  // วิดีโอเทียบ 4 แผน shows the page's own prices: no budget, Motion Graphic only, portrait, the whole length, no brief
-  const all = v.product === "IHEALTHY" && isAllPlansMode(v.allPlans);
-  const budget = v.budget && !all ? cleanBudget(v.budget) : undefined;
-  if (typeof budget === "string") return budget;
-  // the stand-in sum is checked without riders: whether they can be bought is the budget's own question, sum by sum
-  const asked = !budget || v.product === "IHEALTHY" ? v
-    : v.product === "LEGACY" ? { ...v, tier: 1 }
-    // Protection Life's stand-in must be one of its page's steps
-    : v.product === "PLB" ? { ...v, sumAssured: 300_000 } : { ...v, sumAssured: 500_000, riders: undefined };
-  const checkedAsked = checkedQuote(asked);
-  if (typeof checkedAsked === "string") return checkedAsked;
-  // Life Protect's riders picked on the form are part of what the budget pays for (owner, 2026-11-18, 1ก)
-  const budgetRiders = budget && productOf(v) === "LIFEPROTECT" && "riders" in v ? currentRiders(cleanRiders(v.riders)) : undefined;
-  const worked = budget
-    ? resolveBudget(budgetRiders ? { ...checkedAsked, riders: budgetRiders } as VideoInput : checkedAsked, budget)
-    : checkedAsked;
-  if (typeof worked === "string") return worked;
-  // the table notes, read on the server like `hide`; only an agent who switched them off is marked
-  const c: VideoInput = { ...worked, ...(hide.length ? { hide } : {}), ...(pen ? {} : { pen: false }) };
-  // another language (owner, 2026-10-15): Gemini's narrator, fixed lines, the 15-second clip or the whole one
-  const foreign = c.product === "IHEALTHY" && readVideoLang(c.lang) !== "th";
-  // an ElevenLabs voice sets the endings itself: a man's voice says ครับ
-  const eleven = foreign ? undefined : elevenVoice(v.voice);
-  // one of Gemini's 30 voices (owner, 2026-10-17), in every language; its sex sets the endings
-  const gemini = eleven ? undefined : geminiVoice(v.gemini);
-  const narrator = eleven ? eleven.sex : gemini ? gemini.sex : v.narrator === "M" ? "M" : "F";
-  // แชทถาม-ตอบ (owner, 2026-10-20): its customer asks in Thai, so a clip in another language is แบบปกติ
-  const style = all || v.style === "motion" ? "motion" : v.style === "chat" && !foreign ? "chat" : "classic";
-  // a Motion Graphic clip's look (owner, 2026-10-17); น้ำเงินทอง is kept as no theme at all
-  const look = lookOf(style === "motion" ? v.theme : undefined, v.myColor);
-  const askedLength = readLength(v.length);
-  const length = all || (foreign && askedLength !== "short") ? "full" : askedLength;
-  // every clip in every shape (owner, 2026-10-13); the 4-plan clip is drawn upright only
-  const size = all ? "portrait" : sizeOf(v);
-  // โจทย์การเล่า: the brief, and the lines the agent saw (and may have edited) — checked again here
-  const facts = quoteVideoFacts(c);
-  const brief = facts && !foreign && !all ? cleanBrief(v.brief, facts) : undefined;
-  // a recipe clip speaks its own fixed lines and drops the brief's (recipeInput, below): the form sends them with it,
-  // so they are not checked, and never refuse a clip that will not say them (final review, 2026-11-12)
-  const recipe = facts ? recipeOf({ style, size, recipe: v.recipe }, facts) : undefined;
-  let lines: WrittenLines | undefined;
-  if (facts && !recipe && writes(brief) && v.lines) {
-    const l = cleanLines(v.lines);
-    const bad = writtenProblems(l, facts, { loop: Boolean(brief.loop), story: length === "long" || length === "max", note: brief.note });
-    const first = Object.entries(bad)[0];
-    if (first) return `${FIELD_WORD[first[0]] ?? "ประโยค"}: ${first[1]}`;
-    lines = l;
-  }
-  const made: VideoInput = { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...look, ...(style === "motion" && v.mascot === true ? { mascot: true } : {}), ...(style === "motion" && v.carry === true ? { carry: true } : {}), length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}), ...(v.noMusic === true ? { noMusic: true } : {}) };
-  // สูตรคลิป Motion (owner, 2026-11-11, ก ก ก): kept only where it fits this quote, else the standing Motion clip is made (spec, Errors)
-  return recipeInput(made, v.recipe, facts);
-}
-
-/**
- * A clip's look as it is kept: none for ไวท์บอร์ด, the default (theme-keys.ts). ธีมเทศกาล left the form (owner chose ก,
- * 2026-11-20): readTheme reads it as the default, so a form left open from before asks for ไวท์บอร์ด.
- */
-function lookOf(asked: unknown, color?: unknown): { theme?: ThemeKey; myColor?: MyColor } {
-  const theme = readTheme(asked);
-  // สีของฉัน left the form (owner, 2026-11-17): readTheme reads it as the default, so this stays for nothing older
-  if (theme === "mine") return MY_COLORS.includes(color as MyColor) ? { theme, myColor: color as MyColor } : {};
-  return theme !== DEFAULT_THEME ? { theme } : {};
-}
-
 /** the look a clip's title names: a clip made in ธีมเทศกาล before it left (2026-11-20) by its festival; none for the default or a look taken away */
 function lookName(input: { theme?: unknown; festival?: unknown }): string | null {
   if (input.theme === "festival") {
@@ -230,22 +140,6 @@ function lookName(input: { theme?: unknown; festival?: unknown }): string | null
   }
   const theme = readTheme(input.theme);
   return theme !== DEFAULT_THEME ? THEME_LABELS[theme].name : null;
-}
-
-/** what each written field is called on the board, for a refusal */
-const FIELD_WORD: Record<string, string> = { hook: "ประโยคเปิด", headline: "พาดหัว", close: "ประโยคปิด", loopClose: "ประโยควนลูป", story: "เรื่องของลูกค้า", points: "ข้อความบนจอ" };
-
-/** lines as the board sent them back, each a string or a list of strings */
-function cleanLines(raw: WrittenLines): WrittenLines {
-  const t = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "");
-  const list = (v: unknown) => (Array.isArray(v) ? v.map(t).filter(Boolean).slice(0, 3) : []);
-  const kinds = ["question", "shock", "myth", "story", "list"] as const;
-  return {
-    kind: kinds.includes(raw?.kind as (typeof kinds)[number]) ? raw.kind : "question",
-    hook: t(raw?.hook), headline: list(raw?.headline),
-    ...(raw?.close ? { close: t(raw.close) } : {}), ...(raw?.loopClose ? { loopClose: t(raw.loopClose) } : {}),
-    ...(raw?.story ? { story: t(raw.story) } : {}), ...(raw?.points ? { points: list(raw.points) } : {}),
-  };
 }
 
 export interface ScriptPreview {
@@ -286,52 +180,6 @@ export async function previewScript(v: VideoInput, customer: string, seed = 0, r
   return { lines: got.lines, script: quoteVideoScript(f, name, c.narrator, length, { brief, lines: got.lines }), written: got.written };
 }
 
-function checkedQuote(v: VideoInput): VideoInput | string {
-  if (v.sex !== "M" && v.sex !== "F") return "เลือกเพศ";
-  if (!Number.isInteger(v.age) || v.age < 0 || v.age > 99) return "ใส่อายุให้ถูกต้อง";
-  if (v.product === "IHEALTHY") {
-    const codes = new Set(iHealthyTable().plans.map((p) => p.code));
-    // วิดีโอเทียบ 4 แผน (owner chose ข, 2026-11-11): the iHealthy Ultra Package page, no plan of its own
-    if (isAllPlansMode(v.allPlans)) {
-      const lang = readVideoLang(v.lang);
-      return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: codes.has(v.plan) ? v.plan : "GOLD", compare: [], allPlans: v.allPlans, ...(lang !== "th" ? { lang } : {}) };
-    }
-    if (!codes.has(v.plan)) return "เลือกแผน";
-    const compare = [...new Set((Array.isArray(v.compare) ? v.compare : []).filter((c) => codes.has(c) && c !== v.plan))].slice(0, 2);
-    const setup = cleanSetup(v.setup);
-    const lang = readVideoLang(v.lang);
-    return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: v.plan, compare, ...(setup ? { setup } : {}), ...(lang !== "th" ? { lang } : {}) };
-  }
-  if (v.product === "PENSION") return checkedPension(v);
-  if (v.product === "LEGACY") return checkedLegacy(v);
-  if (v.product === "PLB") return checkedPlb(v);
-  if (v.product === "GSAVING") return checkedGsaving(v);
-  const product = productOf(v);
-  if (product !== "LIFEPROTECT" && product !== "ISHIELD") return "เลือกแบบประกัน";
-  const term = TERMS[product].find((x) => x.variant === v.variant);
-  if (!term) return "เลือกระยะชำระเบี้ย";
-  const { min, max } = sumLimits(product);
-  if (!Number.isInteger(v.sumAssured) || v.sumAssured < min || v.sumAssured > max || v.sumAssured % SUM_STEP) {
-    return `ทุนประกัน ${min.toLocaleString("en-US")} – ${max.toLocaleString("en-US")} บาท ทีละ 50,000`;
-  }
-  // a waiver no longer sold (พีบี, 2026-11-02) comes off rather than refusing the clip
-  const riders = product === "LIFEPROTECT" && "riders" in v ? currentRiders(cleanRiders(v.riders)) : undefined;
-  if (riders) {
-    const plan = { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured };
-    // the page's riders on an age or sum they are not sold at: said, rather than a clip without them
-    if (!lifeProtectPriced({ ...planInput(plan), riders }, new Date()) && lifeProtectPriced(planInput(plan), new Date())) return RIDERS_NOT_SOLD;
-  }
-  return { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured, ...(riders ? { riders } : {}) };
-}
-
-
-/** riders as the board sent them back: through a link's own writing and reading, so only a shape our links have survives */
-function cleanRiders(raw: unknown): CardRiders | undefined {
-  if (!raw || typeof raw !== "object") return undefined;
-  const q = new URLSearchParams();
-  try { writeRiders(q, raw as CardRiders); } catch { return undefined; }
-  return readRiders((k) => q.get(k)) ?? undefined;
-}
 
 export interface VoiceQuota { until: string | null; clock: string | null; fallback: boolean }
 
@@ -514,7 +362,9 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
     resolved: c.product === "IHEALTHY" ? { plan: c.plan }
       : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht }
       : c.product === "LEGACY" ? { tier: c.tier }
-      : c.product === "GSAVING" ? { sum: f.gsaving?.sa, premium: c.premium } : { sum: c.sumAssured },
+      : c.product === "GSAVING" ? { sum: f.gsaving?.sa, premium: c.premium }
+      // PA is picked, never worked out from a budget: nothing to carry back
+      : c.product === "PA" || c.product === "GROUP" ? {} : { sum: c.sumAssured },
     ...(c.product === "IHEALTHY" && c.setup ? { setup: setupWords(c) } : {}),
     ...("riders" in c && c.riders ? { riders: riderWords(c) } : {}),
     ...(await walletPrices().then((p) => ({ clipSatang: videoPrice(c, p) })).catch(() => ({}))),
@@ -522,8 +372,10 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
 }
 
 /** the riders a Life Protect clip is priced with, as the card's split names them */
-function riderWords(c: Extract<VideoInput, { variant: string }>): string {
-  const split = quoteCard(planInput(c))?.summary?.split;
+function riderWords(c: Extract<VideoInput, { variant: string }> | Extract<VideoInput, { product: "TWELVEPL" }>): string {
+  const split = quoteCard(c.product === "TWELVEPL"
+    ? { kind: "plan", planCode: TWELVEPL_PLAN, variant: TWELVEPL_PLAN, age: c.age, sex: c.sex, sumAssured: c.sumAssured, ...(c.riders ? { riders: c.riders } : {}) }
+    : planInput(c))?.summary?.split;
   return split ? split.rows.slice(1).map((r) => riderShort(r.label)).join(" · ") : "";
 }
 
@@ -595,6 +447,9 @@ export async function calendarCaption(id: string): Promise<{ ok: true; caption: 
   if (post?.kind === "post") return { ok: true, caption: post.text };
   if (isStoryInput(row.input)) return { ok: true, caption: storyCaption(row.input) };
   if (isPromptStory(row.input)) return { ok: true, caption: promptStoryCaption(row.input) };
+  // an ad clip's post says what the clip says, then the disclaimer (owner, 2026-11-22)
+  const adPlan = adPlanOf(row.input);
+  if (adPlan) return { ok: true, caption: adCaption(adPlan) };
   const f = quoteVideoFacts(row.input);
   return { ok: true, caption: f ? pageCaption(f) : "" };
 }
@@ -654,13 +509,29 @@ export async function clipsMaking(ids: string[]): Promise<{ id: string; status: 
   return list.map((v) => ({ id: v.id, status: v.status, progress: progressAt(v, est, now) }));
 }
 
+/** how many clips a board lists at first, and how many more each แสดงเพิ่ม brings */
+const SHELF_STEP = 30;
+const SHELF_MAX = 600;
+
+/**
+ * Every clip a board holds for the agent, only its state and when it was made (owner, 2026-11-27,
+ * 1ก ข): the tabs and the day buttons count all of them, though the list shows only the newest.
+ */
+export async function myClipDays(board: Board = "quote"): Promise<ClipDay[]> {
+  const viewer = await requireMember();
+  return (await boardClipDays(viewer.agentId, board)).map((v) => ({ id: v.id, status: v.status, createdAt: v.created_at }));
+}
+export interface ClipDay { id: string; status: VideoStatus; createdAt: string }
+
 /**
  * The agent's clips for one board: วิดีโอนำเสนอ's quotes and FHC summaries, or คลิปเล่าเรื่อง's
  * stories (owner, 2026-10-15), or คลิปตามโจทย์'s — each board lists its own.
  */
-export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
+export async function myVideos(board: Board = "quote", size: number = SHELF_STEP): Promise<VideoItem[]> {
   const viewer = await requireMember();
-  const list = (await listVideos(viewer.agentId, 60)).filter((v) => boardOf(v.input) === board).slice(0, 30);
+  // แสดงเพิ่ม asks for 30 more each time (owner, 2026-11-27); never more than the shelf may hold
+  const want = Math.min(SHELF_MAX, Math.max(SHELF_STEP, Math.floor(Number(size) || SHELF_STEP)));
+  const list = (await listVideos(viewer.agentId, want, board)).filter((v) => boardOf(v.input) === board);
   const making = (v: VideoRow) => v.status === "drawing" || v.status === "rendering";
   const est = list.some(making) ? await clipEstimates().catch(() => DEFAULT_ESTIMATES) : DEFAULT_ESTIMATES;
   const now = Date.now();
@@ -709,7 +580,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
         // only who may make a คลิปตามโจทย์ may draw a scene again (redrawPicture refuses the rest, owner 2026-10-18)
-        ...(v.status === "done" && mayRedraw && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)), devices: input.scenes.flatMap((x, i) => (x.device || x.asset ? [i] : [])) } } : {}),
+        ...(v.status === "done" && mayRedraw && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)), devices: input.scenes.flatMap((x, i) => (!paints(x, input.design) ? [i] : [])) } } : {}),
       };
     }
     const input = v.input;
@@ -726,16 +597,36 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         ? `${sumWords(input.sumAssured)} · ${input.variant.slice(3).replace(/^0/, "")} ปี`
         : input.product === "GSAVING"
         ? `ออมปีละ ${input.premium.toLocaleString("en-US")} · ดัชนี ${rateLabel(input.rate)}`
+        : input.product === "EASYPROTECT"
+        ? `${sumWords(input.sumAssured)} · 6 ปี`
+        : input.product === "LIFETREASURE"
+        ? `${sumWords(input.sumAssured)} · ${Number(input.variant.slice(4, 6))} ปี`
+        : input.product === "CI123"
+        ? `ทุน ${sumWords(input.sumAssured)}`
+        : input.product === "CANCER"
+        ? `ทุน ${sumWords(input.sumAssured)} · วันละ ${(CANCER_TIERS.find((x) => x.cpr === input.sumAssured)?.hic ?? 0).toLocaleString("en-US")}`
+        : input.product === "TWELVEPL"
+        ? `${sumWords(input.sumAssured)} · 12 ปี${input.riders ? " · + สัญญาเพิ่มเติม" : ""}`
+        : input.product === "PA"
+        ? `${paPlanOf(input.plan)?.plan.name ?? input.plan} · อาชีพชั้น ${input.cls}`
+        // ประกันกลุ่ม: the kind, the first group's plan, everyone's head count
+        : input.product === "GROUP"
+        ? groupWhat(input)
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     // a สูตรคลิป Motion clip is named by its recipe, so an agent who got one by chance can ask for it again; its
     // length is the recipe's own, not the 15-second clip it is stored as. Named only where the row is still made
     // with it (recipeOf, as make.ts reads it), so the title never names a recipe the clip does not tell
     const facts = input.style === "motion" && readRecipe(input.recipe) ? quoteVideoFacts(input) : undefined;
     const recipe = facts ? recipeOf(input, facts) : undefined;
-    const who = recipe
-      ? `${clipName} (Motion · ${RECIPE_NAMES[recipe]})${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`
-      : `${clipName}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
-    const file = `${clipName.replace(/[\s/]+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
+    // the insured, where the price is a person's; PA's is its plan and class, already in `what` (script.ts personOf)
+    const person = personOf(input);
+    // วิดีโอโฆษณา (owner chose ก ×6, 2026-11-22): named as its own kind, always the 15-second portrait Motion clip
+    const who = input.ad
+      ? `วิดีโอโฆษณา · ${clipName}${voiceWord(input)}${person ? ` · ${SEX[person.sex]} ${person.age}` : ""} · ${what}`
+      : recipe
+      ? `${clipName} (Motion · ${RECIPE_NAMES[recipe]})${voiceWord(input)}${person ? ` · ${SEX[person.sex]} ${person.age}` : ""} · ${what}`
+      : `${clipName}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)}${person ? ` · ${SEX[person.sex]} ${person.age}` : ""} · ${what}`;
+    const file = `${clipName.replace(/[\s/]+/g, "")}-${v.customer_name || (person ? `${SEX[person.sex]}${person.age}` : what.replace(/[\s·]+/g, ""))}.mp4`;
     return {
       id: v.id,
       named: Boolean(v.customer_name),
@@ -784,6 +675,8 @@ function postBasis(row: VideoRow): PostBasis | null {
   }
   const f = quoteVideoFacts(input);
   if (!f) return null;
+  const adPlan = adPlanOf(input);
+  if (adPlan) return adBasis(f, adPlan);
   const lang = input.product === "IHEALTHY" && readVideoLang(input.lang) !== "th" ? LANG_NAME[readVideoLang(input.lang)] : undefined;
   return quoteBasis(f, row.customer_name, lang);
 }

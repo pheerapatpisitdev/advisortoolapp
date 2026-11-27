@@ -29,7 +29,7 @@ export function iconFor(product: string | undefined, scene: string): FxIconKind 
     case "IHEALTHY": return "hospital";
     case "ISHIELD": return "heart";
     case "PENSION": return "calendar";
-    case "GSAVING": return "growth";
+    case "GSAVING": case "TWELVEPL": return "growth";
     default: return "home";
   }
 }

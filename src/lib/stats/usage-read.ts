@@ -1,5 +1,6 @@
 import { DEMO_CODE, DEMO_ID, DEMO_ROOM } from "@/lib/auth/demo";
 import { bluewealthNames } from "@/lib/auth/bluewealth";
+import { boardOf } from "@/lib/quote-video/board";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { calculatorName } from "./calculators";
 import { buildStats, ROUND_TOOL, WHO_FROM, type Stats } from "./usage";
@@ -45,7 +46,7 @@ export async function readStats(from: Date, to: Date, now = new Date()): Promise
       : Promise.resolve([]),
     all("posts", (a, b) => db.from("ins_audit").select("agent_id, at")
       .in("action", ["post", "schedule"]).not("agent_id", "is", null).gte("at", lo).lt("at", hi).order("id").range(a, b)),
-    all("clips", (a, b) => db.from("ins_quote_videos").select("agent_id, created_at, product:input->>product, fhc:input->fhc")
+    all("clips", (a, b) => db.from("ins_quote_videos").select("agent_id, created_at, product:input->>product, fhc:input->fhc, ad:input->ad")
       .gte("created_at", lo).lt("created_at", hi).order("created_at").order("id").range(a, b)),
     all("fhc", (a, b) => db.from("ins_fhc_customers").select("agent_id, created_at")
       .gte("created_at", lo).lt("created_at", hi).order("created_at").order("id").range(a, b)),
@@ -66,7 +67,7 @@ export async function readStats(from: Date, to: Date, now = new Date()): Promise
     ledger: ledger.map((r) => ({ task: str(r.task), agentId: str(r.agent_id) || null, askId: str(r.ask_id) || null, thb: Number(r.cost_thb ?? 0), at: str(r.created_at) })),
     rounds: rounds.map((r) => ({ action: str(r.action), agentId: str(r.agent_id), at: str(r.at) })),
     posts: posts.map((r) => ({ agentId: str(r.agent_id), at: str(r.at) })),
-    videos: videos.map((r) => ({ agentId: str(r.agent_id), at: str(r.created_at), product: str(r.product) || null, fhc: Boolean(r.fhc) })),
+    videos: videos.map((r) => ({ agentId: str(r.agent_id), at: str(r.created_at), product: str(r.product) || null, fhc: Boolean(r.fhc), ad: boardOf({ ad: r.ad }) === "ad" })),
     customers: customers.map((r) => ({ agentId: str(r.agent_id), at: str(r.created_at) })),
     sends: sends.map((r) => ({ agentId: str(r.created_by), at: str(r.created_at) })),
     opens: opens.map((r) => ({ agentId: str(r.agent_id), name: calculatorName(str(r.tool)) ?? str(r.tool), at: str(r.at) })),

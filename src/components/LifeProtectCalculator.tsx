@@ -728,7 +728,7 @@ export function LifeProtectCalculator({ table, sticky = false, hide = [], pen = 
   
           {medical && (
             <div>
-              <span className="block text-sm text-[var(--lg-mute)]">ค่ารักษาพยาบาล (MEB) · เลือกแผน</span>
+              <span className="block text-sm text-[var(--lg-mute)]">ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB) · เลือกแผน</span>
               <div className="mt-1.5 grid grid-cols-4 gap-2">
                 {[null, ...medical.plans].map((p) => {
                   const on = p === null ? medicalPlan === null : medicalAt === p;

@@ -1,6 +1,9 @@
 "use client";
 import type { Product } from "@/lib/group-insurance/data";
 import { lineMessage, type QuoteSheet } from "@/lib/group-insurance/sheet";
+import { videoStartHref } from "@/lib/quote-video/link";
+import { GROUP_BIZ } from "@/lib/quote-video/group-pick";
+import { VideoButton } from "@/components/sales/VideoButton";
 import { Icon } from "./Icon";
 import { useLang } from "./lang";
 
@@ -24,9 +27,15 @@ export function TotalPanel({
   onQuote: () => void;
   onNotice: (message: string, isError: boolean) => void;
 }) {
-  const { t, fmt } = useLang();
+  const { t, fmt, lang } = useLang();
   const { result } = sheet;
   const blocked = !result.withinLimit;
+  // วิดีโอนำเสนอ of this quotation (owner, 2026-11-26, ข): every group goes along, the clip tells the first and the
+  // company's total. A group still empty is left out; the clip is told in Thai only, so the button is on the Thai page
+  const groups = result.groups.filter((g) => g.count > 0).map((g) => ({
+    biz: g.bizType, plan: g.planIdx + 1, ...(g.includeRider ? { rider: g.riderIdx + 1 } : {}), count: g.count,
+  })).filter((g) => GROUP_BIZ.includes(g.biz));
+  const video = !blocked && lang === "th" && groups.length ? videoStartHref({ product: "GROUP", kind: product, groups }) : undefined;
 
   /**
    * Hands the quotation to LINE as plain text.
@@ -129,6 +138,7 @@ export function TotalPanel({
               <Icon name="send" className="h-4 w-4" />
               {t("shareToLine")}
             </button>
+            {video && <VideoButton href={video} className="rounded-lg border border-white/40 px-5 text-white hover:bg-white/10" />}
           </div>
         </div>
       </div>

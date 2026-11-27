@@ -2,10 +2,8 @@ import { siteUrl } from "@/lib/site-url";
 import { hashUserId } from "@/lib/line/verify";
 import { claimEvent, loadSession, saveTurn } from "@/lib/chat/session";
 import { push, reply, showLoading, toBatches, toMessages, MAX_MESSAGES, type LineMessage, type Said } from "@/lib/line/client";
-import { showQuotedMenu } from "@/lib/line/menu-link";
 import { lineBotEnabled } from "@/lib/line/settings";
 import { tryLink } from "@/lib/line/owner-alert";
-import { wantsQuotedMenu } from "@/lib/line/rich-menu";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { countLessonHit, loadLessons } from "@/lib/chat/lessons-store";
 import { loadIntroPictures } from "@/lib/chat/intro-store";
@@ -114,9 +112,10 @@ async function say(replyToken: string, userId: string, messages: LineMessage[]):
 /**
  * `destination` is the account's own id, from the webhook body. It stands where Messenger puts
  * the Page's id, so the report can tell which account a conversation came in on. `startedAt`
- * is when the batch began, as on Messenger.
+ * is when the batch began, as on Messenger; `tail` shortens the turn's clock to a Worker's tail
+ * (src/lib/chat/batch.ts).
  */
-export async function handle(event: LineEvent, destination = "", opts: { startedAt?: number; followed?: boolean } = {}): Promise<void> {
+export async function handle(event: LineEvent, destination = "", opts: { startedAt?: number; followed?: boolean; tail?: boolean } = {}): Promise<void> {
   // a person, one to one: a group or a room is not a customer asking for a quotation
   if (event.source?.type && event.source.type !== "user") return;
   if (event.type !== "message" || event.message?.type !== "text") return;
@@ -182,7 +181,7 @@ export async function handle(event: LineEvent, destination = "", opts: { started
 
   await showLoading(userId).catch(() => {});
   try {
-    const answer = await answered(history, session.slots, turnBudgetMs(opts.startedAt));
+    const answer = await answered(history, session.slots, turnBudgetMs(opts.startedAt, Date.now(), opts.tail));
     if (answer.taught) countLessonHit(answer.taught);
 
     // the words first and each card after the words it belongs to, as on Messenger
@@ -201,11 +200,6 @@ export async function handle(event: LineEvent, destination = "", opts: { started
     let said = saidWith(true);
     if (said.length > MAX_MESSAGES) said = saidWith(false);
     await sayAll(replyToken, userId, toBatches(said, answer.replies));
-    // after a Life Protect price the menu offers the table and the file instead of the plans
-    // a menu that will not switch is not worth an apology after a whole answer
-    if (wantsQuotedMenu({ priced: answer.priced, product: productOf(answer.slots) })) {
-      await showQuotedMenu(userId).catch((e) => console.error("[line] quoted menu not shown:", e));
-    }
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
 
     const spoken = answer.messages.map((m) => m.text).join("\n\n");

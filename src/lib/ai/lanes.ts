@@ -132,8 +132,8 @@ export function laneIds(saved: SavedLanes, key: LaneKey): string[] {
 /** the chat bots' work: Messenger, LINE and the web chat, and the review of their real chats */
 const BOT_TASK = /^(route|small_talk|smalltalk|plan_info)(_|$)|^chat-review$/;
 
-/** the วิดีโอ group's text work: a clip's script (วิดีโอนำเสนอ's brief, คลิปตามโจทย์'s script) and its post text */
-export const VIDEO_SCRIPT_TASKS = new Set(["quote-video-brief", "prompt-story-script"]);
+/** the วิดีโอ group's text work: a clip's script (วิดีโอนำเสนอ's brief, คลิปตามโจทย์'s script, วิดีโอโฆษณา's plan) and its post text */
+export const VIDEO_SCRIPT_TASKS = new Set(["quote-video-brief", "prompt-story-script", "ad-video-script"]);
 export const VIDEO_POST_TASKS = new Set(["quote-video-post"]);
 
 /** Studio's reading of a picture or a document: needs a model that reads pictures */

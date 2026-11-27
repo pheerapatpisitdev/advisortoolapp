@@ -189,7 +189,7 @@ describe("shortcut and Page caption (owner, 2026-10-11)", () => {
     expect(href).toBe("/studio/quote-video?product=ISHIELD&sex=F&age=40&sum=2000000&variant=WLCI20");
     const q = Object.fromEntries(new URL(href, "https://x").searchParams);
     expect(videoStartFrom(q)).toEqual({ product: "ISHIELD", sex: "F", age: 40, sumAssured: 2_000_000, variant: "WLCI20" });
-    expect(videoStartFrom({ product: "EASYPROTECT" })).toBeUndefined();
+    expect(videoStartFrom({ product: "ISMART" })).toBeUndefined();
     expect(videoStartFrom({ product: "IHEALTHY", plan: "<script>", age: "abc" })).toEqual({ product: "IHEALTHY" });
   });
 
@@ -352,8 +352,11 @@ describe("clips without a recipe", () => {
       random.mockReturnValue(0.1);
       parts.push(quotePartsFor(rows[1], contact, [3, 3, 3]));
       // ไวท์บอร์ด became the default look (owner chose ก, 2026-11-17): the clips differ from 090aac182673a133 by "theme" alone
-      expect(createHash("sha256").update(JSON.stringify(parts).replaceAll('"theme":"board"', '"theme":"navy"')).digest("hex").slice(0, 16)).toBe("090aac182673a133");
-      expect(createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 16)).toBe("ff5cc3d73bd66cc1");
+      // ตัวหนังสือเด้ง left the form (owner chose ก ก, 2026-11-21): the third clip asks for it and is drawn in ไวท์บอร์ด, by "theme" alone
+      const asked = parts.map((p, i) => (i === 2 ? JSON.parse(JSON.stringify(p).replaceAll('"theme":"board"', '"theme":"kinetic"')) : p));
+      expect(createHash("sha256").update(JSON.stringify(asked).replaceAll('"theme":"board"', '"theme":"navy"')).digest("hex").slice(0, 16)).toBe("090aac182673a133");
+      expect(createHash("sha256").update(JSON.stringify(asked)).digest("hex").slice(0, 16)).toBe("ff5cc3d73bd66cc1");
+      expect(createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 16)).toBe("563cd9d061aa5204");
     } finally {
       random.mockRestore();
       vi.useRealTimers();

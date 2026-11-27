@@ -4,7 +4,7 @@ import type { WalletEntry } from "./store";
 export const ROUND_NAMES: Record<string, string> = {
   "ai-write": "เขียนโพสต์", "ai-recruit": "หาทีม", "ai-knowledge": "ความรู้", "ai-draft": "เขียนเอง", "ai-thanks": "ขอบคุณลูกค้า", "ai-showcase": "โชว์ผลงาน", "ai-saying": "คำคม",
   "ai-claim": "รีวิวเคลม", "ai-draw": "วาดภาพ", "ai-clip": "ถอดเสียงคลิป", "ai-edit": "ตัดต่อคลิป", "ai-describe": "ถอดรูปเป็น prompt", "quote-video": "วิดีโอนำเสนอ",
-  "quote-video-story": "คลิปเล่าเรื่อง", "quote-video-prompt": "คลิปตามโจทย์",
+  "quote-video-story": "คลิปเล่าเรื่อง", "quote-video-prompt": "คลิปตามโจทย์", "quote-video-ad": "วิดีโอโฆษณา",
 };
 
 export const entryLabel = (e: Pick<WalletEntry, "kind" | "round" | "note">) =>

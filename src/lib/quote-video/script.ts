@@ -7,15 +7,24 @@ import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
 import { setupQuery } from "./ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { LIFEPROTECT_PLAN } from "@/lib/lifeprotect-card";
+import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { quoteCard, valueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import type { PensionPay } from "@/calc/pension/engine";
 import { pensionVideoFacts, roughBaht, type PensionVideoFacts } from "./pension";
 import { legacyVideoFacts, type LegacyVideoFacts } from "./legacy";
 import { plbVideoFacts, termsSaid, type PlbVariant, type PlbVideoFacts } from "./plb";
 import { gsavingVideoFacts, gsIndexLine, gsLeadLine, gsMoney, rateLabel, type GsVideoFacts } from "./gsaving";
+import { easyProtectVideoFacts, epFamily, epMoney, epSixLine, epTotalLine, epValueLine, type EasyProtectVideoFacts } from "./easyprotect";
+import { lifeTreasureVideoFacts, ltFamily, ltLeadLine, ltMoney, ltPriceLine, ltTermsLine, ltTotalLine, ltValueLine, type LifeTreasureVariant, type LifeTreasureVideoFacts } from "./lifetreasure";
+import { ci123VideoFacts, ciBaseLine, ciLeadLine, ciMoney, ciMoreLine, ciPriceLine, ciStairsLine, type Ci123VideoFacts } from "./ci123";
+import { caDailyLine, caLeadLine, caMoney, caPriceLine, caStairsLine, caTotalLine, cancerVideoFacts, type CancerVideoFacts } from "./cancer";
+import { paCoverLine, paInjuryLine, paLeadLine, paPriceLine, paRenewLine, paSixth, paVideoFacts, type PaVideoFacts } from "./pa";
+import { grContactLine, grLeadFact, grLeadLine, grLifeLine, grMeLine, grOpdLine, grPaCoverLine, grPriceLine, grStayLine, groupPlanWord, groupVideoFacts, type GroupKind, type GroupPick, type GroupVideoFacts } from "./group";
+import { tpCashLine, tpFamilyLine, tpLeadLine, tpMoney, tpPriceLine, tpTotalLine, twelvePlVideoFacts, type TwelvePlDividend, type TwelvePlVideoFacts } from "./twelvepl";
 import type { SceneMotion, VideoSize } from "./timeline";
 import type { VideoBrief, WrittenLines } from "./brief";
 import type { RecipeKey } from "./recipes";
+import type { AdPlan } from "@/lib/ad-video/keys";
 import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
 import { VIDEO_WORDS, type VideoLang } from "./video-words";
 import { figure } from "@/lib/ihealthy-lang";
@@ -39,21 +48,79 @@ import { shows } from "@/lib/pay-prefs";
  * มรดกเพื่อครอบครัว is the fifth (owner, 2026-10-14; legacy.ts): the /legacy bundle, a tier of 1–10 million.
  * Protection Life is the sixth (owner, 2026-10-14; plb.ts): the /plb term cover, 5–15 years.
  * Global Savings 15/8 is the seventh (owner, 2026-10-20; gsaving.ts): the /global-saving index-linked savings plan.
+ * 12 พีแอล is the eighth (owner, 2026-11-26; twelvepl.ts): the /12pl plan, its cash backs, maturity and dividend example.
+ * อีซี่ โพรเทค 6 is the ninth (owner, 2026-11-26; easyprotect.ts): the /easyprotect plan, six years paid and covered to 99.
+ * ไลฟ์เทรเชอร์ is the tenth (owner, 2026-11-26; lifetreasure.ts): the /lifetreasure plan, a sum set for the family, 6, 12 or 18 years paid.
+ * CI 123 is the eleventh (owner, 2026-11-26; ci123.ts): the /ci123 set, the critical-illness rider paid by stage on Life Protect x2.
+ * ประกันมะเร็ง is the twelfth (owner, 2026-11-26; cancer.ts): the /cancer set, CPR paid by the stage of a cancer and HIC's daily sum.
+ * PA is the thirteenth (owner, 2026-11-26; pa.ts): the /pa accident plans, the first priced by plan and occupation class
+ * alone — its input has no age or sex, and its clip says none (personOf, pricedByPlan).
+ * ประกันกลุ่ม is the fourteenth (owner, 2026-11-26, ข; group.ts): the /group-insurance page's health or PA group, told to
+ * the employer — a head a year, about a month, the whole company. Priced by plan, business type and head count: no person.
  * iHealthy Ultra, มรดก and Protection Life keep "ค่าใช้จ่าย": none builds anything to save. The screen keeps the
  * cards' own words. Words in a line are separated by single spaces: the subtitles light up one
  * of those pieces at a time.
  */
 
-export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY" | "PLB" | "GSAVING";
+export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY" | "PLB" | "GSAVING" | "TWELVEPL" | "EASYPROTECT" | "LIFETREASURE" | "CI123" | "CANCER" | "PA" | "GROUP";
 export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact"
-  /** มรดก's fourth scene, where the others have their value table: the critical-illness lump sum */
+  /** มรดก's fourth scene, where the others have their value table: the critical-illness lump sum (CI 123's third: its stages as stairs; its fourth, "cover", what else it pays; its fifth, "family", the base contract's life cover) */
   | "critical"
-  /** Protection Life's fourth scene, where the others have their value table: the four terms side by side */
+  /** Protection Life's fourth scene, where the others have their value table: the four terms side by side (ไลฟ์เทรเชอร์'s third: its three paying terms) */
   | "terms"
   /** Global Savings' fourth scene: the seven index returns as bars, the picked one gold (gsaving.ts) */
   | "index"
+  /** 12 พีแอล's fourth and fifth scenes: what the family receives to 85, and what is paid beside what comes back (twelvepl.ts; อีซี่ โพรเทค 6's fourth: its premiums beside what the family receives) */
+  | "family" | "total"
   /** the longer clips' own (told.ts, owner 2026-10-13): the customer's story, a comparison, two questions, how to start */
-  | "story" | "versus" | "qa" | "steps";
+  | "story" | "versus" | "qa" | "steps"
+  /**
+   * Life Protect with riders (owner, 2026-11-21, ก ก ก on https://claude.ai/artifact/HvVdgdGq4oajv1Hjd1ZBv2): the
+   * package at a glance, one scene for each rider with its own picture, and what each event pays
+   */
+  | "riders" | RiderKey | "payout";
+
+/** one scene a rider, in the page's order: at most six (WP, MEB, DCI, CI 123, AP, ECARE) */
+export const RIDER_KEYS = ["rider1", "rider2", "rider3", "rider4", "rider5", "rider6"] as const;
+export type RiderKey = (typeof RIDER_KEYS)[number];
+/** which rider a scene shows, 0 first; undefined for a scene that is not a rider's */
+export const riderIndex = (key: string): number | undefined => {
+  const i = (RIDER_KEYS as readonly string[]).indexOf(key);
+  return i < 0 ? undefined : i;
+};
+
+/**
+ * One Life Protect rider as its scene shows it (owner, 2026-11-21): its name on screen and in the voice,
+ * its share of the spoken instalment in whole baht where the split gives one, what it pays, and the
+ * figures its picture is drawn from.
+ */
+export type RiderScene = {
+  code: string;
+  /** the scene's heading, "ยกเว้นเบี้ย", and the line under it, "ดับบลิวพี ฟิต" */
+  title: string;
+  sub: string;
+  /** the overview's badge, "ชดเชยรายวัน" */
+  badge: string;
+  /** the name the voice says, "สัญญาโรคร้ายแรง DCI" */
+  said: string;
+  /** its share of the spoken instalment, whole baht, "362"; absent where the split does not say it */
+  price?: string;
+  /** its premium moves with age (the medical plan's) */
+  rises?: boolean;
+  /** what it pays, said the owner's way */
+  what: string;
+} & (
+  | { kind: "waiver"; plus: boolean; startAge: number; paid: number; left: number }
+  | { kind: "medical"; perDay: number; days: number }
+  | { kind: "dci"; sum: number; diseases: number; coverToAge?: number }
+  | { kind: "ci123"; sum: number; diseases: number; stairs: CiStage[]; more: CiStage[] }
+  | { kind: "ap"; sum: number; coverToAge?: number }
+  | { kind: "ecare"; sum: number; care: number; coverToAge?: number }
+);
+/** a stage of CI 123: its name, its share ("25%", "20% ไม่เกิน 100,000") and what it pays on this sum */
+export interface CiStage { label: string; share: string; amount: number }
+/** a row of "เกิดเรื่องนี้ ได้เท่าไร": the event, the contracts that pay, what they come to */
+export interface PayoutRow { tone: "early" | "major" | "hospital" | "accident" | "waiver"; event: string; from: string; amount: string }
 
 /** What the agent asked for. A row written before products existed has no `product`: Life Protect. */
 export type VideoInput = (
@@ -72,6 +139,26 @@ export type VideoInput = (
   /** Global Savings 15/8: the yearly premium and the index's return, % a year, the clip's example is worked at (gsaving.ts) */
   /** `plan`: "25/5" for Global Savings Plus 25/5 (owner, 2026-11-16); absent = 15/8 */
   | { product: "GSAVING"; age: number; sex: "M" | "F"; premium: number; rate: number; plan?: "25/5" }
+  /** 12 พีแอล: the sum, the riders its page sells, and the company's dividend example shown (0 = none) (twelvepl.ts) */
+  | { product: "TWELVEPL"; age: number; sex: "M" | "F"; sumAssured: number; dividend: TwelvePlDividend; riders?: CardRiders }
+  /** อีซี่ โพรเทค 6: one of its page's sums (easyprotect.ts) */
+  | { product: "EASYPROTECT"; age: number; sex: "M" | "F"; sumAssured: number }
+  /** ไลฟ์เทรเชอร์: one of its page's sums and one of its three paying terms (lifetreasure.ts) */
+  | { product: "LIFETREASURE"; variant: LifeTreasureVariant; age: number; sex: "M" | "F"; sumAssured: number }
+  /** CI 123: one of its page's seven CI sums, on the base the set always has (ci123.ts) */
+  | { product: "CI123"; age: number; sex: "M" | "F"; sumAssured: number }
+  /** ประกันมะเร็ง: one of its page's eight packages, named by its CPR sum (cancer.ts) */
+  | { product: "CANCER"; age: number; sex: "M" | "F"; sumAssured: number }
+  /**
+   * PA: a plan by its company code ("PAP02") and an occupation class, 1–3 (pa.ts). No age, no sex: the price is the
+   * plan's and the class's alone (personOf answers undefined); the group plan is the next of this kind
+   */
+  | { product: "PA"; plan: string; cls: number }
+  /**
+   * ประกันกลุ่ม: health or PA, and every employee group the page had (group.ts) — the first is the one the clip tells,
+   * the head count and the company's total are all of them. No age, no sex (personOf answers undefined)
+   */
+  | { product: "GROUP"; kind: GroupKind; groups: GroupPick[] }
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
@@ -122,6 +209,13 @@ export type VideoInput = (
    * switched the table's pen notes off, kept with the job. Absent (every clip before it) = notes drawn
    */
   pen?: boolean;
+  /**
+   * วิดีโอโฆษณา (owner chose ก ×6 on the mockup, 2026-11-22; src/lib/ad-video): the ad's plan, told in place of the
+   * standing clip's lines. Absent on every other clip
+   */
+  ad?: AdPlan;
+  /** an ad's photos as filed, one a scene (lead, bodies…, contact): null for a scene drawn without one, or whose photo failed */
+  pictures?: (string | null)[];
 };
 
 /** what a job's input hides; anything unreadable, and every clip made before the setting, hides nothing */
@@ -141,11 +235,22 @@ export type VideoStyle = "classic" | "motion" | "chat";
 
 /** A man ends his sentences with ครับ, a woman with ค่ะ / นะคะ (owner, 2026-10-11). */
 export function spokenBy(line: string, narrator: "F" | "M" = "F"): string {
-  // a question's คะ too, where it ends a word (not คะแนน)
-  return narrator === "M" ? line.replace(/นะคะ/g, "นะครับ").replace(/ค่ะ/g, "ครับ").replace(/คะ(?=\s|$)/g, "ครับ") : line;
+  // a question's คะ too, where it ends a word (not คะแนน): before a space, the end, or punctuation ("ไหมคะ?", R12 2026-11-22)
+  return narrator === "M" ? line.replace(/นะคะ/g, "นะครับ").replace(/ค่ะ/g, "ครับ").replace(/คะ(?=[\s?!.,…]|$)/g, "ครับ") : line;
 }
 
 export const productOf = (v: VideoInput): Product => v.product ?? "LIFEPROTECT";
+
+/**
+ * The insured an input is priced for: its age and sex; undefined for a plan priced by plan alone (PA, by plan and
+ * occupation class; the group plan next), whose input carries neither (owner, 2026-11-26).
+ */
+export function personOf(v: VideoInput): { age: number; sex: "M" | "F" } | undefined {
+  return "age" in v && "sex" in v ? { age: v.age, sex: v.sex } : undefined;
+}
+
+/** a clip of a plan priced by plan alone: no face is drawn, no age said, `insuredWho` names what the price is by */
+export const pricedByPlan = (f: QuoteVideoFacts): boolean => f.sex === undefined;
 
 /** `per`: the instalment a row is, where its label is not the Thai one (a clip in another language) */
 export interface PriceRow { label: string; amount: string; main: boolean; per?: "month" | "year" | "half" }
@@ -161,12 +266,21 @@ export interface QuoteVideoFacts {
   planLine: string;
   insuredWho: string;
   insuredLine: string;
-  sex: "M" | "F";
+  /**
+   * The insured, where the price is a person's (owner, 2026-11-26): absent where it is by plan alone (PA, by plan and
+   * occupation class; the group plan after it) — then no face is drawn, `insuredWho` names what the price is by, and
+   * `age` is only the youngest the plan takes, never shown or said (pricedByPlan).
+   */
+  sex?: "M" | "F";
   age: number;
-  /** the figure the clip opens on, counted up: มรดก, the lump sum, the yearly ceiling */
-  lead: { label: string; amount: string; baht: number; note?: string };
+  /** the figure the clip opens on, counted up: มรดก, the lump sum, the yearly ceiling; `unit` where it is not baht (ประกันกลุ่ม: คน) */
+  lead: { label: string; amount: string; baht: number; note?: string; unit?: string };
   /** the highlighted line under it: "ตกวันละ 79 บาท"; iHealthy's first-year monthly price */
   leadMark: string;
+  /** the closing card's second line where the plan has its own (ไลฟ์เทรเชอร์: แบ่งให้ใครเท่าไร ระบุได้); the narrator's "ยินดีช่วยดูแผนให้" otherwise */
+  contactLine?: string;
+  /** a second pill under the opening's mark (อีซี่ โพรเทค 6: the day's price; ไลฟ์เทรเชอร์: that the sum is set in advance) */
+  leadPill?: string;
   /** the price scene's highlighted line where it is not the lead's (บำนาญ 95: the monthly instalment) */
   priceMark?: string;
   /** the Motion price scene's big figure where it is not the daily or first-year monthly price (บำนาญ 95: ออมปีละ) */
@@ -184,8 +298,8 @@ export interface QuoteVideoFacts {
   priceNotes: string[];
   coverTitle: string;
   cover: CoverRow[];
-  /** Life Protect draws its two death benefits as bars; บำนาญ 95 its pension's steps; มรดก its bands as a staircase; Protection Life one flat bar; Global Savings its paybacks on a timeline (the classic clip lists them); the others list their rows */
-  coverStyle: "bars" | "rows" | "steps" | "bands" | "flat" | "payback";
+  /** Life Protect draws its two death benefits as bars; บำนาญ 95 its pension's steps; มรดก its bands as a staircase; Protection Life one flat bar; Global Savings its paybacks on a timeline (the classic clip lists them); 12 พีแอล its cash backs rising to the maturity; อีซี่ โพรเทค 6 its six premiums and the cover after them; the others list their rows */
+  coverStyle: "bars" | "rows" | "steps" | "bands" | "flat" | "payback" | "cashback" | "paidup";
   coverPen?: string;
   coverNote?: string;
   coverToAge: number;
@@ -225,8 +339,16 @@ export interface QuoteVideoFacts {
    * instalment, whole baht) and what each rider pays out (`parts`) (owner, 2026-10-17,
    * mockup https://claude.ai/artifact/XaTkLWYU8twVqtMfrYFLGN, ก)
    */
-  riders?: { said: string; rises?: string; split?: { name: string; baht: string }[]; parts: { name: string; what: string }[] };
+  riders?: {
+    said: string; rises?: string; split?: { name: string; baht: string }[]; parts: { name: string; what: string }[];
+    /** each rider's own scene (owner, 2026-11-21, ก) */
+    scenes: RiderScene[];
+    /** what each event pays across the contracts (owner, 2026-11-21, ก); said only with two rows or more */
+    payout: PayoutRow[];
+  };
   footNote?: string;
+  /** a line kept small at the foot of every scene but the contact card (12 พีแอล: surrendering early may pay back less) */
+  screenNote?: string;
   /** บำนาญ 95: the pension's schedule (pension.ts) */
   pension?: PensionVideoFacts;
   /** มรดก: the bands, the critical-illness sum, the first year's price (legacy.ts) */
@@ -235,6 +357,20 @@ export interface QuoteVideoFacts {
   plb?: PlbVideoFacts;
   /** Global Savings 15/8: the guarantee, the bonus at the picked return, the seven returns (gsaving.ts) */
   gsaving?: GsVideoFacts;
+  /** 12 พีแอล: the cash backs, the maturity, what is paid, the dividend example (twelvepl.ts) */
+  twelvepl?: TwelvePlVideoFacts;
+  /** อีซี่ โพรเทค 6: the six premiums, the multiple, the cover's floor (easyprotect.ts) */
+  easyprotect?: EasyProtectVideoFacts;
+  /** ไลฟ์เทรเชอร์: the chosen term, the three terms, the multiple, the cash at the end (lifetreasure.ts) */
+  lifetreasure?: LifeTreasureVideoFacts;
+  /** CI 123: the stages, what else it pays, the base contract's life cover, the first year's price (ci123.ts) */
+  ci123?: Ci123VideoFacts;
+  /** ประกันมะเร็ง: the four stages, the daily sum, what every contract pays together, the first year's price (cancer.ts) */
+  cancer?: CancerVideoFacts;
+  /** PA: the plan, the class, what it covers, the injury cover, the sum each renewal year (pa.ts) */
+  pa?: PaVideoFacts;
+  /** ประกันกลุ่ม: the kind, the first group's plan and what it pays, the head counts, a head's price and the company's (group.ts) */
+  group?: GroupVideoFacts;
   /** วิดีโอเทียบ 4 แผน: the iHealthy Ultra Package page's table (ihealthy-all-plans.ts) */
   allPlans?: AllPlansFacts;
   /** ตั้งค่าส่วนตัว: what the agent hid (src/lib/pay-prefs.ts); present only when something is */
@@ -304,8 +440,8 @@ export function wholeShares(amounts: string[]): string[] {
   return floors.map((x) => x.toLocaleString("en-US"));
 }
 
-/** a split row's contract as the screen names it: "ดับบลิวพี ฟิต", "ค่ารักษาพยาบาล MEB แผน 1,000" */
-export const riderShort = (label: string) => label.replace(/^สัญญาเพิ่มเติม/, "").replace(/\((MEB)\)/, "$1").replace(/\s+/g, " ").trim();
+/** a split row's contract as the screen names it: "ดับบลิวพี ฟิต", "ค่าชดเชยรายวัน ระหว่างนอน รพ. (MEB) แผน 1,000" */
+export const riderShort = (label: string) => label.replace(/^สัญญาเพิ่มเติม/, "").replace(/\s+/g, " ").trim();
 
 /**
  * What the riders add to a Life Protect clip: the voice's words for them, and whether their
@@ -314,6 +450,7 @@ export const riderShort = (label: string) => label.replace(/^สัญญาเ�
  */
 function riderFacts(
   riders: CardRiders | undefined, rows: ValueTableRow[], split: { title: string; rows: { label: string; amount: string }[] }, spokenLabel: string,
+  at: { age: number; payYears: number; today: Date },
 ): QuoteVideoFacts["riders"] {
   if (!riders?.waiver && riders?.medical === undefined && !riders?.illness?.length) return undefined;
   const illness = (riders.illness ?? []).map((r) => ({ ...r, name: ILLNESS_SAID[r.code] ?? "สัญญาเพิ่มเติม" }));
@@ -345,12 +482,132 @@ function riderFacts(
       ? [{ name: MEDICAL_SAID, what: `นอนโรงพยาบาลรับเงินวันละ ${riders.medical.toLocaleString("en-US")} บาท` }] : []),
     ...illness.map((r) => ({ name: r.name, what: illnessWhat(r.code, r.sumAssured) })),
   ];
+  const scenes = riderScenes(riders, waiverName, names, parts, split_, at);
   return {
     said: said.length > 1 ? `${said.slice(0, -1).join(" ")} และ${said[said.length - 1]}` : said[0],
     ...(moves ? { rises: riders.medical !== undefined ? MEDICAL_SAID : "สัญญาเพิ่มเติม" } : {}),
     ...(split_ ? { split: split_ } : {}),
     parts,
+    scenes,
+    payout: [],
   };
+}
+
+/** CI 123's parts by the rate sheet's names (data/rates/lifeprotect.json), as the clip names them */
+const CI_PART: Record<string, string> = {
+  "pre-early ci": "ระยะก่อนเริ่มต้น", "early to intermediate ci": "ระยะเริ่มต้นถึงปานกลาง", "major ci": "ระยะรุนแรง",
+  "critical care benefit": "กรณีวิกฤต", "juvenile ci": "โรคเด็ก", "special conditions": "เงื่อนไขพิเศษ",
+};
+/** the three stages CI 123's stairs climb, lowest first; the rest go under them as small print */
+const CI_STAIRS = ["pre-early ci", "early to intermediate ci", "major ci"];
+/** the juvenile illnesses cover the insured to 18 (data/riders/ci123-diseases.json) */
+const JUVENILE_TO = 18;
+/** a page's "31 โรค" */
+const diseasesIn = (what: string) => Number(what.match(/(\d+)\s*โรค/)?.[1] ?? 0);
+const pct = (share: number) => `${Math.round(share * 100)}%`;
+/** "1 ล้าน", "1.5 ล้าน", "500,000": a sum as the picture and the payout table write it short */
+export const sumShort = (baht: number) => (baht >= 1_000_000 && baht % 100_000 === 0
+  ? `${(baht / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 1 })} ล้าน`
+  : baht.toLocaleString("en-US"));
+
+/**
+ * Each rider's scene (owner, 2026-11-21, ก): in the order the split and the voice name them — the
+ * waiver, the medical plan, then the critical-illness and accident riders as the page lists them.
+ */
+function riderScenes(
+  riders: CardRiders, waiverName: string | undefined, names: string[], parts: { name: string; what: string }[],
+  split: { name: string; baht: string }[] | undefined, at: { age: number; payYears: number; today: Date },
+): RiderScene[] {
+  const table = lifeProtectTable(at.today);
+  const priceAt = (i: number) => (split?.[i + 1] ? { price: split[i + 1].baht } : {});
+  const whatOf = (name: string) => parts.find((p) => p.name === name)?.what ?? "";
+  const out: RiderScene[] = [];
+  let i = 0;
+  if (riders.waiver && waiverName) {
+    // the instalments paid until an example disability a little past half way, the rest waived
+    const paid = Math.min(at.payYears - 1, Math.max(1, Math.round(at.payYears * 0.55)));
+    out.push({
+      code: riders.waiver.code, title: "ยกเว้นเบี้ย", sub: waiverName, badge: "ยกเว้นเบี้ย", said: waiverName, ...priceAt(i),
+      what: whatOf(waiverName), kind: "waiver", plus: riders.waiver.option === "BEYOND", startAge: at.age, paid, left: at.payYears - paid,
+    });
+    i++;
+  }
+  if (riders.medical !== undefined) {
+    out.push({
+      code: "MEB", title: MEDICAL_SAID, sub: `MEB แผน ${riders.medical.toLocaleString("en-US")}`, badge: "ชดเชยรายวัน", said: MEDICAL_SAID,
+      ...priceAt(i), rises: true, what: whatOf(MEDICAL_SAID), kind: "medical", perDay: riders.medical, days: 5,
+    });
+    i++;
+  }
+  for (const r of riders.illness ?? []) {
+    const name = names[i];
+    const row = table.illness.find((x) => x.code === r.code);
+    const sum = r.sumAssured;
+    const head = { code: r.code, badge: row?.short ?? r.code, said: name, ...priceAt(i), what: whatOf(name) };
+    const cover = row?.coverToAge !== undefined ? ` · คุ้มครองถึงอายุ ${row.coverToAge}` : "";
+    if (r.code === "CI123" && row) {
+      const stages = row.parts.flatMap((p) => {
+        const label = p.key ? CI_PART[p.key] : undefined;
+        if (!label || !p.key) return [];
+        const amount = Math.round(Math.min(sum * p.share, p.cap ?? Infinity));
+        return [{ key: p.key, label, share: p.cap ? `${pct(p.share)} ไม่เกิน ${p.cap.toLocaleString("en-US")}` : pct(p.share), amount }];
+      });
+      const stage = (x: (typeof stages)[number]): CiStage => ({ label: x.label, share: x.share, amount: x.amount });
+      const stairs = CI_STAIRS.flatMap((k) => stages.filter((x) => x.key === k)).map(stage);
+      const more = stages.filter((x) => !CI_STAIRS.includes(x.key) && (x.key !== "juvenile ci" || at.age <= JUVENILE_TO)).map(stage);
+      const diseases = diseasesIn(row.what);
+      out.push({ ...head, title: "โรคร้ายแรง CI 123", sub: `ทุน ${sum.toLocaleString("en-US")}${diseases ? ` · ${diseases} โรค` : ""}`, kind: "ci123", sum, diseases, stairs, more });
+    } else if (r.code === "DCI") {
+      out.push({ ...head, title: "โรคร้ายแรง DCI", sub: `ทุน ${sum.toLocaleString("en-US")}${cover}`, kind: "dci", sum, diseases: diseasesIn(row?.what ?? ""), ...(row?.coverToAge !== undefined ? { coverToAge: row.coverToAge } : {}) });
+    } else if (r.code === "AP") {
+      out.push({ ...head, title: "อุบัติเหตุ AP", sub: `ทุน ${sum.toLocaleString("en-US")}${cover}`, kind: "ap", sum, ...(row?.coverToAge !== undefined ? { coverToAge: row.coverToAge } : {}) });
+    } else if (r.code === "ECARE") {
+      out.push({ ...head, title: "อุบัติเหตุ ECARE", sub: `ทุน ${sum.toLocaleString("en-US")}${cover}`, kind: "ecare", sum, care: Math.round(sum * 0.05), ...(row?.coverToAge !== undefined ? { coverToAge: row.coverToAge } : {}) });
+    }
+    i++;
+  }
+  return out.slice(0, RIDER_KEYS.length);
+}
+
+/** the life cover as the rider scenes state it: the first of the cover rows, or 12 พีแอล's sum (its cover rows are its cash backs) */
+export const lifeRow = (f: Pick<QuoteVideoFacts, "cover" | "twelvepl">): CoverRow | undefined =>
+  (f.twelvepl ? { label: "", amount: f.twelvepl.sum.toLocaleString("en-US"), mark: true } : f.cover[0]);
+
+/**
+ * "เกิดเรื่องนี้ ได้เท่าไร" (owner, 2026-11-21, ก): what each event pays, the contracts that pay it added up.
+ * Where a stage might be paid less after an earlier claim (CI 123's major stage), it says สูงสุด.
+ */
+export function payoutRows(f: Pick<QuoteVideoFacts, "cover" | "riders" | "twelvepl">): PayoutRow[] {
+  const sc = f.riders?.scenes ?? [];
+  const ci = sc.find((x) => x.kind === "ci123");
+  const dci = sc.find((x) => x.kind === "dci");
+  const med = sc.find((x) => x.kind === "medical");
+  const ap = sc.find((x) => x.kind === "ap");
+  const wp = sc.find((x) => x.kind === "waiver");
+  const rows: PayoutRow[] = [];
+  if (ci?.kind === "ci123") {
+    const early = ci.stairs.find((x) => x.label === CI_PART["early to intermediate ci"]);
+    if (early) rows.push({ tone: "early", event: "ป่วยโรคร้ายแรง ระยะเริ่มต้น", from: "CI 123", amount: early.amount.toLocaleString("en-US") });
+  }
+  if (dci?.kind === "dci" || ci?.kind === "ci123") {
+    const from = [
+      ...(dci?.kind === "dci" ? [`DCI ${sumShort(dci.sum)}`] : []),
+      ...(ci?.kind === "ci123" ? [`CI 123 สูงสุด ${sumShort(ci.sum)}`] : []),
+    ];
+    const total = (dci?.kind === "dci" ? dci.sum : 0) + (ci?.kind === "ci123" ? ci.sum : 0);
+    rows.push({ tone: "major", event: ci ? "ป่วยโรคร้ายแรง ระยะรุนแรง" : "ป่วยโรคร้ายแรง", from: from.join(" + "), amount: total.toLocaleString("en-US") });
+  }
+  if (med?.kind === "medical") rows.push({ tone: "hospital", event: "นอนโรงพยาบาล", from: MEDICAL_SAID, amount: `${med.perDay.toLocaleString("en-US")}/วัน` });
+  const life = lifeRow(f);
+  if (ap?.kind === "ap" && life) {
+    const lifeBaht = digits(life.amount);
+    const before = !f.twelvepl && f.cover.length > 1 ? life.label.match(/ก่อนอายุ\s*(\d+)/)?.[1] : undefined;
+    const total = lifeBaht + (dci?.kind === "dci" ? dci.sum : 0) + ap.sum;
+    const from = [`ชีวิต ${sumShort(lifeBaht)}`, ...(dci?.kind === "dci" ? [`DCI ${sumShort(dci.sum)}`] : []), `AP ${sumShort(ap.sum)}`];
+    rows.push({ tone: "accident", event: `อุบัติเหตุถึงชีวิต${before ? ` ก่อนอายุ ${before}` : ""}`, from: from.join(" + "), amount: total.toLocaleString("en-US") });
+  }
+  if (wp?.kind === "waiver") rows.push({ tone: "waiver", event: `ทุพพลภาพสิ้นเชิงถาวร${wp.plus ? " หรือโรคร้ายแรง" : ""}`, from: wp.sub, amount: "หยุดจ่ายเบี้ย" });
+  return rows;
 }
 
 const PER_MODE: Record<NonNullable<PriceRow["per"]>, PayMode> = { month: "monthly", half: "semi", year: "annual" };
@@ -372,8 +629,12 @@ export function hidePay(f: QuoteVideoFacts, hide: readonly PayMode[]): QuoteVide
   const spokenMode = SPOKEN_MODE[f.spokenPrice.per];
   const spokenPrice = spokenMode && !shows(hide, spokenMode) && yearly ? { per: "ปีละ", amount: yearly.amount } : f.spokenPrice;
   const noMonthly = !shows(hide, "monthly");
+  // each rider's price is its share of the instalment the voice said: another one leaves them unsaid
+  const riders = f.riders && spokenPrice !== f.spokenPrice
+    ? { ...f.riders, split: undefined, scenes: f.riders.scenes.map((r) => { const { price, ...rest } = r; void price; return rest as RiderScene; }) }
+    : f.riders;
   return {
-    ...f, prices, spokenPrice, hide: [...hide],
+    ...f, prices, spokenPrice, hide: [...hide], ...(riders ? { riders } : {}),
     // บำนาญ 95's highlighted line is its monthly instalment: the yearly one instead
     ...(f.product === "PENSION" && noMonthly && yearly ? { priceMark: `ปีละ ${yearly.amount} บาท` } : {}),
     ...(f.legacy && noMonthly ? { legacy: { ...f.legacy, monthly: undefined } } : {}),
@@ -389,6 +650,13 @@ export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteV
     : v.product === "LEGACY" ? legacyVideoFacts(v, today)
     : v.product === "PLB" ? plbVideoFacts(v, today)
     : v.product === "GSAVING" ? gsavingVideoFacts(v)
+    : v.product === "TWELVEPL" ? withPayout(twelvePlVideoFacts(v, today, riderFacts))
+    : v.product === "EASYPROTECT" ? easyProtectVideoFacts(v, today)
+    : v.product === "LIFETREASURE" ? lifeTreasureVideoFacts(v, today)
+    : v.product === "CI123" ? ci123VideoFacts(v, today)
+    : v.product === "CANCER" ? cancerVideoFacts(v, today)
+    : v.product === "PA" ? paVideoFacts(v)
+    : v.product === "GROUP" ? groupVideoFacts(v)
     : planFacts(v, today);
   const paid = built && hide.length ? hidePay(built, hide) : built;
   // แสดงคำอธิบายในตาราง: a table drawn without its pen notes (table-pen.tsx, pension-table.tsx, gsaving-table.tsx)
@@ -400,7 +668,13 @@ export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteV
   return row ? { ...f, budget: { per: v.budget.per, amount: row.amount } } : f;
 }
 
-function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { product: "PLB" }>, today: Date): QuoteVideoFacts | undefined {
+/** a plan's facts with what each event pays worked out from its riders */
+function withPayout(f: QuoteVideoFacts | undefined): QuoteVideoFacts | undefined {
+  if (f?.riders) f.riders.payout = payoutRows(f);
+  return f;
+}
+
+function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { product: "PLB" | "LIFETREASURE" }>, today: Date): QuoteVideoFacts | undefined {
   const product = productOf(v);
   const input = planInput(v);
   const card = quoteCard(input, today);
@@ -419,7 +693,9 @@ function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { produc
   const lifeProtect = product === LIFEPROTECT_PLAN;
   const coverToAge = last.age + 1;
   const payToEnd = paying.length === table.rows.length;
-  const riders = lifeProtect && card.summary.split ? riderFacts(input.riders, table.rows, card.summary.split, spoken.label) : undefined;
+  const riders = lifeProtect && card.summary.split
+    ? riderFacts(input.riders, table.rows, card.summary.split, spoken.label, { age: v.age, payYears: paying.length, today })
+    : undefined;
   // the plan's own premium is level; with a medical plan beside it the whole instalment is not
   const level = riders?.rises ? "เบี้ยสัญญาหลักคงที่" : "เบี้ยคงที่ตลอด";
   const facts: QuoteVideoFacts = {
@@ -440,9 +716,10 @@ function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { produc
       : lifeProtect ? [`จ่ายเบี้ยแค่ ${paying.length} ปี`, level] : [`จ่ายเบี้ยแค่ ${paying.length} ปี`, `คุ้มครองถึงอายุ ${coverToAge}`],
     ...(payToEnd ? {} : { penNote: `จ่ายครบอายุ ${paying[paying.length - 1].age} แล้วหยุดส่ง` }),
     ...(payToEnd ? { payToEnd } : {}),
-    // what the headline instalment is made of, as the card's box splits it (owner, 2026-10-17, 1ก)
+    // what the headline instalment is made of, as the card's box splits it (owner, 2026-10-17, 1ก);
+    // the amount keeps its บาท when a long contract name wraps
     priceNotes: riders && card.summary.split
-      ? [card.summary.split.title, ...card.summary.split.rows.map((r) => `${riderShort(r.label)}  ${r.amount} บาท`)]
+      ? [card.summary.split.title, ...card.summary.split.rows.map((r) => `${riderShort(r.label)}  ${r.amount}\u00a0บาท`)]
       : [],
     ...(riders ? { riders } : {}),
     coverTitle: section.title,
@@ -458,6 +735,7 @@ function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { produc
     ...(be?.cash ? { breakEven: { age: be.age, cash: be.cash, index: beIndex } } : {}),
     ...(card.footNotes?.[0] ? { footNote: card.footNotes[0] } : {}),
   };
+  if (facts.riders) facts.riders.payout = payoutRows(facts);
   return lifeProtect ? facts : iShieldShape(facts, card.footNotes?.[0], paying.length, coverToAge);
 }
 
@@ -737,7 +1015,9 @@ export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator
 
 /** The plan's lead sentence without a greeting: what follows a written hook. */
 function leadFact(f: QuoteVideoFacts, name: string): string {
-  const who = name ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;
+  if (f.product === "GROUP" && f.group) return grLeadFact(f.group);
+  if (f.product === "PA" && f.pa) return `แผนนี้ ${paLeadLine(f.pa, spokenWithBaht).replace(/^อุบัติเหตุไม่เลือกวัน /, "")}`;
+  const who = name || !f.sex ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;
   if (f.product === "PENSION" && f.pension) {
     return `แผนนี้ ${name ? "" : `${who} `}${budgetLead(f, "ถ้าออม")}ตั้งแต่อายุ ${f.pension.start} รับบำนาญเดือนละ ${f.pension.monthly} บาท ไปจนถึงอายุ 95 เลยค่ะ`;
   }
@@ -749,6 +1029,21 @@ function leadFact(f: QuoteVideoFacts, name: string): string {
   }
   if (f.product === "GSAVING" && f.gsaving) {
     return `แผนออมนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ถ้าออม")}${gsLeadLine(f.gsaving)}`;
+  }
+  if (f.product === "TWELVEPL" && f.twelvepl) {
+    return `แผนออมนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ถ้าออม")}${tpLeadLine(f.twelvepl)}`;
+  }
+  if (f.product === "EASYPROTECT" && f.easyprotect) {
+    return `แผนนี้ ${name ? "" : `${who} `}${epLead(f, f.easyprotect)}`;
+  }
+  if (f.product === "LIFETREASURE" && f.lifetreasure) {
+    return `${name ? "" : `${who} `}เตรียมเงินก้อนไว้ให้ครอบครัว แบบรู้จำนวนแน่นอน ${budgetLead(f, "ถ้าออม")}${ltLeadLine(f.lifetreasure, spokenWithBaht)}`;
+  }
+  if (f.product === "CI123" && f.ci123) {
+    return `แผนนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ถ้าออม")}${ciLeadLine(f.ci123, spokenWithBaht).replace(/ค่ะ$/, "")} จ่ายตั้งแต่ระยะก่อนเริ่มต้นค่ะ`;
+  }
+  if (f.product === "CANCER" && f.cancer) {
+    return `แผนนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ถ้าออม")}${caLeadLine(f.cancer, spokenWithBaht)}`;
   }
   if (f.product === "IHEALTHY") {
     return `แผน ${f.planName} ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`;
@@ -796,6 +1091,63 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
       { key: "contact", voice: ask },
     ];
   }
+  if (f.product === "TWELVEPL" && f.twelvepl) {
+    const g = f.twelvepl;
+    return [
+      { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}${tpLeadLine(g)}` },
+      { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท${f.riders ? ` รวม${f.riders.said}` : ""}${f.riders && /[A-Za-z0-9]$/.test(f.riders.said) ? " " : ""}${f.riders ? " สัญญาหลัก" : " "}ออมเพียง ${g.payYears} ปี${g.tax !== undefined && !f.riders ? " แถมลดหย่อนภาษีได้" : ""}ค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  if (f.product === "EASYPROTECT" && f.easyprotect) {
+    const g = f.easyprotect;
+    return [
+      { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}${f.budget ? "" : "ถ้าเป็นอะไรไป "}ครอบครัวได้เงินก้อน${g.atLeast ? "" : " "}${epFamily(g, spokenWithBaht)}ค่ะ` },
+      { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท ออมเพียง ${g.payYears} ปี คุ้มครองถึงอายุ ${g.coverToAge} ค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  if (f.product === "LIFETREASURE" && f.lifetreasure) {
+    const g = f.lifetreasure;
+    return [
+      { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}${ltLeadLine(g, spokenWithBaht)}` },
+      { key: "price", voice: `ออมปีละ ${f.prices.find((r) => r.label === "รายปี")?.amount ?? g.annual} บาท จ่าย ${g.payYears} ปีแล้วจบ ส่งต่อให้ครอบครัว ${ltFamily(g, spokenWithBaht)}ค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  if (f.product === "GROUP" && f.group) {
+    const g = f.group;
+    const m = (n: number) => n.toLocaleString("en-US");
+    return [
+      { key: "lead", voice: `${g.kind === "health" ? "สวัสดิการพนักงาน ประกันสุขภาพกลุ่ม" : "ดูแลพนักงานจากอุบัติเหตุ ประกันอุบัติเหตุกลุ่ม"} สำหรับทีม ${m(g.total)} คนค่ะ` },
+      { key: "price", voice: `ตกคนละประมาณเดือนละ ${m(g.perMonth)} บาท ทั้งบริษัท ปีละ ${m(g.grandTotal)} บาทค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  if (f.product === "PA" && f.pa) {
+    const g = f.pa;
+    return [
+      { key: "lead", voice: `อุบัติเหตุไม่เลือกวัน คุ้มครองอุบัติเหตุ ทุน ${spokenWithBaht(g.death)} ต่ออายุทุกปีค่ะ` },
+      { key: "price", voice: `ตกวันละ ${g.perDay} บาท ราคาเท่ากันทุกอายุค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  if (f.product === "CANCER" && f.cancer) {
+    const g = f.cancer;
+    return [
+      { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}ตรวจพบมะเร็ง รับเงินก้อนตามขั้น สูงสุด ${spokenWithBaht(g.cpr)} พร้อมชดเชยนอนโรงพยาบาลวันละ ${caMoney(g.hic)} บาทค่ะ` },
+      { key: "price", voice: `ปีแรกออมแค่วันละ ${g.perDay} บาท รวมแบบหลักไว้แล้วค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  if (f.product === "CI123" && f.ci123) {
+    const g = f.ci123;
+    return [
+      { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}ตรวจพบโรคร้ายแรง รับเงินก้อนตามระยะ สูงสุด ${spokenWithBaht(g.sum)}ค่ะ` },
+      { key: "price", voice: `ปีแรกออมแค่วันละ ${g.perDay} บาท คุ้มครองโรคร้ายแรง ${g.diseaseCount} โรคค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
   if (f.product === "IHEALTHY") {
     return [
       { key: "lead", voice: `${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ` },
@@ -822,7 +1174,8 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
 function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   const name = cleanCustomerName(customer);
   const hello = name ? `สวัสดีค่ะ คุณ${name}` : "สวัสดีค่ะ";
-  const who = name ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;
+  // a plan priced by plan alone names no one (pricedByPlan): its lines never say `who`
+  const who = name || !f.sex ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;
   const closing = name
     ? `คุณ${name}สนใจ ทักมาคุยกันได้เลยนะคะ ยินดีช่วยดูแผนให้ค่ะ`
     : "สนใจ ทักมาคุยกันได้เลยนะคะ ยินดีช่วยดูแผนให้ค่ะ";
@@ -831,6 +1184,13 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   if (f.product === "LEGACY" && f.legacy) return legacyScript(f, f.legacy, hello, who, closing);
   if (f.product === "PLB" && f.plb) return plbScript(f, f.plb, hello, who, closing);
   if (f.product === "GSAVING" && f.gsaving) return gsScript(f, f.gsaving, hello, who, closing);
+  if (f.product === "TWELVEPL" && f.twelvepl) return tpScript(f, f.twelvepl, hello, who, closing);
+  if (f.product === "EASYPROTECT" && f.easyprotect) return epScript(f, f.easyprotect, hello, who, closing);
+  if (f.product === "LIFETREASURE" && f.lifetreasure) return ltScript(f, f.lifetreasure, hello, who, closing);
+  if (f.product === "CI123" && f.ci123) return ciScript(f, f.ci123, hello, who, closing);
+  if (f.product === "CANCER" && f.cancer) return caScript(f, f.cancer, hello, who, closing);
+  if (f.product === "PA" && f.pa) return paScript(f, f.pa, hello, closing);
+  if (f.product === "GROUP" && f.group) return grScript(f.group, hello, name);
 
   if (f.product === "IHEALTHY") {
     const others = (f.compare ?? []).filter((p) => !p.main);
@@ -884,10 +1244,64 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   return [
     { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ${budgetLead(f, "ถ้าออม")}ทำทุน ${spokenBaht(digits(f.insuredLine))} ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
     { key: "price", voice: lifeProtectPriceLine(f) },
-    { key: "cover", voice: `${cover}${ridersCoverLine(f)}` },
+    { key: "cover", voice: f.riders?.scenes.length ? cover : `${cover}${ridersCoverLine(f)}` },
+    ...riderLines(f),
     { key: "value", voice: value },
     { key: "contact", voice: closing },
   ];
+}
+
+const ORDINAL = ["ตัวแรก", "ตัวที่สอง", "ตัวที่สาม", "ตัวที่สี่", "ตัวที่ห้า"];
+
+/**
+ * Life Protect's riders, a scene each (owner, 2026-11-21, ก ก ก on https://claude.ai/artifact/HvVdgdGq4oajv1Hjd1ZBv2):
+ * the package first where there are two or more, then each rider with its own price and what it pays,
+ * then what each event pays where two or more rows say something.
+ */
+function riderLines(f: QuoteVideoFacts): SceneScript[] {
+  const sc = f.riders?.scenes ?? [];
+  if (!sc.length) return [];
+  const n = sc.length;
+  const lines: SceneScript[] = [];
+  if (n > 1) lines.push({ key: "riders", voice: `นอกจากประกันชีวิตแล้ว แผนนี้ยังมีสัญญาเพิ่มเติมอีก ${n} ตัว มาดูทีละตัวกันนะคะ` });
+  sc.forEach((r, i) => {
+    const ord = n === 1 ? "" : i === n - 1 ? "ตัวสุดท้าย " : `${ORDINAL[i]} `;
+    const price = r.price ? ` ${f.spokenPrice.per} ${r.price} บาท` : "";
+    const head = `${ord}${r.said}${price}`;
+    const voice = r.kind === "waiver" ? `${head} ${r.what}ค่ะ`
+      : r.kind === "medical" ? `${head} นอนโรงพยาบาลรับเงินวันละ ${r.perDay.toLocaleString("en-US")} บาท อย่างนอน ${r.days} วันก็รับ ${(r.perDay * r.days).toLocaleString("en-US")} บาทค่ะ`
+      : r.kind === "dci" ? `${head} ถ้าเป็นโรคร้ายแรง${r.diseases ? ` 1 ใน ${r.diseases} โรค` : ""} หรือเป็นอะไรไป รับเงินก้อน ${spokenWithBaht(r.sum)}ค่ะ`
+      : r.kind === "ci123" ? `${head} ไม่ต้องรอให้เป็นหนัก ${ciEarlySaid(r)}ระยะรุนแรงรับสูงสุด ${spokenWithBaht(r.sum)}${r.diseases ? ` คุ้มครอง ${r.diseases} โรค` : ""} เคลมได้หลายครั้งค่ะ`
+      : r.kind === "ap" ? `${head} ถ้าเป็นอะไรไปหรือสูญเสียอวัยวะจากอุบัติเหตุ รับสูงสุด ${spokenWithBaht(r.sum)}${r.coverToAge ? ` คุ้มครองถึงอายุ ${r.coverToAge} ` : ""}ค่ะ`
+      : `${head} ${r.what}ค่ะ`;
+    lines.push({ key: RIDER_KEYS[i], voice });
+  });
+  const rows = f.riders?.payout ?? [];
+  if (rows.length > 1) lines.push({ key: "payout", voice: payoutSaid(rows) });
+  return lines;
+}
+
+/** "เจอระยะเริ่มต้นก็รับ 250,000 บาท " */
+function ciEarlySaid(r: Extract<RiderScene, { kind: "ci123" }>): string {
+  const early = r.stairs.find((x) => x.label === CI_PART["early to intermediate ci"]);
+  return early ? `เจอระยะเริ่มต้นก็รับ ${early.amount.toLocaleString("en-US")} บาท ` : "";
+}
+
+/** the payout said: the major illness, the hospital, the accident; the early stage and the waiver where fewer are said */
+function payoutSaid(rows: PayoutRow[]): string {
+  const by = (t: PayoutRow["tone"]) => rows.find((r) => r.tone === t);
+  const said: string[] = [];
+  const major = by("major");
+  if (major) said.push(`${major.event.replace(" ระยะ", "ระยะ")} รับ${major.from.includes("สูงสุด") ? "สูงสุด" : ""} ${spokenWithBaht(digits(major.amount))}`);
+  const hospital = by("hospital");
+  if (hospital) said.push(`นอนโรงพยาบาลรับวันละ ${hospital.amount.replace("/วัน", "")} บาท`);
+  const accident = by("accident");
+  if (accident) said.push(`ถ้าเป็นอะไรไปจากอุบัติเหตุ${accident.event.replace("อุบัติเหตุถึงชีวิต", "")} ครอบครัวได้สูงสุด ${spokenWithBaht(digits(accident.amount))}`);
+  const early = by("early");
+  if (said.length < 2 && early) said.unshift(`ป่วยโรคร้ายแรงระยะเริ่มต้น รับ ${spokenWithBaht(digits(early.amount))}`);
+  const waiver = by("waiver");
+  if (said.length < 2 && waiver) said.push(`${waiver.event} ไม่ต้องจ่ายเบี้ยต่อ`);
+  return `สรุปง่ายๆ นะคะ ${said.join(" ")}ค่ะ`;
 }
 
 /**
@@ -897,7 +1311,10 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
 function lifeProtectPriceLine(f: QuoteVideoFacts): string {
   const r = f.riders;
   // the instalment contract by contract where it can be said (owner, 2026-10-17, ก); else what it includes
-  const parts = r?.split
+  // with a scene a rider (owner, 2026-11-21) each says its own price there: here only what the total holds
+  const parts = r?.scenes.length
+    ? ` รวมสัญญาหลักกับ${r.scenes.length > 1 ? `สัญญาเพิ่มเติมอีก ${r.scenes.length} ตัว` : r.scenes[0].said}${/[A-Za-z0-9]$/.test(r.scenes[0].said) && r.scenes.length === 1 ? " " : ""}ไว้แล้ว`
+    : r?.split
     ? ` เป็น${r.split.map((p, i) => `${i === r.split!.length - 1 ? "และ" : ""}${p.name} ${p.baht} บาท`).join(" ")}`
     : r ? ` รวม${r.said}ไว้แล้ว` : "";
   const price = `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท${parts}`;
@@ -1004,6 +1421,134 @@ function gsScript(f: QuoteVideoFacts, g: GsVideoFacts, hello: string, who: strin
   ];
 }
 
+/** "ทำทุน 1 ล้าน ออมเพียง 6 ปี ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อน 1 ล้านบาทค่ะ" */
+const epLead = (f: QuoteVideoFacts, g: EasyProtectVideoFacts) =>
+  `${budgetLead(f, "ถ้าออม")}ทำทุน ${spokenBaht(g.sum)} ออมเพียง ${g.payYears} ปี ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อน${g.atLeast ? "" : " "}${epFamily(g, spokenWithBaht)}ค่ะ`;
+
+/**
+ * อีซี่ โพรเทค 6's six lines (owner, 2026-11-26, ก ก, mockup https://claude.ai/artifact/YCrrpCe5o2uQ14xAoQmZHn): the sum, the
+ * price, the six years and nothing after, the premiums beside what the family receives (only where that is more),
+ * the cash value.
+ */
+function epScript(f: QuoteVideoFacts, g: EasyProtectVideoFacts, hello: string, who: string, closing: string): SceneScript[] {
+  return [
+    { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ${epLead(f, g)}` },
+    { key: "price", voice: lifeProtectPriceLine(f) },
+    { key: "cover", voice: epSixLine(f, g, spokenWithBaht) },
+    ...(g.times ? [{ key: "total" as const, voice: epTotalLine(g, spokenWithBaht) }] : []),
+    { key: "value", voice: epValueLine(f, g) },
+    { key: "contact", voice: closing },
+  ];
+}
+
+/**
+ * ไลฟ์เทรเชอร์'s six lines (owner, 2026-11-26, ก, mockup https://claude.ai/artifact/K8A3uLFEDt1XqYnUKnqr3p): the sum set
+ * for the family, the yearly saving, the three terms, the premiums beside what the family receives (only from 1.1
+ * times up), the cash value along the way.
+ */
+function ltScript(f: QuoteVideoFacts, g: LifeTreasureVideoFacts, hello: string, who: string, closing: string): SceneScript[] {
+  return [
+    { key: "lead", voice: `${hello} ถ้าอยากเตรียมเงินก้อนไว้ให้ครอบครัว แบบรู้จำนวนแน่นอนตั้งแต่วันนี้ ${budgetLead(f, "ถ้าออม")}${ltLeadLine(g, spokenWithBaht)}` },
+    { key: "price", voice: ltPriceLine(f, g, who) },
+    ...(g.terms.length > 1 ? [{ key: "terms" as const, voice: ltTermsLine(g) }] : []),
+    ...(g.times ? [{ key: "total" as const, voice: ltTotalLine(g, spokenWithBaht) }] : []),
+    { key: "value", voice: ltValueLine(f, g, spokenWithBaht) },
+    { key: "contact", voice: `จะแบ่งให้ใครเท่าไรก็ระบุได้ค่ะ ${closing}` },
+  ];
+}
+
+/**
+ * CI 123's six lines (owner, 2026-11-26, ข, mockup https://claude.ai/artifact/K8A3uLFEDt1XqYnUKnqr3p): the lump sum on a
+ * critical illness, the first year's saving, the stages that climb to the whole sum, what else it pays (the
+ * children's illnesses only for an insured of 18 or under), the base contract's life cover.
+ */
+function ciScript(f: QuoteVideoFacts, g: Ci123VideoFacts, hello: string, who: string, closing: string): SceneScript[] {
+  return [
+    { key: "lead", voice: `${hello} ถ้าวันหนึ่งตรวจพบโรคร้ายแรง เงินก้อนช่วยให้รักษาได้เต็มที่ ${budgetLead(f, "ถ้าออม")}${ciLeadLine(g, spokenWithBaht)}` },
+    { key: "price", voice: ciPriceLine(f, g, who) },
+    { key: "critical", voice: ciStairsLine(g, spokenWithBaht) },
+    ...(g.more.length ? [{ key: "cover" as const, voice: ciMoreLine(g, spokenWithBaht) }] : []),
+    { key: "family", voice: ciBaseLine(g, f.age, spokenWithBaht) },
+    { key: "contact", voice: `วางแผนไว้ก่อน ไม่ต้องห่วงค่ารักษาค่ะ ${closing}` },
+  ];
+}
+
+/**
+ * ประกันมะเร็ง's six lines (owner, 2026-11-26, mockup https://claude.ai/artifact/K8A3uLFEDt1XqYnUKnqr3p, "ca"): the lump
+ * sum a cancer pays and the daily sum, the first year's saving, the four stages, the daily sum and how long it
+ * pays, what every contract pays together.
+ */
+function caScript(f: QuoteVideoFacts, g: CancerVideoFacts, hello: string, who: string, closing: string): SceneScript[] {
+  return [
+    { key: "lead", voice: `${hello} มะเร็งรักษานาน ค่าใช้จ่ายก็สูง ${budgetLead(f, "ถ้าออม")}${caLeadLine(g, spokenWithBaht)}` },
+    { key: "price", voice: caPriceLine(f, g, who) },
+    { key: "critical", voice: caStairsLine(g, spokenWithBaht) },
+    { key: "cover", voice: caDailyLine(g) },
+    { key: "family", voice: caTotalLine(g, spokenWithBaht) },
+    { key: "contact", voice: `เตรียมไว้ก่อน ใจสบายกว่าค่ะ ${closing}` },
+  ];
+}
+
+/**
+ * PA's lines (owner, 2026-11-26, mockup https://claude.ai/artifact/K8A3uLFEDt1XqYnUKnqr3p, "pa"): the accident cover and
+ * that it renews, the year's price the same at every age, what it covers, the injury cover where the plan has it
+ * (Classic: the medical sum only; Max: none, so five scenes), the sum growing on renewal. No one is named: the price
+ * is the plan's and the class's.
+ */
+function paScript(f: QuoteVideoFacts, g: PaVideoFacts, hello: string, closing: string): SceneScript[] {
+  const injury = paInjuryLine(g);
+  return [
+    { key: "lead", voice: `${hello} ${paLeadLine(g, spokenWithBaht)}` },
+    { key: "price", voice: paPriceLine(f, g) },
+    { key: "cover", voice: paCoverLine(g, spokenWithBaht) },
+    ...(injury ? [{ key: "family" as const, voice: injury }] : []),
+    { key: "critical", voice: paRenewLine(g, spokenWithBaht) },
+    { key: "contact", voice: `เดินทางทุกวัน มีไว้อุ่นใจค่ะ ${closing}` },
+  ];
+}
+
+/**
+ * ประกันกลุ่ม's lines (owner, 2026-11-26, ข, mockup https://claude.ai/artifact/K8A3uLFEDt1XqYnUKnqr3p, "gr"), told to the
+ * employer: the team and how few it starts from, a head's price a year and about a month and the company's, then the
+ * first group's cover — health: the hospital stay, OPD where it was taken, the life cover (five or six scenes); PA: what
+ * an accident pays, the medical expense where ME was taken (four or five). The quotation is asked for at the end.
+ */
+function grScript(g: GroupVideoFacts, hello: string, name: string): SceneScript[] {
+  const own: SceneScript[] = g.kind === "health"
+    ? [
+      { key: "cover", voice: grStayLine(g) },
+      ...(grOpdLine(g) ? [{ key: "family" as const, voice: grOpdLine(g)! }] : []),
+      { key: "critical", voice: grLifeLine(g, spokenWithBaht) },
+    ]
+    : [
+      { key: "cover", voice: grPaCoverLine(g, spokenWithBaht) },
+      ...(grMeLine(g) ? [{ key: "family" as const, voice: grMeLine(g)! }] : []),
+    ];
+  return [
+    { key: "lead", voice: `${hello} ${grLeadLine(g)}` },
+    { key: "price", voice: grPriceLine(g) },
+    ...own,
+    { key: "contact", voice: grContactLine(name) },
+  ];
+}
+
+/**
+ * 12 พีแอล's six lines (owner, 2026-11-26, ก ก ข, mockup https://claude.ai/artifact/7eC8eVjT4mFAsSaPie4kfm): the
+ * guarantee held to 85, the level saving, the cash backs and the maturity, the family's sum, what is paid beside
+ * what comes back; then its riders a scene each, as Life Protect's (twelvepl.ts).
+ */
+function tpScript(f: QuoteVideoFacts, g: TwelvePlVideoFacts, hello: string, who: string, closing: string): SceneScript[] {
+  return [
+    { key: "lead", voice: `${hello} ขอเล่าแผนออมนี้ให้ฟังสั้นๆ นะคะ ${who} ปี ${budgetLead(f, "ถ้าออม")}${tpLeadLine(g)}` },
+    { key: "price", voice: tpPriceLine(f, g) },
+    { key: "cover", voice: tpCashLine(g) },
+    { key: "family", voice: tpFamilyLine(g) },
+    { key: "total", voice: tpTotalLine(g, Boolean(f.riders)) },
+    ...riderLines(f),
+    { key: "contact", voice: closing },
+  ];
+}
+
 /** How each scene of this clip moves (timeline.ts draws the frames from it). */
 export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
   switch (key) {
@@ -1016,16 +1561,22 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
     case "compare": return { ring: true };
     // มรดก's lump sum counted up, its line under it lit
     case "critical": return { count: true, sweeps: 1 };
-    // Protection Life's chosen term lit, then the total under the rows
+    // Protection Life's chosen term lit, then the total under the rows (ไลฟ์เทรเชอร์'s chosen term, then its multiple)
     case "terms": return { sweeps: 2, spread: true };
     // Global Savings: the picked return lit, then the total at it
     case "index": return { sweeps: 2, spread: true };
+    // 12 พีแอล, อีซี่ โพรเทค 6: what the family receives lit, then the years after the last premium; what is paid, then what comes back
+    case "family": case "total": return { sweeps: 2, spread: true };
     case "contact": return {};
     // one highlighter a point, a question, a step as the voice reaches it; the comparison counted up
     case "story": return { sweeps: 3, spread: true };
     case "qa": return { sweeps: 2, spread: true };
     case "versus": return { count: true, sweeps: 1 };
     case "steps": return { sweeps: 3, spread: true };
+    // Life Protect's riders (owner, 2026-11-21): the package, a rider's picture with its price lit, the payout rows one by one
+    case "riders": return { sweeps: 1 };
+    case "payout": return { sweeps: f.riders?.payout.length ?? 1, spread: true };
+    default: return { sweeps: 1 };
   }
 }
 
@@ -1034,8 +1585,36 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
  * the customer's name — a clip that carries one does not go to a Page at all. The admin edits it.
  */
 export function pageCaption(f: QuoteVideoFacts): string {
-  const who = `${SEX_WHO[f.sex]}อายุ ${f.age}`;
+  const who = f.sex ? `${SEX_WHO[f.sex]}อายุ ${f.age}` : "";
   const ask = "ทักแชทขอใบเสนอของคุณได้เลย";
+  if (f.product === "GROUP" && f.group) {
+    const g = f.group;
+    const m = (n: number) => n.toLocaleString("en-US");
+    const several = g.groups > 1;
+    return [
+      `${g.kindName} สวัสดิการพนักงาน · ทีม ${m(g.total)} คน${several ? ` ${g.groups} กลุ่ม` : ` ลักษณะธุรกิจ ${g.bizNo}`}`,
+      `${several ? `กลุ่มแรก ${m(g.count)} คน ` : ""}${groupPlanWord(g.kind, g)}: ตกคนละ ${m(g.perPerson)} บาทต่อปี (ประมาณเดือนละ ${m(g.perMonth)} บาทต่อคน)`,
+      `ทั้งบริษัท${several ? ` ${g.groups} กลุ่ม` : ""} ปีละ ${m(g.grandTotal)} บาท`,
+      g.health
+        ? [`ค่าห้องวันละ ${m(g.health.room)}`, `ICU วันละ ${m(g.health.icu)}`, `ผ่าตัด ${m(g.health.surgery)}`, ...(g.health.opd ? [`OPD ครั้งละ ${m(g.health.opd)} (ปีละ ${g.health.opdVisits} ครั้ง)`] : []), `คุ้มครองชีวิต ${m(g.health.life)} + อุบัติเหตุเพิ่ม ${m(g.health.accident)}`].join(" · ")
+        : [`อุบัติเหตุ จากไป หรือทุพพลภาพถาวร ${m(g.pa!.death)}`, `สูญเสียอวัยวะ 2 ข้าง ${m(g.pa!.loss2)}`, `มอเตอร์ไซค์ ${m(g.pa!.motorcycle)}`, ...(g.pa!.me ? [`ค่ารักษาต่ออุบัติเหตุ ${m(g.pa!.me)}`] : [])].join(" · "),
+      "",
+      "ทักแชทขอใบเสนอให้บริษัทของคุณได้เลย",
+    ].join("\n");
+  }
+  if (f.product === "PA" && f.pa) {
+    const g = f.pa;
+    return [
+      `${f.planLine} คุ้มครองอุบัติเหตุ ทุน ${f.lead.amount} บาท คุ้มครอง 24 ชั่วโมง ทั่วโลก`,
+      `อาชีพชั้น ${g.cls} จ่ายปีละ ${f.prices.find((r) => r.label === "รายปี")?.amount ?? g.annual.toLocaleString("en-US")} บาท (ตกวันละ ${g.perDay} บาท) ราคาเท่ากันทุกอายุ`,
+      [`ถูกฆาตกรรม ลอบทำร้าย ${g.murder.toLocaleString("en-US")}`, `มอเตอร์ไซค์ ${g.motorcycle.toLocaleString("en-US")}`,
+        ...(g.medical ? [`ค่ารักษาต่ออุบัติเหตุ ${g.medical.toLocaleString("en-US")}`] : []),
+        ...(g.weekly ? [`ชดเชยหยุดงานสัปดาห์ละ ${g.weekly.toLocaleString("en-US")}`] : [])].join(" · "),
+      `ต่ออายุต่อเนื่อง ทุนเพิ่มปีละ ${g.stepPercent}% ปีที่ ${g.years.length} ทุน ${paSixth(g).toLocaleString("en-US")} บาท`,
+      "",
+      ask,
+    ].join("\n");
+  }
   if (f.product === "PENSION" && f.pension) {
     const p = f.pension;
     return [
@@ -1074,6 +1653,56 @@ export function pageCaption(f: QuoteVideoFacts): string {
       g.rate > 0
         ? `ถ้าดัชนีโตเฉลี่ยปีละ ${rateLabel(g.rate)} รวมรับประมาณ ${gsMoney(g.total)} บาท (โบนัสดัชนีไม่การันตี)`
         : `ดัชนีไม่โตก็ยังได้เงินการันตีเต็มจำนวน · โบนัสดัชนีไม่การันตี`,
+      "",
+      ask,
+    ].join("\n");
+  }
+  if (f.product === "TWELVEPL" && f.twelvepl) {
+    const g = f.twelvepl;
+    return [
+      `${f.planLine} ออม ${g.payYears} ปี ถือครบถึงอายุ ${g.coverToAge} รับเงินการันตีรวม ${f.lead.amount} บาท`,
+      `${who} ออมปีละ ${f.spokenPrice.amount} บาท (ตกวันละ ${f.perDayAmount} บาท)${f.riders ? " รวมสัญญาเพิ่มเติม" : g.tax !== undefined ? " ลดหย่อนภาษีได้" : ""}`,
+      `เงินคืนทุกปีตั้งแต่ปีที่ 2 · คุ้มครองชีวิต ${tpMoney(g.sum)} บาท ถึงอายุ ${g.coverToAge}${g.dividend ? " · มีเงินปันผล (ไม่การันตี)" : ""}`,
+      "",
+      ask,
+    ].join("\n");
+  }
+  if (f.product === "EASYPROTECT" && f.easyprotect) {
+    const g = f.easyprotect;
+    return [
+      `${f.planLine} จ่ายแค่ ${g.payYears} ปี คุ้มครองถึงอายุ ${g.coverToAge} ถ้าเป็นอะไรไป ครอบครัวได้${g.atLeast ? "อย่างน้อย" : ""} ${f.lead.amount} บาท`,
+      `${who} ออม${f.spokenPrice.per} ${f.spokenPrice.amount} บาท (ตกวันละ ${f.perDayAmount} บาท) รวม ${g.payYears} ปี ${epMoney(g.paid)} บาท`,
+      `ปีที่ ${g.payYears + 1} เป็นต้นไป ไม่ต้องจ่ายอีก${f.breakEven ? ` · มูลค่าเงินสดครบเท่าที่ออมตอนอายุ ${f.breakEven.age}` : ""}`,
+      "",
+      ask,
+    ].join("\n");
+  }
+  if (f.product === "LIFETREASURE" && f.lifetreasure) {
+    const g = f.lifetreasure;
+    return [
+      `${f.planLine} ส่งต่อเงินก้อนให้ครอบครัว${g.atLeast ? "อย่างน้อย" : ""} ${f.lead.amount} บาท คุ้มครองถึงอายุ ${g.coverToAge}`,
+      `${who} ออมปีละ ${f.prices.find((r) => r.label === "รายปี")?.amount ?? g.annual} บาท จ่าย ${g.payYears} ปี รวม ${ltMoney(g.paid)} บาท${g.times ? ` · ส่งต่อได้ ${g.times} เท่าของที่ออม` : ""}`,
+      `เลือกจ่ายได้ ${g.terms.map((x) => x.years).join(" / ")} ปี · ระบุจำนวนไว้ล่วงหน้า ไม่ขึ้นกับตลาด`,
+      "",
+      ask,
+    ].join("\n");
+  }
+  if (f.product === "CI123" && f.ci123) {
+    const g = f.ci123;
+    return [
+      `${f.planLine} ประกันโรคร้ายแรง ทุน ${f.lead.amount} บาท คุ้มครอง ${g.diseaseCount} โรค จ่ายตามระยะ`,
+      `${who} ออมปีแรก ${f.prices.find((r) => r.label === "รายปี")?.amount ?? g.annual} บาท (ตกวันละ ${g.perDay} บาท) รวมแบบหลัก Life Protect x2`,
+      g.stairs.map((r) => `${r.short} ${ciMoney(r.amount)}`).join(" · "),
+      "",
+      ask,
+    ].join("\n");
+  }
+  if (f.product === "CANCER" && f.cancer) {
+    const g = f.cancer;
+    return [
+      `${f.planLine} ทุน ${f.lead.amount} บาท จ่ายตามขั้นของมะเร็ง ชดเชยนอนโรงพยาบาลวันละ ${caMoney(g.hic)} บาท`,
+      `${who} ออมปีแรก ${f.prices.find((r) => r.label === "รายปี")?.amount ?? g.annual} บาท (ตกวันละ ${g.perDay} บาท) รวมแบบหลัก Life Protect x2`,
+      g.stages.map((s) => `ขั้น ${s.no} ${caMoney(s.amount)}`).join(" · "),
       "",
       ask,
     ].join("\n");

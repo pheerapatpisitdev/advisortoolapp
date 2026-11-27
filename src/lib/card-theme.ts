@@ -182,7 +182,7 @@ export const NOTE_BUBBLE = {
 export const NOTE_BIG = 36 / 32;
 
 /** Bump when a card gains or removes visible content without changing its palette. */
-const DRAWING_REVISION = "29";
+const DRAWING_REVISION = "30";
 
 /** The fingerprint of the palette and layout this card will be drawn in. */
 export function cardVersionFor(): string {
@@ -402,6 +402,20 @@ export const STORY_CLIP_COLORS = {
   bpAmber: "#ffd27a",
   bpMuted: "#a9c8ee",
   bpSub: "#0f3d78",
+  /* โมชันกราฟิก (owner, 2026-11-26, prompt-story design "motion"): navy ground and gradient, cream card, gold, coral, teal, ink, grey, the quieter words, the subtitle's scrim */
+  mgNavy: "#06235f",
+  mgNavy2: "#0d3a8c",
+  mgCream: "#fbf6ec",
+  mgDot: "rgba(6,35,95,0.09)",
+  mgGold: "#f2c75c",
+  mgCoral: "#e4572e",
+  mgRed: "#c2412d",
+  mgTeal: "#2f9c97",
+  mgInk: "#1d2433",
+  mgGrey: "#e6dfd2",
+  mgMute: "#8a8f9c",
+  mgScrim: "rgba(6,14,36,0.78)",
+  mgFoot: "rgba(255,255,255,0.55)",
   /* การ์ตูนลายเส้น (story-motion.tsx line): its clean ground, the smudge a figure stands on, the word being spoken */
   lineGround: "#fbfaf6",
   lineSmudge: "#e3e1da",
@@ -566,6 +580,25 @@ export const RECIPE_COLORS = {
   // เทียบให้เห็น: an off-white sheet, navy words; the paid half pale, the cash half blue in white; one orange pill;
   // the foot line in white where it crosses the blue half
   versus: { sheet: "#fbfaf7", ink: "#1b2a4a", blue: "#1e56d6", onBlue: "#fff", grey: "#c9d2e3", pale: "#e9edf5", pill: "#ff5a3c", onPill: "#fff", foot: "rgba(27,42,74,0.6)", footOnBlue: "rgba(255,255,255,0.7)" },
+} as const;
+
+/**
+ * วิดีโอโฆษณา's photo scenes (owner, 2026-11-22; ad-video/draw.tsx): the photo darkened toward the foot so the white
+ * words and the Motion clip's gold read over any picture, the figure's band, the agent's white card in the clip's
+ * navy, and the regulator's line on a dark pill that reads over a photo, the navy ground and the white board alike
+ */
+export const AD_COLORS = {
+  ground: "#000000",
+  scrimClear: "rgba(0,0,0,0)",
+  scrim: "rgba(0,0,0,0.82)",
+  shadow: "0 4px 18px rgba(0,0,0,0.6)",
+  band: "rgba(0,0,0,0.58)",
+  ink: QUOTE_VIDEO_COLORS.paper,
+  gold: QUOTE_VIDEO_COLORS.motionGold,
+  card: QUOTE_VIDEO_COLORS.paper,
+  onCard: QUOTE_VIDEO_COLORS.motionNavy,
+  noPhoto: QUOTE_VIDEO_COLORS.noPhoto,
+  note: "rgba(0,0,0,0.55)",
 } as const;
 
 /** แชทถาม-ตอบ (owner, 2026-10-20; quote-video/chat.tsx): a plain chat, nobody's brand */

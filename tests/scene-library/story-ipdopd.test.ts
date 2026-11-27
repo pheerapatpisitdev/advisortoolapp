@@ -122,7 +122,7 @@ describe("ipdopd: the figures are the sheet's", () => {
     const h = hospitalCounts();
     const show = scenes()[3].show as Extract<KnowShow, { layout: "hospitals" }>;
     expect(show.total).toBe(h.total);
-    expect(show.total).toBe(537);
+    expect(show.total).toBe(548);
     expect(show.rows).toEqual(h.ranked.slice(0, 5));
     expect(show.rows.map((r) => r.count)).toEqual([...show.rows.map((r) => r.count)].sort((a, b) => b - a));
     for (const r of show.rows) expect(h.counts[r.province]).toBe(r.count);

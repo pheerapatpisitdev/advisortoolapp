@@ -1,0 +1,729 @@
+{
+ "note": "Department numbers of hospitals on ktaxa-network.json, each read on the hospital's own website on checkedAt. Not test-called. Keyed by the network list's id.",
+ "checkedAt": "2026-11-24",
+ "departments": {
+  "b-care-medical-center-hospital": {
+   "th": "โรงพยาบาลบี.แคร์ เมดิคอลเซ็นเตอร์",
+   "insurance": [
+    "ผู้ป่วยนอก 0 2532 4444 ต่อ 3544, 1131",
+    "ผู้ป่วยใน 0 2532 4444 ต่อ 3554",
+    "UR Nurse 0 2532 4444 ต่อ 3405, 3311"
+   ],
+   "room": [
+    "0 2532 4444 ต่อ 1101, 1126"
+   ],
+   "appointment": [],
+   "reception": [],
+   "source": "www.bcaremedicalcenter.com"
+  },
+  "bangkok-chiangrai-hospital": {
+   "th": "โรงพยาบาลกรุงเทพเชียงราย",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-hospital": {
+   "th": "โรงพยาบาลกรุงเทพ",
+   "insurance": [
+    "1719",
+    "0 2310 3000"
+   ],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-hospital-hatyai": {
+   "th": "โรงพยาบาลกรุงเทพหาดใหญ่",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-hospital-huahin": {
+   "th": "โรงพยาบาลกรุงเทพหัวหิน",
+   "insurance": [
+    "0 3261 6854"
+   ],
+   "room": [],
+   "appointment": [
+    "0 3261 6800"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-hospital-khonkaen": {
+   "th": "โรงพยาบาลกรุงเทพขอนแก่น",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-hospital-ratchasima": {
+   "th": "โรงพยาบาลกรุงเทพราชสีมา",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-hospital-surat": {
+   "th": "โรงพยาบาลกรุงเทพสุราษฎร์",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-hospital-udon": {
+   "th": "โรงพยาบาลกรุงเทพอุดร",
+   "insurance": [
+    "09 1576 4879"
+   ],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-pattaya-hospital": {
+   "th": "โรงพยาบาลกรุงเทพพัทยา",
+   "insurance": [
+    "0 3890 9100 ต่อ 3298, 3297, 3244, 3247",
+    "ผู้ป่วยนอก 0 3825 9914",
+    "ผู้ป่วยใน 0 3890 9335"
+   ],
+   "room": [
+    "0 3890 9329",
+    "0 3890 9088"
+   ],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [
+    "ทะเบียน 0 3825 9999 ต่อ 2169-70"
+   ],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-phitsanulok-hospital": {
+   "th": "โรงพยาบาลกรุงเทพพิษณุโลก",
+   "insurance": [
+    "1724",
+    "09 0907 8780"
+   ],
+   "room": [],
+   "appointment": [],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-sanamchan-hospital": {
+   "th": "โรงพยาบาลกรุงเทพสนามจันทร์",
+   "insurance": [
+    "0 3421 9600 ต่อ 2240-2243"
+   ],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkok-trat-hospital": {
+   "th": "โรงพยาบาลกรุงเทพตราด",
+   "insurance": [
+    "0 3955 2789 ต่อ 2650"
+   ],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkokchiangmai-hospital": {
+   "th": "โรงพยาบาลกรุงเทพเชียงใหม่",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkokhospitalrayong": {
+   "th": "โรงพยาบาลกรุงเทพระยอง",
+   "insurance": [
+    "0 3892 1999"
+   ],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "bangkokphetchaburi-hospital": {
+   "th": "โรงพยาบาลกรุงเทพเพชรบุรี",
+   "insurance": [
+    "0 3289 7888"
+   ],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "banphaeo-general-hospital": {
+   "th": "โรงพยาบาลบ้านแพ้ว (องค์การมหาชน)",
+   "insurance": [
+    "0 3441 9555 ต่อ 9028"
+   ],
+   "room": [],
+   "appointment": [
+    "0 3441 9085",
+    "0 3441 9555 ต่อ 4003, 4013"
+   ],
+   "reception": [
+    "0 3441 9555 ต่อ 1023"
+   ],
+   "source": "www.bphosp.or.th"
+  },
+  "bumrungrad-hospital": {
+   "th": "โรงพยาบาลบำรุงราษฎร์ อินเตอร์เนชั่นแนล",
+   "insurance": [
+    "0 2066 8888"
+   ],
+   "room": [],
+   "appointment": [
+    "0 2066 8888",
+    "1378"
+   ],
+   "reception": [
+    "0 2066 8888"
+   ],
+   "source": "www.bumrungrad.com"
+  },
+  "chularat-9-hospital-kingkaew": {
+   "th": "โรงพยาบาลจุฬารัตน์ 9 แอร์พอร์ต",
+   "insurance": [
+    "UR Nurse 08 1828 0651",
+    "ลูกค้าประกันชีวิต 06 4242 6156"
+   ],
+   "room": [],
+   "appointment": [],
+   "reception": [],
+   "source": "ch9airport.com"
+  },
+  "heart-kku-hospital": {
+   "th": "ศูนย์หัวใจสิริกิติ์ ภาคตะวันออกเฉียงเหนือ",
+   "insurance": [
+    "06 6095 5609"
+   ],
+   "room": [
+    "0 4323 2700 ต่อ 68121, 68128"
+   ],
+   "appointment": [],
+   "reception": [],
+   "source": "heart.kku.ac.th"
+  },
+  "kasemrad-aranyaprathet": {
+   "th": "โรงพยาบาลเกษมราษฎร์อินเตอร์เนชั่นแนล อรัญประเทศ",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1218"
+   ],
+   "reception": [],
+   "source": "www.kasemrad.co.th"
+  },
+  "kasemrad-bangkae-hospital": {
+   "th": "โรงพยาบาลเกษมราษฎร์บางแค",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1218"
+   ],
+   "reception": [],
+   "source": "www.kasemrad.co.th"
+  },
+  "kasemrad-hospital-saraburi": {
+   "th": "โรงพยาบาลเกษมราษฎร์สระบุรี",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1218"
+   ],
+   "reception": [],
+   "source": "www.kasemrad.co.th"
+  },
+  "kasemrad-maesai-hospital": {
+   "th": "โรงพยาบาลเกษมราษฎร์ แม่สาย",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1218"
+   ],
+   "reception": [],
+   "source": "www.kasemrad.co.th"
+  },
+  "kasemrad-ramkhamhaeng-hospital": {
+   "th": "โรงพยาบาลเกษมราษฎร์รามคำแหง",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1218"
+   ],
+   "reception": [],
+   "source": "www.kasemrad.co.th"
+  },
+  "kasemrad-ratanathabet-international-hospital": {
+   "th": "โรงพยาบาลเกษมราษฎร์อินเตอร์เนชั่นแนล รัตนาธิเบศร์",
+   "insurance": [
+    "1218 กด 2"
+   ],
+   "room": [],
+   "appointment": [],
+   "reception": [],
+   "source": "kasemradinter.com"
+  },
+  "kasemrad-sriburin-hospital": {
+   "th": "โรงพยาบาลเกษมราษฎร์ศรีบุรินทร์",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1218"
+   ],
+   "reception": [],
+   "source": "www.kasemrad.co.th"
+  },
+  "king-taksin-maharat-hospital": {
+   "th": "โรงพยาบาลสมเด็จพระเจ้าตากสินมหาราช",
+   "insurance": [
+    "0 5551 1024 ต่อ 1088"
+   ],
+   "room": [
+    "0 5551 1024 ต่อ 1088"
+   ],
+   "appointment": [],
+   "reception": [
+    "เวชระเบียน 0 5551 1024 ต่อ 1048, 1002"
+   ],
+   "source": "www.tsm.go.th"
+  },
+  "krabi-hospital": {
+   "th": "โรงพยาบาลกระบี่",
+   "insurance": [],
+   "room": [],
+   "appointment": [],
+   "reception": [
+    "0 7562 6700 ต่อ 0"
+   ],
+   "source": "www.krabihospital.go.th"
+  },
+  "maharaj-nakorn-si-thammarat-hospital": {
+   "th": "โรงพยาบาลมหาราชนครศรีธรรมราช",
+   "insurance": [],
+   "room": [
+    "เบอร์กลาง ต่อ 1009"
+   ],
+   "appointment": [],
+   "reception": [
+    "เบอร์กลาง ต่อ 4000, 4003"
+   ],
+   "source": "www.mnst.go.th"
+  },
+  "med-cmu-hospital": {
+   "th": "โรงพยาบาลมหาราชนครเชียงใหม่",
+   "insurance": [
+    "0 5393 6193"
+   ],
+   "room": [],
+   "appointment": [],
+   "reception": [
+    "เวชระเบียน 0 5393 5636"
+   ],
+   "source": "www.med.cmu.ac.th"
+  },
+  "mission-hospital": {
+   "th": "โรงพยาบาลมิชชั่น",
+   "insurance": [],
+   "room": [
+    "0 2282 1100 ต่อ 100"
+   ],
+   "appointment": [],
+   "reception": [],
+   "source": "www.mission-hospital.org"
+  },
+  "nonthavej-hospital": {
+   "th": "โรงพยาบาลนนทเวช",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "0 2596 7888"
+   ],
+   "reception": [],
+   "source": "www.nonthavej.co.th"
+  },
+  "north-eastern-wattana-general-hospital": {
+   "th": "โรงพยาบาลนอร์ทอิสเทอร์น วัฒนา",
+   "insurance": [
+    "08 6312 0257",
+    "0 4221 9888 ต่อ 318, 109"
+   ],
+   "room": [],
+   "appointment": [],
+   "reception": [],
+   "source": "wattanahospital.net"
+  },
+  "paolo-chokchai4-hospital": {
+   "th": "โรงพยาบาลเปาโล โชคชัย 4",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1772"
+   ],
+   "reception": [],
+   "source": "www.paolohospital.com"
+  },
+  "paolo-hospital-rangsit": {
+   "th": "โรงพยาบาลเปาโล รังสิต",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1772"
+   ],
+   "reception": [],
+   "source": "www.paolohospital.com"
+  },
+  "paolo-kaset-hospital": {
+   "th": "โรงพยาบาลเปาโล เกษตร",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1772"
+   ],
+   "reception": [],
+   "source": "www.paolohospital.com"
+  },
+  "paolo-memorial-hospital-samutprakarn": {
+   "th": "โรงพยาบาลเปาโล สมุทรปราการ",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1772"
+   ],
+   "reception": [],
+   "source": "www.paolohospital.com"
+  },
+  "paolo-phrapradaeng-hospital": {
+   "th": "โรงพยาบาลเปาโล พระประแดง",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1772"
+   ],
+   "reception": [],
+   "source": "www.paolohospital.com"
+  },
+  "peravech-hospital": {
+   "th": "โรงพยาบาลพีรเวช",
+   "insurance": [
+    "0 3580 1555 ต่อ 222"
+   ],
+   "room": [
+    "0 3580 1555"
+   ],
+   "appointment": [
+    "0 3580 1555"
+   ],
+   "reception": [
+    "0 3580 1555"
+   ],
+   "source": "peravech.com"
+  },
+  "phuket-hospital": {
+   "th": "โรงพยาบาลกรุงเทพภูเก็ต",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "phuket-international-hospital": {
+   "th": "โรงพยาบาลกรุงเทพสิริโรจน์",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1719"
+   ],
+   "reception": [],
+   "source": "www.bangkokhospital.com"
+  },
+  "phyathai-phaholyothin-hospital": {
+   "th": "โรงพยาบาลพญาไท พหลโยธิน",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1772"
+   ],
+   "reception": [],
+   "source": "www.paolohospital.com"
+  },
+  "praram-9-hospital": {
+   "th": "โรงพยาบาลพระรามเก้า",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "1270"
+   ],
+   "reception": [],
+   "source": "www.praram9.com"
+  },
+  "rajavithi-hospital": {
+   "th": "โรงพยาบาลราชวิถี",
+   "insurance": [],
+   "room": [
+    "0 2206 2900 ต่อ 10110-11"
+   ],
+   "appointment": [],
+   "reception": [
+    "0 2206 2900"
+   ],
+   "source": "www.rajavithi.go.th"
+  },
+  "rajthanee-rojana-hospital": {
+   "th": "โรงพยาบาลราชธานีโรจนะ",
+   "insurance": [],
+   "room": [
+    "0 3524 9249 ต่อ 0, 122"
+   ],
+   "appointment": [],
+   "reception": [],
+   "source": "rajthanee-rojana.com"
+  },
+  "saintlouis-hospital": {
+   "th": "โรงพยาบาลเซนต์หลุยส์",
+   "insurance": [
+    "0 2838 5555 ต่อ 10160-4"
+   ],
+   "room": [
+    "0 2838 5555 ต่อ 10151-3"
+   ],
+   "appointment": [
+    "0 2838 5555 กด 0"
+   ],
+   "reception": [],
+   "source": "www.saintlouis.or.th"
+  },
+  "sriphat-medical-center": {
+   "th": "ศูนย์ศรีพัฒน์",
+   "insurance": [
+    "09 5767 7375",
+    "UR Nurse 0 5393 4551"
+   ],
+   "room": [],
+   "appointment": [],
+   "reception": [],
+   "source": "sriphat.med.cmu.ac.th"
+  },
+  "thainakarin-hospital": {
+   "th": "โรงพยาบาลไทยนครินทร์",
+   "insurance": [
+    "0 2361 2727 ต่อ 1888, 1988"
+   ],
+   "room": [],
+   "appointment": [
+    "0 2340 7777"
+   ],
+   "reception": [],
+   "source": "thainakarin.co.th"
+  },
+  "thammasat-university-hospital": {
+   "th": "โรงพยาบาลธรรมศาสตร์เฉลิมพระเกียรติ มหาวิทยาลัยธรรมศาสตร์",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "ในเวลาราชการ 0 2926 9991",
+    "นอกเวลา 0 2926 9860"
+   ],
+   "reception": [
+    "0 2926 9999"
+   ],
+   "source": "hospital.tu.ac.th"
+  },
+  "vachiraphuket-hospital": {
+   "th": "โรงพยาบาลวชิระภูเก็ต",
+   "insurance": [
+    "0 7636 1234 ต่อ 6702"
+   ],
+   "room": [
+    "0 7636 1234 ต่อ 1173",
+    "นอกเวลา ต่อ 1170"
+   ],
+   "appointment": [],
+   "reception": [
+    "เวชระเบียน 0 7636 1234 ต่อ 1170"
+   ],
+   "source": "www.vachiraphuket.go.th"
+  },
+  "vibharam-amata-hospital": {
+   "th": "โรงพยาบาลวิภารามอมตะนคร",
+   "insurance": [],
+   "room": [
+    "0 3326 5599 ต่อ 2161, 2120, 2121"
+   ],
+   "appointment": [],
+   "reception": [
+    "เวชระเบียน 0 3326 5599 ต่อ 2108, 2109"
+   ],
+   "source": "vibharamamata.com"
+  },
+  "vibharam-hospital": {
+   "th": "โรงพยาบาลวิภาราม",
+   "insurance": [],
+   "room": [
+    "0 2032 2550 ต่อ 2010, 2165"
+   ],
+   "appointment": [],
+   "reception": [
+    "ลูกค้าสัมพันธ์ 0 2032 2550 ต่อ 3113"
+   ],
+   "source": "vibharam.com"
+  },
+  "vibharam-pakkred-hospital": {
+   "th": "โรงพยาบาลวิภาราม ปากเกร็ด",
+   "insurance": [],
+   "room": [
+    "0 2092 4900 ต่อ 109"
+   ],
+   "appointment": [],
+   "reception": [
+    "เวชระเบียน 0 2092 4900 ต่อ 100"
+   ],
+   "source": "www.vibharampakkred.com"
+  },
+  "vibharaml-laemchabang-hospital": {
+   "th": "โรงพยาบาลวิภารามแหลมฉบัง",
+   "insurance": [],
+   "room": [
+    "0 3300 9800 ต่อ 1116, 1117"
+   ],
+   "appointment": [],
+   "reception": [
+    "เวชระเบียน 0 3300 9800 ต่อ 1102, 1103"
+   ],
+   "source": "www.vibharamlcb.com"
+  },
+  "vibhavadi-hospital": {
+   "th": "โรงพยาบาลวิภาวดี",
+   "insurance": [
+    "Fax Claim 0 2561 1111 ต่อ 2232-3",
+    "UR Nurse 0 2561 1111 ต่อ 4537"
+   ],
+   "room": [
+    "0 2561 1111 ต่อ 4137, 4139"
+   ],
+   "appointment": [],
+   "reception": [
+    "ลงทะเบียน 0 2561 1111 ต่อ 2105-7"
+   ],
+   "source": "www.vibhavadi.com"
+  },
+  "vichaivej-international-omnoi-hospital": {
+   "th": "โรงพยาบาลวิชัยเวช อินเตอร์เนชั่นแนล สมุทรสาคร",
+   "insurance": [],
+   "room": [],
+   "appointment": [
+    "0 3441 0700-6"
+   ],
+   "reception": [],
+   "source": "www.vichaivej.com"
+  },
+  "vichaivej-nongkhaem-hospital": {
+   "th": "โรงพยาบาลวิชัยเวช อินเตอร์เนชั่นแนล หนองแขม",
+   "insurance": [
+    "0 2441 6999"
+   ],
+   "room": [],
+   "appointment": [
+    "0 2441 6999"
+   ],
+   "reception": [],
+   "source": "vichaivej-nongkhaem.com"
+  },
+  "vichaivej-yaekfaichai-hospital": {
+   "th": "โรงพยาบาลวิชัยเวช แยกไฟฉาย",
+   "insurance": [
+    "0 2441 7899"
+   ],
+   "room": [],
+   "appointment": [],
+   "reception": [],
+   "source": "www.vichaivej.com"
+  },
+  "vichaiyut-hospital": {
+   "th": "โรงพยาบาลวิชัยยุทธ",
+   "insurance": [
+    "UR Nurse 0 2265 7777 ต่อ 51476-78"
+   ],
+   "room": [
+    "0 2265 7777 ต่อ 51442-43"
+   ],
+   "appointment": [
+    "0 2265 7777"
+   ],
+   "reception": [],
+   "source": "www.vichaiyut.com"
+  },
+  "watthanaphaet-trang-hospital": {
+   "th": "โรงพยาบาลวัฒนแพทย์ ตรัง",
+   "insurance": [
+    "0 7520 5412"
+   ],
+   "room": [],
+   "appointment": [],
+   "reception": [],
+   "source": "wattanapat.co.th"
+  },
+  "world-medical-hospital": {
+   "th": "โรงพยาบาลเวิลด์เมดิคอล",
+   "insurance": [
+    "0 2836 9999 ต่อ 2172-3"
+   ],
+   "room": [],
+   "appointment": [],
+   "reception": [],
+   "source": "theworldmedicalhospital.com"
+  },
+  "yanhee-hospital": {
+   "th": "โรงพยาบาลยันฮี",
+   "insurance": [],
+   "room": [
+    "0 2879 0300 ต่อ 10157-58"
+   ],
+   "appointment": [],
+   "reception": [],
+   "source": "th.yanhee.net"
+  }
+ }
+}

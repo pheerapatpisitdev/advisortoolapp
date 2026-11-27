@@ -1,5 +1,5 @@
 import { medicalPlansAt } from "@/lib/lifeprotect-quote";
-import { lifeProtectTable, type LifeProtectIllness, type LifeProtectSharedCap } from "@/lib/lifeprotect-table";
+import { lifeProtectTable, type LifeProtectIllness, type LifeProtectSharedCap, type LifeProtectTable } from "@/lib/lifeprotect-table";
 
 /**
  * What the วิดีโอนำเสนอ form needs to offer Life Protect's riders itself (owner, 2026-11-18, ข):
@@ -16,8 +16,8 @@ export interface LpRiderMenu {
   accidentCap?: LifeProtectSharedCap;
 }
 
-export function lpRiderMenu(today: Date = new Date()): LpRiderMenu {
-  const t = lifeProtectTable(today);
+/** `t`: the table whose riders are offered — Life Protect's, or 12 พีแอล's (owner, 2026-11-26), whose page sells the same ones */
+export function lpRiderMenu(today: Date = new Date(), t: LifeProtectTable = lifeProtectTable(today)): LpRiderMenu {
   const wp = t.riders[0];
   const meb = t.medical;
   return {

@@ -29,6 +29,11 @@ describe("ประวัติการทำงาน lines", () => {
     expect(h.find((x) => x.kind === "money")?.satang).toBe(-1000);
   });
 
+  it("names an ad clip วิดีโอโฆษณา and opens the ad page, not วิดีโอนำเสนอ (owner, 2026-11-22)", () => {
+    const [h] = buildHistory({ ...empty, videos: [{ id: "v9", createdAt: "2026-11-22T03:00:00Z", product: "ISHIELD", fhc: false, motion: true, customer: "", status: "drawing", ad: true }] });
+    expect([h.title, h.href]).toEqual(["วิดีโอโฆษณา iShield", "/studio/ad-video"]);
+  });
+
   it("sends an ad piece to its campaign, not the write page", () => {
     const [h] = buildHistory({ ...empty, pieces: [{ id: "p2", createdAt: "2026-10-01T00:00:00Z", format: "ad", planName: "iShield", hook: "", campaignId: "k9" }] });
     expect([h.title, h.note, h.href]).toEqual(["เขียนแอด · iShield", "", "/studio/ads/k9"]);

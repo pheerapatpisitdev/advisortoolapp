@@ -5,6 +5,7 @@
  */
 export const TOOL_LOGOS = {
   qv: "Qv", // วิดีโอนำเสนอ · Quote video
+  av: "Av", // วิดีโอโฆษณา · Ad video
   sc: "Sc", // คลิปเล่าเรื่อง · Story clip
   pc: "Pc", // คลิปตามโจทย์ · Prompt clip
   og: "Og", // Organic Studio

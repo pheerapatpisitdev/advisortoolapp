@@ -1,6 +1,7 @@
 import { paidConstantly } from "@/app/api/card/table/pen-notes";
 // บำนาญ 95's table notes are written in the same face (pension-table.tsx)
 import { PENSION_PEN_TEXT } from "@/lib/pension-pen-notes";
+import { paidUpOf } from "./easyprotect";
 import type { QuoteVideoFacts } from "./script";
 import { LEAD, wordTimes } from "./timeline";
 
@@ -45,8 +46,13 @@ export function penBeats(f: QuoteVideoFacts): PenBeat[] {
   const last = lastPaying(f);
   const out: PenBeat[] = [];
   if (paidConstantly({ rows }) !== undefined) out.push("steady");
-  if (last >= 0 && last < rows.length - 1) out.push("stop");
-  if (be >= 4) out.push("growth");
+  // … and for the oldest they are the chart's top, with no room over them for the stop's
+  const pu = paidUpOf(f);
+  const high = pu !== undefined && pu.paid > pu.endCash * 0.95;
+  if (last >= 0 && last < rows.length - 1 && !high) out.push("stop");
+  // อีซี่ โพรเทค 6 (and ไลฟ์เทรเชอร์) for the young: the six premiums are a low line and the break-even an early one, with no room under it for these words
+  const cramped = pu !== undefined && pu.paid < pu.endCash * 0.38;
+  if (be >= 4 && !cramped) out.push("growth");
   if (be > 0) out.push("breakEven");
   if (be >= 0 && rows.length - (be + 1) >= 4) out.push("gain");
   return out;
@@ -54,10 +60,10 @@ export function penBeats(f: QuoteVideoFacts): PenBeat[] {
 
 /**
  * The word each note waits for in the value line (script.ts): "ออมครบตอนอายุ 53", "เงินก็ยังโต",
- * "พออายุ 64", "มากกว่าที่ออมไป". Should a line ever be worded otherwise, a note falls back to its
+ * "พออายุ 64", "มากกว่าที่ออมไป" (อีซี่ โพรเทค 6: "ครบเท่าที่ออมไป"). Should a line ever be worded otherwise, a note falls back to its
  * share of the line.
  */
-const CUE: Record<PenBeat, RegExp | undefined> = { steady: undefined, stop: /ครบ/, growth: /โต/, breakEven: /^พออายุ|ขอคืน/, gain: /^มากกว่า/ };
+const CUE: Record<PenBeat, RegExp | undefined> = { steady: undefined, stop: /ครบ/, growth: /โต/, breakEven: /^พออายุ|ขอคืน/, gain: /^(มากกว่า|ครบเท่า)/ };
 const SHARE: Record<PenBeat, number> = { steady: 0.03, stop: 0.25, growth: 0.4, breakEven: 0.55, gain: 0.85 };
 
 /** When the voice reaches each note, in scene seconds, never earlier than the one before. */

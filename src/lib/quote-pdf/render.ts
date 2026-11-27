@@ -1,5 +1,5 @@
 import { PRINT_COOKIE, printPassFor } from "@/lib/auth/print-pass";
-import { printPdfThere, drawServiceSet, type PrintCookie } from "@/lib/draw/remote";
+import { printPdfThere, shootPagesThere, drawServiceSet, type PrintCookie } from "@/lib/draw/remote";
 import { LANG_COOKIE } from "@/lib/ihealthy-lang";
 import type { PrintedLang } from "@/lib/quote-pdf/langs";
 
@@ -26,4 +26,21 @@ export async function renderQuotePdf(url: string, opts: { timeoutMs?: number; la
     }
   }
   return (await import("@/lib/quote-pdf/print")).printPdfHere(url, { timeoutMs, cookies, ...(opts.lang ? { lang: opts.lang } : {}) });
+}
+
+/**
+ * One of our pages as pictures, one per A4 sheet (the group quotation's "บันทึกรูป"): on the
+ * draw service when it is set, here when it is not or did not answer, as the PDF above.
+ */
+export async function renderPagePictures(url: string, opts: { timeoutMs?: number } = {}): Promise<Buffer[]> {
+  const timeoutMs = opts.timeoutMs ?? 45_000;
+  const cookies: PrintCookie[] = [{ name: PRINT_COOKIE, value: printPassFor(), httpOnly: true }];
+  if (drawServiceSet()) {
+    try {
+      return await shootPagesThere(url, { timeoutMs, cookies });
+    } catch (e) {
+      console.warn("draw: pictures taken here, the service failed:", e instanceof Error ? e.message : e);
+    }
+  }
+  return (await import("@/lib/quote-pdf/print")).shootPagesHere(url, { timeoutMs, cookies });
 }

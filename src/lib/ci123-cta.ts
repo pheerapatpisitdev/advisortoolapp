@@ -20,6 +20,12 @@ export function stagePays(stage: Pick<Ci123Stage, "share" | "cap">, sum: number)
   return stage.cap === null ? raw : Math.min(raw, stage.cap);
 }
 
+/**
+ * The seven CI 123 sums the page sells, smallest first (data/bundles/ci123.json's tiers, which
+ * ci123-table.ts reads): here as plain figures for the Studio form, which runs in the browser.
+ */
+export const CI123_SUMS = [500_000, 1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000, 10_000_000];
+
 /** A CI 123 sum as a person says it: "5 แสน", "1 ล้าน". */
 export function sumWords(sum: number): string {
   return sum < 1_000_000

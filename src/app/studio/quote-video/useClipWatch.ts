@@ -2,6 +2,7 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { Board } from "@/lib/quote-video/board";
 import { clipsMaking, myVideos, type VideoItem } from "./actions";
+import { shelfSize } from "./shelf";
 
 /** how often a board asks after the clips it is waiting on */
 const EVERY_MS = 5000;
@@ -30,7 +31,7 @@ export function useClipWatch(
       try {
         const now = await clipsMaking(waiting);
         if (now.length !== waiting.length || now.some((c) => c.status !== "drawing" && c.status !== "rendering")) {
-          setItems(await myVideos(board));
+          setItems(await myVideos(board, shelfSize(board)));
           return;
         }
         const by = new Map(now.map((c) => [c.id, c]));

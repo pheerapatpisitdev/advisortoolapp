@@ -1,3 +1,4 @@
+import { CPR_STAGES } from "@/lib/cancer-benefits";
 import { iHealthyFacts } from "@/lib/ihealthy-facts";
 import { iShieldFacts } from "@/lib/ishield-facts";
 import { legacyTable } from "@/lib/legacy-table";
@@ -25,8 +26,11 @@ export interface SpokenQa { key: string; q: string; a: string }
 /** Global Savings' own figures for its answers (gsaving.ts GsVideoFacts); absent = 15/8's */
 export type GsQaFacts = { payYears: number; term: number; maturityPct: number; bonusYears: number[] };
 
+/** 12 พีแอล's own figures for its answers (twelvepl.ts TwelvePlVideoFacts); `tax` absent = no tax relief said */
+export type TpQaFacts = { payYears: number; coverToAge: number; maturityPct: number; tax?: number; dividend?: unknown };
+
 /** `variant`: Protection Life's term, which decides whether tax relief is answered at all */
-export function productQas(product: Product, variant?: string, gs?: GsQaFacts): SpokenQa[] {
+export function productQas(product: Product, variant?: string, gs?: GsQaFacts, tp?: TpQaFacts): SpokenQa[] {
   switch (product) {
     case "LIFEPROTECT":
       return [
@@ -88,6 +92,75 @@ export function productQas(product: Product, variant?: string, gs?: GsQaFacts): 
         { key: "years", q: "ต้องออมกี่ปี", a: `ออม ${gs?.payYears ?? 8} ปีค่ะ ครบสัญญาปีที่ ${gs?.term ?? 15} ระหว่างนั้นยังคุ้มครองชีวิตด้วย` },
         { key: "min", q: "ออมขั้นต่ำเท่าไหร่", a: "ขั้นต่ำปีละ 20,000 บาทค่ะ" },
       ];
+    // อีซี่ โพรเทค 6 (owner, 2026-11-26): its page's own lines (EasyProtectCalculator.tsx, plan-notes.ts)
+    case "EASYPROTECT":
+      return [
+        { key: "years", q: "ต้องออมกี่ปี", a: "ออม 6 ปีค่ะ หลังจากนั้นไม่ต้องจ่ายอีก แต่คุ้มครองไปถึงอายุ 99" },
+        { key: "level", q: "ยอดออมขึ้นตามอายุไหม", a: "ไม่ขึ้นค่ะ ล็อกตามอายุวันที่เริ่ม เท่าเดิมตลอด 6 ปี" },
+        { key: "floor", q: "ถ้าเป็นอะไรไป ครอบครัวได้เท่าไหร่", a: "ได้ตามทุนค่ะ และไม่น้อยกว่า 101% ของที่ออมมาแล้ว" },
+        { key: "back", q: "ถ้าอยากได้เงินคืนล่ะ", a: "มีมูลค่าเงินสดโตทุกปีค่ะ ขอคืนได้ตามตาราง แต่ถ้าขอคืนเร็วอาจได้น้อยกว่าที่ออม" },
+      ];
+    // ไลฟ์เทรเชอร์ (owner, 2026-11-26): its page's own lines (LifeTreasureCalculator.tsx, numbers-cases/lifetreasure.ts)
+    case "LIFETREASURE":
+      return [
+        { key: "years", q: "เลือกจ่ายกี่ปีได้บ้าง", a: "เลือกได้ 6 ปี 12 ปี หรือ 18 ปีค่ะ จ่ายครบแล้วคุ้มครองต่อไปถึงอายุ 99" },
+        { key: "level", q: "ยอดออมขึ้นตามอายุไหม", a: "ไม่ขึ้นค่ะ ล็อกตามอายุวันที่เริ่ม เท่าเดิมตลอดระยะที่จ่าย" },
+        { key: "floor", q: "ครอบครัวได้เท่าไหร่", a: "ได้ตามทุนที่ระบุไว้ค่ะ ไม่ขึ้นกับตลาด และไม่น้อยกว่า 101% ของที่ออมมาแล้ว" },
+        { key: "share", q: "แบ่งให้หลายคนได้ไหม", a: "ได้ค่ะ แบ่งให้ใครเท่าไรก็ระบุได้" },
+        { key: "back", q: "ถ้าอยากได้เงินคืนล่ะ", a: "มีมูลค่าเงินสดโตทุกปีค่ะ ขอคืนได้ตามตาราง แต่ถ้าขอคืนเร็วอาจได้น้อยกว่าที่ออม" },
+      ];
+    // CI 123 (owner, 2026-11-26): the page's and the chat's own lines (Ci123Calculator.tsx, copilot/knowledge.ts CI123_SECTION)
+    case "CI123":
+      return [
+        { key: "waiting", q: "ทำแล้วคุ้มครองโรคร้ายแรงเลยไหม", a: "โรคร้ายแรงเริ่มคุ้มครองหลัง 90 วันแรก เป็นเงื่อนไขมาตรฐานของประกันโรคร้ายแรงค่ะ" },
+        { key: "again", q: "เคลมได้หลายครั้งไหม", a: "ได้ค่ะ เคลมระยะแรกแล้ว ยังเคลมระยะถัดไปได้ ระยะรุนแรงจ่ายเต็มทุน หักส่วนที่รับไปแล้ว" },
+        { key: "rises", q: "ยอดออมขึ้นทุกปีไหม", a: "ส่วน CI 123 ปรับตามอายุทุกปีค่ะ ตัวเลขในคลิปนี้คือปีแรก" },
+        { key: "base", q: "ทำ CI 123 อย่างเดียวได้ไหม", a: "ต้องคู่กับแบบหลักค่ะ ชุดนี้คู่กับ Life Protect x2 ทุน 150,000 บาท ยอดออมรวมทั้งสองสัญญาแล้ว" },
+        { key: "lump", q: "จ่ายเป็นค่ารักษาหรือเงินก้อน", a: "เป็นเงินก้อนค่ะ ตามระยะของโรคที่ตรวจพบ" },
+      ];
+    // ประกันมะเร็ง (owner, 2026-11-26): the page's own lines (CancerCalculator.tsx, cancer-benefits.ts)
+    case "CANCER": {
+      const days = CPR_STAGES.map((s) => s.waitingDays);
+      const again = CPR_STAGES.flatMap((s, i) => (s.repeatable ? [i + 1] : []));
+      return [
+        { key: "waiting", q: "ทำแล้วคุ้มครองมะเร็งเลยไหม", a: `มีระยะรอคอย ${Math.min(...days)} ถึง ${Math.max(...days)} วันแล้วแต่ขั้นค่ะ เป็นเงื่อนไขปกติของประกันมะเร็ง` },
+        { key: "again", q: "เคลมได้หลายครั้งไหม", a: `ขั้น ${again.join(" และขั้น ")} เคลมซ้ำได้ค่ะ รวมกันไม่เกินทุน ระยะลุกลามจ่ายเต็มทุน หักส่วนที่รับไปแล้ว` },
+        { key: "rises", q: "ยอดออมขึ้นทุกปีไหม", a: "ส่วนคุ้มครองมะเร็งและค่าชดเชยรายวัน ปรับตามอายุทุกปีค่ะ ตัวเลขในคลิปนี้คือปีแรก" },
+        { key: "base", q: "ทำประกันมะเร็งอย่างเดียวได้ไหม", a: "ต้องคู่กับแบบหลักค่ะ ชุดนี้คู่กับ Life Protect x2 ยอดออมรวมทุกสัญญาไว้แล้ว" },
+        { key: "lump", q: "จ่ายเป็นค่ารักษาหรือเงินก้อน", a: "ส่วนมะเร็งจ่ายเป็นเงินก้อนตามขั้นที่ตรวจพบค่ะ และยังมีค่าชดเชยรายวันตอนนอนโรงพยาบาลอีก" },
+      ];
+    }
+    // PA (owner, 2026-11-26): the /pa page's own lines (pa-words.ts: its facts, small print and footnote; pa-plans.ts),
+    // and the bot's rule that the company sets the class on applying (copilot/pa-price.ts)
+    case "PA":
+      return [
+        { key: "age", q: "อายุมากขึ้น ราคาขึ้นไหม", a: "ไม่ขึ้นค่ะ ราคาตามแผนและขั้นอาชีพ ไม่ขึ้นกับอายุหรือเพศ" },
+        { key: "where", q: "คุ้มครองที่ไหนบ้าง", a: "คุ้มครอง 24 ชั่วโมง ทั่วโลกค่ะ" },
+        { key: "renew", q: "ต้องต่ออายุทุกปีไหม", a: "เป็นสัญญาปีต่อปีค่ะ ต่ออายุต่อเนื่อง ทุนเพิ่มขึ้นทุกปีจนถึงปีที่ 6 ถ้าต่อเกิน 31 วันหลังครบกำหนด ถือเป็นการซื้อใหม่" },
+        { key: "class", q: "ขั้นอาชีพดูจากอะไร", a: "ดูจากลักษณะงานค่ะ บริษัทเป็นผู้กำหนดขั้นอาชีพตอนสมัคร ขั้น 4 ไม่รับทุกแบบ" },
+        { key: "bike", q: "ขี่มอเตอร์ไซค์คุ้มครองไหม", a: "คุ้มครองค่ะ ทั้งขับขี่และโดยสาร ตามทุนมอเตอร์ไซค์ของแผน" },
+      ];
+    // 12 พีแอล (owner, 2026-11-26): the plan's own rules, as the bots say them (src/lib/copilot/knowledge.ts)
+    case "TWELVEPL":
+      return [
+        { key: "sure", q: "ส่วนไหนได้แน่นอน", a: `เงินคืนทุกปี กับเงินครบสัญญา ${tp?.maturityPct ?? 115}% ของทุน ได้แน่นอนเมื่อถือครบถึงอายุ ${tp?.coverToAge ?? 85} ค่ะ${tp?.dividend ? " ส่วนปันผลไม่แน่นอน" : ""}` },
+        { key: "back", q: "เงินคืนเริ่มเมื่อไหร่", a: "เริ่มสิ้นปีที่ 2 ค่ะ ที่ 0.25% ของทุน เพิ่มขึ้นทุกปีจนถึง 1% ตั้งแต่ปีที่ 17" },
+        { key: "years", q: "ต้องออมกี่ปี", a: `ออม ${tp?.payYears ?? 12} ปีค่ะ แล้วคุ้มครองต่อจนถึงอายุ ${tp?.coverToAge ?? 85}` },
+        ...(tp?.tax !== undefined ? [{ key: "tax", q: "ลดหย่อนภาษีได้ไหม", a: "ได้ค่ะ ตามที่ออมจริง สูงสุด 100,000 บาทต่อปี นับรวมกับประกันชีวิตฉบับอื่น ตามเกณฑ์สรรพากร" }] : []),
+        { key: "life", q: "ถ้าเป็นอะไรไปก่อน ได้เท่าไหร่", a: "ครอบครัวได้เต็มทุนค่ะ" },
+      ];
+    // ประกันกลุ่ม (owner, 2026-11-26): the /group-insurance page's own rules (quote.ts: the band is the whole company's
+    // head count; GroupCard.tsx: a rider one plan above at most; the PA tab's conditions), by kind (`variant`)
+    case "GROUP": {
+      const pa = variant === "pa";
+      return [
+        { key: "size", q: "บริษัทเล็กทำได้ไหม", a: pa ? "ได้ค่ะ ประกันอุบัติเหตุกลุ่มรับตั้งแต่ 5 ถึง 2,000 คน ยิ่งคนรวมมาก อัตราต่อคนยิ่งถูกลง" : "ได้ค่ะ ประกันสุขภาพกลุ่มรับตั้งแต่ 10 ถึง 100 คน ยิ่งคนรวมมาก อัตราต่อคนยิ่งถูกลง" },
+        { key: "groups", q: "แต่ละแผนกเลือกแผนต่างกันได้ไหม", a: "ได้ค่ะ แบ่งพนักงานเป็นหลายกลุ่ม แต่ละกลุ่มเลือกแผนเองได้ ราคาคิดจากจำนวนคนรวมทั้งบริษัท" },
+        { key: "biz", q: "ลักษณะธุรกิจมีผลไหม", a: pa ? "มีค่ะ ความเสี่ยงของงานต่างกัน ราคาจึงต่างกัน แบ่งเป็น 3 ลักษณะธุรกิจ" : "มีค่ะ ธุรกิจ 1 สำนักงาน ค้าปลีก ธุรกิจ 2 โรงงาน ธุรกิจ 3 ก่อสร้าง ความเสี่ยงต่างกัน ราคาจึงต่างกัน" },
+        { key: "rider", q: pa ? "ค่ารักษา ME เลือกสูงกว่าแผนหลักได้ไหม" : "OPD เลือกแผนสูงกว่าได้ไหม", a: `${pa ? "ME" : "OPD"} สูงกว่าแผนหลักได้ไม่เกิน 1 แผนค่ะ` },
+        ...(pa ? [{ key: "start", q: "เริ่มคุ้มครองเมื่อไร", a: "วันถัดไปหลังบริษัทประกันได้รับเอกสารครบ และอนุมัติรับประกันแล้วค่ะ" }] : []),
+      ];
+    }
     case "PENSION":
       return [
         { key: "pay", q: "ออม 6 ปี กับออมจนรับบำนาญ ต่างกันยังไง", a: "ทุนเท่ากันได้บำนาญเท่ากันค่ะ แบบ 6 ปีออมต่อปีมากกว่าแต่จบเร็ว อีกแบบออมน้อยกว่าแต่นานกว่า" },
@@ -107,12 +180,19 @@ const FIRST: Record<string, string[]> = {
   family: ["until", "after"], illness: ["after", "count"], light: ["rises", "monthly"],
   plbfamily: ["covers", "end"], plbburden: ["covers", "level"], plblight: ["level", "monthly"], plbtax: ["tax", "level"],
   gssure: ["sure", "years"], gsbonus: ["bonus", "sure"], gstax: ["tax", "years"], gsshort: ["years", "sure"],
+  epshort: ["years", "level"], epfamily: ["floor", "years"], epcash: ["back", "years"],
+  ltlegacy: ["share", "floor"], ltterms: ["years", "level"], ltcash: ["back", "floor"],
+  ciearly: ["again", "waiting"], cistages: ["again", "lump"], cilife: ["base", "rises"],
+  caearly: ["again", "waiting"], cadaily: ["lump", "rises"], cafamily: ["base", "again"],
+  grteam: ["groups", "size"], grcost: ["size", "groups"], grhosp: ["rider", "groups"], graccident: ["start", "rider"],
+  paday: ["where", "bike"], painjury: ["class", "where"], pagrow: ["renew", "age"], pafamily: ["age", "renew"],
+  tpback: ["back", "sure"], tpshort: ["years", "life"], tpfamily: ["life", "years"], tptax: ["tax", "years"],
 };
 
 /** the two questions a clip answers, for its product and story */
-export function pickQas(product: Product, story?: string, variant?: string, hide?: readonly string[], gs?: GsQaFacts): SpokenQa[] {
+export function pickQas(product: Product, story?: string, variant?: string, hide?: readonly string[], gs?: GsQaFacts, tp?: TpQaFacts): SpokenQa[] {
   // ตั้งค่าส่วนตัว: "จ่ายรายเดือนได้ไหม" names the instalments; never asked where the agent hid one
-  const all = productQas(product, variant, gs).filter((q) => !(q.key === "monthly" && hide?.length));
+  const all = productQas(product, variant, gs, tp).filter((q) => !(q.key === "monthly" && hide?.length));
   const first = FIRST[story ?? ""] ?? [];
   const ordered = [...first.map((k) => all.find((q) => q.key === k)).filter((q): q is SpokenQa => Boolean(q)), ...all];
   return ordered.filter((q, i) => ordered.findIndex((x) => x.key === q.key) === i).slice(0, 2);

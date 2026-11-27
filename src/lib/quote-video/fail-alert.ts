@@ -1,9 +1,11 @@
 import { bluewealthNames } from "@/lib/auth/bluewealth";
+import { tellAgentClipDone, tellAgentClipFailed } from "@/lib/line/agent-line";
 import { alertClipFailed } from "@/lib/line/owner-alert";
 import { isPromptStory } from "@/lib/prompt-story/types";
 import { siteUrl } from "@/lib/site-url";
 import { topicOf } from "@/lib/story/topics";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { boardOf } from "./board";
 import { isFhcInput } from "./fhc";
 import { readRecipe, RECIPE_NAMES } from "./recipe-keys";
 import type { Product } from "./script";
@@ -15,14 +17,16 @@ import { isStoryInput } from "./story";
  * own too — who made it, which tool, why it failed and what was given back.
  */
 
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง", PA: "PA อุบัติเหตุ", GROUP: "ประกันกลุ่ม" };
 
 /** the tool and the clip, as the owner knows them on the board */
 export function clipWhat(input: unknown): string {
-  const v = (input && typeof input === "object" ? input : {}) as { product?: string; style?: string; topic?: string; title?: string; recipe?: unknown; plan?: unknown };
+  const v = (input && typeof input === "object" ? input : {}) as { product?: string; style?: string; topic?: string; title?: string; recipe?: unknown; plan?: unknown; ad?: unknown };
   if (isFhcInput(v)) return "วิดีโอนำเสนอ · สรุป FHC";
   if (isStoryInput(v)) return `คลิปเล่าเรื่อง · ${topicOf(String(v.topic ?? ""))?.name ?? "ไม่ทราบตอน"}`;
   if (isPromptStory(v)) return `คลิปตามโจทย์ · ${String(v.title ?? "").trim() || "ไม่มีชื่อ"}`;
+  // an ad clip is a quote clip carrying its plan: the owner reads it as วิดีโอโฆษณา (2026-11-22)
+  if (boardOf(v) === "ad") return `วิดีโอโฆษณา · ${NAMES[(v.product ?? "LIFEPROTECT") as Product] ?? v.product}`;
   const plan = v.product === "GSAVING" && v.plan === "25/5" ? "Global Savings 25/5" : NAMES[(v.product ?? "LIFEPROTECT") as Product] ?? v.product;
   // a สูตรคลิป Motion clip is named by its recipe, as the board names it (owner, 2026-11-11, ก ก ก)
   const recipe = v.style === "motion" ? readRecipe(v.recipe) : undefined;
@@ -52,7 +56,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("th-TH", {
 });
 
 /** what was given back, in a line */
-function refund(c: FailedClip): string {
+export function refund(c: FailedClip): string {
   if (c.recut) return c.recut.satang > 0 ? `คลิปเดิมยังอยู่ · คืนค่าวาดฉาก ${baht(c.recut.satang)} แล้ว` : "คลิปเดิมยังอยู่";
   const held = Number(c.heldSatang ?? 0);
   if (c.paidBy === "staff") return "ทำในชื่อแอดมิน ไม่ได้ตัดเงิน";
@@ -117,4 +121,20 @@ export async function tellOwnerClipFailed(row: {
   } catch (e) {
     console.error(`[line] clip ${row.id} failed alert not sent:`, e);
   }
+}
+
+/**
+ * The maker's own LINE, if they linked it (เชื่อม LINE ของฉัน, owner chose ข, 2026-11-19): their clip
+ * failed, and what was given back. Never throws, as tellOwnerClipFailed.
+ */
+export async function tellMakerClipFailed(row: {
+  agent_id: string; input: unknown; customer_name: string | null; paid_by: FailedClip["paidBy"]; held_satang: number | null;
+}): Promise<void> {
+  const back = refund({ what: "", who: "", at: "", reason: "", paidBy: row.paid_by, heldSatang: row.held_satang, link: "" });
+  await tellAgentClipFailed(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "", back);
+}
+
+/** The maker's own LINE: their clip is done. Never throws. */
+export async function tellMakerClipDone(row: { agent_id: string; input: unknown; customer_name: string | null }): Promise<void> {
+  await tellAgentClipDone(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "");
 }

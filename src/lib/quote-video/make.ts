@@ -26,7 +26,8 @@ import { mixNarration, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcSceneKey, type FhcVideoInput } from "./fhc";
 import { fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
-import { isPromptStory, pictureScenes, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { isPromptStory, paints, pictureScenes, promptFreePrice, promptPicturePrice, promptStoryPrice, type MotionKind, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { motionReason } from "@/lib/prompt-story/motion-words";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
 import { assetPicture } from "@/lib/prompt-story/asset-picture";
@@ -36,6 +37,9 @@ import { okUploads, uploadFile } from "@/lib/scene-library/uploads";
 import type { ReferenceImage } from "@/lib/ai/images";
 import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
+import { adParts, adPhotoIdeas, adPhotosPrice, adPhotoSatang, adPrice, adScript } from "@/lib/ad-video/make";
+import { AD_PAINTER, drawAdPhoto } from "@/lib/ad-video/photo";
+import type { AdPlan } from "@/lib/ad-video/keys";
 import { contactSpec } from "./story-motion";
 import { clipTail, clipWindows } from "./story-frames";
 import { jarFits, motionWindows, MOTION_FPS, roadFits } from "./motion";
@@ -86,6 +90,8 @@ const LINK_SECONDS = 2 * 3600;
  * asked for and takes it when the clip is done.
  */
 export const videoPrice = (v: ClipInput, prices: Prices): number =>
+  // วิดีโอโฆษณา: the Motion clip, its voice and its photos (ad-video/make.ts adPrice)
+  isQuoteInput(v) && v.ad ? adPrice(v as VideoInput & { ad: AdPlan }, prices) :
   isPromptStory(v) ? promptStoryPrice(v, prices) :
   (isFhcInput(v) ? prices.videoFhc : isStoryInput(v) ? (topicOf(v.topic)?.short ? prices.videoStoryShort : prices.videoStory)
     : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))]) + (v.voice ? prices.elevenExtra : 0);
@@ -93,10 +99,12 @@ export const videoPrice = (v: ClipInput, prices: Prices): number =>
 export const VIDEO_ROUND = "quote-video";
 /**
  * Each clip tool's own round, so the wallet's history names it (owner, 2026-10-18): every one
- * starts "quote-video", which the hold sweep keeps 30 minutes (20261124_clip_rounds.sql).
+ * starts "quote-video", which the hold sweep keeps 30 minutes (20261124_clip_rounds.sql). An ad clip is a
+ * quote clip with a plan, and goes by its own name (วิดีโอโฆษณา).
  */
 export const clipRound = (v: ClipInput): string =>
-  isPromptStory(v) ? `${VIDEO_ROUND}-prompt` : isStoryInput(v) ? `${VIDEO_ROUND}-story` : VIDEO_ROUND;
+  isPromptStory(v) ? `${VIDEO_ROUND}-prompt` : isStoryInput(v) ? `${VIDEO_ROUND}-story`
+    : isQuoteInput(v) && v.ad ? `${VIDEO_ROUND}-ad` : VIDEO_ROUND;
 
 export type { VideoInput } from "./script";
 /** a quote clip: neither an FHC summary nor a story */
@@ -158,8 +166,10 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     const { limit, from } = await freeClips(viewer, access);
     freeWindow = { limit, from };
     if ((await freeUsed(viewer.agentId, from)) < limit) {
-      // a คลิปตามโจทย์'s free clip covers the clip only: its pictures, and ดีไซน์พิเศษ's extra, are still paid from the wallet (spec, Money)
-      const pictures = isPromptStory(input) ? promptFreePrice(input, await walletPrices()) : 0;
+      // a คลิปตามโจทย์'s free clip covers the clip only: its pictures, and ดีไซน์พิเศษ's extra, are still paid from the wallet (spec, Money);
+      // a วิดีโอโฆษณา's the same: the free clip is the Motion clip, its photos are paid from the wallet (R11, 2026-11-22)
+      const pictures = isPromptStory(input) ? promptFreePrice(input, await walletPrices())
+        : isQuoteInput(input) && input.ad ? adPhotosPrice(input as VideoInput & { ad: AdPlan }, await walletPrices()) : 0;
       if (pictures > 0) {
         const s = await walletSettings().catch(() => null);
         if (!s?.enabled) return { refusal: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" };
@@ -185,9 +195,10 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
   const { fx: _asked, noMusic, ...plain } = input as ClipInput & FxChoice;
   void _asked;
   // ดีไซน์พิเศษ (Shotstack) was removed 2026-11-11 (owner): a stale form's choice of it is dropped here
+  // — except a คลิปตามโจทย์'s "motion", the โมชันกราฟิก look (2026-11-26): that one is kept, it says which scenes paint
   const { design: _design, ...kept } = plain as ClipInput & { design?: unknown };
-  void _design;
-  input = { ...kept, engine: "remotion", ...(fx ? { fx: true, ...(noMusic ? { noMusic: true } : {}) } : {}) } as ClipInput;
+  const keepsDesign = isPromptStory(plain) && _design === "motion";
+  input = { ...kept, ...(keepsDesign ? { design: "motion" } : {}), engine: "remotion", ...(fx ? { fx: true, ...(noMusic ? { noMusic: true } : {}) } : {}) } as ClipInput;
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id, created_at").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
@@ -332,6 +343,8 @@ function spokenLines(row: VideoRow): { key: string; voice: string }[] {
   if (isPromptStory(row.input)) return freeScript(row.input, row.customer_name, narratorOf(row.input));
   const facts = quoteVideoFacts(row.input);
   if (!facts) throw new Error("quote not priced");
+  // วิดีโอโฆษณา speaks its plan, whatever else the input says (adParts plans the same lines)
+  if (row.input.ad) return adScript(facts, row.input.ad, narratorOf(row.input));
   // a สูตรคลิป Motion clip speaks its recipe's lines, the same quotePartsFor plans its scenes from
   const recipe = recipeOf(row.input, facts);
   if (recipe) return recipeScript(recipe, facts, narratorOf(row.input));
@@ -448,8 +461,11 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const lang = facts.lang ?? "th";
   const contact: Contact = lang === "th" ? agentContact : { ...agentContact, more: undefined };
   const narrator = narratorOf(row.input);
+  if (row.input.ad) return adParts(facts, row.input, row.input.ad, contact, narrator, secs);
   const recipe = recipeOf(row.input, facts);
-  if (recipe) return recipeParts(recipe, facts, row.input.sex, narrator, contact, secs);
+  // the chat clip's asker is the insured; a plan priced by plan alone has none, so a woman asks, as the narrator is by default
+  const asker = facts.sex ?? "F";
+  if (recipe) return recipeParts(recipe, facts, asker, narrator, contact, secs);
   const size = clipSize(row.input);
   // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
   const length = readLength(row.input.length);
@@ -498,7 +514,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     : {};
   return {
     script, motion, plans, size,
-    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...myColorOf(theme, row.input.myColor), ...extrasOf(row.input), ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}), ...(priceJar ? { priceJar } : {}), ...(coverRoad ? { coverRoad } : {}) } } } : {}),
+    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...myColorOf(theme, row.input.myColor), ...extrasOf(row.input), ...(size !== "portrait" ? { size } : {}), sex: asker, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}), ...(priceJar ? { priceJar } : {}), ...(coverRoad ? { coverRoad } : {}) } } } : {}),
     ...(!motion ? { classic$: { size, facts, narrator, customer, contact, ...(chart ? { chart } : {}), ...(pen?.notes.length ? { notes: pen.notes } : {}), shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) }, layers } } : {}),
     ...(script$.script ? { scriptFace: script$.script } : {}),
   };
@@ -593,11 +609,13 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
   let done = 0;
   // a clip of device scenes only paints nothing: no "วาดรูปประกอบ 0/0" step, the bar goes straight to the voice
   if (of > 0) bar.note({ step: "pictures", done: 0, of });
-  const painted = (sc: PromptStoryInput["scenes"][number]) => !sc.device && !sc.asset;
+  // one rule for drawing, pricing and refunding: paints (a scene that does not paint, a device or a layout with no picture, is null)
+  const painted = (sc: PromptStoryInput["scenes"][number]) => paints(sc, input.design);
   const pictures = await pool(input.scenes, 3, async (scene, s): Promise<string | null> => {
     if (scene.device) return null;
     let png: Buffer | null;
     if (scene.asset) png = await partPicture(parts.get(scene.asset), input, size);
+    else if (!painted(scene)) return null;
     else {
       png = await drawScenePicture(scene, input.style, input.painter, size, undefined, ref);
       bar.note({ step: "pictures", done: ++done, of });
@@ -612,9 +630,42 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
   const patch: Partial<VideoRow> = { input: next };
   if (missing && row.hold_id && row.held_satang) {
     patch.held_satang = Math.max(0, Number(row.held_satang) - missing * promptPicturePrice(input, await walletPrices()));
+    // kept on the row in hand too, so a later change to the hold (the voice's switch in produce) starts from it
+    row.held_satang = patch.held_satang;
   }
   await setRow(id, patch);
   return { input: next, costThb: (of - missing) * pictureThb(input.painter) };
+}
+
+/**
+ * วิดีโอโฆษณา's photos, three at a time, each filed as "<id>/pic-<n>.png" by its scene and named on the row's input
+ * (null for a scene its art draws without one). A photo that fails twice leaves its scene in the Motion look and is
+ * not charged: the clip's hold settles that much less, as a คลิปตามโจทย์'s pictures do (drawPictures).
+ */
+async function drawAdPhotos(row: VideoRow & { input: VideoInput & { ad: AdPlan } }, bar: Bar): Promise<{ input: VideoInput; costThb: number }> {
+  const { id, input } = row;
+  const ideas = adPhotoIdeas(input);
+  const of = ideas.filter(Boolean).length;
+  let done = 0;
+  if (of > 0) bar.note({ step: "pictures", done: 0, of });
+  const pictures = await pool(ideas, 3, async (want, s): Promise<string | null> => {
+    if (!want) return null;
+    const png = await drawAdPhoto(want.idea, want.scene);
+    bar.note({ step: "pictures", done: ++done, of });
+    if (!png) return null;
+    await upload(id, picName(s), png, "image/png");
+    return `${id}/${picName(s)}`;
+  });
+  const next: VideoInput = { ...input, pictures };
+  const missing = ideas.filter((want, s) => want && pictures[s] === null).length;
+  const patch: Partial<VideoRow> = { input: next };
+  if (missing && row.hold_id && row.held_satang) {
+    patch.held_satang = Math.max(0, Number(row.held_satang) - missing * adPhotoSatang(await walletPrices()));
+    // kept on the row in hand too, so a later change to the hold (the voice's switch in produce) starts from it
+    row.held_satang = patch.held_satang;
+  }
+  await setRow(id, patch);
+  return { input: next, costThb: (of - missing) * pictureThb(AD_PAINTER) };
 }
 
 /** every line a คลิปตามโจทย์ spoke, as it was filed; null when any is missing */
@@ -657,6 +708,12 @@ export async function produce(id: string, agentName: string): Promise<void> {
       row.input = drawn.input;
       picturesThb = drawn.costThb;
       lap(`pictures drawn (${drawn.input.pictures?.filter(Boolean).length}/${drawn.input.scenes.length})`);
+    }
+    if (isQuoteInput(row.input) && row.input.ad) {
+      const drawn = await drawAdPhotos(row as VideoRow & { input: VideoInput & { ad: AdPlan } }, bar);
+      row.input = drawn.input;
+      picturesThb = drawn.costThb;
+      lap(`ad photos drawn (${drawn.input.pictures?.filter(Boolean).length}/${drawn.input.pictures?.length})`);
     }
     const spokenScript = spokenLines(row);
 
@@ -772,9 +829,22 @@ async function cutWithRemotion(
   if (e || urls.length !== names.length || urls.some((u) => !u)) throw new Error(`links: ${e?.message ?? "a link is missing"}`);
   const scriptFont = fonts.map((f, i) => ({ url: urls[1 + i] as string, weight: f.weight }));
   lap(`voice${fonts.length ? ` and ${c.scriptFace!.family} (${fonts.length})` : ""} up for Remotion`);
+  // วิดีโอโฆษณา's photos go to Remotion as links where they were filed; a clip without an ad is handed over as before
+  if (motion.ad) motion = { ...motion, ad: { ...motion.ad, photos: await photoLinks(motion.ad.photos) } };
   bar.note({ step: "submit", done: 0, of: 0 });
   const props: ClipProps = { ...clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, scriptFont), ...fxPropsOf(row.input) };
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
+}
+
+/** filed photos as links for the render, in their places; a place with no photo stays null */
+async function photoLinks(paths: (string | null)[]): Promise<(string | null)[]> {
+  const filed = paths.filter((p): p is string => Boolean(p));
+  if (!filed.length) return paths.map(() => null);
+  const { data, error: e } = await bucket().createSignedUrls(filed, LINK_SECONDS);
+  const urls = (data ?? []).map((d) => d.signedUrl);
+  if (e || urls.length !== filed.length || urls.some((u) => !u)) throw new Error(`photo links: ${e?.message ?? "a link is missing"}`);
+  let next = 0;
+  return paths.map((p) => (p ? (urls[next++] as string) : null));
 }
 
 /** a Chinese, Russian or Burmese clip's face, cut to its letters, up beside the voice; boxes otherwise, so no clip */
@@ -880,7 +950,9 @@ const renderKeyOf = (): Promise<string | null> => providerKey("gcp");
 
 /** the script's fields as the agent knows them */
 const FIELD: Record<string, string> = { voice: "คำพูด", screen: "ข้อความบนจอ", picture: "ภาพ", device: "อุปกรณ์" };
-const reasonWords = (r: string) => r.replace(/^(voice|screen|picture|device): /, (_, f: string) => `${FIELD[f]}: `);
+// a โมชันกราฟิก layout's reason ("motion.lines[0]: ยาวเกิน 22") is the แบบฉาก's, its box named as the editor labels it
+const reasonWords = (r: string, kind?: MotionKind) =>
+  /^motion[.:]/.test(r) ? motionReason(r, kind) : r.replace(/^(voice|screen|picture|device): /, (_, f: string) => `${FIELD[f]}: `);
 
 /**
  * Starts a คลิปตามโจทย์ (spec 2026-10-16, Money): the script, as the agent may have edited it, is
@@ -891,7 +963,7 @@ const reasonWords = (r: string) => r.replace(/^(voice|screen|picture|device): /,
  */
 export async function createPromptStory(viewer: Viewer, input: PromptStoryInput, customer: string): Promise<{ id: string } | { refusal: string }> {
   const bad = checkScript(input.scenes, input.brief, input.figure)[0];
-  if (bad) return { refusal: `ฉากที่ ${bad.scene + 1} ใช้ไม่ได้ — ${bad.reasons.map(reasonWords).join(", ")} แก้แล้วกดสร้างอีกครั้ง` };
+  if (bad) return { refusal: `ฉากที่ ${bad.scene + 1} ใช้ไม่ได้ — ${bad.reasons.map((r) => reasonWords(r, input.scenes[bad.scene].motion?.kind)).join(", ")} แก้แล้วกดสร้างอีกครั้ง` };
   const allowed = allowedFor(input.brief, input.figure);
   const title = checkScene({ voice: "", screen: input.title, picture: "" }, allowed);
   if (title.length) return { refusal: `ชื่อคลิปใช้ไม่ได้ — ${title.map((r) => r.replace(/^screen: /, "")).join(", ")}` };
@@ -934,6 +1006,8 @@ export async function redrawPicture(
   // a device scene has no picture to draw, and is never charged as one; nor has a library part's
   if (input.scenes[scene].device) return { ok: false, error: "ฉากนี้เป็นภาพจากระบบ ไม่มีภาพ AI ให้วาดใหม่" };
   if (input.scenes[scene].asset) return { ok: false, error: "ฉากนี้ใช้ภาพจากคลัง ไม่มีการวาดใหม่" };
+  // in โมชันกราฟิก a layout with no picture has none to draw either
+  if (!paints(input.scenes[scene], input.design)) return { ok: false, error: "ฉากนี้เป็นภาพจากระบบ ไม่มีภาพ AI ให้วาดใหม่" };
   const gcpKey = await renderKeyOf();
   if (!gcpKey) return { ok: false, error: FAILED };
   const pcms = await keptVoice(id, input.scenes.length + 1);
@@ -1002,6 +1076,7 @@ export async function redrawScene({ id, scene, agentName, hold, price }: RedrawJ
     // redrawPicture refuses a device scene and a library part's: one reaching here is never painted
     if (input.scenes[scene]?.device) throw new Error("device scene has no picture");
     if (input.scenes[scene]?.asset) throw new Error("library part scene has no picture to draw");
+    if (input.scenes[scene] && !paints(input.scenes[scene], input.design)) throw new Error("scene does not paint");
     const gcpKey = await renderKeyOf();
     if (!gcpKey) throw new Error("no render key");
     const pcms = await keptVoice(id, input.scenes.length + 1);

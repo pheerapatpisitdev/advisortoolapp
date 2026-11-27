@@ -16,8 +16,10 @@ const label = "mb-1 block text-sm font-medium";
 const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm hover:bg-[var(--ct-soft)] inline-flex items-center disabled:opacity-50";
 
 const SCENE_WORD: Record<SceneKey, string> = {
-  lead: "เปิด", price: "ราคา", cover: "คุ้มครอง", value: "มูลค่า", compare: "เทียบแผน", critical: "โรคร้ายแรง", terms: "เลือกระยะ", index: "โบนัสดัชนี", contact: "ปิด",
+  lead: "เปิด", price: "ราคา", cover: "คุ้มครอง", value: "มูลค่า", compare: "เทียบแผน", critical: "โรคร้ายแรง", terms: "เลือกระยะ", index: "โบนัสดัชนี", family: "ครอบครัว", total: "ออมเทียบรับคืน", contact: "ปิด",
   story: "เรื่องลูกค้า", versus: "เทียบ", qa: "ถาม-ตอบ", steps: "เริ่มต้น",
+  riders: "สัญญาเพิ่มเติม", rider1: "สัญญาที่ 1", rider2: "สัญญาที่ 2", rider3: "สัญญาที่ 3", rider4: "สัญญาที่ 4", rider5: "สัญญาที่ 5", rider6: "สัญญาที่ 6",
+  payout: "สรุปความคุ้มครอง",
 };
 /** how many times a clip's lines may be written again (owner, 2026-10-13: 3) */
 export const REWRITES = 3;

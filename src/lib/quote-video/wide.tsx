@@ -5,9 +5,16 @@ import type { Level } from "@/lib/fhc/health";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
 import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
-import { abs, box, chartPaths, coverGroupStarts, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, type Anim } from "./motion";
+import { abs, box, chartPaths, coverGroupStarts, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionDraw, motionSpec, motionTpDraw, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, tpFamilyPill, type Anim } from "./motion";
+import { paidUpOf } from "./easyprotect";
+import { breakEvenNote, epCoins, epDonePill, epFloorNote, epRoadWord, epTotalPicture, totalWords } from "./easyprotect-pictures";
+import { LT_TERMS_KICKER, LT_TERMS_NOTE, ltTermRows } from "./lifetreasure-pictures";
+import { amountRows, bigFigure, stairsPicture } from "./stage-pictures";
+import { stageView, type StageView } from "./stage-views";
+import { screenNoteLines, tpCashPicture, tpRoad, tpSureCard, tpTotalHead, tpTotalPicture } from "./twelvepl-pictures";
+import { packagePicture, payoutList, riderHead, riderPicture, riderWhat } from "./rider-pictures";
 import { leadBig, leadPill } from "./plb";
-import type { QuoteVideoFacts, SceneKey } from "./script";
+import { riderIndex, type QuoteVideoFacts, type SceneKey } from "./script";
 import { captionShown, wordAt } from "./caption";
 import { countAt, LEAD, SIZES, wordTimes, type VideoSize } from "./timeline";
 import type { Extra } from "./told";
@@ -113,10 +120,15 @@ function Subtitle({ g, words, t, voiceSec }: { g: Geo; words: string[]; t: numbe
   );
 }
 
-function Frame({ g, words, t, voiceSec, children }: { g: Geo; words: string[]; t: number; voiceSec: number; children: ReactNode }) {
+function Frame({ g, words, t, voiceSec, note, children }: { g: Geo; words: string[]; t: number; voiceSec: number; note?: string[]; children: ReactNode }) {
   return (
     <div style={{ display: "flex", position: "relative", width: g.w, height: g.h, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {children}
+      {note?.length ? (
+        <div style={abs({ left: 0, width: g.w, bottom: g.px(134, 144), flexDirection: "column", alignItems: "center", fontSize: g.px(20, 24), color: WHITE, opacity: 0.75 })}>
+          {(g.wide ? [note.join(" · ")] : note).map((l) => <div key={l} style={box({})}>{l}</div>)}
+        </div>
+      ) : null}
       <Subtitle g={g} words={words} t={t} voiceSec={voiceSec} />
       <div style={abs({ left: 0, width: g.w, bottom: 14, justifyContent: "center", fontSize: 22, color: WHITE, opacity: 0.6 })}>Application by www.advisortool.app</div>
     </div>
@@ -126,12 +138,15 @@ function Frame({ g, words, t, voiceSec, children }: { g: Geo; words: string[]; t
 interface Contact { name: string; phone: string; line?: string; more?: string; photo?: string }
 
 /** the agent's card, shared by both kinds of clip */
-function ContactScene({ g, s, t, title, header, customer, narrator, contact, note, vw = VIDEO_WORDS.th }: {
+function ContactScene({ g, s, t, title, header, customer, narrator, contact, note, vw = VIDEO_WORDS.th, line }: {
   g: Geo; s: Record<string, Anim>; t: number; title: string; header: string; customer: string; narrator?: "F" | "M"; contact: Contact; note?: string;
   /** the clip's language (video-words.ts); Thai unless an iHealthy clip asked for another */
   vw?: VideoWords;
+  /** the title's second line where the plan has its own (QuoteVideoFacts contactLine) */
+  line?: string;
 }) {
-  const [said, help] = vw.contactLines(narrator ?? "F");
+  const [said, standing] = vw.contactLines(narrator ?? "F");
+  const help = line ?? standing;
   const thai = vw === VIDEO_WORDS.th;
   const k = contact;
   const initial = [...k.name.trim()][0] ?? "?";
@@ -140,7 +155,7 @@ function ContactScene({ g, s, t, title, header, customer, narrator, contact, not
     <>
       <Header g={g} left={customer ? vw.contactFor(customer) : title} right={header} />
       <Body g={g} top={g.px(130, 170)} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
-        <El an={s.title} t={t} style={{ flexDirection: "column", fontSize: g.px(thai ? 64 : 52, thai ? 84 : 68), fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight, ...(g.wide ? { width: 760 } : {}) }}>
+        <El an={s.title} t={t} style={{ flexDirection: "column", fontSize: line ? g.px(58, 72) : g.px(thai ? 64 : 52, thai ? 84 : 68), fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight, ...(g.wide ? { width: 760 } : {}) }}>
           <div style={box({})}>{said}</div>
           <div style={box({ color: GOLD })}>{help}</div>
         </El>
@@ -294,6 +309,133 @@ function CoverPayback({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   );
 }
 
+const tpPill = (g: Geo, good: boolean): React.CSSProperties => ({ alignSelf: "flex-start", background: good ? GREEN : RED, color: WHITE, borderRadius: 40, padding: "6px 26px", fontSize: g.px(28, 36), fontWeight: 600 });
+
+/** 12 พีแอล's cash backs (twelvepl-pictures.tsx): the bars, and what is certain in a card beside (landscape) or under them */
+function CoverCashback({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!f.twelvepl) return null;
+  const d = motionTpDraw(s, t);
+  const full = g.w - g.side * 2;
+  const picW = g.wide ? 980 : full;
+  const cardW = g.wide ? full - picW - 60 : full;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={f.coverTitle} />
+      <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
+        {tpCashPicture(f.twelvepl, d, picW, g.px(0.66, 0.92))}
+        <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60 } : { marginTop: 16 }) })}>
+          {tpSureCard(f, d, cardW, g.px(0.72, 0.72))}
+          {g.wide && <El an={s.pen} t={t} style={{ ...tpPill(g, true), marginTop: 24 }}>✓ การันตี ได้แน่นอน</El>}
+        </div>
+      </Body>
+    </>
+  );
+}
+
+/** 12 พีแอล's life cover: the family's sum, the years it stands after the last premium */
+function FamilyScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const tp = f.twelvepl;
+  const s = motionSpec("family", f, c.voiceSec);
+  if (!tp) return null;
+  const shown = countAt(tp.sum, look(s.count, t).p);
+  const full = g.w - g.side * 2;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text="ถ้าเป็นอะไรไป ครอบครัวได้" />
+      <Body g={g} style={{ flexDirection: "column" }}>
+        <El an={s.big} t={t} style={{ alignItems: "baseline" }}>
+          <div style={box({ fontSize: g.px(100, 130), fontWeight: 700, color: GOLD, lineHeight: 1.15 })}>{shown.toLocaleString("en-US")}</div>
+          <div style={box({ fontSize: g.px(36, 46), color: WHITE, marginLeft: 20 })}>บาท</div>
+        </El>
+        <El an={s.sub} t={t} style={{ fontSize: g.px(34, 42), color: WHITE, opacity: 0.9, marginBottom: g.px(24, 30) }}>{`ทุกช่วงอายุ ถึงอายุ ${tp.coverToAge} หรือมูลค่าเวนคืน หากมากกว่า`}</El>
+        {tpRoad(f, tp, motionTpDraw(s, t), full, g.px(0.8, 0.9))}
+        <El an={s.pill} t={t} style={{ ...tpPill(g, true), marginTop: g.px(18, 20) }}>{tpFamilyPill(f)}</El>
+      </Body>
+    </>
+  );
+}
+
+/** อีซี่ โพรเทค 6: the six premiums, nothing after them, the cover to 99 (motion.tsx CoverPaidUp) */
+function CoverPaidUp({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const ep = f.easyprotect;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!ep) return null;
+  const d = motionTpDraw(s, t);
+  const full = g.w - g.side * 2;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={f.coverTitle} />
+      <Body g={g} style={{ flexDirection: "column" }}>
+        <El an={s.sub} t={t} style={{ fontSize: g.px(30, 36), color: WHITE, opacity: 0.9, marginBottom: g.px(16, 18) }}>{f.coverNote}</El>
+        {epCoins(f, ep, d, full, g.px(0.9, 1))}
+        <El an={s.pill} t={t} style={{ ...tpPill(g, true), marginTop: g.px(16, 18), marginBottom: g.px(16, 14) }}>{epDonePill(ep)}</El>
+        {tpRoad(f, ep, d, full, g.px(0.76, 0.76), epRoadWord(ep))}
+        <El an={s.note} t={t} style={{ fontSize: g.px(26, 30), color: WHITE, opacity: 0.9, marginTop: 4 }}>{epFloorNote(ep)}</El>
+      </Body>
+    </>
+  );
+}
+
+/** อีซี่ โพรเทค 6's fourth scene (motion.tsx EpTotalScene) */
+function EpTotalScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const words = totalWords(f);
+  const s = motionSpec("total", f, c.voiceSec);
+  if (!words) return null;
+  const ep = words.g;
+  const full = g.w - g.side * 2;
+  const picW = g.wide ? 1000 : full;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={words.kicker} />
+      <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
+        {epTotalPicture(ep, motionTpDraw(s, t), picW, g.px(520, 630), g.px(0.66, 0.78), words.paid)}
+        <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - picW - 60 } : { marginTop: 8 }) })}>
+          <El an={s.sub} t={t} style={{ fontSize: g.px(26, 36), color: WHITE, opacity: 0.9, marginBottom: g.px(6, 24) }}>{f.insuredLine}</El>
+          <El an={s.pill} t={t} style={{ ...tpPill(g, true), fontSize: g.px(30, 34) }}>{words.pill}</El>
+        </div>
+      </Body>
+    </>
+  );
+}
+
+/** 12 พีแอล's fifth scene: what the plan costs beside what comes back, the words beside (landscape) or above the bars */
+function TotalScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  if (paidUpOf(f)) return <EpTotalScene g={g} c={c} t={t} />;
+  const tp = f.twelvepl;
+  const s = motionSpec("total", f, c.voiceSec);
+  if (!tp) return null;
+  const head = tpTotalHead(f, tp);
+  const full = g.w - g.side * 2;
+  const picW = g.wide ? 1000 : full;
+  const words = (
+    <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - picW - 60 } : {}) })}>
+      <El an={s.sub} t={t} style={{ fontSize: g.px(28, 34), color: WHITE, opacity: 0.9 }}>{head.sub}</El>
+      {g.wide && <El an={s.pill} t={t} style={{ ...tpPill(g, head.sure), fontSize: 32, marginTop: 24 }}>{head.pill}</El>}
+    </div>
+  );
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={head.kicker} />
+      <Body g={g} style={{ flexDirection: g.wide ? "row-reverse" : "column", alignItems: g.wide ? "center" : "flex-start", justifyContent: g.wide ? "flex-end" : "flex-start" }}>
+        {words}
+        {tpTotalPicture(tp, motionTpDraw(s, t), picW, g.px(510, 630), g.px(0.66, 0.78))}
+        {!g.wide && <El an={s.pill} t={t} style={{ ...tpPill(g, head.sure), marginTop: 8 }}>{head.pill}</El>}
+      </Body>
+    </>
+  );
+}
+
 /** Global Savings' index returns (motion.tsx gsIndexBars): the bars, and the return and what comes back at it beside (landscape) or above them */
 function IndexScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
@@ -334,9 +476,88 @@ function IndexScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   );
 }
 
+/** a staged plan's stairs (motion.tsx StageStairs): the stairs, and beside them (landscape) or under them the words */
+function StageStairsWide({ g, c, t, v }: { g: Geo; c: WideQuoteContext; t: number; v: StageView }) {
+  const f = c.facts;
+  const s = motionSpec("critical", f, c.voiceSec);
+  const full = g.w - g.side * 2;
+  const picW = g.wide ? 980 : full;
+  const [pill, ...more] = v.pills ?? [];
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={v.kicker} />
+      <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
+        {stairsPicture(v.stairs ?? [], motionTpDraw(s, t), picW, g.px(0.62, 0.8), g.px(460, 500))}
+        <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - picW - 60 } : { marginTop: 18, width: full }) })}>
+          <El an={s.sub} t={t} style={{ fontSize: g.px(28, 36), color: WHITE, opacity: 0.9, marginBottom: g.px(12, 26) }}>{v.sub}</El>
+          {pill ? (
+            <El an={s.foot} t={t} style={{ flexDirection: "column", alignItems: "flex-start" }}>
+              <div style={box({ ...tpPill(g, true), fontSize: g.px(28, 30) })}>{pill}</div>
+              {more.map((m) => <div key={m} style={box({ fontSize: g.px(26, 30), color: WHITE, opacity: 0.9, marginTop: g.px(8, 16) })}>{m}</div>)}
+            </El>
+          ) : null}
+        </div>
+      </Body>
+    </>
+  );
+}
+
+/** a staged plan's column of rows (motion.tsx StageRows): the rows, and beside them (landscape) or under them the words */
+function StageRowsWide({ g, c, t, k, v }: { g: Geo; c: WideQuoteContext; t: number; k: SceneKey; v: StageView }) {
+  const f = c.facts;
+  const s = motionSpec(k, f, c.voiceSec);
+  const full = g.w - g.side * 2;
+  const listW = g.wide ? 1100 : full;
+  const d = motionTpDraw(s, t);
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={v.kicker} />
+      <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
+        <div style={box({ flexDirection: "column", width: listW })}>
+          {v.big ? <div style={box({ width: listW, marginBottom: g.px(14, 26) })}>{bigFigure(v.big.amount, v.big.unit, d, listW, g.px(0.62, 0.8))}</div> : null}
+          {amountRows(v.rows ?? [], d, listW, g.px(0.7, 0.86), 22)}
+        </div>
+        <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, width: full - listW - 60 } : { width: full }) })}>
+          <El an={s.sub} t={t} style={{ fontSize: g.px(28, 36), color: WHITE, opacity: 0.9 }}>{v.sub}</El>
+          {v.foot ? <El an={s.foot} t={t} style={{ fontSize: g.px(28, 34), color: WHITE, opacity: 0.85, marginTop: g.px(6, 20) }}>{v.foot}</El> : null}
+        </div>
+      </Body>
+    </>
+  );
+}
+
+/** a staged plan's scene, stairs or rows, where its plan has one */
+function StageSceneWide({ g, c, t, k }: { g: Geo; c: WideQuoteContext; t: number; k: SceneKey }) {
+  const v = stageView(k, c.facts);
+  if (!v) return null;
+  return v.stairs ? <StageStairsWide g={g} c={c} t={t} v={v} /> : <StageRowsWide g={g} c={c} t={t} k={k} v={v} />;
+}
+
 /** Protection Life's terms (motion.tsx plbTermCards): the cards on the left, the total and the tax on the right of a landscape frame */
+/** ไลฟ์เทรเชอร์'s three paying terms (motion.tsx LtTerms): the rows, and beside them (landscape) or under them the note */
+function LtTerms({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const lt = f.lifetreasure;
+  const s = motionSpec("terms", f, c.voiceSec);
+  if (!lt) return null;
+  const listW = g.wide ? 1060 : g.w - g.side * 2;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={LT_TERMS_KICKER} />
+      <Body g={g} top={g.px(180, 200)} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
+        {ltTermRows(lt, motionTpDraw(s, t), listW, g.px(0.8, 0.9))}
+        <El an={s.note} t={t} style={{ fontSize: g.px(28, 36), color: WHITE, opacity: 0.85, ...(g.wide ? { marginLeft: 60, flex: 1 } : {}) }}>{LT_TERMS_NOTE}</El>
+      </Body>
+    </>
+  );
+}
+
 function Terms({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
+  if (f.lifetreasure) return <LtTerms g={g} c={c} t={t} />;
   const p = f.plb;
   const s = motionSpec("terms", f, c.voiceSec);
   if (!p) return null;
@@ -402,7 +623,7 @@ function Critical({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
 
 function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
-  if (f.legacy || f.plb || f.gsaving) return <LegacyLead g={g} c={c} t={t} />;
+  if (f.legacy || f.plb || f.gsaving || f.twelvepl) return <LegacyLead g={g} c={c} t={t} />;
   const s = motionSpec("lead", f, c.voiceSec);
   const shieldW = g.px(330, 500);
   const shieldH = Math.round(shieldW * 1.075);
@@ -435,10 +656,15 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
           ) : null}
           <El an={s.kicker} t={t} style={{ fontSize: g.px(44, 64), fontWeight: 600, color: WHITE }}>{f.lead.label}</El>
           <El an={s.big} t={t} style={{ fontSize: big, fontWeight: 700, color: GOLD, lineHeight: 1.15 }}>{figure(n0, f.lang ?? "th")}</El>
-          <El an={s.note} t={t} style={{ fontSize: g.px(28, 40), color: WHITE, opacity: 0.85 }}>{`${vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
+          <El an={s.note} t={t} style={{ fontSize: g.px(28, 40), color: WHITE, opacity: 0.85 }}>{`${f.lead.unit ?? vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
           <El an={s.mark} t={t} style={{ marginTop: g.px(20, 30) }}>
             <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "6px 30px", fontSize: g.px(34, 48), fontWeight: 600 })}>{f.leadMark}</div>
           </El>
+          {f.leadPill ? (
+            <El an={s.mark} t={t} style={{ marginTop: g.px(14, 20) }}>
+              <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "4px 26px", fontSize: g.px(28, 36) })}>{f.leadPill}</div>
+            </El>
+          ) : null}
         </div>
       </Body>
     </>
@@ -568,7 +794,7 @@ function Price({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
             </svg>
             <div style={box({ flexDirection: "column", marginLeft: g.px(24, 44) })}>
               <El an={s.small} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : vw.firstYearMonthly)}</El>
-              <El an={s.big} t={t} style={{ fontSize: f.priceBig ? g.px(62, 116) : g.px(daily ? 120 : 84, daily ? 220 : 150), fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
+              <El an={s.big} t={t} style={{ fontSize: f.priceBig ? (f.priceBig.amount.length > 7 ? g.px(52, 92) : g.px(62, 116)) : g.px(daily ? 120 : 84, daily ? 220 : 150), fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
               <El an={s.unit} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : vw.baht)}</El>
             </div>
           </div>
@@ -793,7 +1019,7 @@ function Value({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
             <div style={box({ flexDirection: "column" })}>
               <div style={box({ fontSize: g.px(28, 38), fontWeight: 700, color: RED })}>{`จุดคุ้มทุน อายุ ${be.age}`}</div>
               <div style={box({ fontSize: g.px(36, 52), fontWeight: 700 })}>{`ขอคืนได้ ${be.cash} บาท`}</div>
-              <div style={box({ fontSize: g.px(24, 32) })}>{`มากกว่าที่จ่ายไป ${f.totalPaid} บาท`}</div>
+              <div style={box({ fontSize: g.px(24, 32) })}>{breakEvenNote(f)}</div>
             </div>
           ) : (
             <div style={box({ fontSize: g.px(32, 44), fontWeight: 700 })}>{`อายุ ${last?.age ?? f.coverToAge} มูลค่าเงินสด ${last?.cash ?? ""} บาท`}</div>
@@ -852,31 +1078,88 @@ function Compare({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   );
 }
 
+/**
+ * Life Protect's riders in a square or landscape frame (owner, 2026-11-21; rider-pictures.tsx): the package,
+ * a rider (its name and price over its picture; in landscape what it pays beside them), what each event pays.
+ */
+function RiderWide({ g, c, t, key_ }: { g: Geo; c: WideQuoteContext; t: number; key_: SceneKey }) {
+  const f = c.facts;
+  const s = motionSpec(key_, f, c.voiceSec);
+  const d = motionDraw(s, t);
+  const head = (text: string) => <Kicker g={g} an={s.kicker} t={t} text={text} />;
+  if (key_ === "riders") {
+    const ph = g.px(560, 620);
+    const pw = g.px(g.w - g.side * 2, 1200);
+    return (
+      <>
+        {head("แพ็กเกจของคุณ")}
+        <div style={abs({ left: (g.w - pw) / 2, top: g.px(190, 200), width: pw, height: ph })}>{packagePicture(f, d, pw, ph, g.px(0.62, 0.7))}</div>
+      </>
+    );
+  }
+  if (key_ === "payout") {
+    const w = g.px(g.w - g.side * 2, 1300);
+    return (
+      <>
+        {head("เกิดเรื่องนี้ ได้เท่าไร")}
+        <div style={abs({ left: (g.w - w) / 2, top: g.px(190, 200), width: w })}>{payoutList(f.riders?.payout ?? [], d, w, g.px(0.62, 0.7))}</div>
+      </>
+    );
+  }
+  const r = f.riders?.scenes[riderIndex(key_) ?? -1];
+  if (!r) return null;
+  if (g.wide) {
+    const leftW = 720;
+    const picW = g.w - g.side * 2 - leftW - 70;
+    return (
+      <>
+        <div style={abs({ left: g.side, top: 110, width: leftW, flexDirection: "column" })}>
+          {riderHead(r, f.spokenPrice.per, d, leftW, 0.82)}
+          <div style={box({ marginTop: 40, width: leftW })}>{riderWhat(r, d, leftW, 0.82)}</div>
+        </div>
+        <div style={abs({ left: g.side + leftW + 70, top: 120, width: picW })}>{riderPicture(r, f, d, picW, 0.66)}</div>
+      </>
+    );
+  }
+  const w = g.w - g.side * 2;
+  return (
+    <div style={abs({ left: g.side, top: 90, width: w, flexDirection: "column" })}>
+      {riderHead(r, f.spokenPrice.per, d, w, 0.72)}
+      <div style={box({ marginTop: 26, width: w })}>{riderPicture(r, f, d, w, 0.72)}</div>
+    </div>
+  );
+}
+
 /** One frame of a square or landscape quote clip at scene time t. */
 export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, size: Exclude<VideoSize, "portrait">) {
   const g = geo(size);
+  if (key === "riders" || key === "payout" || riderIndex(key) !== undefined) {
+    return <Frame g={g} words={c.words} t={t} voiceSec={c.voiceSec} note={screenNoteLines(c.facts)}><RiderWide g={g} c={c} t={t} key_={key} /></Frame>;
+  }
   const body = {
     lead: <Lead g={g} c={c} t={t} />,
     price: <Price g={g} c={c} t={t} />,
-    cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} />
+    cover: stageView("cover", c.facts) ? <StageSceneWide g={g} c={c} t={t} k="cover" /> : c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} />
       : c.facts.coverStyle === "bands" ? <CoverBands g={g} c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat g={g} c={c} t={t} />
-      : c.facts.coverStyle === "payback" ? <CoverPayback g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
+      : c.facts.coverStyle === "payback" ? <CoverPayback g={g} c={c} t={t} /> : c.facts.coverStyle === "cashback" ? <CoverCashback g={g} c={c} t={t} /> : c.facts.coverStyle === "paidup" ? <CoverPaidUp g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
     value: c.facts.pension ? <PensionValue g={g} c={c} t={t} /> : <Value g={g} c={c} t={t} />,
     compare: <Compare g={g} c={c} t={t} />,
-    critical: <Critical g={g} c={c} t={t} />,
+    critical: stageView("critical", c.facts) ? <StageSceneWide g={g} c={c} t={t} k="critical" /> : <Critical g={g} c={c} t={t} />,
     terms: <Terms g={g} c={c} t={t} />,
     index: <IndexScene g={g} c={c} t={t} />,
+    family: stageView("family", c.facts) ? <StageSceneWide g={g} c={c} t={t} k="family" /> : <FamilyScene g={g} c={c} t={t} />,
+    total: <TotalScene g={g} c={c} t={t} />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} /> : (
       <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title={wordsOf(c.facts).contactMore} header={c.facts.insuredWho}
-        customer={c.customer} narrator={c.narrator} contact={c.contact} note={c.facts.footNote} vw={wordsOf(c.facts)} />
+        customer={c.customer} narrator={c.narrator} contact={c.contact} note={c.facts.footNote} vw={wordsOf(c.facts)} line={c.facts.contactLine} />
     ),
     story: <StoryScene g={g} c={c} t={t} />,
     qa: <QaScene g={g} c={c} t={t} />,
     versus: <VersusScene g={g} c={c} t={t} />,
     steps: <StepsScene g={g} c={c} t={t} />,
-  }[key];
-  return <Frame g={g} words={c.words} t={t} voiceSec={c.voiceSec}>{body}</Frame>;
+  }[key as Exclude<SceneKey, "riders" | "payout" | `rider${number}`>];
+  return <Frame g={g} words={c.words} t={t} voiceSec={c.voiceSec} {...(key !== "contact" ? { note: screenNoteLines(c.facts) } : {})}>{body}</Frame>;
 }
 
 // ——— the FHC summary ———

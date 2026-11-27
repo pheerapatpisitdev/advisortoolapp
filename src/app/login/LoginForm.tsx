@@ -13,7 +13,7 @@ type Tab = "member" | "unitos";
 /** who each tab is for, said under the tabs: a first visitor cannot tell from the names alone */
 const FOR: Record<Tab, string> = {
   member: "เข้าด้วยบัญชี Google (Gmail) ของคุณ",
-  unitos: "รหัสตัวแทน 6 หลัก — รหัสเดียวกับที่ใช้เข้า UnitOS",
+  unitos: "รหัส 6 หลัก — รหัสเดียวกับที่ใช้เข้า UnitOS",
 };
 
 /**
@@ -53,12 +53,10 @@ function EyeIcon({ off }: { off: boolean }) {
   );
 }
 
-export function LoginForm({ next, signupOpen, error: googleError, notice = null, premium = false, signupHint = SIGNUP_HINT, prices = null }: {
+export function LoginForm({ next, signupOpen, error: googleError, notice = null, premium = false, signupHint = SIGNUP_HINT }: {
   next: string; signupOpen: boolean; error: string | null;
   /** the line under the Google button for somebody new: the trial, from the back office (door.tsx) */
   signupHint?: string;
-  /** ค่าบริการ, drawn under the card (owner, 2026-10-20); null when the settings cannot be read */
-  prices?: React.ReactNode;
   /** why somebody was sent here, said above the tabs (door.tsx) */
   notice?: string | null;
   /** sent here as a basic agent of a room that keeps advisortool for Premium (door.tsx) */
@@ -100,7 +98,7 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
     }`;
 
   return (
-    <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์" below={prices}>
+    <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์">
       {premium && <div className="mt-4"><PremiumOnly /></div>}
       {notice && <p role="status" className="mt-4 rounded-lg bg-[var(--bot-band)] px-3 py-2 text-center text-sm text-[var(--bot-ink)]">{notice}</p>}
       <div role="tablist" className="mt-6 flex gap-1 rounded-lg bg-[var(--bot-band)] p-1">
@@ -124,7 +122,7 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
       ) : (
         <form method="post" className="mt-5 space-y-4" onSubmit={submit(signIn)}>
           <input type="hidden" name="next" value={next} />
-          <Field id="login-code" label="รหัสตัวแทน 6 หลัก">
+          <Field id="login-code" label="รหัส 6 หลัก">
             {/* dots, not the digits, so a person beside them cannot read the code; the eye shows
                 it to check a typo (owner chose ข, 2026-11-12). inputMode keeps the number pad */}
             <div className="relative">
@@ -147,11 +145,9 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
           <button disabled={pending} className={PRIMARY}>{pending ? "กำลังตรวจสอบ…" : "เข้าสู่ระบบ"}</button>
         </form>
       )}
-      {prices && (
-        <a href="#prices" className="mt-5 block text-center text-sm font-semibold text-[var(--bot-navy)] underline-offset-2 hover:underline">ดูค่าบริการ ↓</a>
-      )}
+      {/* ค่าบริการ and its "ดูค่าบริการ ↓" link came off the front page (owner, 2026-11-22, mockup Lj429DuBaTJXhS5ghT1wJt) */}
       {/* the how-to clips, for somebody who has not got in yet (owner chose 1ก, 2026-11-11) */}
-      <Link href="/help" className="mt-3 block text-center text-sm font-semibold text-[var(--bot-navy)] underline-offset-2 hover:underline">ดูคลิปวิธีใช้งาน</Link>
+      <Link href="/help" className="mt-5 block text-center text-sm font-semibold text-[var(--bot-navy)] underline-offset-2 hover:underline">ดูคลิปวิธีใช้งาน</Link>
     </AuthCard>
   );
 }

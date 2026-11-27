@@ -51,7 +51,7 @@ export interface HistSources {
   pieces: { id: string; createdAt: string; format: string; planName: string; hook: string; campaignId: string | null }[];
   /** ins_audit rows of putting pieces on a Page: post, schedule, reschedule, unschedule */
   posts: { id: string; at: string; action: string; pieceId: string | null; pageName: string | null; hook: string; when: string | null }[];
-  videos: { id: string; createdAt: string; product: string | null; fhc: boolean; motion: boolean; customer: string; status: string; /** a คลิปตามโจทย์'s brief */ brief?: string }[];
+  videos: { id: string; createdAt: string; product: string | null; fhc: boolean; motion: boolean; customer: string; status: string; /** an ad clip (boardOf), วิดีโอโฆษณา */ ad?: boolean; /** a คลิปตามโจทย์'s brief */ brief?: string }[];
   customers: { id: string; createdAt: string; name: string; gaps: Gap[]; survey?: boolean }[];
   thumbnails: { id: string; createdAt: string }[];
   readings: { id: string; createdAt: string; summary: string }[];
@@ -76,6 +76,7 @@ const FORMAT_WORD: Record<string, string> = { post: "เขียนโพสต
 
 const PRODUCT_NAME: Record<string, string> = {
   LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life",
+  GSAVING: "Global Savings", TWELVEPL: "12PL", EASYPROTECT: "Easy Protect 6", LIFETREASURE: "Life Treasure", CI123: "CI 123", CANCER: "ประกันมะเร็ง", PA: "PA อุบัติเหตุ", GROUP: "ประกันกลุ่ม",
 };
 
 const VIDEO_STATE: Record<string, string> = { done: "เสร็จแล้ว", failed: "ไม่สำเร็จ", drawing: "กำลังทำ", rendering: "กำลังทำ" };
@@ -129,12 +130,13 @@ export function buildHistory(s: HistSources): HistItem[] {
   for (const v of s.videos) {
     const story = v.product === "STORY";
     const free = v.product === "FREESTORY";
-    const plan = v.fhc ? "สรุป FHC" : story ? "คลิปเล่าเรื่อง" : free ? `คลิปตามโจทย์${v.brief ? ` “${snippet(v.brief, 40)}”` : ""}` : `วิดีโอนำเสนอ ${PRODUCT_NAME[v.product ?? "LIFEPROTECT"] ?? ""}`.trim();
+    const ad = Boolean(v.ad);
+    const plan = ad ? `วิดีโอโฆษณา ${PRODUCT_NAME[v.product ?? "LIFEPROTECT"] ?? ""}`.trim() : v.fhc ? "สรุป FHC" : story ? "คลิปเล่าเรื่อง" : free ? `คลิปตามโจทย์${v.brief ? ` “${snippet(v.brief, 40)}”` : ""}` : `วิดีโอนำเสนอ ${PRODUCT_NAME[v.product ?? "LIFEPROTECT"] ?? ""}`.trim();
     items.push({
       key: `clip-${v.id}`, kind: "clip", word: KIND_WORD.clip, at: v.createdAt,
       title: v.customer ? `${plan} · ${v.customer}` : plan,
       note: [VIDEO_STATE[v.status] ?? v.status, v.fhc || story || free ? "" : v.motion ? "Motion Graphic" : "ปกติ"].filter(Boolean).join(" · "),
-      href: free ? "/studio/prompt-story" : story ? "/studio/story-clip" : "/studio/quote-video",
+      href: ad ? "/studio/ad-video" : free ? "/studio/prompt-story" : story ? "/studio/story-clip" : "/studio/quote-video",
       action: v.status === "done" ? "ดูคลิป" : "เปิด",
     });
   }

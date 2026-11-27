@@ -19,7 +19,7 @@ export function AuthCard({ title, subtitle, children, below }: {
       <div className="w-full max-w-sm rounded-2xl border border-[var(--bot-line)] bg-[var(--bot-surface)] p-6 shadow-[0_1px_2px_rgba(54,33,31,0.05),0_18px_36px_-20px_rgba(54,33,31,0.35)] sm:p-7">
         <div className="flex flex-col items-center text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/mark.png" alt="" width={32} height={40} className="h-10 w-auto" />
+          <img src="/mark.png" alt="" width={40} height={40} className="h-10 w-10" />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-[var(--bot-ink-mute)]">{subtitle}</p>}
         </div>

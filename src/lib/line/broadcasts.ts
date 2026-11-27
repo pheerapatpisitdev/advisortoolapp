@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { broadcast, broadcastSeen, friends, quota, type LineMessage } from "@/lib/line/client";
-import { MENUS } from "@/lib/line/rich-menu";
+import { CHOOSE_ISHIELD, CHOOSE_LEGACY, CHOOSE_LIFE } from "@/lib/assistant/choose";
+import { WANTS_IN } from "@/lib/assistant/common";
 
 /**
  * Broadcasts from /admin/line (owner chose ข, 2026-10-15: sent now or at a set time).
@@ -22,10 +23,16 @@ const BUCKET = "line-broadcast";
 const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png" };
 
 /**
- * The quick replies a broadcast may carry: the start menu's own buttons, whose words the bot
- * already reads, so a tap is answered like a tap on the menu.
+ * The quick replies a broadcast may carry: words the bot already reads, so a tap is answered
+ * like typing them. They were the old customer menu's buttons; the menu now opens pages for
+ * agents (2026-11-19), and the choices stay what they were.
  */
-export const REPLY_CHOICES: Reply[] = MENUS.start.buttons.map((b) => ({ label: b.title, text: b.text }));
+export const REPLY_CHOICES: Reply[] = [
+  { label: "Life Protect", text: CHOOSE_LIFE },
+  { label: "มรดกเพื่อครอบครัว", text: CHOOSE_LEGACY },
+  { label: "iShield", text: CHOOSE_ISHIELD },
+  { label: "สนใจสมัคร", text: WANTS_IN },
+];
 
 export function bucketPrefix(): string {
   return supabaseAdmin().storage.from(BUCKET).getPublicUrl("x").data.publicUrl.slice(0, -1);

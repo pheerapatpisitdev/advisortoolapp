@@ -4,7 +4,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/login/actions";
 import { ToolLogo } from "./ToolLogo";
-import { accountLinks, isCurrent, menuGroups, RAIL_KEY, WHATS_NEW, type MenuGroup, type MenuIcon, type Who } from "@/lib/shell/menu";
+import { freshMenu } from "@/lib/updates/rules";
+import { useOpened, useWho, wasOpened } from "./who-client";
+import { accountLinks, isCurrent, menuGroups, RAIL_KEY, WHATS_NEW, type MenuGroup, type MenuIcon, type MenuLink, type Who } from "@/lib/shell/menu";
 
 /** the name at the top of the menu, and where it leads */
 export type Brand = { href: string; label: string };
@@ -29,10 +31,39 @@ export type Brand = { href: string; label: string };
  * only kind of shading that reads on a near-black page and a cream one both.
  */
 
+/**
+ * Studio as a card of its own under the list (owner chose ง, 2026-11-22): the one tool the menu
+ * asks to be pressed, so it is the one thing here drawn in colour across its whole face. The
+ * gradient is its own surface carrying white ink, as a chip is, so it reads on every skin; the
+ * page you are on rings it in the menu's own active colour. Folded to icons it is a square.
+ */
+function FeatureCard({ link, here, closed, fresh }: { link: MenuLink; here: boolean; closed: boolean; fresh: boolean }) {
+  return (
+    <Link
+      href={link.href}
+      aria-current={here ? "page" : undefined}
+      title={closed ? `${link.label} (ปิดชั่วคราว)` : link.label}
+      className={`shell-feature mt-3 flex items-center gap-2.5 p-2.5 no-underline rail:mx-auto rail:size-10 rail:justify-center rail:p-0 ${closed ? "opacity-60" : ""}`}
+    >
+      <span className="shell-feature-icon rail:size-8">
+        <Icon name={link.icon} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col rail:sr-only">
+        <span className="truncate text-[0.95rem] font-bold leading-tight">{link.label}</span>
+        <span className="truncate text-[0.72rem] leading-snug opacity-90">{closed ? "ปิดชั่วคราว" : link.feature?.note}</span>
+      </span>
+      {!closed && fresh && <NewTag />}
+      <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 rail:hidden">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </Link>
+  );
+}
+
 function Mark() {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src="/mark.png" alt="" width={22} height={28} className="h-7 w-auto shrink-0" />
+    <img src="/mark.png" alt="" width={28} height={28} className="h-7 w-7 shrink-0" />
   );
 }
 
@@ -122,6 +153,9 @@ function Icon({ name }: { name: MenuIcon }) {
     // the way back to the main system, from Studio and the back office
     case "back":
       return <svg {...common}><path d="M10 6.5 4.5 12l5.5 5.5M5 12h14.5" /></svg>;
+    // โรงพยาบาลในเครือ: a building with a cross on it (owner, 2026-11-25)
+    case "hospital":
+      return <svg {...common}><path d="M6 20.5V4.5h12v16M4 20.5h16M12 7.5v5M9.5 10h5M10.5 20.5v-4h3v4" /></svg>;
     // มีอะไรใหม่: a bell (owner chose 1ข, 2026-11-14)
     case "bell":
       return <svg {...common}><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 2H5zM10 20.5a2.2 2.2 0 0 0 4 0" /></svg>;
@@ -162,14 +196,6 @@ function Icon({ name }: { name: MenuIcon }) {
  * different things, and naming the pages on the calculator tells a stranger the shape of
  * the tool.
  */
-/**
- * Who is looking, as the sales pages learn it: they are built ahead of time and served to
- * whoever an advertisement sends, so they cannot ask on the server. The menu asks once the
- * page is up (owner chose ข, 2026-10-14), so an agent standing on one has the same menu as on
- * /home. Kept for the tab's life: moving between sales pages does not ask again or flicker.
- */
-let seen: Who | null | undefined;
-
 export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
   signedIn: boolean;
   menu?: MenuGroup[];
@@ -179,22 +205,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
   who?: Who | null;
 }) {
   const path = usePathname();
-  const [found, setFound] = useState<Who | null | undefined>(seen);
-  useEffect(() => {
-    if (given !== undefined || seen !== undefined) return;
-    let live = true;
-    fetch("/api/shell/who", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: { who?: Who | null } | null) => {
-        if (!j) return;
-        seen = j.who ?? null;
-        if (live) setFound(seen);
-      })
-      .catch(() => { /* the menu a customer sees, which is what it already shows */ });
-    return () => { live = false; };
-  }, [given]);
-  // a page that did not ask, and nobody signed in: no account box, as before
-  const who = given !== undefined ? given : found ?? undefined;
+  const who = useWho(given);
   const [open, setOpen] = useState(false);
   const [folded, setFolded] = useState(false);
 
@@ -210,9 +221,17 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
     try { localStorage.setItem(RAIL_KEY, next ? "1" : "0"); } catch { /* not kept */ }
   };
 
-  const groups = menu ?? menuGroups(signedIn, who);
+  // a tool switched off for now (เปิด-ปิดฟังก์ชัน) leaves the menu for all but the owner and the
+  // Super Admin, who still see it marked and go on trying it; a heading left with nothing goes too
+  // (owner chose this over the locked row, 2026-11-20)
+  const groups = (menu ?? menuGroups(signedIn, who))
+    .map((g) => (who?.closed?.length && !who.owner ? { ...g, links: g.links.filter((l) => !who.closed!.includes(l.href)) } : g))
+    .filter((g) => g.links.length > 0);
   // มีอะไรใหม่'s red number, and a dot on the phone's menu button, only where this menu lists มีอะไรใหม่
   const news = groups.some((g) => g.links.some((l) => l.href === WHATS_NEW.href)) ? who?.news ?? 0 : 0;
+  // New beside the items whose pages changed and this person has not opened (owner chose ก ก ก, 2026-11-24)
+  useOpened();
+  const fresh = freshMenu(groups.flatMap((g) => g.links.map((l) => l.href)), (who?.fresh ?? []).filter((f) => !wasOpened(f.id)));
   const home = brand ?? { href: "/home", label: "advisortool" };
 
   // a menu left open across a navigation covers the page that was just asked for
@@ -266,30 +285,10 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
             </p>
           )}
           <ul className="space-y-1">
-            {group.links.map((link) => {
+            {group.links.filter((link) => !link.feature).map((link) => {
               const here = !link.external && isCurrent(link.href, path);
-              // switched off for now (เปิด-ปิดฟังก์ชัน): still listed, marked, so nobody wonders where it went;
-              // locked for all but the owner and the Super Admin, who go on trying it (owner, 2026-10-17)
+              // switched off for now, as only the owner and the Super Admin see it: marked, still open to them
               const closed = who?.closed?.includes(link.href) === true;
-              if (closed && !who?.owner) {
-                return (
-                  <li key={link.href}>
-                    <span
-                      aria-disabled="true"
-                      title={`${link.label} (ปิดชั่วคราว)`}
-                      className="flex cursor-not-allowed items-center gap-2.5 px-2 py-1.5 text-sm rail:justify-center rail:px-0"
-                      style={{ ["--hue" as string]: link.hue, color: "var(--shell-mute)" }}
-                    >
-                      {link.logo ? <span className="inline-flex opacity-40"><ToolLogo id={link.logo} /></span> : <span className="shell-chip opacity-40"><Icon name={link.icon} /></span>}
-                      <span className="min-w-0 truncate rail:sr-only">{link.label}</span>
-                      <span className="shell-closed ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-semibold rail:sr-only">
-                        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
-                        ปิดชั่วคราว
-                      </span>
-                    </span>
-                  </li>
-                );
-              }
               return (
                 <li key={link.href}>
                   <Link
@@ -309,11 +308,15 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
                     <span className={`min-w-0 truncate rail:sr-only ${closed ? "opacity-60" : ""}`}>{link.label}</span>
                     {closed && <span className="shell-closed ml-auto shrink-0 rounded-full px-2 text-[11px] font-semibold rail:sr-only">ปิดชั่วคราว</span>}
                     {link.href === WHATS_NEW.href && news > 0 && <NewsCount n={news} />}
+                    {!closed && fresh.has(link.href) && <NewTag />}
                   </Link>
                 </li>
               );
             })}
           </ul>
+          {group.links.filter((link) => link.feature).map((link) => (
+            <FeatureCard key={link.href} link={link} here={isCurrent(link.href, path)} closed={who?.closed?.includes(link.href) === true} fresh={fresh.has(link.href)} />
+          ))}
           {i < groups.length - 1 && (
             <hr className="mt-3 border-0 border-t" style={{ borderColor: "var(--shell-line)" }} />
           )}
@@ -361,6 +364,18 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
 }
 
 /** มีอะไรใหม่'s red number in the menu (owner chose 1ข, 2026-11-14); on the folded rail, a dot on the chip's corner */
+/**
+ * "New", fading in and out, beside an item whose page changed (owner chose 1ก, 2026-11-24). Folded to
+ * its icons the menu keeps only a red dot at the icon's corner, as มีอะไรใหม่'s number does.
+ */
+function NewTag() {
+  return (
+    <span className="shell-new ml-auto rail:absolute rail:right-2 rail:top-0.5 rail:ml-0 rail:size-2.5 rail:p-0 rail:text-[0px]">
+      New<span className="sr-only"> มีการปรับปรุง</span>
+    </span>
+  );
+}
+
 function NewsCount({ n }: { n: number }) {
   return (
     <span
