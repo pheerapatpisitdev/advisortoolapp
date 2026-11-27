@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { friendProfile, isFriend, push, reply, linkRichMenu, richMenuIdOfAlias, unlinkRichMenu } from "@/lib/line/client";
+import { friendProfile, isFriend, push, reply, linkRichMenu, richMenuIdOfAlias, unlinkRichMenu, type LineMessage } from "@/lib/line/client";
 import { AGENT_MENU, MENUS } from "@/lib/line/rich-menu";
 import { isPromptStory } from "@/lib/prompt-story/types";
 import { boardOf } from "@/lib/quote-video/board";
@@ -261,12 +261,15 @@ export async function sendAgentTest(agentId: string): Promise<"sent" | "unlinked
   return "sent";
 }
 
-/** One alert to one agent, if linked and that switch is on. Never throws; false when nothing went. */
-async function tell(agentId: string, which: AgentNotify, text: string): Promise<boolean> {
+/**
+ * One alert to one agent, if linked and that switch is on: its words, or its messages sent as one
+ * push (one of the month's allowance however many it holds). Never throws; false when nothing went.
+ */
+async function tell(agentId: string, which: AgentNotify, said: string | LineMessage[]): Promise<boolean> {
   try {
     const r = await rowOf(agentId);
     if (!r?.line_user_id || !r[COLUMN[which]]) return false;
-    await push(r.line_user_id, [{ type: "text", text }]);
+    await push(r.line_user_id, typeof said === "string" ? [{ type: "text", text: said }] : said);
     return true;
   } catch (e) {
     console.error(`[line] ${which} alert to agent ${agentId} not sent:`, e);
@@ -293,6 +296,19 @@ export function clipDoneText(name: string, link: string): string {
   return ["🎬 คลิปทำเสร็จแล้ว", name, "", `ดูคลิป ${link}`].join("\n");
 }
 
+/**
+ * The clip itself in the chat (owner chose ข, 2026-11-27, mockup
+ * https://claude.ai/artifact/S5X3j9dZbvR7Kij2prLHsS): the words, the video LINE plays and the agent
+ * passes on to a customer, then the board — three messages in the one push the text alone took.
+ */
+export function clipDoneMessages(name: string, link: string, video: ClipVideo): LineMessage[] {
+  return [
+    { type: "text", text: ["🎬 คลิปทำเสร็จแล้ว", name, "กดค้างที่คลิป → แชร์ เพื่อส่งต่อให้ลูกค้าได้เลย"].join("\n") },
+    { type: "video", originalContentUrl: video.url, previewImageUrl: video.preview },
+    { type: "text", text: `ดูทุกคลิป ${link}` },
+  ];
+}
+
 export function clipFailedAgentText(name: string, refund: string, link: string): string {
   return ["⚠️ คลิปทำไม่สำเร็จ", name, refund, "", `ลองใหม่ได้ที่ ${link}`].join("\n");
 }
@@ -302,8 +318,14 @@ export function moneyLowText(satang: number, link: string): string {
   return ["💰 เงินในกระเป๋าเหลือ ฿" + baht, "เติมเงินได้ที่", link].join("\n");
 }
 
-export async function tellAgentClipDone(agentId: string, input: unknown, what: string, customer: string): Promise<boolean> {
-  return tell(agentId, "clipDone", clipDoneText(clipName(what, customer), siteUrl(clipBoard(input))));
+/** a finished clip's file as LINE fetches it: an https mp4 and a picture for its cover */
+export interface ClipVideo { url: string; preview: string }
+
+/** the clip done: with its video when there is one, else the words and the link as before */
+export async function tellAgentClipDone(agentId: string, input: unknown, what: string, customer: string, video?: ClipVideo | null): Promise<boolean> {
+  const name = clipName(what, customer);
+  const link = siteUrl(clipBoard(input));
+  return tell(agentId, "clipDone", video ? clipDoneMessages(name, link, video) : clipDoneText(name, link));
 }
 
 export async function tellAgentClipFailed(agentId: string, input: unknown, what: string, customer: string, refund: string): Promise<boolean> {

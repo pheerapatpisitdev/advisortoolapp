@@ -21,6 +21,7 @@ const MAX_QUICK_REPLIES = 13;
 export type LineMessage = (
   | { type: "text"; text: string }
   | { type: "image"; originalContentUrl: string; previewImageUrl: string }
+  | { type: "video"; originalContentUrl: string; previewImageUrl: string }
 ) & { quickReply?: { items: QuickReplyItem[] } };
 
 interface QuickReplyItem {

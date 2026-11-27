@@ -14,7 +14,8 @@ import {
  */
 const font = cardFont;
 
-const C = {
+/** the menu's colours, also the LINE clip cover's (clip-preview.tsx) */
+export const C = {
   ground: "#022162",
   tabOff: "#01143d",
   tabOffInk: "#9fb2de",

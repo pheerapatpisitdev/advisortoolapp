@@ -178,6 +178,19 @@ describe("the alerts", () => {
     expect(msg.text.split("\n")).toEqual(["🎬 คลิปทำเสร็จแล้ว", "วิดีโอนำเสนอ · Life Protect · คุณสมชาย", "", expect.stringMatching(/^ดูคลิป https?:\/\/.+\/studio\/quote-video$/)]);
   });
 
+  it("a clip done with its file sends the clip itself: words, the video, the board, in one push", async () => {
+    await linked();
+    const video = { url: "https://x.supabase.co/storage/v1/object/sign/quote-video/abc/quote.mp4?token=t", preview: "https://www.advisortool.app/api/line/clip-preview/abc" };
+    expect(await line.tellAgentClipDone(AGENT, { product: "LIFEPROTECT" }, "วิดีโอนำเสนอ · Life Protect", "สมชาย", video)).toBe(true);
+    expect(push).toHaveBeenCalledTimes(1);
+    const [to, msgs] = push.mock.calls[0] as unknown as [string, Record<string, string>[]];
+    expect(to).toBe("Uagent");
+    expect(msgs).toHaveLength(3);
+    expect(msgs[0].text.split("\n")).toEqual(["🎬 คลิปทำเสร็จแล้ว", "วิดีโอนำเสนอ · Life Protect · คุณสมชาย", "กดค้างที่คลิป → แชร์ เพื่อส่งต่อให้ลูกค้าได้เลย"]);
+    expect(msgs[1]).toEqual({ type: "video", originalContentUrl: video.url, previewImageUrl: video.preview });
+    expect(msgs[2].text).toMatch(/^ดูทุกคลิป https?:\/\/.+\/studio\/quote-video$/);
+  });
+
   it("nothing goes when not linked, or when that switch is off", async () => {
     expect(await line.tellAgentClipDone(AGENT, {}, "วิดีโอนำเสนอ", "")).toBe(false);
     await linked();

@@ -248,7 +248,7 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
     await clearInputs(row.id, isPromptStory(row.input));
     // the maker's own LINE, if they linked it (owner chose ข, 2026-11-19): the clip is done, and the
     // wallet running low after what it took
-    await tellMakerClipDone({ agent_id: row.agent_id, input: row.input, customer_name: row.customer_name });
+    await tellMakerClipDone({ id: row.id, agent_id: row.agent_id, input: row.input, customer_name: row.customer_name, video_path: outPath });
     if (charged) {
       try {
         await checkMoneyLow(row.agent_id, (await walletStatus(row.agent_id)).satang);

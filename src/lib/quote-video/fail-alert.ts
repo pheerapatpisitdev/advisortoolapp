@@ -1,5 +1,5 @@
 import { bluewealthNames } from "@/lib/auth/bluewealth";
-import { tellAgentClipDone, tellAgentClipFailed } from "@/lib/line/agent-line";
+import { tellAgentClipDone, tellAgentClipFailed, type ClipVideo } from "@/lib/line/agent-line";
 import { alertClipFailed } from "@/lib/line/owner-alert";
 import { isPromptStory } from "@/lib/prompt-story/types";
 import { siteUrl } from "@/lib/site-url";
@@ -134,7 +134,25 @@ export async function tellMakerClipFailed(row: {
   await tellAgentClipFailed(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "", back);
 }
 
-/** The maker's own LINE: their clip is done. Never throws. */
-export async function tellMakerClipDone(row: { agent_id: string; input: unknown; customer_name: string | null }): Promise<void> {
-  await tellAgentClipDone(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "");
+/**
+ * How long the clip sent into LINE plays from its link (owner chose ข, 2026-11-27): a chat is read
+ * later than a page, so longer than คัดลอกลิงก์'s seven days.
+ */
+export const LINE_VIDEO_SECONDS = 30 * 24 * 3600;
+
+/**
+ * The maker's own LINE: their clip is done, the clip itself with it when its link can be made
+ * (the words and the board's link alone when not). Never throws.
+ */
+export async function tellMakerClipDone(row: { id: string; agent_id: string; input: unknown; customer_name: string | null; video_path: string }): Promise<void> {
+  let video: ClipVideo | null = null;
+  try {
+    // the bucket by name, as rows.ts holds it: rows.ts reads this file, so it is not read from there
+    const { data } = await supabaseAdmin().storage.from("quote-video").createSignedUrl(row.video_path, LINE_VIDEO_SECONDS);
+    const url = data?.signedUrl;
+    if (url) video = { url, preview: siteUrl(`/api/line/clip-preview/${row.id}`) };
+  } catch (e) {
+    console.error(`[line] clip ${row.id} link for LINE not made:`, e);
+  }
+  await tellAgentClipDone(row.agent_id, row.input, clipWhat(row.input), row.customer_name ?? "", video);
 }
