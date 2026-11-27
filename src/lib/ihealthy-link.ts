@@ -291,7 +291,8 @@ export function cardQuery(table: IHealthyTable, v: IHealthyInitial): string {
   // 9: each attached rider named on its own line instead of a count.
   // 10: who it is for beside the plan's name, the base and territory under it — a long line
   // had pushed "ชาย 45 ปี" off the picture's right edge.
-  return `${queryFrom(table, v)}&v=${cardPaletteVersion(CARD_PALETTE)}&cv=12`;
+  // 13: MEB's three daily rates and DCI's payout as rows of the table (2026-11-28).
+  return `${queryFrom(table, v)}&v=${cardPaletteVersion(CARD_PALETTE)}&cv=13`;
 }
 
 /**

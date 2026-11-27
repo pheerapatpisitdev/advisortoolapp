@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { iHealthyCard } from "@/lib/ihealthy-card";
+import { iHealthyCard, plainRows } from "@/lib/ihealthy-card";
 import { iHealthyFacts } from "@/lib/ihealthy-facts";
 import { FULL_ROW_KEYS, FULL_ROW_LABEL, fullRowKey } from "@/lib/ihealthy-full-rows";
 import { fullCardPath } from "@/lib/ihealthy-full-link";
@@ -75,7 +75,7 @@ describe("the whole table as a picture", () => {
 
   it("keeps the quote card's own short table", () => {
     const short = iHealthyCard(new URLSearchParams(OPENING), WHILE_CURRENT);
-    expect(short.rows.length).toBeLessThan(10);
+    expect(plainRows(short).length).toBeLessThan(10);
     expect(full(`${OPENING}&fit=phone`).columns).toHaveLength(6);
   });
 

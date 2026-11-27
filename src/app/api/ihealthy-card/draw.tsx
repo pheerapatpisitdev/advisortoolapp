@@ -390,12 +390,13 @@ export function PlanTable(
         ) : r.span === undefined ? (
           <Row key={r.label} label={r.label} cells={r.cells} selected={selected} mark={r.label === markLabel} indent={r.kind === "sub"} height={rowHeight(r)} geo={geo} />
         ) : (
-          // One answer across every plan, because it is the same cover whichever is bought
+          // One answer across every plan, because it is the same cover whichever is bought — an
+          // attached rider's payout, in the premium's navy as the mockup the owner chose drew it
           <div key={r.label} style={{ display: "flex", height: H.row, flexShrink: 0, borderTop: `1px solid ${GRID}` }}>
             <Cell width={geo.title} height={H.row} align="flex-start" size={21} color={WHITE} weight={500}>
               {r.label}
             </Cell>
-            <Cell width={geo.col * card.columns.length} height={H.row} size={20} color={WHITE}>{r.span}</Cell>
+            <Cell width={geo.col * card.columns.length} height={H.row} size={20} color={GOLD_LIT} weight={600}>{r.span}</Cell>
           </div>
         ),
       )}

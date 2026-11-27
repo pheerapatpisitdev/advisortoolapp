@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { iHealthyCard } from "@/lib/ihealthy-card";
+import { iHealthyCard, iHealthyTableCard, plainRows } from "@/lib/ihealthy-card";
 import { cardPath, ridersFrom, riderParams } from "@/lib/ihealthy-link";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
@@ -14,8 +14,9 @@ const table = iHealthyTable(WHILE_CURRENT);
 const OPENING = "age=35&sex=F&base=WLF99H&sa=150000&plan=GOLD&area=&cover=&mode=annual";
 const query = (s: string) => new URLSearchParams(s);
 const cardAt = (s: string) => iHealthyCard(query(s), WHILE_CURRENT);
+/** the daily cash as the one row the other pictures and the clips still read (plainRows) */
 const spanOf = (card: ReturnType<typeof iHealthyCard>, label: string) =>
-  card.rows.find((r) => r.label === label)?.span;
+  plainRows(card).find((r) => r.label === label)?.span;
 
 describe("the riders in a card link", () => {
   it("writes each rider's fields in the order the engine takes them", () => {
@@ -82,7 +83,7 @@ describe("iHealthyCard", () => {
 
   it("condenses the sheet to the rows the phone shows, and prices all three instalments", () => {
     const card = cardAt(OPENING);
-    expect(card.rows.map((r) => r.label)).toEqual([
+    expect(plainRows(card).map((r) => r.label)).toEqual([
       "วงเงินค่ารักษาต่อปี",
       "ค่าห้องและค่าอาหาร",
       "Day Surgery",
@@ -298,7 +299,58 @@ describe("a card sized for a chat", () => {
     const card = at({ fit: "phone" });
     for (const row of card.premiumRows) expect(row.cells).toHaveLength(card.columns.length);
     for (const row of card.rows) {
-      if (row.span === undefined) expect(row.cells).toHaveLength(card.columns.length);
+      if (row.span === undefined && row.kind === undefined) expect(row.cells).toHaveLength(card.columns.length);
     }
+  });
+});
+
+/**
+ * The rider rows (owner, 2026-11-28, mockup https://claude.ai/artifact/FZbcJaWYCTpxYH7PPbDseD, ก):
+ * a customer asked to see the daily cash on an ICU or surgical stay and DCI's payout on the card.
+ */
+describe("the rider rows on the quote card", () => {
+  const PACKAGE = "age=35&sex=M&base=WLF99HX&sa=50000&plan=BRONZE&area=&cover=&mode=annual";
+  const riderRows = (card: ReturnType<typeof iHealthyCard>) =>
+    card.rows.filter((r) => r.rider).map((r) => (r.kind === "group" ? `# ${r.label}` : `${r.label} = ${r.span}`));
+
+  it("says what the daily cash and DCI pay, the customer's arrangement", () => {
+    const card = cardAt(`${PACKAGE}&r=MEB%3A1000&r=DCI%3A%3A200000`);
+    expect(riderRows(card)).toEqual([
+      "# ค่าชดเชยนอน รพ. (MEB) · ทุกแผนเท่ากัน",
+      "นอน รพ. ทุกสาเหตุ = 1,000 บาทต่อวัน",
+      "นอนห้อง ICU (×2) = 2,000 บาทต่อวัน",
+      "นอน รพ. เพราะผ่าตัด (×2.5) = 2,500 บาทต่อวัน",
+      "# โรคร้ายแรง DCI · ทุกแผนเท่ากัน",
+      "ตรวจพบ 31 โรคร้ายแรง +1 = รับเงินสด 200,000 บาท",
+    ]);
+    // the life rows were left off (owner chose ไม่ใส่), and the old single row is not drawn twice
+    expect(card.rows.some((r) => r.label === "ค่าชดเชยรายวัน")).toBe(false);
+  });
+
+  it("follows the daily plan picked, and the agency's standard where the fold has not spoken", () => {
+    expect(riderRows(cardAt(`${PACKAGE}&r=MEB%3A500`))).toContain("นอน รพ. เพราะผ่าตัด (×2.5) = 1,250 บาทต่อวัน");
+    expect(riderRows(cardAt(PACKAGE))).toContain("นอนห้อง ICU (×2) = 2,000 บาทต่อวัน");
+  });
+
+  it("draws nothing for a rider that is not on the quote", () => {
+    expect(riderRows(cardAt(`${PACKAGE}&r=`))).toEqual([]);
+    expect(riderRows(cardAt(`${PACKAGE}&r=DCI%3A%3A200000`))).toEqual([
+      "# โรคร้ายแรง DCI · ทุกแผนเท่ากัน",
+      "ตรวจพบ 31 โรคร้ายแรง +1 = รับเงินสด 200,000 บาท",
+    ]);
+    // DCI is written from 20: a link asking for it at 8 gets no DCI rows
+    expect(riderRows(cardAt("age=8&sex=M&base=WLF99H&sa=150000&plan=BRONZE&r=DCI%3A%3A500000"))).toEqual([]);
+  });
+
+  it("is read in the card's language", () => {
+    const en = cardAt(`${PACKAGE}&r=MEB%3A1000&r=DCI%3A%3A200000&l=en`);
+    expect(riderRows(en)).toContain("ICU stay (×2) = 2,000 baht a day");
+    expect(riderRows(en)).toContain("31 critical illnesses +1 = 200,000 baht cash on diagnosis");
+  });
+
+  it("stays off the comparison picture, which keeps its one daily-cash row", () => {
+    const table = iHealthyTableCard(query(`${PACKAGE}&r=MEB%3A1000&r=DCI%3A%3A200000`), WHILE_CURRENT);
+    expect(table.rows.some((r) => r.rider)).toBe(false);
+    expect(table.rows.find((r) => r.label === "ค่าชดเชยรายวัน")?.span).toContain("1,000 ต่อวัน");
   });
 });

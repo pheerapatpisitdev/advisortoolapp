@@ -53,6 +53,13 @@ export interface CardTableRow {
   cells: CardCell[];
   /** one answer for every plan, because it is the same cover whichever is bought */
   span?: string;
+  /**
+   * A heading across the table with no figures of its own — on this card, an attached rider's
+   * name ("group"); the whole table (src/lib/ihealthy-full-card.ts) also has categories and sub-rows.
+   */
+  kind?: "group" | "heading" | "sub";
+  /** one of the quote card's rider rows (MEB's rates, DCI's payout); every other picture leaves them out */
+  rider?: true;
 }
 
 export interface IHealthyCard {
@@ -97,8 +104,19 @@ export interface IHealthyCard {
   death: DeathRow[];
   columns: CardColumn[];
   rows: CardTableRow[];
+  /**
+   * The daily cash as the one row it was before the rider rows (2026-11-28): "1,000 ต่อวัน ·
+   * ทุกแผนเท่ากัน", or a dash where the fold took it off. The clips, the whole table and the
+   * comparison pictures still read it; `plainRows` puts it back in place of the rider rows.
+   */
+  dailyCashRow?: CardTableRow;
   /** what the whole arrangement costs under each plan, one instalment to a row */
   premiumRows: { label: string; cells: CardCell[] }[];
+}
+
+/** The card's table as every picture but the quote card draws it: the benefits, then the one daily-cash row. */
+export function plainRows(card: Pick<IHealthyCard, "rows" | "dailyCashRow">): CardTableRow[] {
+  return [...card.rows.filter((r) => !r.rider), ...(card.dailyCashRow ? [card.dailyCashRow] : [])];
 }
 
 const DASH = "-";
@@ -205,17 +223,42 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
   }
   // Last, and outside the company's own categories: a second contract the agency sells
   // alongside this one, which the premium rows below already count.
+  //
+  // Each rider as what it pays, under its own heading (owner, 2026-11-28, mockup
+  // https://claude.ai/artifact/FZbcJaWYCTpxYH7PPbDseD, ก): a customer asked to see the daily
+  // cash on an ICU or surgical stay and the DCI payout on the card itself. A rider not on the
+  // quote has no rows at all, so an arrangement without them is drawn as it always was.
   const standardPlan = table.standard.plan[v.age - table.ageMin];
+  const rr = w.riderRows;
+  let dailyCashRow: CardTableRow | undefined;
   if (standardPlan !== null) {
     // What is actually attached: the agent's own plan where the fold has spoken, and the
     // agency's standard where it has not — which is the plan the price above was worked out
     // on either way.
     const attached = extras === undefined ? standardPlan : attachedDailyCash;
-    rows.push({
+    dailyCashRow = {
       label: w.dailyCashRow,
       cells: [],
       span: attached === null ? DASH : `${figure(attached, lang)} ${w.perDay} · ${w.samePlans}`,
-    });
+    };
+    if (attached !== null) {
+      // the company's multiples of the daily plan: ICU twice it, a stay for surgery 2.5 times (owner confirmed)
+      const perDay = (x: number) => rr.perDay(figure(Math.round(x), lang));
+      rows.push(
+        { label: `${rr.mebHeading} · ${w.samePlans}`, cells: [], kind: "group", rider: true },
+        { label: rr.mebAny, cells: [], span: perDay(attached), rider: true },
+        { label: rr.mebIcu, cells: [], span: perDay(attached * 2), rider: true },
+        { label: rr.mebSurgery, cells: [], span: perDay(attached * 2.5), rider: true },
+      );
+    }
+  }
+  // DCI's sum is what the agent picked for it, and only where the engine priced it at this age
+  const dci = extras === undefined ? undefined : asked.find((r) => r.code === "DCI" && priced.extraCodes.includes("DCI"));
+  if (dci?.sumAssured !== undefined) {
+    rows.push(
+      { label: `${rr.dciHeading} · ${w.samePlans}`, cells: [], kind: "group", rider: true },
+      { label: rr.dciFound, cells: [], span: rr.dciCash(figure(dci.sumAssured, lang)), rider: true },
+    );
   }
 
   // without the instalments the agent switched off (src/lib/pay-prefs.ts); the year stays
@@ -277,6 +320,7 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
     death: v.base === "WLF99HX" ? [] : deathBenefitRows(death, w.death),
     columns,
     rows,
+    ...(dailyCashRow ? { dailyCashRow } : {}),
     premiumRows,
   };
 }
@@ -318,7 +362,8 @@ export function iHealthyTableCard(query: URLSearchParams, today: Date = new Date
     insuredLine: card.insuredLine,
     // nothing is chosen yet, so nothing is lit
     columns: card.columns.map((c) => ({ ...c, selected: false })),
-    rows: card.rows,
+    // the rider rows belong to the quote they price; this picture is the plans before one is chosen
+    rows: plainRows(card),
     premiumRows: card.premiumRows,
   };
 }

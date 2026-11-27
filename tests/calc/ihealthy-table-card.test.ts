@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { iHealthyCard, iHealthyTableCard } from "@/lib/ihealthy-card";
+import { iHealthyCard, iHealthyTableCard, plainRows } from "@/lib/ihealthy-card";
 import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
 
 const query = (extra: Record<string, string> = {}) =>
@@ -24,7 +24,8 @@ describe("the comparison table on its own", () => {
     const q = query();
     const quote = iHealthyCard(new URLSearchParams(q));
     const table = iHealthyTableCard(new URLSearchParams(q));
-    expect(table.rows).toEqual(quote.rows);
+    // the same benefits; the rider rows stay on the quote they price (2026-11-28)
+    expect(table.rows).toEqual(plainRows(quote));
     expect(table.premiumRows).toEqual(quote.premiumRows);
   });
 

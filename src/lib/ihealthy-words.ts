@@ -149,6 +149,21 @@ export interface IHealthyWords {
   upTo: (limit: string) => string;
   perDay: string;
   samePlans: string;
+  /**
+   * The card's rider rows (owner, 2026-11-28, mockup https://claude.ai/artifact/FZbcJaWYCTpxYH7PPbDseD, ก):
+   * what the daily cash pays on an ordinary, an ICU and a surgical stay, and what DCI pays on
+   * diagnosis — each only where that rider is on the quote. Figures come in already written.
+   */
+  riderRows: {
+    mebHeading: string;
+    mebAny: string;
+    mebIcu: string;
+    mebSurgery: string;
+    perDay: (figure: string) => string;
+    dciHeading: string;
+    dciFound: string;
+    dciCash: (figure: string) => string;
+  };
   premiumHeading: string;
   moreOnDesktop: (hidden: number) => string;
   scrollHint: string;
@@ -438,6 +453,16 @@ const th: IHealthyWords = {
   upTo: (limit) => `ไม่เกิน ${limit}`,
   perDay: "ต่อวัน",
   samePlans: "ทุกแผนเท่ากัน",
+  riderRows: {
+    mebHeading: "ค่าชดเชยนอน รพ. (MEB)",
+    mebAny: "นอน รพ. ทุกสาเหตุ",
+    mebIcu: "นอนห้อง ICU (×2)",
+    mebSurgery: "นอน รพ. เพราะผ่าตัด (×2.5)",
+    perDay: (f) => `${f} บาทต่อวัน`,
+    dciHeading: "โรคร้ายแรง DCI",
+    dciFound: "ตรวจพบ 31 โรคร้ายแรง +1",
+    dciCash: (f) => `รับเงินสด ${f} บาท`,
+  },
   premiumHeading: "เบี้ยประกัน",
   moreOnDesktop: (hidden) => `ตารางเต็มมีอีก ${hidden} หมวด ดูได้บนจอคอมพิวเตอร์ · `,
   scrollHint: "เลื่อนตารางไปทางขวาเพื่อดูแผนอื่น · ",
@@ -617,6 +642,16 @@ const en: IHealthyWords = {
   upTo: (limit) => `Up to ${limit}`,
   perDay: "per day",
   samePlans: "same in every plan",
+  riderRows: {
+    mebHeading: "Daily hospital cash (MEB)",
+    mebAny: "Any hospital stay",
+    mebIcu: "ICU stay (×2)",
+    mebSurgery: "Stay after surgery (×2.5)",
+    perDay: (f) => `${f} baht a day`,
+    dciHeading: "Critical illness (DCI)",
+    dciFound: "31 critical illnesses +1",
+    dciCash: (f) => `${f} baht cash on diagnosis`,
+  },
   premiumHeading: "Premium",
   moreOnDesktop: (hidden) => `The full table has ${hidden} more categories on a computer screen · `,
   scrollHint: "Scroll the table right to see other plans · ",
@@ -857,6 +892,16 @@ const zh: IHealthyWords = {
   upTo: (limit) => `最多 ${limit}`,
   perDay: "每天",
   samePlans: "各计划相同",
+  riderRows: {
+    mebHeading: "住院每日津贴（MEB）",
+    mebAny: "任何原因住院",
+    mebIcu: "ICU 住院（×2）",
+    mebSurgery: "手术住院（×2.5）",
+    perDay: (f) => `每天 ${f} 泰铢`,
+    dciHeading: "重大疾病（DCI）",
+    dciFound: "确诊 31 种重大疾病 +1",
+    dciCash: (f) => `一次性领取 ${f} 泰铢`,
+  },
   premiumHeading: "保费",
   moreOnDesktop: (hidden) => `完整表格另有${hidden}类，请在电脑屏幕查看 · `,
   scrollHint: "向右滑动表格查看其他计划 · ",
@@ -1089,6 +1134,16 @@ const ru: IHealthyWords = {
   upTo: (limit) => `Не более ${limit}`,
   perDay: "в день",
   samePlans: "одинаково во всех планах",
+  riderRows: {
+    mebHeading: "Суточные при госпитализации (MEB)",
+    mebAny: "Любая госпитализация",
+    mebIcu: "Реанимация ICU (×2)",
+    mebSurgery: "После операции (×2.5)",
+    perDay: (f) => `${f} бат в день`,
+    dciHeading: "Тяжёлые заболевания (DCI)",
+    dciFound: "31 тяжёлое заболевание +1",
+    dciCash: (f) => `${f} бат при диагнозе`,
+  },
   premiumHeading: "Страховой взнос",
   moreOnDesktop: (hidden) => `В полной таблице ещё ${hidden} разделов — откройте на компьютере · `,
   scrollHint: "Прокрутите таблицу вправо, чтобы увидеть другие планы · ",
@@ -1321,6 +1376,16 @@ const my: IHealthyWords = {
   upTo: (limit) => `အများဆုံး ${limit}`,
   perDay: "တစ်ရက်လျှင်",
   samePlans: "အစီအစဉ်အားလုံး အတူတူ",
+  riderRows: {
+    mebHeading: "ဆေးရုံတက် နေ့စဉ်ထောက်ပံ့ငွေ (MEB)",
+    mebAny: "ဆေးရုံတက်ခြင်း အားလုံး",
+    mebIcu: "ICU (×2)",
+    mebSurgery: "ခွဲစိတ်ပြီး ဆေးရုံတက် (×2.5)",
+    perDay: (f) => `တစ်ရက်လျှင် ${f} ဘတ်`,
+    dciHeading: "ပြင်းထန်သောရောဂါ (DCI)",
+    dciFound: "ပြင်းထန်သောရောဂါ 31 မျိုး +1",
+    dciCash: (f) => `ငွေသား ${f} ဘတ်`,
+  },
   premiumHeading: "ပရီမီယံ",
   moreOnDesktop: (hidden) => `ဇယားအပြည့်တွင် နောက်ထပ် အပိုင်း ${hidden} ခု ရှိပြီး ကွန်ပျူတာဖန်သားပြင်တွင် ကြည့်နိုင်သည် · `,
   scrollHint: "အခြားအစီအစဉ်များ ကြည့်ရန် ဇယားကို ညာဘက်သို့ ရွှေ့ပါ · ",
@@ -1560,6 +1625,16 @@ const fr: IHealthyWords = {
   upTo: (limit) => `Jusqu'à ${limit}`,
   perDay: "par jour",
   samePlans: "identique pour toutes les formules",
+  riderRows: {
+    mebHeading: "Indemnité journalière (MEB)",
+    mebAny: "Toute hospitalisation",
+    mebIcu: "Séjour en soins intensifs (×2)",
+    mebSurgery: "Séjour après chirurgie (×2,5)",
+    perDay: (f) => `${f} bahts par jour`,
+    dciHeading: "Maladies graves (DCI)",
+    dciFound: "31 maladies graves +1",
+    dciCash: (f) => `${f} bahts au diagnostic`,
+  },
   premiumHeading: "Prime",
   moreOnDesktop: (hidden) => `Le tableau complet compte ${hidden} catégories de plus sur un écran d'ordinateur · `,
   scrollHint: "Faites défiler le tableau vers la droite pour voir les autres formules · ",
@@ -1792,6 +1867,16 @@ const de: IHealthyWords = {
   upTo: (limit) => `Bis ${limit}`,
   perDay: "pro Tag",
   samePlans: "in allen Tarifen gleich",
+  riderRows: {
+    mebHeading: "Krankenhaustagegeld (MEB)",
+    mebAny: "Jeder Krankenhausaufenthalt",
+    mebIcu: "Intensivstation (×2)",
+    mebSurgery: "Aufenthalt nach OP (×2,5)",
+    perDay: (f) => `${f} Baht pro Tag`,
+    dciHeading: "Schwere Krankheiten (DCI)",
+    dciFound: "31 schwere Krankheiten +1",
+    dciCash: (f) => `${f} Baht bei Diagnose`,
+  },
   premiumHeading: "Prämie",
   moreOnDesktop: (hidden) => `Die vollständige Tabelle zeigt am Computer ${hidden} weitere Bereiche · `,
   scrollHint: "Tabelle nach rechts verschieben, um andere Tarife zu sehen · ",

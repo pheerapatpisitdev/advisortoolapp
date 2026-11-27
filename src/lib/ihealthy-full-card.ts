@@ -1,5 +1,5 @@
 import { benefitCell } from "@/components/ihealthy/BenefitTable";
-import { iHealthyCard, type CardCell, type CardTableRow, type IHealthyCard } from "@/lib/ihealthy-card";
+import { iHealthyCard, plainRows, type CardCell, type CardTableRow, type IHealthyCard } from "@/lib/ihealthy-card";
 import { iHealthyFacts, isHeading } from "@/lib/ihealthy-facts";
 import { FULL_ROW_LABEL, fullRowKey, SHARED_LIMIT_NOTE, SHARED_OPD } from "@/lib/ihealthy-full-rows";
 import { initialFrom } from "@/lib/ihealthy-link";
@@ -89,8 +89,8 @@ export function iHealthyFullCard(query: URLSearchParams, today: Date = new Date(
     });
   }
 
-  // the card's first row is the yearly ceiling, and its one spanning row the daily cash
+  // the card's first row is the yearly ceiling, and the daily cash its one spanning row (plainRows)
   const [ceiling] = card.rows;
-  const spanning = card.rows.filter((r) => r.span !== undefined);
+  const spanning = plainRows(card).filter((r) => r.span !== undefined);
   return { ...card, rows: [ceiling, ...rows, ...spanning] };
 }

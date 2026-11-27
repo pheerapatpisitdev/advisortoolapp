@@ -2,7 +2,7 @@ import type { ThemeKey } from "./theme-keys";
 import type { FestivalKey } from "./festival";
 import type { MyColor } from "@/lib/card-theme";
 import type { CardRiders, PlanCardInput } from "@/lib/card-link";
-import { iHealthyCard } from "@/lib/ihealthy-card";
+import { iHealthyCard, plainRows } from "@/lib/ihealthy-card";
 import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
 import { setupQuery } from "./ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
@@ -788,11 +788,13 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
   // an instalment the agent hid is never the one the four plans are priced in: yearly instead
   if (v.allPlans) return allPlansVideoFacts({ ...v, allPlans: shows(hide, v.allPlans) ? v.allPlans : "annual" }, today);
   const query = setupQuery(v);
-  const card = iHealthyCard(query, today);
+  // the clip reads the card's table as it was before the rider rows (2026-11-28): one daily-cash row
+  const plain = (c: ReturnType<typeof iHealthyCard>) => ({ ...c, rows: plainRows(c) });
+  const card = plain(iHealthyCard(query, today));
   // another language: the same card read in it (ihealthy-card.ts `l=`), row for row and column
   // for column; the Thai card is still the one looked into, its labels being the keys
   const lang: VideoLang = v.lang ?? "th";
-  const shown = lang === "th" ? card : iHealthyCard(new URLSearchParams([...query, ["l", lang]]), today);
+  const shown = lang === "th" ? card : plain(iHealthyCard(new URLSearchParams([...query, ["l", lang]]), today));
   const w = WORDS[lang];
   const vw = VIDEO_WORDS[lang];
   const at = card.columns.findIndex((c) => c.selected);
