@@ -244,16 +244,16 @@ export function ClipList({ board, items, setItems, pages }: {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{v.title}</span>
-            <span className="block text-xs text-[var(--ct-mute)]">{when(v.createdAt)}{v.paid ? ` · ${v.paid}` : ""}</span>
+            <span className="block truncate text-xs text-[var(--ct-mute)]">{when(v.createdAt)}{v.paid ? ` · ${v.paid}` : ""}</span>
           </span>
         </button>
         {v.progress ? (
-          <div className="w-40 shrink-0 max-sm:w-28"><ClipProgress state={v.progress} /></div>
+          <div className="w-40 shrink-0 @max-md:w-28"><ClipProgress state={v.progress} /></div>
         ) : (
           <div className="flex shrink-0 items-center gap-2">
             {v.status !== "done" && <StatusPill status={v.status} />}
-            {v.status === "done" && v.save && v.watch && <span className="max-sm:hidden"><SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} /></span>}
-            {v.status === "done" && <button type="button" className={`${small} max-sm:hidden`} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
+            {v.status === "done" && v.save && v.watch && <span className="@max-xl:hidden"><SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} /></span>}
+            {v.status === "done" && <button type="button" className={`${small} @max-xl:hidden`} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
             <button type="button" className={small} aria-label={`ดูคลิปและเมนูอื่นของ ${v.title}`} onClick={() => setExpanded(v.id)}>⋯</button>
           </div>
         )}
@@ -334,7 +334,7 @@ export function ClipList({ board, items, setItems, pages }: {
           {shown.map((v) => card(v, true))}
         </div>
       ) : (
-        <ul className="divide-y divide-[var(--ct-hair)] overflow-hidden rounded-xl border border-[var(--ct-hair)]">
+        <ul className="@container divide-y divide-[var(--ct-hair)] overflow-hidden rounded-xl border border-[var(--ct-hair)]">
           {shown.map(row)}
         </ul>
       ))}
