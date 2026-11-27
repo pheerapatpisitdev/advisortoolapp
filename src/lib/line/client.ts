@@ -22,6 +22,8 @@ export type LineMessage = (
   | { type: "text"; text: string }
   | { type: "image"; originalContentUrl: string; previewImageUrl: string }
   | { type: "video"; originalContentUrl: string; previewImageUrl: string }
+  /** a Flex message: LINE's own layout, read as `contents` (https://developers.line.biz/en/reference/messaging-api/#flex-message) */
+  | { type: "flex"; altText: string; contents: Record<string, unknown> }
 ) & { quickReply?: { items: QuickReplyItem[] } };
 
 interface QuickReplyItem {

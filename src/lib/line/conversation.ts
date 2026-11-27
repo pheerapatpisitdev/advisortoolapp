@@ -15,7 +15,9 @@ import { openConversation, openLead, record, type RecordedEvent } from "@/lib/ch
 import { WANTS_IN } from "@/lib/assistant/common";
 import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
 import { GATHER_MS, botTurn, gathered, keepTranscript } from "@/lib/chat/transcript";
-import { agentFormReply, agentOfLine, asksForForm, formLinkFor } from "@/lib/line/agent-form";
+import { agentFormReply, agentOfLine, asksForForm, formLinkFor, settingsLink } from "@/lib/line/agent-form";
+import { agentLine } from "@/lib/line/agent-line";
+import { agentVideoReply, asksForVideo, videoStartOfChat } from "@/lib/line/agent-video";
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** the wait for a burst; a test sets GATHER_MS=0 rather than wait five seconds a turn */
@@ -108,6 +110,37 @@ async function say(replyToken: string, userId: string, messages: LineMessage[]):
     console.error("LINE reply failed, pushing instead:", e);
     await push(userId, messages);
   }
+}
+
+/**
+ * A linked agent asking for a video (owner chose ก ก, 2026-11-27): sent to วิดีโอนำเสนอ, on the
+ * quote this chat holds when it holds one (src/lib/line/agent-video.ts). True when this turn was
+ * that; a customer, or an agent the account cannot tell, goes on to the brains. No lead is opened.
+ */
+async function answeredAgentVideo(
+  asked: string, userId: string, replyToken: string,
+  session: Awaited<ReturnType<typeof loadSession>>,
+  thread: Parameters<typeof keepTranscript>[0],
+): Promise<boolean> {
+  if (!asksForVideo(asked)) return false;
+  const agentId = await agentOfLine(userId).catch((e) => {
+    console.error("[line] agent of chat not read:", e);
+    return null;
+  });
+  if (!agentId) return false;
+  const notifyOn = await agentLine(agentId).then((v) => v.notify.clipDone).catch(() => true);
+  const messages = agentVideoReply(videoStartOfChat(session.slots), notifyOn, settingsLink());
+  await say(replyToken, userId, messages);
+  const texts = messages.map((m) => (m.type === "text" ? m.text : m.type === "flex" ? m.altText : "")).filter(Boolean);
+  const said = texts.map((text) => ({ text }));
+  await keepTranscript({ ...thread, product: productOf(session.slots) }, [botTurn(said, undefined)]);
+  await saveTurn("line", thread.userHash, {
+    base: session,
+    added: [{ role: "user", content: asked }, { role: "assistant", content: texts.join("\n\n") }],
+    slots: session.slots,
+    conversationId: thread.conversationId,
+  });
+  return true;
 }
 
 const FORM_LINK_FAILED = "ขออภัยครับ ดึงลิงก์ฟอร์มของคุณไม่สำเร็จ ลองพิมพ์ขอฟอร์มอีกครั้งนะครับ";
@@ -215,6 +248,11 @@ export async function handle(event: LineEvent, destination = "", opts: { started
 
   // a linked agent asking for a form gets their own, not the agency's (src/lib/line/agent-form.ts)
   if (await answeredAgentForm(asked, userId, replyToken, session, thread)) {
+    await record(conversationId, ledger, productOf(session.slots));
+    return;
+  }
+  // a linked agent asking for a video is sent to วิดีโอนำเสนอ (src/lib/line/agent-video.ts)
+  if (await answeredAgentVideo(asked, userId, replyToken, session, thread)) {
     await record(conversationId, ledger, productOf(session.slots));
     return;
   }
