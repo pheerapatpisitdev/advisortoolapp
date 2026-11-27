@@ -106,7 +106,11 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
 }
 
 /** ffmpeg's xfade, as job.ts names it per scene: how the outgoing and incoming scenes look at q (0 → 1) */
-export function crossing(kind: string, q: number, w: number): { out: CSSProperties; in: CSSProperties } {
+/** ease-in-out (cubic): the join starts and ends softly instead of at one steady speed */
+const ease = (x: number) => { const v = Math.min(1, Math.max(0, x)); return v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2; };
+
+export function crossing(kind: string, raw: number, w: number): { out: CSSProperties; in: CSSProperties } {
+  const q = ease(raw);
   switch (kind) {
     // ลูกเล่นคลิปใหม่'s fourth way in (fx.ts): the scene uncovered from left to right
     case "wipe": return { out: {}, in: { clipPath: `inset(0 ${((1 - q) * 100).toFixed(1)}% 0 0)` } };
@@ -187,7 +191,7 @@ export function Clip(p: ClipProps) {
       words: sc.voice.split(" ").filter(Boolean), voiceSec: sc.voiceSec, ...p.shown,
     };
     // the ground drifts up the scene (down on every other one), as buildJob's crop does
-    const y = drift * (s % 2 ? 1 - t / sc.dur : t / sc.dur);
+    const y = drift * ease(s % 2 ? 1 - t / sc.dur : t / sc.dur);
     let style: CSSProperties = {};
     const next = p.scenes[s + 1];
     if (t < XFADE && s > 0) style = crossing(transitionOf(sc.key, Boolean(p.fx), TRANSITIONS), t / XFADE, w).in;
@@ -206,7 +210,7 @@ export function Clip(p: ClipProps) {
     const frameOf = portrait ? motionFrame(sc.key, c, t) : wideQuoteFrame(sc.key, c, t, p.size as "square" | "landscape");
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
-        <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
+        <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex", transformOrigin: "50% 30%", transform: `scale(${(1 + 0.04 * ease(t / sc.dur)).toFixed(4)})` }}>{got.ground}</div>
         {themeBack(p.theme, w, h, lookOf(p))}
         {fest ? festivalBack(fest.key, T, w, h) : null}
         {/* Thai lines break at spaces only, as satori breaks them (KeepWords; owner chose ก, 2026-10-19) */}

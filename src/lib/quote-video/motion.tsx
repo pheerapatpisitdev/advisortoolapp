@@ -206,12 +206,15 @@ export function look(an: Anim | undefined, t: number): { opacity: number; transf
   if (!an) return { opacity: 1, p: 1 };
   const p = clamp01((t - an.at) / an.dur);
   if (p <= 0 && an.kind !== "stroke" && an.kind !== "count") return { opacity: 0, p: 0 };
+  // once in, a slow float of about 3 px, eased in so nothing jumps; each element's phase from its own start
+  const since = t - an.at - an.dur;
+  const fy = since > 0 ? (3 * clamp01(since / 0.8) * Math.sin(since * 1.6 + an.at * 2.3)).toFixed(2) : "0";
   switch (an.kind) {
-    case "up": return { opacity: easeOut(p), transform: `translateY(${Math.round((1 - easeOut(p)) * 70)}px)`, p };
-    case "left": return { opacity: easeOut(p), transform: `translateX(${Math.round((1 - easeOut(p)) * -90)}px)`, p };
-    case "pop": { const s = 0.4 + 0.6 * easeBack(p); return { opacity: clamp01(p * 2), transform: `scale(${s.toFixed(3)})`, p }; }
+    case "up": return { opacity: easeOut(p), transform: `translateY(${(Math.round((1 - easeOut(p)) * 70) + Number(fy)).toFixed(2)}px)`, p };
+    case "left": return { opacity: easeOut(p), transform: `translateX(${Math.round((1 - easeOut(p)) * -90)}px) translateY(${fy}px)`, p };
+    case "pop": { const s = 0.4 + 0.6 * easeBack(p); return { opacity: clamp01(p * 2), transform: `scale(${s.toFixed(3)}) translateY(${fy}px)`, p }; }
     case "grow": return { opacity: p > 0 ? 1 : 0, p: easeOut(p) };
-    case "fade": return { opacity: easeOut(p), p };
+    case "fade": return { opacity: easeOut(p), transform: `translateY(${fy}px)`, p };
     case "stroke": return { opacity: 1, p: easeOut(p) };
     case "count": return { opacity: 1, p };
   }
