@@ -133,6 +133,8 @@ export interface BudgetOutcomeProps {
   minMonthly: number;
   /** how the sum was chosen, said after the money left; the plan's own steps unless the page says otherwise */
   stepNote?: string;
+  /** what to try when the budget is short; a plan with one term has no longer term to offer */
+  shortHint?: string;
 }
 
 /**
@@ -140,7 +142,9 @@ export interface BudgetOutcomeProps {
  * left of the money — or, when the money does not reach the plan's smallest sum, that, with the
  * figure it would take. A budget is never lifted to the minimum without being told.
  */
-export function BudgetOutcome({ budget, fit, least, minMonthly, stepNote = "ทุนเลือกได้ตามขั้นที่แผนนี้ขาย" }: BudgetOutcomeProps) {
+export function BudgetOutcome({
+  budget, fit, least, minMonthly, stepNote = "ทุนเลือกได้ตามขั้นที่แผนนี้ขาย", shortHint = "ลองเพิ่มงบ หรือเลือกงวดชำระเบี้ยที่ยาวกว่า",
+}: BudgetOutcomeProps) {
   const per = budget.per === "month" ? "เดือน" : "ปี";
   // the same formatting the quotation uses, so one instalment never shows as two figures
   const baht = formatBaht;
@@ -149,7 +153,7 @@ export function BudgetOutcome({ budget, fit, least, minMonthly, stepNote = "ท�
       <p role="status" className="mt-4 text-sm leading-relaxed text-[var(--lg-gold)]">
         งบนี้ยังไม่ถึงทุนขั้นต่ำของแบบนี้
         {least && <> · ทุนต่ำสุด {least.sum.toLocaleString("en-US")} บาท เบี้ย {baht(least.total)} บาท/{per}</>}
-        {" "}ลองเพิ่มงบ หรือเลือกงวดชำระเบี้ยที่ยาวกว่า
+        {" "}{shortHint}
       </p>
     );
   }

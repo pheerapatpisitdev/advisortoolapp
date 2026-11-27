@@ -3,13 +3,13 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { PayMode, Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
-import { showModes } from "@/lib/pay-prefs";
+import { showModes, shows } from "@/lib/pay-prefs";
 import { formatBaht, formatSatang } from "@/calc/money";
 import { displayPremium, perDayText } from "@/lib/legacy-cta";
 import type { LifeProtectIllness, LifeProtectRider } from "@/lib/lifeprotect-table";
 import {
   accidentOverCap, addModes, illnessModes, illnessSaMax, illnessWhyNot, riderDueByYear, lifeProtectModes, medicalModes, medicalPlansAt, needsParent,
-  payYears, pickedRider, riderModes, riderSoldAt, riderWaiveYears, termAt, totalModes, type Payer, type RiderPick,
+  lifeProtectSumFor, payYears, pickedRider, riderModes, riderSoldAt, riderWaiveYears, termAt, totalModes, type Payer, type RiderPick,
 } from "@/lib/lifeprotect-quote";
 import { cashProjection } from "@/lib/cash-projection";
 import { OCCUPATION_NOTE } from "@/calc/riders/rate-per-thousand";
@@ -20,7 +20,7 @@ import {
 import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
-import { TWELVEPL_SUMS, planInitialFromTable, twelvePlLinkSum, twelvePlTypedSum } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_BUDGET_STEP, TWELVEPL_SUMS, planInitialFromTable, twelvePlLinkSum, twelvePlTypedSum } from "@/lib/quote-pdf/pages";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
 import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
@@ -29,6 +29,8 @@ import type { TwelvePlTable } from "@/lib/twelvepl-table";
 import { excelRound, twelvePlTotals, twelvePlYears } from "@/lib/twelvepl-benefits";
 import { twelvePlQuoteText } from "@/lib/twelvepl-cta";
 import { TwelvePlValueTable } from "@/components/twelvepl/TwelvePlValueTable";
+import { BudgetBox, BudgetOutcome, BudgetSwitch, startBudget } from "@/components/sales/BudgetBox";
+import { budgetFit, type PageBudget } from "@/lib/budget-sum";
 
 /** The workbook's own sample opens the page: 3 million, a woman of 44 (12PL_A2026-1). */
 const SUM_START = 3_000_000;
@@ -44,6 +46,8 @@ const AGE_START_PAYER = 35;
 const PAYER_START: Payer = { sex: "M", age: AGE_START_PAYER };
 /** The sums a critical-illness rider offers as buttons; any other is typed in the fourth box (owner, 2026-10-28) */
 const ILLNESS_SUMS = [500_000, 1_000_000, 2_000_000];
+/** The budget the field opens on when a visitor switches to naming one, as on Life Protect. */
+const BUDGET_START: PageBudget = { baht: 100_000, per: "year" };
 /** A typed critical-illness sum lands on a step of this size, inside what the rider is written for. */
 const ILLNESS_STEP = 10_000;
 const illnessTypedSum = (r: LifeProtectIllness, max: number, n: number) =>
@@ -117,8 +121,12 @@ export function TwelvePlCalculator({ table, sticky = false, hide = [] }: TwelveP
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
   );
+  const monthlyShown = shows(hide, "monthly");
   const [sums, setSums] = useState<readonly number[]>(TWELVEPL_SUMS);
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
+  // by what the visitor can pay instead of by a sum: the page finds the biggest sum that fits
+  const [byBudget, setByBudget] = useState(false);
+  const [budget, setBudget] = useState<PageBudget>(() => startBudget(BUDGET_START, monthlyShown));
   const [sumTyped, setSumTyped] = useState<string | null>(null);
   const settleSum = () => {
     const digits = sumTyped?.replace(/\D/g, "") ?? "";
@@ -164,8 +172,21 @@ export function TwelvePlCalculator({ table, sticky = false, hide = [] }: TwelveP
 
   const term = termAt(table, variant);
   const ageNum = typeof age === "number" ? age : undefined;
-  const sumAssured = sums[sumIndex];
-  const who = ageNum !== undefined ? { sex, age: ageNum, sumAssured } : undefined;
+  /**
+   * What the budget buys: the sum it divides to, to the baht, the way Life Protect and the
+   * company's AdvisorZone app answer a budget (owner, 2026-11-27, ข). The base plan only; riders
+   * are priced on top. Undefined is a budget under the plan's smallest sum, said in words and
+   * never lifted to it.
+   */
+  const fit = byBudget && ageNum !== undefined && !table.expired
+    ? budgetFit(
+      TWELVEPL_SUMS, (s) => lifeProtectModes(table, term, { sex, age: ageNum, sumAssured: s }),
+      budget, LIFEPROTECT_BUDGET_STEP, lifeProtectSumFor(table, term, { sex, age: ageNum }, budget.per === "month" ? "monthly" : "annual"),
+    )
+    : undefined;
+  const budgetShort = byBudget && ageNum !== undefined && !table.expired && !fit;
+  const sumAssured = fit ? fit.sum : sums[sumIndex];
+  const who = ageNum !== undefined && !budgetShort ? { sex, age: ageNum, sumAssured } : undefined;
 
   const modes = who ? lifeProtectModes(table, term, who) : undefined;
   const annual = modes?.find((m) => m.mode === "annual");
@@ -351,6 +372,38 @@ export function TwelvePlCalculator({ table, sticky = false, hide = [] }: TwelveP
     <div className="calc-split flex flex-col gap-6" data-sex={sex}>
       <div className="calc-side contents">
         <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
+          <BudgetSwitch
+            byBudget={byBudget} monthly={monthlyShown}
+            onChange={(on) => {
+              // leaving the budget keeps the sum it bought, so the sum field does not jump back
+              if (!on && fit) {
+                const stops = sums.includes(fit.sum) ? sums : [...sums, fit.sum].sort((a, b) => a - b);
+                setSums(stops);
+                setSumIndex(stops.indexOf(fit.sum));
+              }
+              setByBudget(on);
+            }}
+          />
+          {byBudget && (
+            <div>
+              <BudgetBox id="tp-budget" budget={budget} onChange={setBudget} monthly={monthlyShown} />
+              {ageNum !== undefined && (
+                <BudgetOutcome
+                  budget={budget} fit={fit} minMonthly={table.minMonthly} stepNote="ทุนปัดถึงหลักบาท เท่ากับ AdvisorZone" shortHint="ลองเพิ่มงบ"
+                  least={(() => {
+                    const floor = TWELVEPL_SUMS[0];
+                    const m = lifeProtectModes(table, term, { sex, age: ageNum, sumAssured: floor })
+                      ?.find((x) => x.mode === (budget.per === "month" ? "monthly" : "annual"));
+                    return m ? { sum: floor, total: m.total } : undefined;
+                  })()}
+                />
+              )}
+              <p className="mt-4 text-sm leading-relaxed text-[var(--lg-mute)]">
+                ชำระเบี้ย 12 ปี · คุ้มครองถึงอายุ {table.coverToAge} · เงินคืนทุกปีตั้งแต่ปีที่ 2
+              </p>
+            </div>
+          )}
+          {!byBudget && (
           <div>
             <label htmlFor="tp-sum-typed" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
             <div className="lg-figure mt-1.5 flex items-baseline gap-2 text-3xl tabular-nums">
@@ -383,6 +436,7 @@ export function TwelvePlCalculator({ table, sticky = false, hide = [] }: TwelveP
               ชำระเบี้ย 12 ปี · คุ้มครองถึงอายุ {table.coverToAge} · เงินคืนทุกปีตั้งแต่ปีที่ 2
             </p>
           </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

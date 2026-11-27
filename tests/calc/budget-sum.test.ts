@@ -4,7 +4,8 @@ import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeProtectModes, lifeProtectSumFor, termAt } from "@/lib/lifeprotect-quote";
 import { iShieldTable } from "@/lib/ishield-table";
 import { iShieldModes, termAt as iShieldTermAt } from "@/lib/ishield-quote";
-import { ISHIELD_SUMS, LIFEPROTECT_BUDGET_SUMS } from "@/lib/quote-pdf/pages";
+import { ISHIELD_SUMS, LIFEPROTECT_BUDGET_STEP, LIFEPROTECT_BUDGET_SUMS, TWELVEPL_SUMS } from "@/lib/quote-pdf/pages";
+import { TWELVEPL_PLAN, twelvePlTable } from "@/lib/twelvepl-table";
 
 const WHILE_CURRENT = new Date("2026-09-05");
 
@@ -219,5 +220,26 @@ describe("the Life Protect page lands the budget on the nearest baht, as Advisor
       expect(monthly(fit.sum).belowMinimum).toBe(false);
       if (fit.over) expect(monthly(fit.sum - 1).belowMinimum).toBe(true);
     }
+  });
+});
+
+/** The 12 พีแอล page lands a budget on the sum to the baht, as Life Protect does (owner, 2026-11-27, ข). */
+describe("what a budget buys on the 12 พีแอล page", () => {
+  const today = new Date("2026-11-27");
+  const t = twelvePlTable(today);
+  const term = termAt(t, TWELVEPL_PLAN);
+  const fitFor = (sex: "M" | "F", age: number, budget: PageBudget) => budgetFit(
+    TWELVEPL_SUMS, (s) => lifeProtectModes(t, term, { sex, age, sumAssured: s }), budget, LIFEPROTECT_BUDGET_STEP,
+    lifeProtectSumFor(t, term, { sex, age }, budget.per === "month" ? "monthly" : "annual"),
+  );
+
+  it("a man of 35 with 100,000 a year: 1,542,972 at 100,000.01, as the mockup showed", () => {
+    expect(fitFor("M", 35, { baht: 100_000, per: "year" })).toEqual({ sum: 1_542_972, total: 10_000_001, over: false });
+  });
+  it("a woman of 30 with 5,000 a month: 1,000,100", () => {
+    expect(fitFor("F", 30, { baht: 5_000, per: "month" })?.sum).toBe(1_000_100);
+  });
+  it("a budget under the smallest sum is not lifted to it", () => {
+    expect(fitFor("M", 35, { baht: 5_000, per: "year" })).toBeUndefined();
   });
 });
