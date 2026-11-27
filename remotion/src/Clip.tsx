@@ -43,6 +43,8 @@ export const FONTS: [string, string, number][] = [
   ["Mali", "fonts/Mali-400.ttf", 400], ["Mali", "fonts/Mali-600.ttf", 600], ["Sriracha", "fonts/Sriracha-400.ttf", 400],
   // สูตรคลิป Motion (recipes-draw.tsx): เปิดด้วยคำถาม's heavy Kanit, เส้นชีวิต's Trirong, at the weights their frames use
   ["Kanit", "fonts/Kanit-500.ttf", 500], ["Kanit", "fonts/Kanit-800.ttf", 800], ["Kanit", "fonts/Kanit-900.ttf", 900],
+  // โมชันกราฟิก (prompt-story design "motion"): Prompt for every word of the look
+  ["Prompt", "fonts/Prompt-400.ttf", 400], ["Prompt", "fonts/Prompt-600.ttf", 600], ["Prompt", "fonts/Prompt-800.ttf", 800],
   ["Trirong", "fonts/Trirong-400.ttf", 400], ["Trirong", "fonts/Trirong-600.ttf", 600], ["Trirong", "fonts/Trirong-700.ttf", 700],
 ];
 

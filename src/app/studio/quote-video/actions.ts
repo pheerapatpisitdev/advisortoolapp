@@ -17,7 +17,7 @@ import { getContact } from "@/lib/quote-video/contact";
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { cloudUsable, elevenReady, fallbackReader, geminiUsable } from "@/lib/quote-video/speak";
 import { promptStoryCaption } from "@/lib/prompt-story/caption";
-import { isPromptStory, promptPicturePrice } from "@/lib/prompt-story/types";
+import { isPromptStory, paints, promptPicturePrice } from "@/lib/prompt-story/types";
 import { priceBaht } from "@/lib/wallet/prices";
 import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
@@ -580,7 +580,7 @@ export async function myVideos(board: Board = "quote", size: number = SHELF_STEP
         status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
         // only who may make a คลิปตามโจทย์ may draw a scene again (redrawPicture refuses the rest, owner 2026-10-18)
-        ...(v.status === "done" && mayRedraw && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)), devices: input.scenes.flatMap((x, i) => (x.device || x.asset ? [i] : [])) } } : {}),
+        ...(v.status === "done" && mayRedraw && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)), devices: input.scenes.flatMap((x, i) => (!paints(x, input.design) ? [i] : [])) } } : {}),
       };
     }
     const input = v.input;

@@ -102,9 +102,9 @@ describe("catalogue", () => {
   });
 
   it("ties looks, themes, music and sounds to the code's own lists", () => {
-    // every look the story form offers (the clip's art, less the retired อินโฟกราฟิก), and only those: a
+    // every look the story form offers (the clip's art, less the retired อินโฟกราฟิก and โมชันกราฟิก, which only คลิปตามโจทย์ draws), and only those: a
     // look added to or dropped from either type fails to compile here
-    const ARTS: Record<Exclude<NonNullable<StoryVideoInput["art"]>, "info">, true> & Record<StoryLook, true> = { paper: true, minimal: true, plot: true, line: true, board: true, neon: true, blueprint: true };
+    const ARTS: Record<Exclude<NonNullable<StoryVideoInput["art"]>, "info" | "motion">, true> & Record<StoryLook, true> = { paper: true, minimal: true, plot: true, line: true, board: true, neon: true, blueprint: true };
     const ART = Object.keys(ARTS);
     for (const art of ART) {
       const item = libraryItem(`look-${art}`)!;

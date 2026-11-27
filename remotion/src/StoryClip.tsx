@@ -2,7 +2,10 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, Img, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { clipCrowd, clipFaces, clipFrame, freeFrame } from "@/lib/quote-video/story-frames";
 import { paperTime, storyBackground, storyFrame, type StoryContext } from "@/lib/quote-video/story-motion";
-import { freeLook } from "@/lib/prompt-story/frames";
+import { deviceBody, figureLines, freeLook, type FreeContext } from "@/lib/prompt-story/frames";
+import { motionBars, motionWipe } from "@/lib/prompt-story/motion/chrome";
+import { motionJoin, motionLayer } from "@/lib/prompt-story/motion/clip";
+import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import type { StoryClipProps } from "@/lib/quote-video/remotion";
@@ -18,7 +21,9 @@ import { KeepWords } from "./KeepWords";
  * the app's own clipFrame / freeFrame at the scene's time, over the story paper; a คลิปตามโจทย์ scene's picture
  * fills the frame and is pushed in 1.00 → 1.12 over its scene, as buildJob's zoompan does (a health device scene has
  * none: freeFrame draws the device on the look's ground); the cross-fades are
- * job.ts's, at every one of the 30 frames a second.
+ * job.ts's, at every one of the 30 frames a second. A คลิปตามโจทย์ in โมชันกราฟิก (design "motion", owner 2026-11-26)
+ * is drawn by its layouts instead (prompt-story/motion/clip.tsx motionLayer), each laying its own picture, joined by
+ * the gold wipe, the progress bars along the top.
  */
 
 export type { StoryClipProps };
@@ -82,14 +87,19 @@ export function StoryClip(p: StoryClipProps) {
     faces[id] = staticFile(`story/faces/${id}.jpg`);
     faces[`${id}-g`] = staticFile(`story/faces/${id}-g.jpg`);
   }
-  const ready = useReady([...Object.values(faces), ...(p.contact.photo ? [p.contact.photo] : [])]);
+  // โมชันกราฟิก: its layouts lay their pictures with plain <img>s too, so every scene's picture is loaded first
+  const freeIn = p.kind === "free" ? (p.input as PromptStoryInput) : null;
+  const motion = freeIn?.design === "motion";
+  const ready = useReady([...Object.values(faces), ...(p.contact.photo ? [p.contact.photo] : []), ...(motion ? p.scenes.flatMap((sc) => (sc.picture ? [asUrl(sc.picture)] : [])) : [])]);
   if (!ready) return null;
   // คลิปตามโจทย์ in one of คลิปเล่าเรื่อง's looks (frames.tsx freeLook): its agent's card, its ground and its cards are that look's
-  const freeIn = p.kind === "free" ? (p.input as PromptStoryInput) : null;
   const dress = freeIn ? freeLook(freeIn) : null;
   const lookIn = (story ?? (dress?.art ? { ...freeIn, ...dress } : null)) as StoryVideoInput | null;
   const T = frame / fps;
   const crowd = story ? clipCrowd(story) : [];
+  // โมชันกราฟิก: the figure card's lines, and where the gold edge of a join stands now (0–1 across the frame)
+  const figure = motion && freeIn ? figureLines(freeIn) : null;
+  const wipes: number[] = [];
   const layers = p.scenes.map((sc, s) => {
     if (T < sc.start || T >= sc.start + sc.dur) return null;
     // สต็อปโมชันกระดาษ holds a คลิปตามโจทย์ scene to its 12 poses a second too, the picture's push with it
@@ -98,8 +108,26 @@ export function StoryClip(p: StoryClipProps) {
       input: (dress?.art ? lookIn : p.input) as StoryVideoInput, size: p.size, customer: p.customer, narrator: p.narrator, contact: p.contact,
       crowd, faces, words: sc.voice.split(" ").filter(Boolean), voiceSec: sc.voiceSec,
     };
-    let style: CSSProperties = {};
     const next = p.scenes[s + 1];
+    if (motion && freeIn) {
+      const join = motionJoin(s, t, T, next?.start);
+      if (join.wipe !== undefined) wipes.push(join.wipe);
+      const scene = sc.key === "storyContact" ? null : freeIn.scenes[s];
+      return (
+        <AbsoluteFill key={`${sc.key}-${s}`} style={{ overflow: "hidden", ...join.style }}>
+          <div style={{ position: "absolute", inset: 0, display: "flex" }}>{storyBackground(p.size, lookIn ?? undefined)}</div>
+          <div className="piece" style={{ position: "absolute", inset: 0, display: "flex" }}>
+            <KeepWords>{motionLayer({
+              scene, c, t, dur: sc.dur, figure,
+              // a device is drawn by the system in the look, on the ground above; a layout or a library part lays its own picture
+              picture: sc.picture && !scene?.device ? asUrl(sc.picture) : undefined,
+              device: scene?.device ? deviceBody(scene.device, c as unknown as FreeContext, t) : undefined,
+            })}</KeepWords>
+          </div>
+        </AbsoluteFill>
+      );
+    }
+    let style: CSSProperties = {};
     if (t < XFADE && s > 0) style = crossing(transitionOf(sc.key, Boolean(p.fx), TRANSITIONS), t / XFADE, w).in;
     else if (next && T >= next.start) style = crossing(transitionOf(next.key, Boolean(p.fx), TRANSITIONS), (T - next.start) / XFADE, w).out;
     const free = p.kind === "free" ? (p.input as PromptStoryInput) : null;
@@ -119,9 +147,12 @@ export function StoryClip(p: StoryClipProps) {
     );
   });
   return (
-    <AbsoluteFill className={lookIn?.art === "paper" ? "sat paper" : lookIn?.art === "minimal" && lookIn.ground === "warm" ? "sat warm" : "sat"} style={{ background: "#000" }}>
+    <AbsoluteFill className={lookIn?.art === "paper" ? "sat paper" : lookIn?.art === "minimal" && lookIn.ground === "warm" ? "sat warm" : "sat"} style={{ background: motion ? STORY_CLIP_COLORS.mgInk : "#000" }}>
       <style>{SATORI_CSS}{PAPER_CSS}</style>
       {layers}
+      {/* โมชันกราฟิก: the gold edge of the join running now, over the scenes, and a bar a scene along the top */}
+      {motion && wipes.length ? motionWipe({ x: wipes[0], size: p.size }) : null}
+      {motion ? motionBars({ size: p.size, T, starts: p.scenes.map((x) => x.start), durs: p.scenes.map((x) => x.dur) }) : null}
       <Audio src={asUrl(p.audio)} />
       {p.fx ? <FxSound music={p.fx.music} cues={joinCues(p.scenes)} scenes={p.scenes} total={p.total} fps={fps} /> : null}
     </AbsoluteFill>

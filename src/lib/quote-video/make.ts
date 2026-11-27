@@ -26,7 +26,8 @@ import { mixNarration, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcSceneKey, type FhcVideoInput } from "./fhc";
 import { fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
-import { isPromptStory, pictureScenes, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { isPromptStory, paints, pictureScenes, promptFreePrice, promptPicturePrice, promptStoryPrice, type MotionKind, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { motionReason } from "@/lib/prompt-story/motion-words";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
 import { assetPicture } from "@/lib/prompt-story/asset-picture";
@@ -194,9 +195,10 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
   const { fx: _asked, noMusic, ...plain } = input as ClipInput & FxChoice;
   void _asked;
   // ดีไซน์พิเศษ (Shotstack) was removed 2026-11-11 (owner): a stale form's choice of it is dropped here
+  // — except a คลิปตามโจทย์'s "motion", the โมชันกราฟิก look (2026-11-26): that one is kept, it says which scenes paint
   const { design: _design, ...kept } = plain as ClipInput & { design?: unknown };
-  void _design;
-  input = { ...kept, engine: "remotion", ...(fx ? { fx: true, ...(noMusic ? { noMusic: true } : {}) } : {}) } as ClipInput;
+  const keepsDesign = isPromptStory(plain) && _design === "motion";
+  input = { ...kept, ...(keepsDesign ? { design: "motion" } : {}), engine: "remotion", ...(fx ? { fx: true, ...(noMusic ? { noMusic: true } : {}) } : {}) } as ClipInput;
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id, created_at").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
@@ -607,11 +609,13 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
   let done = 0;
   // a clip of device scenes only paints nothing: no "วาดรูปประกอบ 0/0" step, the bar goes straight to the voice
   if (of > 0) bar.note({ step: "pictures", done: 0, of });
-  const painted = (sc: PromptStoryInput["scenes"][number]) => !sc.device && !sc.asset;
+  // one rule for drawing, pricing and refunding: paints (a scene that does not paint, a device or a layout with no picture, is null)
+  const painted = (sc: PromptStoryInput["scenes"][number]) => paints(sc, input.design);
   const pictures = await pool(input.scenes, 3, async (scene, s): Promise<string | null> => {
     if (scene.device) return null;
     let png: Buffer | null;
     if (scene.asset) png = await partPicture(parts.get(scene.asset), input, size);
+    else if (!painted(scene)) return null;
     else {
       png = await drawScenePicture(scene, input.style, input.painter, size, undefined, ref);
       bar.note({ step: "pictures", done: ++done, of });
@@ -946,7 +950,9 @@ const renderKeyOf = (): Promise<string | null> => providerKey("gcp");
 
 /** the script's fields as the agent knows them */
 const FIELD: Record<string, string> = { voice: "คำพูด", screen: "ข้อความบนจอ", picture: "ภาพ", device: "อุปกรณ์" };
-const reasonWords = (r: string) => r.replace(/^(voice|screen|picture|device): /, (_, f: string) => `${FIELD[f]}: `);
+// a โมชันกราฟิก layout's reason ("motion.lines[0]: ยาวเกิน 22") is the แบบฉาก's, its box named as the editor labels it
+const reasonWords = (r: string, kind?: MotionKind) =>
+  /^motion[.:]/.test(r) ? motionReason(r, kind) : r.replace(/^(voice|screen|picture|device): /, (_, f: string) => `${FIELD[f]}: `);
 
 /**
  * Starts a คลิปตามโจทย์ (spec 2026-10-16, Money): the script, as the agent may have edited it, is
@@ -957,7 +963,7 @@ const reasonWords = (r: string) => r.replace(/^(voice|screen|picture|device): /,
  */
 export async function createPromptStory(viewer: Viewer, input: PromptStoryInput, customer: string): Promise<{ id: string } | { refusal: string }> {
   const bad = checkScript(input.scenes, input.brief, input.figure)[0];
-  if (bad) return { refusal: `ฉากที่ ${bad.scene + 1} ใช้ไม่ได้ — ${bad.reasons.map(reasonWords).join(", ")} แก้แล้วกดสร้างอีกครั้ง` };
+  if (bad) return { refusal: `ฉากที่ ${bad.scene + 1} ใช้ไม่ได้ — ${bad.reasons.map((r) => reasonWords(r, input.scenes[bad.scene].motion?.kind)).join(", ")} แก้แล้วกดสร้างอีกครั้ง` };
   const allowed = allowedFor(input.brief, input.figure);
   const title = checkScene({ voice: "", screen: input.title, picture: "" }, allowed);
   if (title.length) return { refusal: `ชื่อคลิปใช้ไม่ได้ — ${title.map((r) => r.replace(/^screen: /, "")).join(", ")}` };
@@ -1000,6 +1006,8 @@ export async function redrawPicture(
   // a device scene has no picture to draw, and is never charged as one; nor has a library part's
   if (input.scenes[scene].device) return { ok: false, error: "ฉากนี้เป็นภาพจากระบบ ไม่มีภาพ AI ให้วาดใหม่" };
   if (input.scenes[scene].asset) return { ok: false, error: "ฉากนี้ใช้ภาพจากคลัง ไม่มีการวาดใหม่" };
+  // in โมชันกราฟิก a layout with no picture has none to draw either
+  if (!paints(input.scenes[scene], input.design)) return { ok: false, error: "ฉากนี้เป็นภาพจากระบบ ไม่มีภาพ AI ให้วาดใหม่" };
   const gcpKey = await renderKeyOf();
   if (!gcpKey) return { ok: false, error: FAILED };
   const pcms = await keptVoice(id, input.scenes.length + 1);
@@ -1068,6 +1076,7 @@ export async function redrawScene({ id, scene, agentName, hold, price }: RedrawJ
     // redrawPicture refuses a device scene and a library part's: one reaching here is never painted
     if (input.scenes[scene]?.device) throw new Error("device scene has no picture");
     if (input.scenes[scene]?.asset) throw new Error("library part scene has no picture to draw");
+    if (input.scenes[scene] && !paints(input.scenes[scene], input.design)) throw new Error("scene does not paint");
     const gcpKey = await renderKeyOf();
     if (!gcpKey) throw new Error("no render key");
     const pcms = await keptVoice(id, input.scenes.length + 1);
