@@ -211,7 +211,9 @@ function Bars({ q, face, P }: { q: CardQuote; face: string; P: CardPlan }) {
 
 // ── ตารางที่ 1 ───────────────────────────────────────────────────────────────────────────────
 
-const T1 = { label: 320, cell: 100, bank: 150, head: 40, row: 36 };
+/** Table 1 shows the +4% index alone beside the banks (owner chose ก ก, 2026-11-27). */
+const onlyPlus4 = (s: { rate: number }) => Math.abs(s.rate - 0.04) < 1e-9;
+const T1 = { label: 320, cell: 500, bank: 150, head: 40, row: 36 };
 
 function Overview({ q, P }: { q: CardQuote; P: CardPlan }) {
   const head = (text: string, w: number, first = false) => (
@@ -240,16 +242,16 @@ function Overview({ q, P }: { q: CardQuote; P: CardPlan }) {
       <div style={col({ marginTop: 8, border: `1px solid ${K.panelLine}`, borderRadius: 8, overflow: "hidden" })}>
         <div style={row()}>
           {head("รายการผลประโยชน์", T1.label, true)}
-          {q.scenarios.map((s) => head(`ดัชนี ${pct(s.rate)}`, T1.cell))}
+          {q.scenarios.filter(onlyPlus4).map((s) => head(`ดัชนี ${pct(s.rate)}`, T1.cell))}
           {q.banks.map((b) => head(`ฝากธนาคาร ${+(b.rate * 100).toFixed(2)}%`, T1.bank))}
         </div>
-        {line("pb", <><div style={{ display: "flex" }}>{`เงินคืนรายปี (สิ้นปี 1–${P.term - 1})`}</div><Tag guaranteed /></>, q.scenarios.map((s) => baht(s.paybackTotal)), dash)}
-        {line("mat", <><div style={{ display: "flex" }}>{`เงินครบสัญญา (สิ้นปี ${P.term})`}</div><Tag guaranteed /></>, q.scenarios.map((s) => baht(s.maturity)), q.banks.map((b) => baht(b.total)))}
+        {line("pb", <><div style={{ display: "flex" }}>{`เงินคืนรายปี (สิ้นปี 1–${P.term - 1})`}</div><Tag guaranteed /></>, q.scenarios.filter(onlyPlus4).map((s) => baht(s.paybackTotal)), dash)}
+        {line("mat", <><div style={{ display: "flex" }}>{`เงินครบสัญญา (สิ้นปี ${P.term})`}</div><Tag guaranteed /></>, q.scenarios.filter(onlyPlus4).map((s) => baht(s.maturity)), q.banks.map((b) => baht(b.total)))}
         {q.scenarios[0].bonuses.map((b, bi) => line(`b${b.year}`,
           <><div style={{ display: "flex" }}>{`โบนัสดัชนี · ${b.year === P.term ? "ครบสัญญา" : `สิ้นปี ${b.year}`}`}</div><Tag guaranteed={false} /></>,
-          q.scenarios.map((s) => (s.bonuses[bi].value > 0 ? baht(s.bonuses[bi].value) : "—")), dash, { bonus: true }))}
-        {line("tot", "รวมรับทั้งหมดตลอดสัญญา", q.scenarios.map((s) => baht(s.total)), q.banks.map((b) => baht(b.total)), { total: true })}
-        {line("irr", "ผลตอบแทนเฉลี่ยต่อปี (IRR)", q.scenarios.map((s) => `${s.irr.toFixed(2)}%`), q.banks.map((b) => `${+(b.rate * 100).toFixed(2)}%`), { strong: true })}
+          q.scenarios.filter(onlyPlus4).map((s) => (s.bonuses[bi].value > 0 ? baht(s.bonuses[bi].value) : "—")), dash, { bonus: true }))}
+        {line("tot", "รวมรับทั้งหมดตลอดสัญญา", q.scenarios.filter(onlyPlus4).map((s) => baht(s.total)), q.banks.map((b) => baht(b.total)), { total: true })}
+        {line("irr", "ผลตอบแทนเฉลี่ยต่อปี (IRR)", q.scenarios.filter(onlyPlus4).map((s) => `${s.irr.toFixed(2)}%`), q.banks.map((b) => `${+(b.rate * 100).toFixed(2)}%`), { strong: true })}
       </div>
     </div>
   );

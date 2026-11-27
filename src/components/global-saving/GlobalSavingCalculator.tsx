@@ -29,6 +29,8 @@ const baht = (n: number) => Math.round(n).toLocaleString("en-US");
 /** a premium worked back from a sum keeps its satang, as the company's own quote does */
 const premium = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
 const pct = (r: number) => `${r >= 0 ? "+" : "−"}${+(Math.abs(r) * 100).toFixed(2)}%`;
+/** Table 1 shows the +4% index alone beside the banks (owner chose ก ก, 2026-11-27); the chart and Table 2 keep all five. */
+const onlyPlus4 = (s: { rate: number }) => Math.abs(s.rate - 0.04) < 1e-9;
 const field = "mt-1 w-full rounded border px-3 py-2";
 
 /** the bonus part of each bar, lighter for a weak index and deeper for a strong one, all on the page's navy */
@@ -225,25 +227,25 @@ export function GlobalSavingCalculator({ shareTemplate }: {
                 <thead>
                   <tr>
                     <th scope="col" className={`${TH} !border-l-0 !text-left`}>รายการผลประโยชน์</th>
-                    {q.scenarios.map((s) => <th key={s.rate} scope="col" className={`${TH} whitespace-nowrap`}>ดัชนี {pct(s.rate)}</th>)}
+                    {q.scenarios.filter(onlyPlus4).map((s) => <th key={s.rate} scope="col" className={`${TH} whitespace-nowrap`}>ดัชนี {pct(s.rate)}</th>)}
                     {q.banks.map((b) => <th key={b.rate} scope="col" className={`${TH} gs-bank whitespace-nowrap`}>ฝากธนาคาร {+(b.rate * 100).toFixed(2)}%</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   <Row label={<>เงินคืนรายปี (สิ้นปี 1–{GS_TERM - 1})<Tag guaranteed /></>}
-                       cells={q.scenarios.map((s) => baht(s.paybackTotal))} banks={q.banks.map(() => "—")} />
+                       cells={q.scenarios.filter(onlyPlus4).map((s) => baht(s.paybackTotal))} banks={q.banks.map(() => "—")} />
                   <Row label={<>เงินครบสัญญา (สิ้นปี {GS_TERM})<Tag guaranteed /></>}
-                       cells={q.scenarios.map((s) => baht(s.maturity))} banks={q.banks.map((b) => baht(b.total))} />
+                       cells={q.scenarios.filter(onlyPlus4).map((s) => baht(s.maturity))} banks={q.banks.map((b) => baht(b.total))} />
                   {q.scenarios[0].bonuses.map((b, bi) => (
                     <Row key={b.year} bonus
                          label={<>โบนัสดัชนี · {b.year === GS_TERM ? "ครบสัญญา" : `สิ้นปี ${b.year}`}<Tag guaranteed={false} /></>}
-                         cells={q.scenarios.map((s) => (s.bonuses[bi].value > 0 ? baht(s.bonuses[bi].value) : "—"))}
+                         cells={q.scenarios.filter(onlyPlus4).map((s) => (s.bonuses[bi].value > 0 ? baht(s.bonuses[bi].value) : "—"))}
                          banks={q.banks.map(() => "—")} />
                   ))}
                   <Row total label="รวมรับทั้งหมดตลอดสัญญา"
-                       cells={q.scenarios.map((s) => baht(s.total))} banks={q.banks.map((b) => baht(b.total))} />
+                       cells={q.scenarios.filter(onlyPlus4).map((s) => baht(s.total))} banks={q.banks.map((b) => baht(b.total))} />
                   <Row strong label="ผลตอบแทนเฉลี่ยต่อปี (IRR)"
-                       cells={q.scenarios.map((s) => `${s.irr.toFixed(2)}%`)} banks={q.banks.map((b) => `${+(b.rate * 100).toFixed(2)}%`)} />
+                       cells={q.scenarios.filter(onlyPlus4).map((s) => `${s.irr.toFixed(2)}%`)} banks={q.banks.map((b) => `${+(b.rate * 100).toFixed(2)}%`)} />
                 </tbody>
               </table>
             </div>
