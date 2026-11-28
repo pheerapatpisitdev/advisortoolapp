@@ -187,6 +187,63 @@ export async function fail(id: string, why: unknown): Promise<void> {
   await clearInputs(id, Boolean(kept)).catch(() => undefined);
 }
 
+/** fail_reason of a clip its maker cancelled (owner chose 1ก, 2026-11-28): the card says ยกเลิกแล้ว, not ไม่สำเร็จ */
+export const CANCELLED = "cancelled by its maker";
+
+/** a clip being made that was cancelled meanwhile: the making stops where it is, quietly (no fail, no alert) */
+export class ClipCancelled extends Error {
+  constructor(id: string) {
+    super(`clip ${id} was cancelled`);
+    this.name = "ClipCancelled";
+  }
+}
+
+/** whether the clip is still being drawn: false once its maker cancelled it (or it ended another way) */
+export async function stillDrawing(id: string): Promise<boolean> {
+  const { data, error } = await rows().select("status").eq("id", id).maybeSingle();
+  // unread: the making goes on, as it would have without the check
+  if (error) return true;
+  return (data as Pick<VideoRow, "status"> | null)?.status === "drawing";
+}
+
+/** throws ClipCancelled when the clip is no longer being drawn, before money is spent on the next step */
+export async function goOnDrawing(id: string): Promise<void> {
+  if (!(await stillDrawing(id))) throw new ClipCancelled(id);
+}
+
+/** what the cancelled clip's card says it got back (owner chose 1ก, 2026-11-28, mockup https://claude.ai/artifact/8cHRwStETT11itXLMhTy8h) */
+export function cancelWords(row: Pick<VideoRow, "paid_by" | "held_satang">, baht: (satang: number) => string): string {
+  const held = Number(row.held_satang ?? 0);
+  if (row.paid_by === "wallet" && held > 0) return `ยกเลิกแล้ว · คืน ${baht(held)} เข้ากระเป๋าแล้ว`;
+  if (row.paid_by === "free") return held > 0 ? `ยกเลิกแล้ว · คืนสิทธิ์คลิปฟรีและค่าภาพ ${baht(held)} แล้ว` : "ยกเลิกแล้ว · คืนสิทธิ์คลิปฟรีแล้ว";
+  return "ยกเลิกแล้ว";
+}
+
+/**
+ * ยกเลิกการสร้าง (owner chose 1ก, 2026-11-28): one of the agent's own clips still being made — at any step, Cloud
+ * Run's included — moved to failed in one conditional update, so it races finishVideo fairly: the first to move the
+ * row wins, and the money moves once. The whole hold goes back (the free clip with it, since freeUsed skips a failed
+ * row), a คลิปตามโจทย์'s draft is given back, and nobody's LINE is told. A finished clip being cut again (a redraw)
+ * is not cancelled here. A render already running finishes on its own; finishVideo then throws its file away.
+ */
+export async function cancelVideo(agentId: string, id: string, baht: (satang: number) => string): Promise<"cancelled" | "done" | "missing"> {
+  const { data: was } = await rows().select("paid_by, held_satang").eq("id", id).eq("agent_id", agentId).is("deleted_at", null).maybeSingle();
+  if (!was) return "missing";
+  const error = cancelWords(was as Pick<VideoRow, "paid_by" | "held_satang">, baht);
+  const { data } = await rows().update({ status: "failed", error, fail_reason: CANCELLED, updated_at: new Date().toISOString() })
+    .eq("id", id).eq("agent_id", agentId).is("deleted_at", null).in("status", ["drawing", "rendering"]).is("video_path", null)
+    .select("hold_id, paid_by, input").maybeSingle();
+  if (!data) {
+    const { data: now } = await rows().select("status").eq("id", id).maybeSingle();
+    return (now as Pick<VideoRow, "status"> | null)?.status === "done" ? "done" : "missing";
+  }
+  await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
+  const input = (data as Pick<VideoRow, "input">).input;
+  if (input && isPromptStory(input) && input.draftId) await releaseDraft(input.draftId, id);
+  await clearInputs(id).catch(() => undefined);
+  return "cancelled";
+}
+
 /** one of an agent's own clips, not deleted; null when there is none */
 export async function videoOf(agentId: string, id: string): Promise<VideoRow | null> {
   const { data, error } = await rows().select("*").eq("id", id).eq("agent_id", agentId).is("deleted_at", null).maybeSingle<VideoRow>();

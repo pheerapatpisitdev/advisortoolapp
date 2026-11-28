@@ -8,7 +8,7 @@ import { ClipProgress } from "./ClipProgress";
 import { useFreshLinks } from "./fresh-links";
 import { PostPanel } from "./PostPanel";
 import { SaveVideoButton } from "./SaveVideoButton";
-import { addToCalendar, calendarCaption, myClipDays, myVideos, removeVideo, type ClipDay, type ClipPost, type VideoItem } from "./actions";
+import { addToCalendar, calendarCaption, myClipDays, myVideos, removeVideo, stopVideo, type ClipDay, type ClipPost, type VideoItem } from "./actions";
 import { DAYS, daysFrom, firstTab, growShelf, keepView, matches, readView, shelfRows, shelfSize, TABS, tabOf, type Days, type Tab, type View } from "./shelf";
 
 /**
@@ -42,6 +42,10 @@ export function ClipList({ board, items, setItems, pages }: {
   const [copied, setCopied] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<{ id: string; text: string } | null>(null);
+  // ยกเลิกการสร้าง (owner chose 1ก, 2026-11-28): the one clip asked about, and what came of the last press
+  const [stopping, setStopping] = useState<string | null>(null);
+  const [stopBusy, setStopBusy] = useState(false);
+  const [stopNote, setStopNote] = useState<{ id: string; text: string } | null>(null);
   const [tab, setTab] = useState<Tab>(() => firstTab(items));
   const [days, setDays] = useState<Days>("all");
   const [query, setQuery] = useState("");
@@ -106,6 +110,18 @@ export function ClipList({ board, items, setItems, pages }: {
     if (expanded === id) setExpanded(null);
   }
 
+  async function stop(id: string) {
+    if (stopBusy) return;
+    setStopBusy(true);
+    setStopNote(null);
+    const r = await stopVideo(id).catch(() => ({ ok: false as const, error: NO_LINE, done: undefined }));
+    setStopBusy(false);
+    setStopping(null);
+    if (!r.ok) setStopNote({ id, text: r.error });
+    // cancelled, or finished first: the list read again shows which (and the board's money follows, useClipWatch)
+    if (r.ok || r.done) await myVideos(board, shelfSize(board)).then(setItems).catch(() => undefined);
+  }
+
   async function copy(v: VideoItem) {
     if (!v.share) return;
     try {
@@ -139,7 +155,7 @@ export function ClipList({ board, items, setItems, pages }: {
   const olderLeft = wanted > loaded.length;
 
   function card(v: VideoItem, boxed: boolean) {
-    const open = writing === v.id || confirming === v.id || cal?.id === v.id || expanded === v.id;
+    const open = writing === v.id || confirming === v.id || stopping === v.id || cal?.id === v.id || expanded === v.id;
     const video = v.watch && <video src={v.watch} controls playsInline preload="metadata" className={`w-full rounded-lg bg-[var(--ct-ground)] ${open ? (v.size === "landscape" ? "max-w-[300px]" : v.size === "square" ? "max-w-[260px]" : "max-w-[220px]") : ""}`} style={{ aspectRatio: ASPECT[v.size] }} />;
     return (
       <div key={v.id} className={`@container min-w-0 ${boxed ? `rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3 ${open ? "col-span-full" : ""}` : "p-3"}`}>
@@ -156,11 +172,13 @@ export function ClipList({ board, items, setItems, pages }: {
             <p className="text-sm font-medium">{v.title}</p>
             <p className="text-xs text-[var(--ct-mute)]">{when(v.createdAt)}{v.paid ? ` · ${v.paid}` : ""}</p>
           </div>
-          {!v.progress && <StatusPill status={v.status} />}
+          {!v.progress && <StatusPill status={v.status} cancelled={v.cancelled} />}
         </div>
         {v.progress && <ClipProgress state={v.progress} />}
         {v.status === "done" && v.error && <p role="alert" className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
-        {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
+        {v.status === "failed" && v.error && !v.cancelled && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
+        {v.cancelled && backWords(v.error) && <p className="text-xs text-[var(--ct-ok)]">{backWords(v.error)}</p>}
+        {stopNote?.id === v.id && <p role="alert" className="text-xs text-[var(--ct-alert)]">{stopNote.text}</p>}
         {v.voiceFull && <p className="text-xs text-[var(--ct-mute)]">ไม่เสียเงิน และไม่นับเป็นคลิปฟรี</p>}
         {v.voiceSwap && <p className="text-xs text-[var(--ct-accent)]">{v.voiceSwap}</p>}
         <div className="flex flex-wrap gap-2">
@@ -172,7 +190,19 @@ export function ClipList({ board, items, setItems, pages }: {
           {(v.status === "done" || v.status === "failed") && (
             <button type="button" className={`${small} text-[var(--ct-alert)]`} onClick={() => setConfirming(v.id)}>ลบ</button>
           )}
+          {v.cancellable && (v.status === "drawing" || v.status === "rendering") && stopping !== v.id && (
+            <button type="button" className={`${small} text-[var(--ct-alert)]`} onClick={() => { setStopNote(null); setStopping(v.id); }}>ยกเลิกการสร้าง</button>
+          )}
         </div>
+        {stopping === v.id && (v.status === "drawing" || v.status === "rendering") && (
+          <div role="alertdialog" aria-label="ยืนยันการยกเลิก" className="space-y-2 rounded-lg bg-[var(--ct-alert-bg)] p-2 text-xs text-[var(--ct-alert)]">
+            <p>ยกเลิกคลิปนี้? ระบบหยุดสร้างทันที{v.refund ? ` และ${v.refund}` : ""}</p>
+            <div className="flex gap-2">
+              <button type="button" disabled={stopBusy} className="min-h-9 rounded-lg bg-[var(--ct-alert)] px-3 text-sm text-[var(--ct-panel)] disabled:opacity-50" onClick={() => stop(v.id)}>{stopBusy ? "กำลังยกเลิก…" : "ยกเลิกคลิป"}</button>
+              <button type="button" disabled={stopBusy} className={`${small} bg-[var(--ct-panel)] text-[var(--ct-ink)]`} onClick={() => setStopping(null)}>สร้างต่อ</button>
+            </div>
+          </div>
+        )}
         {v.status === "done" && writing !== v.id && (
           <button
             type="button" onClick={() => setWriting(v.id)}
@@ -229,7 +259,7 @@ export function ClipList({ board, items, setItems, pages }: {
   }
 
   function row(v: VideoItem) {
-    if (expanded === v.id || writing === v.id || confirming === v.id || cal?.id === v.id) {
+    if (expanded === v.id || writing === v.id || confirming === v.id || stopping === v.id || cal?.id === v.id) {
       return <li key={v.id} className="bg-[var(--ct-panel)]">{card(v, false)}</li>;
     }
     return (
@@ -237,10 +267,10 @@ export function ClipList({ board, items, setItems, pages }: {
         <button type="button" onClick={() => setExpanded(v.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`เปิดคลิป ${v.title}`}>
           <span
             aria-hidden
-            className={`grid w-9 shrink-0 place-items-center rounded-md text-xs ${v.status === "done" ? "bg-[var(--ct-soft)] text-[var(--ct-accent)]" : v.status === "failed" ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-ground)] text-[var(--ct-mute)]"}`}
+            className={`grid w-9 shrink-0 place-items-center rounded-md text-xs ${v.status === "done" ? "bg-[var(--ct-soft)] text-[var(--ct-accent)]" : v.status === "failed" && !v.cancelled ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-ground)] text-[var(--ct-mute)]"}`}
             style={{ aspectRatio: ASPECT[v.size] === "16 / 9" ? "1 / 1" : ASPECT[v.size] }}
           >
-            {v.status === "done" ? "▶" : v.status === "failed" ? "!" : "…"}
+            {v.status === "done" ? "▶" : v.cancelled ? "–" : v.status === "failed" ? "!" : "…"}
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{v.title}</span>
@@ -251,7 +281,7 @@ export function ClipList({ board, items, setItems, pages }: {
           <div className="w-40 shrink-0 @max-md:w-28"><ClipProgress state={v.progress} /></div>
         ) : (
           <div className="flex shrink-0 items-center gap-2">
-            {v.status !== "done" && <StatusPill status={v.status} />}
+            {v.status !== "done" && <StatusPill status={v.status} cancelled={v.cancelled} />}
             {v.status === "done" && v.save && v.watch && <span className="@max-xl:hidden"><SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} /></span>}
             {v.status === "done" && <button type="button" className={`${small} @max-xl:hidden`} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
             <button type="button" className={small} aria-label={`ดูคลิปและเมนูอื่นของ ${v.title}`} onClick={() => setExpanded(v.id)}>⋯</button>
@@ -358,10 +388,14 @@ export function ClipList({ board, items, setItems, pages }: {
   );
 }
 
-function StatusPill({ status }: { status: VideoItem["status"] }) {
+function StatusPill({ status, cancelled }: { status: VideoItem["status"]; cancelled?: boolean }) {
+  if (cancelled) return <span className="shrink-0 rounded-full bg-[var(--ct-ground)] px-2 py-0.5 text-xs text-[var(--ct-mute)]">ยกเลิกแล้ว</span>;
   return (
     <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${status === "done" ? "bg-[var(--ct-soft)] text-[var(--ct-accent)]" : status === "failed" ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-ground)] text-[var(--ct-mute)]"}`}>
       {STATUS[status]}
     </span>
   );
 }
+
+/** a cancelled clip's "ยกเลิกแล้ว · คืน ฿30 เข้ากระเป๋าแล้ว" without its first words, which the pill says (rows.ts cancelWords) */
+const backWords = (error: string | null) => (error ?? "").replace(/^ยกเลิกแล้ว(\s*·\s*)?/, "").trim();

@@ -19,12 +19,13 @@ import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { cloudUsable, elevenReady, fallbackReader, geminiUsable } from "@/lib/quote-video/speak";
 import { promptStoryCaption } from "@/lib/prompt-story/caption";
 import { isPromptStory, paints, promptPicturePrice } from "@/lib/prompt-story/types";
+import { formatBaht } from "@/lib/wallet/money";
 import { priceBaht } from "@/lib/wallet/prices";
 import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
 import { paidLine } from "@/lib/quote-video/paid-line";
 import { boardClipDays, clipStates } from "@/lib/quote-video/rows";
-import { clipEstimates, clipSize, costView, createVideo, videoPrice, deleteVideo, listVideos, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { CANCELLED, cancelVideo, clipEstimates, clipSize, costView, createVideo, pressId, videoPrice, deleteVideo, listVideos, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, googleInPlace, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
@@ -108,6 +109,12 @@ export interface VideoItem {
   voiceSwap?: string | null;
   /** longer than a Reel may be (90 s): it goes to the customer, not to a Page */
   overReel?: boolean;
+  /** being made for the first time: ยกเลิกการสร้าง is offered (a redraw of a finished clip is not) */
+  cancellable?: true;
+  /** what ยกเลิกการสร้าง gives back, for its question ("คืนเงิน ฿30 ที่กันไว้เข้ากระเป๋า"); none for the owner's */
+  refund?: string;
+  /** cancelled by its maker: ยกเลิกแล้ว, its money back (error says how much) */
+  cancelled?: true;
   /** a clip still being made: how far, as read now (progress.ts); null once done or failed */
   progress?: ProgressState | null;
   /** the words the AI wrote to go with it, and the writes left (post-text.ts) */
@@ -121,7 +128,8 @@ const clipPost = (raw: unknown): ClipPost | null => {
   const p = readPostText(raw);
   return p ? { text: p.text, tone: p.tone, voice: p.voice, kind: p.kind, left: Math.max(0, POST_TRIES - p.tries) } : null;
 };
-export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
+/** `duplicate`: the same clip is still being made — the form asks before making another (owner chose 2ก, 2026-11-28) */
+export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean; duplicate?: true };
 
 /** how a clip's voice reads in the list of clips; a voice no longer listed reads as ElevenLabs */
 const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียง ElevenLabs");
@@ -247,7 +255,7 @@ export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
  * วิดีโอสรุป FHC (owner, 2026-10-12): one saved customer's check as a clip. The figures are copied
  * from the check as it was saved; the name goes in only when the agent leaves it ticked.
  */
-export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; gemini?: string; size?: VideoSize; theme?: string; myColor?: string; mascot?: boolean; noMusic?: boolean }): Promise<Made> {
+export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; gemini?: string; size?: VideoSize; theme?: string; myColor?: string; mascot?: boolean; noMusic?: boolean }, press?: string, dupOk?: boolean): Promise<Made> {
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "quote-video");
   if (closed) return { ok: false, error: closed };
@@ -273,10 +281,10 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
     ...(v?.noMusic === true ? { noMusic: true } : {}),
   };
   try {
-    const made = await createVideo(viewer, input, withName === true ? cleanCustomerName(c.name) : "");
-    if ("refusal" in made) return { ok: false, error: made.refusal };
+    const made = await createVideo(viewer, input, withName === true ? cleanCustomerName(c.name) : "", pressId(press), { dupOk: dupOk === true });
+    if ("refusal" in made) return { ok: false, error: made.refusal, ...(made.duplicate ? { duplicate: true as const } : {}) };
     const { id } = made;
-    runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
+    if (!made.again) runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
     return { ok: true, id };
   } catch (e) {
     console.error("fhc video not started:", e instanceof Error ? e.message : "unknown error");
@@ -310,7 +318,7 @@ export async function previewStoryHealth(v: { plan?: string; sex?: string; age?:
  * คลิปเล่าเรื่อง (owner, 2026-10-15): a cartoon story clip. The premium it shows, if any, is
  * worked out again here from the plan's table, never taken from the form.
  */
-export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "health" | "home" | "money"> & { figure?: unknown; ladder?: unknown; pension?: unknown; health?: unknown; home?: unknown; money?: unknown }, customer: string): Promise<Made> {
+export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "health" | "home" | "money"> & { figure?: unknown; ladder?: unknown; pension?: unknown; health?: unknown; home?: unknown; money?: unknown }, customer: string, press?: string, dupOk?: boolean): Promise<Made> {
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "story-clip");
   if (closed) return { ok: false, error: closed };
@@ -329,10 +337,10 @@ export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" 
   const full = await voiceRefusal(input.voice);
   if (full) return { ok: false, error: full };
   try {
-    const made = await createVideo(viewer, input, cleanCustomerName(customer));
-    if ("refusal" in made) return { ok: false, error: made.refusal };
+    const made = await createVideo(viewer, input, cleanCustomerName(customer), pressId(press), { dupOk: dupOk === true });
+    if ("refusal" in made) return { ok: false, error: made.refusal, ...(made.duplicate ? { duplicate: true as const } : {}) };
     const { id } = made;
-    runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
+    if (!made.again) runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
     return { ok: true, id };
   } catch (e) {
     console.error("story video not started:", e instanceof Error ? e.message : "unknown error");
@@ -386,15 +394,42 @@ function setupWords(c: Extract<VideoInput, { product: "IHEALTHY" }>): { line: st
   return { line: card.insuredLine, riders: attached.length ? attached.join(" · ") : "ไม่มี" };
 }
 
-export async function makeVideo(v: VideoInput, customer: string): Promise<Made> {
+export async function makeVideo(v: VideoInput, customer: string, press?: string, dupOk?: boolean): Promise<Made> {
   const viewer = await requireMember();
   // the steps a clip ordered in the LINE chat starts by too (src/lib/quote-video/start.ts)
-  return startQuoteClip(viewer, v, customer);
+  return startQuoteClip(viewer, v, customer, { press, ask: { dupOk: dupOk === true } });
 }
 
 const SEX = { M: "ชาย", F: "หญิง" } as const;
 const planWord = (code: string) => code.charAt(0) + code.slice(1).toLowerCase();
 const sumWords = (n: number) => (n % 1_000_000 === 0 ? `${n / 1_000_000} ล้าน` : n.toLocaleString("en-US"));
+
+/**
+ * ยกเลิกการสร้าง (owner chose 1ก, 2026-11-28, mockup https://claude.ai/artifact/8cHRwStETT11itXLMhTy8h): one of the
+ * asker's own clips stopped at any step, its hold or free clip given back (cancelVideo). A clip that finished first
+ * stays finished and paid.
+ */
+export async function stopVideo(id: string): Promise<{ ok: true } | { ok: false; error: string; done?: true }> {
+  const viewer = await requireMember();
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id)) return { ok: false, error: "ไม่พบวิดีโอนี้" };
+  try {
+    const r = await cancelVideo(viewer.agentId, id, formatBaht);
+    if (r === "done") return { ok: false, done: true, error: "คลิปเสร็จก่อนยกเลิกได้ทัน หักเงินตามปกติ ลบได้ถ้าไม่ใช้" };
+    if (r === "missing") return { ok: false, error: "คลิปนี้ไม่ได้กำลังสร้างอยู่แล้ว" };
+    return { ok: true };
+  } catch (e) {
+    console.error("quote video not cancelled:", e instanceof Error ? e.message : "unknown error");
+    return { ok: false, error: "ยกเลิกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
+  }
+}
+
+/** what cancelling a clip being made gives back, in the words of ยกเลิกการสร้าง's question; null when nothing was taken */
+function refundWords(v: Pick<VideoRow, "paid_by" | "held_satang">): string | null {
+  const held = Number(v.held_satang ?? 0);
+  if (v.paid_by === "wallet" && held > 0) return `คืนเงิน ${formatBaht(held)} ที่กันไว้เข้ากระเป๋า`;
+  if (v.paid_by === "free") return held > 0 ? `คืนสิทธิ์คลิปฟรี 1 ครั้งและค่าภาพ ${formatBaht(held)}` : "คืนสิทธิ์คลิปฟรี 1 ครั้ง";
+  return null;
+}
 
 /** deletes one of the asker's own clips */
 export async function removeVideo(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -519,6 +554,11 @@ export async function myVideos(board: Board = "quote", size: number = SHELF_STEP
   const mayRedraw = mayPromptStory(viewer);
   const prices = !owner && list.some((v) => v.status === "done" && isPromptStory(v.input)) ? await walletPrices().catch(() => null) : null;
   const progressOf = (v: VideoRow) => progressAt(v, est, now);
+  // ยกเลิกการสร้าง (owner chose 1ก, 2026-11-28): a clip being made for the first time may be cancelled; one cancelled says so
+  const endOf = (v: VideoRow) => ({
+    ...(making(v) && !v.video_path ? { cancellable: true as const, ...(refundWords(v) ? { refund: refundWords(v)! } : {}) } : {}),
+    ...(v.status === "failed" && v.fail_reason === CANCELLED ? { cancelled: true as const } : {}),
+  });
   return Promise.all(list.map(async (v) => {
     const done = v.status === "done" && v.video_path;
     const links = async (file: string) => ({
@@ -534,7 +574,7 @@ export async function myVideos(board: Board = "quote", size: number = SHELF_STEP
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
-        status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v), fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v), ...endOf(v), fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
       };
     }
     if (isStoryInput(v.input)) {
@@ -546,7 +586,7 @@ export async function myVideos(board: Board = "quote", size: number = SHELF_STEP
       return {
         id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
-        status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v),
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v), ...endOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
       };
     }
@@ -557,7 +597,7 @@ export async function myVideos(board: Board = "quote", size: number = SHELF_STEP
       return {
         id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
-        status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v),
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v), ...endOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
         // only who may make a คลิปตามโจทย์ may draw a scene again (redrawPicture refuses the rest, owner 2026-10-18)
         ...(v.status === "done" && mayRedraw && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)), devices: input.scenes.flatMap((x, i) => (!paints(x, input.design) ? [i] : [])) } } : {}),
@@ -615,7 +655,7 @@ export async function myVideos(board: Board = "quote", size: number = SHELF_STEP
       status: v.status,
       error: v.error,
       voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v),
-      progress: progressOf(v),
+      progress: progressOf(v), ...endOf(v),
       overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC,
       personal: false,
       size: clipSize(input),

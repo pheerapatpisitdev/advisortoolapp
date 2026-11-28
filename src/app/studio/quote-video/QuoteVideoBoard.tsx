@@ -34,6 +34,7 @@ import { geminiOf, VoicePicker } from "./VoicePicker";
 import { GEMINI_DEFAULT, geminiVoice, type GeminiChoice } from "@/lib/voice/gemini";
 import { makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, previewScript, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
 import { useClipWatch } from "./useClipWatch";
+import { DuplicateAsk, pressWords, STARTED_TONE, usePress } from "./usePress";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "./useElevenOff";
 import { VIDEO_LANGS, type VideoLang } from "@/lib/quote-video/video-words";
@@ -381,6 +382,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const pensionYears = pay === "6" ? 6 : Math.max(0, pensionStart - Number(age));
   const [preview, setPreview] = useState<Preview | { error: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // กันกดซ้ำ (owner chose 2ก, 2026-11-28): one press at a time, each made once, the same clip asked about first
+  const pressing = usePress();
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
   const [items, setItems] = useState<VideoItem[] | null>(initial);
   const [cost, setCost] = useState<CostView | null>(firstCost);
@@ -631,17 +634,20 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     refreshQuota();
   });
 
-  async function make() {
+  async function make(dupOk = false) {
+    if (!pressing.free()) return;
     setBusy(true);
     setError(null);
     // สุ่มให้: one of the recipes that fit, never the one this browser made last where another fits
     const recipe = chosen ?? (recipeOn ? nextRecipe(fitting, () => localStorage.getItem(LAST_RECIPE_KEY), Math.random()) : undefined);
     try {
-      const r = kind === "fhc"
-        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(mascot ? { mascot: true } : {}), ...(fx && !music ? { noMusic: true } : {}) })
-        : await makeVideo(recipe ? { ...input(true), recipe } : input(), customer);
+      const r = await pressing.run((press, ok) => kind === "fhc"
+        ? makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(mascot ? { mascot: true } : {}), ...(fx && !music ? { noMusic: true } : {}) }, press, ok)
+        : makeVideo(recipe ? { ...input(true), recipe } : input(), customer, press, ok), dupOk);
+      if (!r) return;
       if (!r.ok) {
-        setError({ text: r.error, contact: r.needContact });
+        // the same clip still being made is a question (DuplicateAsk), not an error
+        if (!r.duplicate) setError({ text: r.error, contact: r.needContact });
         refreshQuota();
       } else {
         if (recipe) try { localStorage.setItem(LAST_RECIPE_KEY, recipe); } catch { /* not remembered: the next pick may repeat it */ }
@@ -1351,11 +1357,12 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           )}
           <p className="hidden text-xs text-[var(--ct-mute)] xl:block">ใช้เวลาประมาณ 1–2 นาที ปิดหน้านี้ได้ คลิปจะขึ้นบนโต๊ะ</p>
           </div>
+          {pressing.dup && <DuplicateAsk words={pressing.dup} onNo={pressing.clearDup} onAgain={() => void make(true)} />}
           <button
-            type="button" onClick={make} disabled={busy || (kind === "fhc" ? !fhcPick : !ok) || Boolean(line?.blocked) || voiceBlocked}
-            className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
+            type="button" onClick={() => void make()} disabled={busy || pressing.started || Boolean(pressing.dup) || (kind === "fhc" ? !fhcPick : !ok) || Boolean(line?.blocked) || voiceBlocked}
+            className={`w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50 ${pressing.started ? STARTED_TONE : ""}`}
           >
-            {busy ? "กำลังเริ่ม…" : "สร้างวิดีโอ"}
+            {pressWords(busy, pressing.started, "สร้างวิดีโอ")}
           </button>
           <p className="hidden text-xs text-[var(--ct-mute)] lg:block xl:hidden">ใช้เวลาประมาณ 1–2 นาที ปิดหน้านี้ได้ คลิปจะขึ้นบนโต๊ะ</p>
         </div>

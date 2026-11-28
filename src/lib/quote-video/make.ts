@@ -1,5 +1,5 @@
 import { demoRefusal } from "@/lib/auth/demo";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { providerKey } from "@/lib/ai/client";
 import { TTS_RATE } from "@/lib/ai/tts";
 import { speakClip } from "./speak";
@@ -63,7 +63,7 @@ import { geminiVoice } from "@/lib/voice/gemini";
 import { googleFontSubset } from "@/lib/google-font";
 import { readVideoLang, SCRIPT_FAMILY, wordsLetters, type VideoLang } from "./video-words";
 import { clipKind, DEFAULT_ESTIMATES, estimatesFrom, type ClipKind, type Estimate, type ProgressNote } from "./progress";
-import { bucket, fail, FAILED, freeClips, freeUsed, hashToken, rows, setRow, videoOf, type ClipInput, type VideoRow } from "./rows";
+import { bucket, clearInputs, ClipCancelled, fail, FAILED, freeClips, freeUsed, goOnDrawing, hashToken, rows, setRow, videoOf, type ClipInput, type VideoRow } from "./rows";
 
 /**
  * Making one วิดีโอนำเสนอ clip (owner, 2026-10-11; spec docs/superpowers/specs/2026-10-11-quote-video-design.md).
@@ -76,8 +76,8 @@ import { bucket, fail, FAILED, freeClips, freeUsed, hashToken, rows, setRow, vid
 
 // the row's reading, free clips and end live in rows.ts, which the pages that only list clips import
 export {
-  FAILED, FREE_VIDEOS, RECUT_FAILED, RENDER_TIMEOUT_MS, VIDEO_BUCKET, VIDEO_TASK_RENDER, VIDEO_TIMEOUT_MS,
-  finishVideo, freeClips, freeVideosLeft, hashToken, isStuck, listVideos, sweepStuckVideos, videoOf, videoOfJob,
+  CANCELLED, FAILED, FREE_VIDEOS, RECUT_FAILED, RENDER_TIMEOUT_MS, VIDEO_BUCKET, VIDEO_TASK_RENDER, VIDEO_TIMEOUT_MS,
+  cancelVideo, finishVideo, freeClips, freeVideosLeft, hashToken, isStuck, listVideos, sweepStuckVideos, videoOf, videoOfJob,
   type ClipInput, type FreeClips, type PaidBy, type VideoRow, type VideoStatus,
 } from "./rows";
 export const VIDEO_TASK_VOICE = "quote-video-voice";
@@ -144,25 +144,91 @@ export async function costView(viewer: Viewer): Promise<CostView> {
   };
 }
 
+/** one press of a form's สร้าง button, as the browser named it: a uuid, or nothing */
+export function pressId(v: unknown): string | undefined {
+  return typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v.toLowerCase() : undefined;
+}
+
+/** JSON with every object's keys in order, so the same clip asked twice reads the same */
+const steady = (v: unknown): string =>
+  Array.isArray(v) ? `[${v.map(steady).join(",")}]`
+  : v && typeof v === "object" ? `{${Object.keys(v).filter((k) => (v as Record<string, unknown>)[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${steady((v as Record<string, unknown>)[k])}`).join(",")}}`
+  : JSON.stringify(v ?? null);
+
+/** what makes two clips the same clip: the input as it is kept, and the customer's name (kept on the input as dupKey) */
+export const dupKeyOf = (input: ClipInput, customer: string): string => {
+  const { dupKey: _old, ...rest } = input as ClipInput & { dupKey?: string };
+  void _old;
+  return createHash("sha256").update(steady({ input: rest, customer })).digest("hex").slice(0, 32);
+};
+
+/** the words of กันกดซ้ำ's question (owner chose 2ก, 2026-11-28): the same clip is still being made; what another one costs, as the first did */
+export function duplicateWords(row: Pick<VideoRow, "customer_name" | "paid_by" | "held_satang" | "created_at">, now = Date.now()): string {
+  const mins = Math.max(1, Math.round((now - new Date(row.created_at).getTime()) / 60_000));
+  const who = row.customer_name ? `ของคุณ${row.customer_name}` : "";
+  const held = Number(row.held_satang ?? 0);
+  const pay = row.paid_by === "wallet" && held > 0 ? ` ถ้าสร้างอีกคลิปจะหักอีก ${formatBaht(held)}`
+    : row.paid_by === "free" ? " ถ้าสร้างอีกคลิปจะใช้สิทธิ์คลิปฟรีอีก 1 ครั้ง (ถ้าสิทธิ์หมดจะหักจากกระเป๋า)" : "";
+  return `คลิป${who}แบบเดียวกันนี้กำลังสร้างอยู่ (เริ่มเมื่อ ${mins} นาทีก่อน)${pay}`;
+}
+
+/** how a clip being started may be asked first (owner chose 2ก, 2026-11-28): `dupOk` once the maker said สร้างอีกคลิป */
+export interface StartAsk { dupOk?: boolean }
+
+/** the input as it is kept on the row: the clip's engine and new look decided here, choices no longer offered dropped */
+async function keptInput(viewer: Viewer, input: ClipInput): Promise<ClipInput> {
+  // every clip is drawn by Remotion (owner, 2026-10-20, ข): the row says so, for its progress estimate (progress.ts);
+  // ลูกเล่นคลิปใหม่ is kept on the row when the back office's switch gives it to this maker (fx-switch.ts); the
+  // music choice only means something with it
+  const fx = await fxFor(viewer);
+  const { fx: _asked, noMusic, ...plain } = input as ClipInput & FxChoice;
+  void _asked;
+  // ดีไซน์พิเศษ (Shotstack) was removed 2026-11-11 (owner): a stale form's choice of it is dropped here
+  // — except a คลิปตามโจทย์'s "motion", the โมชันกราฟิก look (2026-11-26): that one is kept, it says which scenes paint
+  const { design: _design, ...kept } = plain as ClipInput & { design?: unknown };
+  const keepsDesign = isPromptStory(plain) && _design === "motion";
+  return { ...kept, ...(keepsDesign ? { design: "motion" } : {}), engine: "remotion", ...(fx ? { fx: true, ...(noMusic ? { noMusic: true } : {}) } : {}) } as ClipInput;
+}
+
 /**
  * Starts a clip's row and says who pays: the owner nothing, then the agent's free clips (freeClips),
  * then the wallet — the hold set aside before anything is spent. A refusal is the words to show.
+ *
+ * กันกดซ้ำ (owner chose 2ก, 2026-11-28): `id` is the press's own (pressId) or the caller's; a press that arrives
+ * twice finds its clip and answers it again (`again`: already queued, not to be queued a second time), never a
+ * second clip or hold. With `ask`, the same clip still being made is a question first (`duplicate`), unless dupOk.
  */
-export async function createVideo(viewer: Viewer, input: ClipInput, customer: string, id?: string): Promise<{ id: string } | { refusal: string }> {
-  let pay: Partial<VideoRow> = { paid_by: "staff" };
-  let freeWindow: { limit: number; from: Date | null } | null = null;
+export async function createVideo(viewer: Viewer, input: ClipInput, customer: string, id?: string, ask?: StartAsk): Promise<{ id: string; again?: true } | { refusal: string; duplicate?: true }> {
+  // who may make a clip at all comes first, before anything is read about this one
+  let access: Awaited<ReturnType<typeof memberAccess>> | null = null;
   if (viewer.kind === "demo") {
     // free under the daily cap the owner set (owner chose 2ข, 2026-11-11)
     const refusal = await demoRefusal();
     if (refusal) return { refusal };
   } else if (!can(viewer, "owner")) {
     // an outside member makes clips while their pass is live (owner, 2026-10-13); unreadable refuses
-    const access = await memberAccess(viewer).catch((e) => {
+    access = await memberAccess(viewer).catch((e) => {
       console.error("quote video refused, pass unreadable:", e);
       return null;
     });
     if (!access) return { refusal: PASS_UNREADABLE };
     if (!passOpen(access)) return { refusal: PASS_EXPIRED };
+  }
+  if (id) {
+    const { data: had } = await rows().select("id").eq("id", id).eq("agent_id", viewer.agentId).maybeSingle();
+    if (had) return { id, again: true };
+  }
+  const final = await keptInput(viewer, input);
+  const dupKey = dupKeyOf(final, customer);
+  if (ask && !ask.dupOk) {
+    const { data: same } = await rows().select("customer_name, paid_by, held_satang, created_at")
+      .eq("agent_id", viewer.agentId).is("deleted_at", null).in("status", ["drawing", "rendering"]).is("video_path", null)
+      .eq("input->>dupKey", dupKey).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (same) return { refusal: duplicateWords(same as Pick<VideoRow, "customer_name" | "paid_by" | "held_satang" | "created_at">), duplicate: true };
+  }
+  let pay: Partial<VideoRow> = { paid_by: "staff" };
+  let freeWindow: { limit: number; from: Date | null } | null = null;
+  if (access) {
     const { limit, from } = await freeClips(viewer, access);
     freeWindow = { limit, from };
     if ((await freeUsed(viewer.agentId, from)) < limit) {
@@ -188,20 +254,16 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }
   }
-  // every clip is drawn by Remotion (owner, 2026-10-20, ข): the row says so, for its progress estimate (progress.ts);
-  // ลูกเล่นคลิปใหม่ is kept on the row when the back office's switch gives it to this maker (fx-switch.ts); the
-  // music choice only means something with it
-  const fx = await fxFor(viewer);
-  const { fx: _asked, noMusic, ...plain } = input as ClipInput & FxChoice;
-  void _asked;
-  // ดีไซน์พิเศษ (Shotstack) was removed 2026-11-11 (owner): a stale form's choice of it is dropped here
-  // — except a คลิปตามโจทย์'s "motion", the โมชันกราฟิก look (2026-11-26): that one is kept, it says which scenes paint
-  const { design: _design, ...kept } = plain as ClipInput & { design?: unknown };
-  const keepsDesign = isPromptStory(plain) && _design === "motion";
-  input = { ...kept, ...(keepsDesign ? { design: "motion" } : {}), engine: "remotion", ...(fx ? { fx: true, ...(noMusic ? { noMusic: true } : {}) } : {}) } as ClipInput;
+  // the same-clip key rides on the input, read back by the duplicate check above (input->>dupKey)
+  input = Object.assign({}, final, { dupKey });
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id, created_at").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
+    // the same press, twice at once: the first one's row stands, this one's hold goes back and it is answered as the first
+    if (id && error?.code === "23505") {
+      const { data: had } = await rows().select("id").eq("id", id).eq("agent_id", viewer.agentId).maybeSingle();
+      if (had) return { id, again: true };
+    }
     throw new Error(`video not created: ${error?.message}`);
   }
   // free clips counted again once the row is in, up to it: of presses at once on the last free
@@ -617,6 +679,8 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
     if (scene.asset) png = await partPicture(parts.get(scene.asset), input, size);
     else if (!painted(scene)) return null;
     else {
+      // cancelled meanwhile (cancelVideo): no more pictures paid for
+      await goOnDrawing(id);
       png = await drawScenePicture(scene, input.style, input.painter, size, undefined, ref);
       bar.note({ step: "pictures", done: ++done, of });
     }
@@ -650,6 +714,7 @@ async function drawAdPhotos(row: VideoRow & { input: VideoInput & { ad: AdPlan }
   if (of > 0) bar.note({ step: "pictures", done: 0, of });
   const pictures = await pool(ideas, 3, async (want, s): Promise<string | null> => {
     if (!want) return null;
+    await goOnDrawing(id);
     const png = await drawAdPhoto(want.idea, want.scene);
     bar.note({ step: "pictures", done: ++done, of });
     if (!png) return null;
@@ -688,6 +753,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
   try {
     const { data: row, error } = await rows().select("*").eq("id", id).single<VideoRow>();
     if (error || !row) throw new Error("row not read");
+    // cancelled while it waited in the queue (cancelVideo), or already taken by an earlier run: nothing to make
+    if (row.status !== "drawing") return;
     const gcpKey = await renderKeyOf();
     if (!gcpKey) throw new Error("no gcp key");
     const narrator = narratorOf(row.input);
@@ -716,6 +783,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
       lap(`ad photos drawn (${drawn.input.pictures?.filter(Boolean).length}/${drawn.input.pictures?.length})`);
     }
     const spokenScript = spokenLines(row);
+    // the voice is paid for: not for a clip cancelled meanwhile
+    await goOnDrawing(id);
 
     let lines = 0;
     bar.note({ step: "voice", done: 0, of: spokenScript.length });
@@ -744,6 +813,12 @@ export async function produce(id: string, agentName: string): Promise<void> {
     if (isPromptStory(row.input)) await pool(pcms, 8, (pcm, i) => upload(id, voiceName(i), pcm, "application/octet-stream"));
     await cutClip(row, agentName, pcms, gcpKey, bar, t0, lap);
   } catch (e) {
+    // its maker cancelled it (cancelVideo already gave the money back): what this run left behind goes too
+    if (e instanceof ClipCancelled) {
+      lap("stopped: cancelled by its maker");
+      await clearInputs(id).catch(() => undefined);
+      return;
+    }
     await fail(id, e);
   }
 }
@@ -799,8 +874,12 @@ async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, 
   // the last progress write lands before the row leaves "drawing" (it writes only a drawing row)
   await bar.flush();
   const parts: CostParts = { ...(row.cost_parts ?? {}), engine: "remotion", prepSec: secondsBetween(since, Date.now()) ?? undefined };
-  // recorded before the run is asked, so a callback that comes back at once finds it
-  await setRow(id, { status: "rendering", duration_sec: total, cost_parts: parts, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() } });
+  // recorded before the run is asked, so a callback that comes back at once finds it; only a clip still drawing
+  // moves on, so one cancelled meanwhile (cancelVideo) is never handed to Cloud Run or brought back to life
+  const { data: moved, error: notMoved } = await rows().update({ status: "rendering", duration_sec: total, cost_parts: parts, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() }, updated_at: new Date().toISOString() })
+    .eq("id", id).eq("status", "drawing").select("id").maybeSingle();
+  if (notMoved) throw new Error(`video ${id} not updated: ${notMoved.message}`);
+  if (!moved) throw new ClipCancelled(id);
   await cloudRunEngine(gcpKey, { job: REMOTION_JOB }).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
   lap("handed to Cloud Run (Remotion)");
 }
@@ -1105,6 +1184,8 @@ export async function redrawScene({ id, scene, agentName, hold, price }: RedrawJ
     await cutClip({ ...row, input: next, cost_parts, status: "drawing" }, agentName, pcms, gcpKey, bar, t0, lap);
   } catch (e) {
     await giveBack();
+    // a redraw is not cancelled by its maker (cancelVideo leaves a clip with a video alone); a row moved meanwhile is left as it is
+    if (e instanceof ClipCancelled) return;
     await fail(id, e);
   }
 }

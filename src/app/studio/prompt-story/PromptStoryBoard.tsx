@@ -14,6 +14,7 @@ import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { pictureSatang, priceBaht, type Prices } from "@/lib/wallet/prices";
 import { myCost, myVideos, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
 import { useClipWatch } from "../quote-video/useClipWatch";
+import { usePress } from "../quote-video/usePress";
 import { ClipList } from "../quote-video/ClipList";
 import { Step } from "../quote-video/QuoteVideoBoard";
 import { makePromptStory, writePromptStory, type FigureNums } from "./actions";
@@ -143,6 +144,8 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const [written, setWritten] = useState<Written | null>(null);
   const [writing, setWriting] = useState(false);
   const [making, setMaking] = useState(false);
+  // กันกดซ้ำ (2026-11-28): one press at a time; the draft taken by the server (claimDraft) makes a second press refused anyway
+  const pressing = usePress();
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
   const [items, setItems] = useState<VideoItem[] | null>(initial);
   const [cost, setCost] = useState<CostView | null>(firstCost);
@@ -221,15 +224,16 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   }
 
   async function make() {
-    if (!draft || !written) return;
+    if (!draft || !written || !pressing.free()) return;
     setMaking(true);
     setError(null);
     try {
-      const r = await makePromptStory({
+      const r = await pressing.run(() => makePromptStory({
         draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption, scenes: draft.scenes, format: written.format,
         style, ...(styleRef ? { styleRef } : {}), painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         ...makeArgs(written.design), faces: { narrator: narratorFaceFor(look.narrator) }, ...(written.figure ? { figure: written.figure } : {}),
-      }, customer);
+      }, customer));
+      if (!r) return;
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
         voiceQuota().then(setQuota).catch(() => undefined);
@@ -336,7 +340,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
                 {cost?.kind === "wallet" && <><br /><span className="text-xs text-[var(--ct-mute)]">ยอดคงเหลือ {cost.balance}</span></>}
               </p>
               <button
-                type="button" onClick={make} disabled={making || writing || closed || voiceBlocked || Boolean(total.blocked) || missing !== null || gap !== null}
+                type="button" onClick={() => void make()} disabled={making || writing || closed || voiceBlocked || Boolean(total.blocked) || missing !== null || gap !== null}
                 className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
               >
                 {making ? "กำลังเริ่ม…" : total.baht === "0" || total.blocked ? "สร้างคลิป" : `สร้างคลิป ฿${total.baht}`}

@@ -10,7 +10,7 @@ import { closedFor } from "@/lib/switches/store";
 import { checked, payAndPen } from "./check-input";
 import { getContact } from "./contact";
 import { clipProduce } from "./jobs";
-import { createVideo, langOfInput } from "./make";
+import { createVideo, langOfInput, pressId } from "./make";
 import { setRow } from "./rows";
 import { cleanCustomerName, quoteVideoFacts, type VideoInput } from "./script";
 import { voiceRefusal } from "./voice-check";
@@ -19,13 +19,14 @@ export const NOT_PRICED = "แผนนี้คิดราคาไม่ไ�
 export const NEED_CONTACT = "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอนะครับ";
 export const NOT_STARTED = "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้งนะครับ";
 
-export type Started = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
+export type Started = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean; duplicate?: true };
 
 /**
  * `lineOrder`: ordered in the agent's LINE chat — the row says so (the clip goes back there whatever
  * the "คลิปทำเสร็จ" switch says), and the job is queued now, from the LINE answer's own tail.
+ * `press` / `ask`: the form's กันกดซ้ำ (createVideo) — the press's own id, and the same-clip question.
  */
-export async function startQuoteClip(viewer: Viewer, v: VideoInput, customer: string, opts: { lineOrder?: boolean } = {}): Promise<Started> {
+export async function startQuoteClip(viewer: Viewer, v: VideoInput, customer: string, opts: { lineOrder?: boolean; press?: unknown; ask?: { dupOk?: boolean } } = {}): Promise<Started> {
   const closed = await closedFor(viewer, "quote-video");
   if (closed) return { ok: false, error: closed };
   const c = checked(v, ...(await payAndPen(viewer.agentId)));
@@ -36,9 +37,11 @@ export async function startQuoteClip(viewer: Viewer, v: VideoInput, customer: st
   const full = await voiceRefusal(c.voice, langOfInput(c) === "th");
   if (full) return { ok: false, error: full };
   try {
-    const made = await createVideo(viewer, c, c.length === "short" ? "" : cleanCustomerName(customer));
-    if ("refusal" in made) return { ok: false, error: made.refusal };
+    const made = await createVideo(viewer, c, c.length === "short" ? "" : cleanCustomerName(customer), pressId(opts.press), opts.ask);
+    if ("refusal" in made) return { ok: false, error: made.refusal, ...(made.duplicate ? { duplicate: true as const } : {}) };
     const { id } = made;
+    // the same press arrived twice: its clip is queued already
+    if (made.again) return { ok: true, id };
     const job = { id, agentName: viewer.name.trim() };
     if (opts.lineOrder) {
       await setRow(id, { line_order: true });

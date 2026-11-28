@@ -18,6 +18,7 @@ import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryHealth, previewStoryPension, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
 import { useClipWatch } from "../quote-video/useClipWatch";
+import { DuplicateAsk, pressWords, STARTED_TONE, usePress } from "../quote-video/usePress";
 import { ChevronDownIcon } from "../ui/icons";
 import { ClipList } from "../quote-video/ClipList";
 import { costLine, SizePicker, Step } from "../quote-video/QuoteVideoBoard";
@@ -343,6 +344,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const infoOn: InfoArt | null = infoArt(look.art) && INFO_SHELVES.includes(info.shelf) ? look.art : null;
   const infoLook = infoOn !== null;
   const [busy, setBusy] = useState(false);
+  // กันกดซ้ำ (owner chose 2ก, 2026-11-28): one press at a time, each made once, the same clip asked about first
+  const pressing = usePress();
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
   const [items, setItems] = useState<VideoItem[] | null>(initial);
   const [cost, setCost] = useState<CostView | null>(firstCost);
@@ -502,11 +505,12 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const ready = (!showsFigure || Boolean(figureReady)) && !homeBad && !moneyBad && (info.ask !== "due" || Boolean(dueDate));
   const name = customer.trim();
 
-  async function make() {
+  async function make(dupOk = false) {
+    if (!pressing.free()) return;
     setBusy(true);
     setError(null);
     try {
-      const r = await makeStoryVideo({
+      const r = await pressing.run((press, ok) => makeStoryVideo({
         topic, size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         faces: { narrator: narratorFace, hero: heroFace },
         ...(mini ? { art: "minimal" as const, ground: look.ground, cast: { hero: cast.hero[heroSex], narrator: cast.narrator } } : {}),
@@ -520,9 +524,11 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
         ...(moneyTopic && Object.keys(moneyOut).length ? { money: moneyOut } : {}),
         ...(info.ask === "due" ? { due: { date: dueDate, ...(num(dueAmount) ? { amount: num(dueAmount) } : {}) } } : {}),
         ...(info.ask === "festival" ? { festival } : {}),
-      }, topic === "festival" ? "" : customer);
+      }, topic === "festival" ? "" : customer, press, ok), dupOk);
+      if (!r) return;
       if (!r.ok) {
-        setError({ text: r.error, contact: r.needContact });
+        // the same clip still being made is a question (DuplicateAsk), not an error
+        if (!r.duplicate) setError({ text: r.error, contact: r.needContact });
         voiceQuota().then(setQuota).catch(() => undefined);
       } else setItems(await myVideos("story", shelfSize("story")));
       setCost(await myCost());
@@ -940,11 +946,12 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 {line.topUp && <Link href="/studio/wallet" className="font-medium underline">เติมเงิน</Link>}
               </p>
             )}
+            {pressing.dup && <DuplicateAsk words={pressing.dup} onNo={pressing.clearDup} onAgain={() => void make(true)} />}
             <button
-              type="button" onClick={make} disabled={busy || !ready || Boolean(line?.blocked) || voiceBlocked}
-              className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
+              type="button" onClick={() => void make()} disabled={busy || pressing.started || Boolean(pressing.dup) || !ready || Boolean(line?.blocked) || voiceBlocked}
+              className={`w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50 ${pressing.started ? STARTED_TONE : ""}`}
             >
-              {busy ? "กำลังเริ่ม…" : "สร้างคลิป"}
+              {pressWords(busy, pressing.started, "สร้างคลิป")}
             </button>
             <p className="hidden text-xs text-[var(--ct-mute)] lg:block">ใช้เวลาประมาณ 2–3 นาที ปิดหน้านี้ได้ คลิปจะขึ้นบนโต๊ะ</p>
           </div>

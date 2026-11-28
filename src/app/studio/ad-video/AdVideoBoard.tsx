@@ -13,6 +13,7 @@ import { bodyName, CTA_NAMES, photoScenes, type AdArt, type AdBodyKey, type AdCt
 import type { AdPart } from "@/lib/ad-video/writer";
 import { ClipList } from "../quote-video/ClipList";
 import { useClipWatch } from "../quote-video/useClipWatch";
+import { DuplicateAsk, pressWords, STARTED_TONE, usePress } from "../quote-video/usePress";
 import { useElevenOff } from "../quote-video/useElevenOff";
 import { useFreshLinks } from "../quote-video/fresh-links";
 import { VoicePicker, type VoicePick } from "../quote-video/VoicePicker";
@@ -158,10 +159,12 @@ export interface AdFormProps {
   quota: VoiceQuota | null;
   /** the ElevenLabs voices cannot speak now: Google reads instead (useElevenOff) */
   elevenIsOff?: boolean;
+  /** กันกดซ้ำ (owner chose 2ก, 2026-11-28): just started, and the same-clip question with its two answers */
+  press?: { started: boolean; dup: string | null; again: () => void; no: () => void };
 }
 
 /** the tools column: drawn from the state alone, so a test can draw it after any step */
-export function AdVideoForm({ s, dispatch, on, ages, ihuPlans, prices, cost, eleven, quota, elevenIsOff = false }: AdFormProps) {
+export function AdVideoForm({ s, dispatch, on, ages, ihuPlans, prices, cost, eleven, quota, elevenIsOff = false, press }: AdFormProps) {
   const set = (patch: Extract<AdAction, { type: "set" }>["patch"]) => dispatch({ type: "set", patch });
   const ok = s.preview && !("error" in s.preview) ? s.preview : null;
   const shown = shownFor(s);
@@ -388,11 +391,12 @@ export function AdVideoForm({ s, dispatch, on, ages, ihuPlans, prices, cost, ele
             {line.topUp && <Link href="/studio/wallet" className="font-medium underline">เติมเงิน</Link>}
           </p>
         )}
+        {press?.dup && <DuplicateAsk words={press.dup} onNo={press.no} onAgain={press.again} />}
         <button
-          type="button" onClick={on.make} disabled={s.busy !== null || !ok || Boolean(line?.blocked) || Boolean(notice?.blocked) || ownEmpty}
-          className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
+          type="button" onClick={() => on.make()} disabled={s.busy !== null || Boolean(press?.started) || Boolean(press?.dup) || !ok || Boolean(line?.blocked) || Boolean(notice?.blocked) || ownEmpty}
+          className={`w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50 ${press?.started ? STARTED_TONE : ""}`}
         >
-          {s.busy === "make" ? "กำลังเริ่ม…" : "สร้างวิดีโอ"}
+          {pressWords(s.busy === "make", Boolean(press?.started), "สร้างวิดีโอ")}
         </button>
         <p className={note}>ท้ายคลิปทุกคลิป: {DISCLAIMER} · ชื่อตัวแทนและเลขใบอนุญาต · ได้คลิปพร้อมข้อความโพสต์ ใช้ต่อได้จากการ์ดคลิปบนโต๊ะ</p>
       </div>
@@ -472,10 +476,25 @@ export function AdVideoBoard({ ages, ihuPlans, prices, cost: firstCost, eleven, 
     dispatch({ type: "busy", what: part });
     try { dispatch(await redraftStep(s, part, redraftAdPart)); } finally { dispatch({ type: "busy", what: null }); }
   }
-  async function make() {
+  // กันกดซ้ำ (owner chose 2ก, 2026-11-28): one press at a time, each made once, the same clip asked about first
+  const pressing = usePress();
+  async function make(dupOk = false) {
+    if (!pressing.free()) return;
     dispatch({ type: "busy", what: "make" });
     try {
-      const acts = await makeStep(s, draftAdPlan, makeAdVideo);
+      let acts: AdAction[] = [];
+      await pressing.run(async (press, ok) => {
+        let dup: string | null = null;
+        acts = await makeStep(s, draftAdPlan, async (v, plan) => {
+          const r = await makeAdVideo(v, plan, press, ok);
+          if (!r.ok && r.duplicate) dup = r.error;
+          return r;
+        });
+        // the same clip still being made is a question (DuplicateAsk), not the form's error
+        if (dup) acts = acts.filter((a) => a.type !== "refused");
+        const made = acts.some((a) => a.type === "made");
+        return made ? { ok: true as const } : dup ? { ok: false as const, duplicate: true as const, error: dup as string } : { ok: false as const };
+      }, dupOk);
       acts.forEach(dispatch);
       const made = acts.some((a) => a.type === "made");
       // the desk and the money read again apart from the press: a failed read never says "try again" over a started clip
@@ -494,6 +513,7 @@ export function AdVideoBoard({ ages, ihuPlans, prices, cost: firstCost, eleven, 
     <div className="mt-5 grid items-start gap-3 lg:grid-cols-[400px_minmax(0,1fr)] xl:grid-cols-[520px_minmax(0,1fr)]">
       <AdVideoForm
         s={s} dispatch={send} on={{ draft: () => void draft(), redraft: (p) => void redraft(p), make: () => void make(), voice: pickVoice }}
+        press={{ started: pressing.started, dup: pressing.dup, again: () => void make(true), no: pressing.clearDup }}
         ages={ages} ihuPlans={ihuPlans} prices={prices} cost={cost} eleven={eleven} quota={quota} elevenIsOff={elevenIsOff}
       />
       <section aria-label="วิดีโอที่สร้างแล้ว" className="studio-desk min-w-0 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">

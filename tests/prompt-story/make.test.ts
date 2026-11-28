@@ -114,7 +114,8 @@ const lib = vi.hoisted(() => ({ okUploads: vi.fn(), uploadFile: vi.fn(), assetPi
 vi.mock("@/lib/scene-library/uploads", () => ({ okUploads: (...a: unknown[]) => lib.okUploads(...a), uploadFile: (...a: unknown[]) => lib.uploadFile(...a) }));
 vi.mock("@/lib/prompt-story/asset-picture", () => ({ assetPicture: (...a: unknown[]) => lib.assetPicture(...a) }));
 
-const { createPromptStory, deleteVideo, finishVideo, isStuck, produce, redrawPicture, sweepStuckVideos, voiceFullUntil } = await import("@/lib/quote-video/make");
+const { cancelVideo, CANCELLED, createPromptStory, createVideo, deleteVideo, dupKeyOf, duplicateWords, finishVideo, isStuck, pressId, produce, redrawPicture, sweepStuckVideos, voiceFullUntil } = await import("@/lib/quote-video/make");
+const { formatBaht } = await import("@/lib/wallet/money");
 const { clipStates } = await import("@/lib/quote-video/rows");
 const { VOICE_FULL } = await import("@/lib/quote-video/voice-quota");
 const { paidLine } = await import("@/lib/quote-video/paid-line");
@@ -852,5 +853,161 @@ describe("ภาพสไตล์: the library's style picture sent to the pain
     expect("references" in ai.draw.mock.calls[0][0]).toBe(false);
     expect(rowOf(id).status).toBe("rendering");
     expect(refLines()).toHaveLength(1);
+  });
+});
+
+describe("ยกเลิกการสร้าง (owner chose 1ก, 2026-11-28)", () => {
+  /** a clip being made, paid from the wallet */
+  async function making(): Promise<string> {
+    freeUsedUp();
+    const made = await createPromptStory(agent, input(), "");
+    if (!("id" in made)) throw new Error(made.refusal);
+    return made.id;
+  }
+
+  it("stops a clip still drawing: the whole hold back, the draft back, its files gone, the card says how much", async () => {
+    const id = await making();
+    const hold = rowOf(id).hold_id;
+    db.files.set(`${id}/pic-0.png`, Buffer.from("png"));
+    expect(await cancelVideo("a1", id, formatBaht)).toBe("cancelled");
+    const row = rowOf(id);
+    expect(row.status).toBe("failed");
+    expect(row.fail_reason).toBe(CANCELLED);
+    expect(row.error).toBe(`ยกเลิกแล้ว · คืน ${formatBaht(promptStoryPrice(input(), DEFAULT_PRICES))} เข้ากระเป๋าแล้ว`);
+    expect(wallet.releaseWallet).toHaveBeenCalledWith(hold);
+    expect(db.drafts[0].made_clip_id).toBeNull();
+    expect(db.files.has(`${id}/pic-0.png`)).toBe(false);
+    expect(paidLine(row as never)).toBe("คืนเงินแล้ว");
+  });
+
+  it("a clip cancelled while it waited in the queue is never made", async () => {
+    const id = await making();
+    await cancelVideo("a1", id, formatBaht);
+    await produce(id, "ตัวแทน");
+    expect(ai.draw).not.toHaveBeenCalled();
+    expect(ai.speak).not.toHaveBeenCalled();
+    expect(ai.submit).not.toHaveBeenCalled();
+    expect(rowOf(id).status).toBe("failed");
+  });
+
+  it("cancelled while its pictures are drawn: no voice, no render, the money moved once, the row stays cancelled", async () => {
+    const id = await making();
+    ai.draw.mockImplementationOnce(async () => {
+      await cancelVideo("a1", id, formatBaht);
+      return { bytes: picture(++drawn) };
+    });
+    await produce(id, "ตัวแทน");
+    expect(ai.speak).not.toHaveBeenCalled();
+    expect(ai.submit).not.toHaveBeenCalled();
+    expect(rowOf(id).status).toBe("failed");
+    expect(rowOf(id).fail_reason).toBe(CANCELLED);
+    expect(wallet.releaseWallet).toHaveBeenCalledTimes(1);
+    expect([...db.files.keys()].filter((k) => k.startsWith(`${id}/`))).toEqual([]);
+  });
+
+  it("cancelled while its voice is read: never handed to Cloud Run", async () => {
+    const id = await making();
+    ai.speak.mockImplementationOnce(async () => {
+      await cancelVideo("a1", id, formatBaht);
+      return { pcm: pcm(), costThb: 0.01 };
+    });
+    await produce(id, "ตัวแทน");
+    expect(ai.submit).not.toHaveBeenCalled();
+    expect(rowOf(id).status).toBe("failed");
+    expect(rowOf(id).job).toBeNull();
+  });
+
+  it("cancelled while Cloud Run renders: the render that arrives later is thrown away, nothing charged", async () => {
+    const id = await making();
+    await produce(id, "ตัวแทน");
+    expect(rowOf(id).status).toBe("rendering");
+    expect(await cancelVideo("a1", id, formatBaht)).toBe("cancelled");
+    db.files.set(`${id}/quote.mp4`, Buffer.from("mp4"));
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
+    expect(rowOf(id).status).toBe("failed");
+    expect(db.files.has(`${id}/quote.mp4`)).toBe(false);
+    expect(wallet.settleWallet).not.toHaveBeenCalled();
+  });
+
+  it("a clip that finished first stays finished and paid", async () => {
+    const id = await doneClip();
+    wallet.releaseWallet.mockClear();
+    expect(await cancelVideo("a1", id, formatBaht)).toBe("done");
+    expect(rowOf(id).status).toBe("done");
+    expect(wallet.releaseWallet).not.toHaveBeenCalled();
+  });
+
+  it("another agent's clip is not theirs to cancel", async () => {
+    const id = await making();
+    expect(await cancelVideo("a2", id, formatBaht)).toBe("missing");
+    expect(rowOf(id).status).toBe("drawing");
+  });
+
+  it("a free clip cancelled gives the free clip back, and its pictures' money", async () => {
+    const made = await createPromptStory(taster, input(), "");
+    const id = (made as { id: string }).id;
+    expect(rowOf(id).paid_by).toBe("free");
+    await cancelVideo("a1", id, formatBaht);
+    expect(String(rowOf(id).error)).toMatch(/^ยกเลิกแล้ว · คืนสิทธิ์คลิปฟรีและค่าภาพ ฿/);
+    // the free clip is free again: the next one is free too
+    db.drafts[0].made_clip_id = null;
+    const next = await createPromptStory(taster, input(), "");
+    expect(rowOf((next as { id: string }).id).paid_by).toBe("free");
+  });
+});
+
+describe("กันกดซ้ำ (owner chose 2ก, 2026-11-28)", () => {
+  const press = "2f1c7a52-6d0e-4c43-9f0e-1b2a3c4d5e6f";
+
+  it("reads a press's id only as a uuid", () => {
+    expect(pressId(press.toUpperCase())).toBe(press);
+    expect(pressId("not-a-uuid")).toBeUndefined();
+    expect(pressId(42)).toBeUndefined();
+  });
+
+  it("the same press arriving twice makes one clip and one hold, and says the second is the first", async () => {
+    freeUsedUp();
+    const first = await createVideo(agent, input(), "", press);
+    const again = await createVideo(agent, input(), "", press);
+    expect(first).toEqual({ id: press });
+    expect(again).toEqual({ id: press, again: true });
+    expect(db.rows.filter((r) => r.id === press)).toHaveLength(1);
+    expect(wallet.holdWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks before the same clip is made again while it is still being made, holding nothing", async () => {
+    freeUsedUp();
+    await createVideo(agent, input(), "สมชาย", undefined, {});
+    const asked = await createVideo(agent, input(), "สมชาย", undefined, {});
+    expect(asked).toMatchObject({ duplicate: true });
+    expect((asked as { refusal: string }).refusal).toMatch(/^คลิปของคุณสมชายแบบเดียวกันนี้กำลังสร้างอยู่ \(เริ่มเมื่อ 1 นาทีก่อน\) ถ้าสร้างอีกคลิปจะหักอีก ฿/);
+    expect(wallet.holdWallet).toHaveBeenCalledTimes(1);
+    // สร้างอีกคลิป
+    expect("id" in await createVideo(agent, input(), "สมชาย", undefined, { dupOk: true })).toBe(true);
+    expect(wallet.holdWallet).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not ask for another customer, another clip, or once the first has ended", async () => {
+    freeUsedUp();
+    const first = await createVideo(agent, input(), "สมชาย", undefined, {});
+    expect("id" in await createVideo(agent, input(), "สมหญิง", undefined, {})).toBe(true);
+    expect("id" in await createVideo(agent, input({ title: "อีกเรื่อง" }), "สมชาย", undefined, {})).toBe(true);
+    rowOf((first as { id: string }).id).status = "failed";
+    expect("id" in await createVideo(agent, input(), "สมชาย", undefined, {})).toBe(true);
+  });
+
+  it("the same clip reads the same whatever order its fields came in", () => {
+    const a = input();
+    const b = Object.fromEntries(Object.entries(a).reverse()) as PromptStoryInput;
+    expect(dupKeyOf(a, "x")).toBe(dupKeyOf(b, "x"));
+    expect(dupKeyOf(a, "x")).not.toBe(dupKeyOf(a, "y"));
+  });
+
+  it("says what another clip costs as the first one was paid", () => {
+    const at = Date.parse("2026-11-28T10:00:00Z");
+    const row = { customer_name: "", created_at: "2026-11-28T09:57:00Z" };
+    expect(duplicateWords({ ...row, paid_by: "wallet", held_satang: 3000 }, at)).toBe(`คลิปแบบเดียวกันนี้กำลังสร้างอยู่ (เริ่มเมื่อ 3 นาทีก่อน) ถ้าสร้างอีกคลิปจะหักอีก ${formatBaht(3000)}`);
+    expect(duplicateWords({ ...row, paid_by: "free", held_satang: null }, at)).toContain("จะใช้สิทธิ์คลิปฟรีอีก 1 ครั้ง");
+    expect(duplicateWords({ ...row, paid_by: "staff", held_satang: null }, at)).toBe("คลิปแบบเดียวกันนี้กำลังสร้างอยู่ (เริ่มเมื่อ 3 นาทีก่อน)");
   });
 });

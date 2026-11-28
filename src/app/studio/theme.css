@@ -28,6 +28,8 @@
   --ct-alert: var(--bot-red-ink);
   --ct-alert-bg: var(--bot-red-soft);
   --ct-alert-line: var(--bot-red);
+  /* money given back, a step done: the palette's green as reading ink (a cancelled clip's refund line) */
+  --ct-ok: var(--bot-ok);
   /* what sits over a picture or the page behind a dialog: the palette's ink, see-through,
      and the light ink laid on it (a remove × on a photo, the AI swatch's mark) */
   --ct-scrim: color-mix(in srgb, var(--bot-ink) 60%, transparent);
@@ -78,6 +80,7 @@ body:has(.content-page) { background: var(--ct-ground); }
   --ct-alert: #f2a3a0;
   --ct-alert-bg: #3b2020;
   --ct-alert-line: #d0625e;
+  --ct-ok: #8cc7a1;
   --ct-scrim: rgba(0, 0, 0, 0.62);
   --ct-scrim-strong: rgba(0, 0, 0, 0.8);
   --ct-on-scrim: #ffffff;

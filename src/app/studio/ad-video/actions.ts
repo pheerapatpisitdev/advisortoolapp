@@ -7,7 +7,7 @@ import { closedFor } from "@/lib/switches/store";
 import { clipProduce } from "@/lib/quote-video/jobs";
 import { getContact } from "@/lib/quote-video/contact";
 import { voiceRefusal } from "@/lib/quote-video/voice-check";
-import { createVideo, videoPrice } from "@/lib/quote-video/make";
+import { createVideo, pressId, videoPrice } from "@/lib/quote-video/make";
 import { walletPrices } from "@/lib/wallet/store";
 import { checked, payAndPen } from "@/lib/quote-video/check-input";
 import { fallbackLines, lineProblem, WRITTEN_HOOKS } from "@/lib/quote-video/brief";
@@ -48,7 +48,7 @@ const draftsPerHour = limiter(60, 60 * 60_000);
  * cleaned plan and the agent presses สร้าง again (R14)
  */
 export type AdMade = { ok: true; id: string }
-  | { ok: false; error: string; needContact?: boolean; fixed?: string[]; reasons?: Record<string, string>; plan?: AdPlan };
+  | { ok: false; error: string; needContact?: boolean; duplicate?: true; fixed?: string[]; reasons?: Record<string, string>; plan?: AdPlan };
 export interface AdDraft {
   plan: AdPlan;
   /** the quote in one line, as the form shows it above the plan */
@@ -194,7 +194,7 @@ export async function previewAd(v: VideoInput, art: AdArt, bodies: number): Prom
  * cleaned here, never the object the form sent (R13); when the checker replaced any part (a figure the quote has
  * not got, a photo idea in Thai) nothing is made and the cleaned plan goes back to the form to be seen (R14).
  */
-export async function makeAdVideo(v: VideoInput, plan: AdPlan): Promise<AdMade> {
+export async function makeAdVideo(v: VideoInput, plan: AdPlan, press?: string, dupOk?: boolean): Promise<AdMade> {
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "ad-video");
   if (closed) return { ok: false, error: closed };
@@ -214,10 +214,10 @@ export async function makeAdVideo(v: VideoInput, plan: AdPlan): Promise<AdMade> 
   if (fixed.length) return { ok: false, error: REPLACED, fixed, reasons, plan: ad };
   try {
     // no customer's name: an ad goes to a Page or to anyone
-    const made = await createVideo(viewer, { ...q.c, ad }, "");
-    if ("refusal" in made) return { ok: false, error: made.refusal };
+    const made = await createVideo(viewer, { ...q.c, ad }, "", pressId(press), { dupOk: dupOk === true });
+    if ("refusal" in made) return { ok: false, error: made.refusal, ...(made.duplicate ? { duplicate: true as const } : {}) };
     const { id } = made;
-    runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
+    if (!made.again) runLater(clipProduce, { id, agentName: viewer.name.trim() }, { agentId: viewer.agentId });
     return { ok: true, id };
   } catch (e) {
     console.error("ad video not started:", e instanceof Error ? e.message : "unknown error");
