@@ -266,7 +266,7 @@ export function GlobalSaving255Calculator() {
             <div role="group" aria-label="ช่องดัชนีในตาราง" className="mt-2 inline-flex gap-1 rounded-full border border-[var(--lg-panel-line)] p-1 text-sm print:hidden">
               {([["paid", "โบนัสที่ได้รับ"], ["surrender", "มูลค่าเวนคืนรวมโบนัส"]] as const).map(([v, label]) => (
                 <button key={v} type="button" aria-pressed={bonusView === v} onClick={() => setBonusView(v)}
-                  className={`rounded-full px-3.5 py-1 ${bonusView === v ? "bg-[var(--bot-navy)] text-white" : "text-[var(--lg-ink)] hover:bg-[var(--lg-panel)]"}`}>
+                  className={`rounded-full px-3.5 py-1 ${bonusView === v ? "bg-[var(--bot-navy)] font-semibold text-white" : "font-medium text-[var(--bot-ink)] hover:bg-[var(--lg-panel)]"}`}>
                   {label}
                 </button>
               ))}
